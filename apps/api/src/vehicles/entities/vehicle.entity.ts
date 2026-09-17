@@ -15,16 +15,16 @@ export class Vehicle {
   @Column()
   name: string;
 
-  @Column({ name: 'license_plate', nullable: true })
+  @Column({ name: 'license_plate', type: 'varchar', nullable: true })
   licensePlate: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   make: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   model: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   year: number | null;
 
   @Column({ type: 'enum', enum: VEHICLE_TYPES, default: 'car' })
@@ -33,7 +33,7 @@ export class Vehicle {
   @Column({ name: 'owner_id' })
   ownerId: string;
 
-  @Column({ name: 'organization_id', nullable: true })
+  @Column({ name: 'organization_id', type: 'uuid', nullable: true })
   organizationId: string | null;
 
   @ManyToOne(() => Organization, { nullable: true, onDelete: 'SET NULL' })

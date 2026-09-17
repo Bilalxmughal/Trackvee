@@ -19,16 +19,16 @@ export class User {
   @Column({ select: false })
   password: string;
 
-  @Column({ name: 'first_name', nullable: true })
+  @Column({ name: 'first_name', type: 'varchar', nullable: true })
   firstName: string | null;
 
-  @Column({ name: 'last_name', nullable: true })
+  @Column({ name: 'last_name', type: 'varchar', nullable: true })
   lastName: string | null;
 
   @Column({ type: 'enum', enum: USER_ROLES, default: 'customer' })
   role: UserRole;
 
-  @Column({ name: 'organization_id', nullable: true })
+  @Column({ name: 'organization_id', type: 'uuid', nullable: true })
   organizationId: string | null;
 
   @ManyToOne(() => Organization, { nullable: true, onDelete: 'SET NULL' })

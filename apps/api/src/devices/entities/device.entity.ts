@@ -16,23 +16,23 @@ export class Device {
   @Column()
   imei: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   name: string | null;
 
-  @Column({ name: 'sim_number', nullable: true })
+  @Column({ name: 'sim_number', type: 'varchar', nullable: true })
   simNumber: string | null;
 
   @Column({ type: 'enum', enum: DEVICE_STATUSES, default: 'offline' })
   status: DeviceStatus;
 
-  @Column({ name: 'vehicle_id', nullable: true })
+  @Column({ name: 'vehicle_id', type: 'uuid', nullable: true })
   vehicleId: string | null;
 
   @ManyToOne(() => Vehicle, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'vehicle_id' })
   vehicle: Vehicle | null;
 
-  @Column({ name: 'last_seen_at', nullable: true })
+  @Column({ name: 'last_seen_at', type: 'timestamptz', nullable: true })
   lastSeenAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })

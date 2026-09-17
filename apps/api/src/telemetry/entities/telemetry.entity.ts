@@ -8,7 +8,7 @@ export class Telemetry {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'device_id', nullable: true })
+  @Column({ name: 'device_id', type: 'uuid', nullable: true })
   deviceId: string | null;
 
   @Index()
