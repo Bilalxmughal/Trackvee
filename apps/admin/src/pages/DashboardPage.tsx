@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react';
 import api from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Stats {
   users: number;
   organizations: number;
   vehicles: number;
   devices: number;
+}
+
+function getGreeting(): { text: string; emoji: string; sub: string } {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return { text: 'Good morning', emoji: '☀️', sub: 'Hope your day is going well.' };
+  if (h >= 12 && h < 17) return { text: 'Good afternoon', emoji: '⚡', sub: 'Stay focused, you got this.' };
+  if (h >= 17 && h < 21) return { text: 'Good evening', emoji: '🌙', sub: 'Wrapping up for the day?' };
+  return { text: 'Up late?', emoji: '🌑', sub: 'Take it easy, you deserve rest.' };
 }
 
 const card = (label: string, value: number | undefined) => (
@@ -29,6 +38,10 @@ const len = (x: unknown): number => Array.isArray(x) ? x.length : 0;
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const { user } = useAuth();
+  const { text, emoji, sub } = getGreeting();
+
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'there';
 
   useEffect(() => {
     Promise.all([
@@ -48,11 +61,17 @@ export default function DashboardPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div style={{
-        padding: '20px 24px 16px',
-      }}>
-        <h1 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#111' }}>Dashboard</h1>
+      {/* Greeting */}
+      <div style={{ padding: '28px 24px 20px', borderBottom: '1px solid #f5f5f5' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 28, lineHeight: 1 }}>{emoji}</span>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#111', lineHeight: 1.2 }}>
+              {text}, {fullName}
+            </div>
+            <div style={{ fontSize: 12, color: '#bbb', marginTop: 4 }}>{sub}</div>
+          </div>
+        </div>
       </div>
 
       {/* Stats row */}
@@ -61,7 +80,7 @@ export default function DashboardPage() {
         gap: 1,
         padding: '24px',
       }}>
-        {card('Organizations', stats?.organizations)}
+        {card('Clients', stats?.organizations)}
         {card('Users', stats?.users)}
         {card('Vehicles', stats?.vehicles)}
         {card('Devices', stats?.devices)}
