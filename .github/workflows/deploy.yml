@@ -1,0 +1,24 @@
+name: Deploy to Oracle Cloud
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/ubuntu/yotrack
+            git pull origin main
+            pnpm install --frozen-lockfile
+            pnpm --filter @yotrack/api build
+            pm2 restart yotrack-api
+            pm2 restart yotrack-gateway
+            echo "Deploy complete"
