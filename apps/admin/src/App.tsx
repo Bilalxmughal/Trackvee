@@ -12,7 +12,7 @@ import TelemetryPage from './pages/TelemetryPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <Spinner className="h-screen" />;
+  if (loading) return <Spinner style={{ height: '100vh' }} />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -20,7 +20,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { user, loading } = useAuth();
 
-  if (loading) return <Spinner className="h-screen" />;
+  if (loading) return <Spinner style={{ height: '100vh' }} />;
 
   return (
     <Routes>

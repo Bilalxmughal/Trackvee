@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import type { AxiosResponse } from 'axios';
 import { authApi, AuthUser } from '../api/auth';
 
 interface AuthContextValue {
@@ -18,7 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem('yt_token');
     if (!token) { setLoading(false); return; }
     authApi.me()
-      .then((r) => setUser(r.data))
+      .then((r: AxiosResponse<AuthUser>) => setUser(r.data))
       .catch(() => localStorage.removeItem('yt_token'))
       .finally(() => setLoading(false));
   }, []);

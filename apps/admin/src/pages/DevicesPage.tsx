@@ -1,112 +1,132 @@
 import { useEffect, useState } from 'react';
 import { IconPlus, IconSearch } from '@tabler/icons-react';
+import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
-import { devicesApi, Device } from '../api/devices';
 
-const STATUS_BORDER: Record<string, string> = {
-  active: 'border-l-green-500',
-  inactive: 'border-l-slate-300',
-  offline: 'border-l-red-500',
-  unassigned: 'border-l-yellow-400',
+interface Device {
+  id: string;
+  displayId: number;
+  imei: string;
+  name: string | null;
+  simNumber: string | null;
+  isActive: boolean;
+  lastSeenAt: string | null;
+  vehicle?: { licensePlate: string | null; displayId: number } | null;
+  createdAt: string;
+}
+
+const inp: React.CSSProperties = {
+  height: 30,
+  padding: '0 10px 0 30px',
+  border: '1px solid #e8e8e8',
+  borderRadius: 3,
+  fontSize: 12,
+  color: '#111',
+  outline: 'none',
+  background: '#fff',
+  width: 200,
 };
 
-const STATUS_DOT: Record<string, string> = {
-  active: 'bg-green-500',
-  inactive: 'bg-slate-300',
-  offline: 'bg-red-500',
-  unassigned: 'bg-yellow-400',
-};
+function lastSeenLabel(ts: string | null) {
+  if (!ts) return '—';
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 2) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export default function DevicesPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
 
   useEffect(() => {
-    devicesApi.list().then((r) => setDevices(r.data)).finally(() => setLoading(false));
+    api.get<Device[]>('/devices')
+      .then(r => setDevices(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const filtered = devices.filter(
-    (d) =>
-      d.imei.includes(search) ||
-      (d.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (d.simNumber ?? '').includes(search),
+  const filtered = devices.filter(d =>
+    !q ||
+    d.imei.includes(q) ||
+    (d.name ?? '').toLowerCase().includes(q.toLowerCase()) ||
+    (d.simNumber ?? '').includes(q)
   );
-
-  const formatDate = (s: string | null) =>
-    s ? new Date(s).toLocaleString() : '—';
 
   return (
     <div>
       <PageHeader
         title="Devices"
-        subtitle={`${devices.length} total`}
+        count={devices.length}
         action={
-          <button className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">
-            <IconPlus size={16} strokeWidth={2} />
-            Add Device
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ position: 'relative' }}>
+              <IconSearch size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#bbb' }} />
+              <input
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="IMEI or name…"
+                style={inp}
+                onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')}
+                onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')}
+              />
+            </div>
+            <button style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '6px 12px', background: '#dc2626', color: '#fff',
+              border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+            }}>
+              <IconPlus size={13} />
+              Add Device
+            </button>
+          </div>
         }
       />
 
-      <div className="p-8">
-        <div className="relative mb-5 max-w-xs">
-          <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" strokeWidth={1.75} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by IMEI, name, SIM…"
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg
-                       focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-          />
-        </div>
-
-        {loading ? (
-          <Spinner className="h-40" />
-        ) : (
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">#</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">IMEI / Name</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">SIM</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Seen</th>
+      {loading ? <Spinner /> : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              {['ID', 'IMEI', 'Name', 'SIM', 'Vehicle', 'Last Seen', 'Status'].map(h => (
+                <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(d => {
+              const online = d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < 5 * 60 * 1000;
+              const borderColor = !d.isActive ? '#aaa' : online ? '#22c55e' : '#dc2626';
+              return (
+                <tr key={d.id} style={{ borderBottom: '1px solid #f8f8f8', borderLeft: `3px solid ${borderColor}` }}>
+                  <td style={{ padding: '10px 16px', color: '#aaa', fontVariantNumeric: 'tabular-nums' }}>#{d.displayId}</td>
+                  <td style={{ padding: '10px 16px', fontFamily: 'monospace', fontSize: 11 }}>{d.imei}</td>
+                  <td style={{ padding: '10px 16px' }}>{d.name ?? '—'}</td>
+                  <td style={{ padding: '10px 16px', color: '#555' }}>{d.simNumber ?? '—'}</td>
+                  <td style={{ padding: '10px 16px', color: '#555' }}>
+                    {d.vehicle ? `#${d.vehicle.displayId} ${d.vehicle.licensePlate ?? ''}`.trim() : <span style={{ color: '#ddd' }}>Unassigned</span>}
+                  </td>
+                  <td style={{ padding: '10px 16px', color: '#aaa' }}>{lastSeenLabel(d.lastSeenAt)}</td>
+                  <td style={{ padding: '10px 16px', color: !d.isActive ? '#aaa' : online ? '#16a34a' : '#dc2626' }}>
+                    {!d.isActive ? 'Inactive' : online ? 'Online' : 'Offline'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="text-center py-12 text-slate-400">No devices found</td>
-                  </tr>
-                )}
-                {filtered.map((d) => (
-                  <tr
-                    key={d.id}
-                    className={`border-l-4 hover:bg-slate-50 transition-colors ${STATUS_BORDER[d.status] ?? 'border-l-slate-300'}`}
-                  >
-                    <td className="px-6 py-4 font-mono text-slate-400 text-xs">#{d.displayId}</td>
-                    <td className="px-6 py-4">
-                      <p className="font-mono text-slate-800 text-xs">{d.imei}</p>
-                      {d.name && <p className="text-slate-500 text-xs mt-0.5">{d.name}</p>}
-                    </td>
-                    <td className="px-6 py-4 font-mono text-slate-500 text-xs">{d.simNumber ?? '—'}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${STATUS_DOT[d.status]}`} />
-                        <span className="text-slate-700 capitalize">{d.status}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-slate-400 text-xs">{formatDate(d.lastSeenAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              );
+            })}
+            {!filtered.length && (
+              <tr>
+                <td colSpan={7} style={{ padding: '32px 16px', textAlign: 'center', color: '#ccc', fontSize: 12 }}>
+                  No devices found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

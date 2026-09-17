@@ -1,88 +1,110 @@
 import { useEffect, useState } from 'react';
 import { IconPlus, IconSearch } from '@tabler/icons-react';
+import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
-import { orgsApi, Organization } from '../api/organizations';
+
+interface Org {
+  id: string;
+  displayId: number;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+const inp: React.CSSProperties = {
+  height: 30,
+  padding: '0 10px 0 30px',
+  border: '1px solid #e8e8e8',
+  borderRadius: 3,
+  fontSize: 12,
+  color: '#111',
+  outline: 'none',
+  background: '#fff',
+  width: 200,
+};
 
 export default function OrganizationsPage() {
-  const [orgs, setOrgs] = useState<Organization[]>([]);
+  const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
 
   useEffect(() => {
-    orgsApi.list().then((r) => setOrgs(r.data)).finally(() => setLoading(false));
+    api.get<Org[]>('/organizations')
+      .then(r => setOrgs(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const filtered = orgs.filter(
-    (o) =>
-      o.name.toLowerCase().includes(search.toLowerCase()) ||
-      o.slug.toLowerCase().includes(search.toLowerCase()),
+  const filtered = orgs.filter(o =>
+    !q || o.name.toLowerCase().includes(q.toLowerCase())
   );
 
   return (
     <div>
       <PageHeader
         title="Organizations"
-        subtitle={`${orgs.length} total`}
+        count={orgs.length}
         action={
-          <button className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">
-            <IconPlus size={16} strokeWidth={2} />
-            Add Organization
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ position: 'relative' }}>
+              <IconSearch size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#bbb' }} />
+              <input
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="Search…"
+                style={inp}
+                onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')}
+                onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')}
+              />
+            </div>
+            <button style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '6px 12px', background: '#dc2626', color: '#fff',
+              border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+            }}>
+              <IconPlus size={13} />
+              Add Org
+            </button>
+          </div>
         }
       />
 
-      <div className="p-8">
-        <div className="relative mb-5 max-w-xs">
-          <IconSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" strokeWidth={1.75} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search organizations…"
-            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg
-                       focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-          />
-        </div>
-
-        {loading ? (
-          <Spinner className="h-40" />
-        ) : (
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">#</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Name</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Slug</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Created</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="text-center py-12 text-slate-400">No organizations found</td>
-                  </tr>
-                )}
-                {filtered.map((o) => (
-                  <tr
-                    key={o.id}
-                    className={`border-l-4 hover:bg-slate-50 transition-colors ${
-                      o.isActive ? 'border-l-green-500' : 'border-l-slate-300'
-                    }`}
-                  >
-                    <td className="px-6 py-4 font-mono text-slate-400 text-xs">#{o.displayId}</td>
-                    <td className="px-6 py-4 font-medium text-slate-900">{o.name}</td>
-                    <td className="px-6 py-4 text-slate-500 font-mono text-xs">{o.slug}</td>
-                    <td className="px-6 py-4 text-slate-400">
-                      {new Date(o.createdAt).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {loading ? <Spinner /> : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              {['ID', 'Name', 'Status', 'Created'].map(h => (
+                <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(o => (
+              <tr
+                key={o.id}
+                style={{ borderBottom: '1px solid #f8f8f8', borderLeft: `3px solid ${o.isActive ? '#22c55e' : '#aaa'}` }}
+              >
+                <td style={{ padding: '10px 16px', color: '#aaa', fontVariantNumeric: 'tabular-nums' }}>#{o.displayId}</td>
+                <td style={{ padding: '10px 16px', fontWeight: 500 }}>{o.name}</td>
+                <td style={{ padding: '10px 16px', color: o.isActive ? '#16a34a' : '#aaa' }}>
+                  {o.isActive ? 'Active' : 'Inactive'}
+                </td>
+                <td style={{ padding: '10px 16px', color: '#aaa' }}>
+                  {new Date(o.createdAt).toLocaleDateString()}
+                </td>
+              </tr>
+            ))}
+            {!filtered.length && (
+              <tr>
+                <td colSpan={4} style={{ padding: '32px 16px', textAlign: 'center', color: '#ccc', fontSize: 12 }}>
+                  No organizations found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

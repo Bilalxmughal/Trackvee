@@ -1,148 +1,121 @@
-import { useEffect, useState } from 'react';
-import { IconRefresh, IconMapPin } from '@tabler/icons-react';
+import { useEffect, useState, useRef } from 'react';
+import { IconRefresh } from '@tabler/icons-react';
+import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
-import { devicesApi, Device } from '../api/devices';
-import { api } from '../api/client';
 
-interface TelemetryPoint {
+interface Telemetry {
   id: string;
-  imei: string;
-  timestamp: string;
+  deviceId: string;
   latitude: number;
   longitude: number;
-  speedKmh: number;
-  heading: number;
-  satellites: number;
-  gpsValid: boolean;
+  speed: number | null;
+  heading: number | null;
+  altitude: number | null;
+  satellites: number | null;
+  ignition: boolean | null;
+  timestamp: string;
 }
 
 export default function TelemetryPage() {
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [selected, setSelected] = useState<string>('');
-  const [point, setPoint] = useState<TelemetryPoint | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fetchingDevices, setFetchingDevices] = useState(true);
+  const [rows, setRows] = useState<Telemetry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [auto, setAuto] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    devicesApi.list().then((r) => {
-      setDevices(r.data);
-      if (r.data.length > 0) setSelected(r.data[0]!.imei);
-    }).finally(() => setFetchingDevices(false));
-  }, []);
-
-  const fetchLatest = () => {
-    if (!selected) return;
-    setLoading(true);
-    api.get<TelemetryPoint>(`/telemetry/${selected}/latest`)
-      .then((r) => setPoint(r.data))
-      .catch(() => setPoint(null))
+  const load = () => {
+    api.get<Telemetry[] | { data: Telemetry[] }>('/telemetry?limit=100')
+      .then(r => setRows(Array.isArray(r.data) ? r.data : (r.data as { data: Telemetry[] })?.data ?? []))
+      .catch(() => {})
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    if (selected) fetchLatest();
-  }, [selected]);
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (auto) {
+      timerRef.current = setInterval(load, 5000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [auto]);
 
   return (
     <div>
       <PageHeader
         title="Telemetry"
-        subtitle="Live device location data"
+        count={rows.length}
         action={
-          <button
-            onClick={fetchLatest}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400
-                       text-white text-sm font-semibold rounded-lg transition-colors"
-          >
-            <IconRefresh size={16} strokeWidth={2} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#888', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={auto}
+                onChange={e => setAuto(e.target.checked)}
+                style={{ accentColor: '#dc2626' }}
+              />
+              Auto-refresh 5s
+            </label>
+            <button
+              onClick={load}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '6px 10px', background: '#fff', color: '#555',
+                border: '1px solid #e8e8e8', borderRadius: 3, fontSize: 12, cursor: 'pointer',
+              }}
+            >
+              <IconRefresh size={13} />
+              Refresh
+            </button>
+          </div>
         }
       />
 
-      <div className="p-8">
-        {/* Device selector */}
-        {fetchingDevices ? (
-          <Spinner className="h-20" />
-        ) : (
-          <div className="mb-6 max-w-xs">
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Select Device</label>
-            <select
-              value={selected}
-              onChange={(e) => setSelected(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg
-                         focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            >
-              {devices.map((d) => (
-                <option key={d.id} value={d.imei}>
-                  {d.imei} {d.name ? `— ${d.name}` : ''}
-                </option>
+      {loading ? <Spinner /> : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              {['Time', 'Device', 'Lat / Lng', 'Speed', 'Hdg', 'Alt', 'Sats', 'IGN'].map(h => (
+                <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
               ))}
-            </select>
-          </div>
-        )}
-
-        {/* Latest point */}
-        {loading ? (
-          <Spinner className="h-40" />
-        ) : point ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 max-w-lg">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center">
-                <IconMapPin size={18} className="text-green-600" strokeWidth={1.75} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-800">Latest GPS Fix</p>
-                <p className="text-xs text-slate-400">{new Date(point.timestamp).toLocaleString()}</p>
-              </div>
-            </div>
-
-            <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-              <div>
-                <dt className="text-slate-400 text-xs uppercase tracking-wide font-medium mb-0.5">Latitude</dt>
-                <dd className="font-mono text-slate-800">{point.latitude.toFixed(6)}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-400 text-xs uppercase tracking-wide font-medium mb-0.5">Longitude</dt>
-                <dd className="font-mono text-slate-800">{point.longitude.toFixed(6)}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-400 text-xs uppercase tracking-wide font-medium mb-0.5">Speed</dt>
-                <dd className="text-slate-800">{point.speedKmh} km/h</dd>
-              </div>
-              <div>
-                <dt className="text-slate-400 text-xs uppercase tracking-wide font-medium mb-0.5">Heading</dt>
-                <dd className="text-slate-800">{point.heading}°</dd>
-              </div>
-              <div>
-                <dt className="text-slate-400 text-xs uppercase tracking-wide font-medium mb-0.5">Satellites</dt>
-                <dd className="text-slate-800">{point.satellites}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-400 text-xs uppercase tracking-wide font-medium mb-0.5">GPS Valid</dt>
-                <dd className={point.gpsValid ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
-                  {point.gpsValid ? 'Yes' : 'No'}
-                </dd>
-              </div>
-            </dl>
-
-            <div className="mt-5 pt-4 border-t border-slate-100">
-              <a
-                href={`https://maps.google.com/?q=${point.latitude},${point.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-red-600 hover:text-red-700 font-medium"
-              >
-                View on Google Maps →
-              </a>
-            </div>
-          </div>
-        ) : selected ? (
-          <div className="text-slate-400 text-sm">No telemetry data found for this device</div>
-        ) : null}
-      </div>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(t => (
+              <tr key={t.id} style={{ borderBottom: '1px solid #f8f8f8', borderLeft: `3px solid ${t.ignition ? '#22c55e' : '#e5e7eb'}` }}>
+                <td style={{ padding: '9px 16px', color: '#aaa', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                  {new Date(t.timestamp).toLocaleTimeString()}
+                </td>
+                <td style={{ padding: '9px 16px', fontFamily: 'monospace', fontSize: 10, color: '#999' }}>
+                  {t.deviceId.slice(0, 8)}…
+                </td>
+                <td style={{ padding: '9px 16px', fontVariantNumeric: 'tabular-nums' }}>
+                  {t.latitude.toFixed(5)}, {t.longitude.toFixed(5)}
+                </td>
+                <td style={{ padding: '9px 16px', fontVariantNumeric: 'tabular-nums' }}>
+                  {t.speed != null ? `${t.speed} km/h` : '—'}
+                </td>
+                <td style={{ padding: '9px 16px', color: '#aaa' }}>{t.heading != null ? `${t.heading}°` : '—'}</td>
+                <td style={{ padding: '9px 16px', color: '#aaa' }}>{t.altitude != null ? `${t.altitude}m` : '—'}</td>
+                <td style={{ padding: '9px 16px', color: '#aaa' }}>{t.satellites ?? '—'}</td>
+                <td style={{ padding: '9px 16px', color: t.ignition ? '#16a34a' : '#ccc' }}>
+                  {t.ignition ? 'On' : 'Off'}
+                </td>
+              </tr>
+            ))}
+            {!rows.length && (
+              <tr>
+                <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', color: '#ccc', fontSize: 12 }}>
+                  No telemetry data
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

@@ -1,12 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
-  IconLayoutDashboard,
-  IconBuilding,
-  IconUsers,
-  IconCar,
-  IconCpu,
-  IconLogout,
-  IconMap,
+  IconLayoutDashboard, IconBuilding, IconUsers,
+  IconCar, IconCpu, IconMap, IconLogout,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -23,70 +18,90 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+      <aside style={{
+        width: 52,
+        flexShrink: 0,
+        borderRight: '1px solid #f0f0f0',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        paddingTop: 16,
+        paddingBottom: 12,
+        background: '#fff',
+      }}>
         {/* Logo */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-200">
-          <span className="text-xl font-bold text-red-600 tracking-tight">YoTrack</span>
-          <span className="ml-2 text-xs font-medium text-slate-400 uppercase tracking-widest mt-0.5">Admin</span>
+        <div style={{ marginBottom: 20 }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: '#dc2626', letterSpacing: -0.5 }}>Y</span>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-4 overflow-y-auto">
+        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
           {NAV.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 mx-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-red-50 text-red-600'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`
-              }
+              title={label}
+              style={({ isActive }) => ({
+                width: 34,
+                height: 34,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 4,
+                color: isActive ? '#dc2626' : '#aaa',
+                background: isActive ? '#fff5f5' : 'transparent',
+                textDecoration: 'none',
+                transition: 'color 0.1s',
+              })}
             >
-              <Icon size={18} strokeWidth={1.75} />
-              {label}
+              <Icon size={17} strokeWidth={1.75} />
             </NavLink>
           ))}
         </nav>
 
-        {/* User + Logout */}
-        <div className="border-t border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-              <span className="text-red-600 text-xs font-semibold uppercase">
-                {user?.firstName?.[0] ?? user?.email[0]}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-800 truncate">
-                {user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : user?.email}
-              </p>
-              <p className="text-xs text-slate-400 capitalize">{user?.role.replace(/_/g, ' ')}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="text-slate-400 hover:text-red-600 transition-colors"
-              title="Logout"
-            >
-              <IconLogout size={18} strokeWidth={1.75} />
-            </button>
-          </div>
-        </div>
+        {/* Logout */}
+        <button
+          onClick={() => { logout(); navigate('/login'); }}
+          title="Logout"
+          style={{
+            width: 34, height: 34,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: 'none', background: 'none', cursor: 'pointer',
+            color: '#ccc', borderRadius: 4,
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#ccc')}
+        >
+          <IconLogout size={16} strokeWidth={1.75} />
+        </button>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
+      {/* Right panel */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Topbar */}
+        <header style={{
+          height: 44,
+          borderBottom: '1px solid #f0f0f0',
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: 20,
+          paddingRight: 20,
+          flexShrink: 0,
+          background: '#fff',
+        }}>
+          <span style={{ fontSize: 12, color: '#bbb' }}>
+            {user?.firstName ?? user?.email.split('@')[0]}
+          </span>
+        </header>
+
+        {/* Page content */}
+        <main style={{ flex: 1, overflowY: 'auto', background: '#fafafa' }}>
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

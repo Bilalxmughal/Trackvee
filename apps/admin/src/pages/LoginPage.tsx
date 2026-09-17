@@ -2,6 +2,17 @@ import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+const inp: React.CSSProperties = {
+  width: '100%',
+  padding: '9px 12px',
+  border: '1px solid #e8e8e8',
+  borderRadius: 4,
+  fontSize: 13,
+  color: '#111',
+  outline: 'none',
+  background: '#fff',
+};
+
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -25,67 +36,82 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#fff',
+    }}>
+      <div style={{ width: 320 }}>
         {/* Brand */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-600 tracking-tight">YoTrack</h1>
-          <p className="text-slate-500 text-sm mt-1">Admin Portal</p>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#dc2626', letterSpacing: -1 }}>YoTrack</div>
+          <div style={{ fontSize: 12, color: '#bbb', marginTop: 2 }}>Admin Portal</div>
         </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-          <h2 className="text-lg font-semibold text-slate-900 mb-6">Sign in to your account</h2>
+        {error && (
+          <div style={{
+            marginBottom: 16,
+            padding: '8px 12px',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: 4,
+            fontSize: 12,
+            color: '#dc2626',
+          }}>
+            {error}
+          </div>
+        )}
 
-          {error && (
-            <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 500, color: '#888', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 }}>Email</div>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              style={inp}
+              onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')}
+              onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')}
+            />
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Email address
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm
-                           placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500
-                           focus:border-transparent transition"
-                placeholder="you@example.com"
-              />
-            </div>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 500, color: '#888', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 }}>Password</div>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              style={inp}
+              onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')}
+              onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')}
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm
-                           placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500
-                           focus:border-transparent transition"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 disabled:bg-red-400
-                         text-white text-sm font-semibold rounded-lg transition-colors mt-2"
-            >
-              {loading ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '10px',
+              background: loading ? '#fca5a5' : '#dc2626',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 4,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: loading ? 'default' : 'pointer',
+              letterSpacing: 0.2,
+            }}
+          >
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
       </div>
     </div>
   );

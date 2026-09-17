@@ -1,17 +1,26 @@
 interface Props {
   title: string;
-  subtitle?: string;
+  count?: number;
   action?: React.ReactNode;
 }
 
-export default function PageHeader({ title, subtitle, action }: Props) {
+export default function PageHeader({ title, count, action }: Props) {
   return (
-    <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200 bg-white">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
-        {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '20px 24px 16px',
+      borderBottom: '1px solid #f0f0f0',
+      background: '#fff',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <h1 style={{ fontSize: 15, fontWeight: 600, color: '#111', margin: 0 }}>{title}</h1>
+        {count !== undefined && (
+          <span style={{ fontSize: 12, color: '#bbb' }}>{count}</span>
+        )}
       </div>
-      {action && <div>{action}</div>}
+      {action}
     </div>
   );
 }
