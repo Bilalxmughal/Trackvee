@@ -8,6 +8,9 @@ export class Organization {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'display_id', type: 'int', unique: true, default: () => "nextval('global_display_id_seq')" })
+  displayId: number;
+
   @Column()
   name: string;
 
