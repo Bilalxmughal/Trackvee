@@ -11,7 +11,6 @@ export default function PageHeader({ title, count, action }: Props) {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '20px 24px 16px',
-      borderBottom: '1px solid #ececec',
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
         <h1 style={{ fontSize: 15, fontWeight: 600, color: '#111', margin: 0 }}>{title}</h1>

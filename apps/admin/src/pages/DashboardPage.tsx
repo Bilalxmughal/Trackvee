@@ -51,7 +51,6 @@ export default function DashboardPage() {
       {/* Header */}
       <div style={{
         padding: '20px 24px 16px',
-        borderBottom: '1px solid #ececec',
       }}>
         <h1 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#111' }}>Dashboard</h1>
       </div>
