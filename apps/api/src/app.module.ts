@@ -1,5 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { DatabaseModule } from './database/database.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { UsersModule } from './users/users.module.js';
+import { OrganizationsModule } from './organizations/organizations.module.js';
+import { VehiclesModule } from './vehicles/vehicles.module.js';
+import { DevicesModule } from './devices/devices.module.js';
+import { TelemetryModule } from './telemetry/telemetry.module.js';
 
 @Module({
   imports: [
@@ -7,7 +14,13 @@ import { ConfigModule } from '@nestjs/config';
       isGlobal: true,
       envFilePath: '../../.env',
     }),
-    // Phase 4: Add DatabaseModule, AuthModule, VehiclesModule, DevicesModule, etc.
+    DatabaseModule,
+    AuthModule,
+    UsersModule,
+    OrganizationsModule,
+    VehiclesModule,
+    DevicesModule,
+    TelemetryModule,
   ],
 })
 export class AppModule {}
