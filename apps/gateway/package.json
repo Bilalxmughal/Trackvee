@@ -13,7 +13,8 @@
   "dependencies": {
     "@yotrack/protocol": "workspace:*",
     "@yotrack/types": "workspace:*",
-    "@yotrack/utils": "workspace:*"
+    "@yotrack/utils": "workspace:*",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

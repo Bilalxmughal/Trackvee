@@ -342,6 +342,9 @@ importers:
       '@yotrack/utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.4.5
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

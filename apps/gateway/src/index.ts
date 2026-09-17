@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { createLogger } from '@yotrack/utils';
 import { createTcpServer } from './server.js';
 
