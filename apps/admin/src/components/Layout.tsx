@@ -4,9 +4,10 @@ import {
   IconLayoutDashboard, IconBuilding, IconUsers, IconCar,
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
-  IconUserCheck,
+  IconUserCheck, IconSun, IconMoon,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import api from '../api/client';
 
 interface NavItemDef { to: string; icon: React.ElementType; label: string; }
@@ -47,6 +48,7 @@ interface SearchResult {
 
 function NavItem({ to, icon: Icon, label, collapsed }: NavItemDef & { collapsed: boolean }) {
   const [hovered, setHovered] = useState(false);
+  const { dark } = useTheme();
   return (
     <div style={{ position: 'relative' }}>
       <NavLink
@@ -57,11 +59,10 @@ function NavItem({ to, icon: Icon, label, collapsed }: NavItemDef & { collapsed:
           padding: collapsed ? '8px 0' : '7px 14px 7px 16px',
           justifyContent: collapsed ? 'center' : 'flex-start',
           textDecoration: 'none',
-          color: isActive ? '#dc2626' : hovered ? '#333' : '#666',
-          background: isActive ? 'rgba(220,38,38,0.07)' : hovered ? '#f5f5f5' : 'transparent',
+          color: isActive ? '#dc2626' : hovered ? (dark ? '#e5e5e5' : '#333') : (dark ? '#888' : '#666'),
+          background: isActive ? 'rgba(220,38,38,0.09)' : hovered ? (dark ? 'rgba(255,255,255,0.05)' : '#f5f5f5') : 'transparent',
           borderLeft: collapsed ? 'none' : `3px solid ${isActive ? '#dc2626' : 'transparent'}`,
-          fontSize: 13,
-          fontWeight: isActive ? 600 : 400,
+          fontSize: 13, fontWeight: isActive ? 600 : 400,
           transition: 'color 0.15s, background 0.15s',
           borderRadius: collapsed ? 8 : 0,
           margin: collapsed ? '1px 8px' : 0,
@@ -77,9 +78,9 @@ function NavItem({ to, icon: Icon, label, collapsed }: NavItemDef & { collapsed:
       {collapsed && hovered && (
         <div style={{
           position: 'absolute', left: 52, top: '50%', transform: 'translateY(-50%)',
-          background: '#1a1a1a', color: '#fff', fontSize: 11.5, fontWeight: 500,
+          background: dark ? '#2a2a2a' : '#1a1a1a', color: '#fff', fontSize: 11.5, fontWeight: 500,
           padding: '5px 10px', borderRadius: 6, whiteSpace: 'nowrap', zIndex: 500,
-          pointerEvents: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          pointerEvents: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
         }}>
           {label}
         </div>
@@ -90,6 +91,7 @@ function NavItem({ to, icon: Icon, label, collapsed }: NavItemDef & { collapsed:
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { dark, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('yt_sidebar') === '1'; } catch { return false; }
@@ -187,43 +189,43 @@ export default function Layout() {
         className={`yt-sidebar${mobileOpen ? ' mobile-open' : ''}`}
         style={{
           width: sidebarW, flexShrink: 0,
-          borderRight: '1px solid #eeeeee',
+          borderRight: `1px solid ${dark ? '#2a2a2a' : '#eeeeee'}`,
           display: 'flex', flexDirection: 'column',
-          background: '#fff',
+          background: dark ? '#111' : '#fff',
           transition: 'width 0.22s ease',
           overflow: 'hidden',
         }}
       >
         {/* Logo + toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: collapsed ? '14px 0' : '14px 14px 14px 18px', borderBottom: '1px solid #f5f5f5', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: collapsed ? '14px 0' : '14px 14px 14px 18px', borderBottom: `1px solid ${dark ? '#222' : '#f5f5f5'}`, flexShrink: 0 }}>
           {!collapsed && (
             <div>
               <span style={{ fontSize: 16, fontWeight: 800, color: '#dc2626', letterSpacing: -0.5 }}>YoTrack</span>
-              <span style={{ fontSize: 10, color: '#ccc', display: 'block', letterSpacing: 0.3, marginTop: 1 }}>Admin Portal</span>
+              <span style={{ fontSize: 10, color: dark ? '#555' : '#ccc', display: 'block', letterSpacing: 0.3, marginTop: 1 }}>Admin Portal</span>
             </div>
           )}
           <button
             onClick={toggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ccc', padding: 4, borderRadius: 6, display: 'flex', transition: 'color 0.15s' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#555')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#ccc')}
+            style={{ border: 'none', background: 'none', cursor: 'pointer', color: dark ? '#555' : '#ccc', padding: 4, borderRadius: 6, display: 'flex', transition: 'color 0.15s' }}
+            onMouseEnter={e => (e.currentTarget.style.color = dark ? '#aaa' : '#555')}
+            onMouseLeave={e => (e.currentTarget.style.color = dark ? '#555' : '#ccc')}
           >
             {collapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
           </button>
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: collapsed ? '8px 0' : '8px 0' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 0' }}>
           {visibleSections.map((section, si) => (
             <div key={si} style={{ marginTop: si === 0 ? 4 : 14 }}>
               {section.label && !collapsed && (
-                <div style={{ padding: '0 18px 6px', fontSize: 10, fontWeight: 700, color: '#ccc', textTransform: 'uppercase', letterSpacing: 1.2 }}>
+                <div style={{ padding: '0 18px 6px', fontSize: 10, fontWeight: 700, color: dark ? '#444' : '#ccc', textTransform: 'uppercase', letterSpacing: 1.2 }}>
                   {section.label}
                 </div>
               )}
               {section.label && collapsed && (
-                <div style={{ height: 1, background: '#f0f0f0', margin: '6px 10px 8px' }} />
+                <div style={{ height: 1, background: dark ? '#222' : '#f0f0f0', margin: '6px 10px 8px' }} />
               )}
               {section.items.map(item => (
                 <NavItem key={item.to} {...item} collapsed={collapsed} />
@@ -233,15 +235,15 @@ export default function Layout() {
         </nav>
 
         {/* Profile + logout */}
-        <div style={{ padding: collapsed ? '10px 0' : '10px 12px', borderTop: '1px solid #f5f5f5', flexShrink: 0 }}>
+        <div style={{ padding: collapsed ? '10px 0' : '10px 12px', borderTop: `1px solid ${dark ? '#222' : '#f5f5f5'}`, flexShrink: 0 }}>
           {collapsed ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
               <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#dc2626', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
-              <button onClick={() => { logout(); navigate('/login'); }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ccc', padding: 4, display: 'flex', borderRadius: 6 }}
+              <button onClick={() => { logout(); navigate('/login'); }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: dark ? '#555' : '#ccc', padding: 4, display: 'flex', borderRadius: 6 }}
                 onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#ccc')}>
+                onMouseLeave={e => (e.currentTarget.style.color = dark ? '#555' : '#ccc')}>
                 <IconLogout size={15} strokeWidth={1.75} />
               </button>
             </div>
@@ -251,13 +253,13 @@ export default function Layout() {
                 {displayName.charAt(0).toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1a1a1a', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
-                <div style={{ fontSize: 10.5, color: '#aaa', lineHeight: 1.3 }}>{ROLE_LABEL[user?.role ?? ''] ?? user?.role}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: dark ? '#e5e5e5' : '#1a1a1a', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
+                <div style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa', lineHeight: 1.3 }}>{ROLE_LABEL[user?.role ?? ''] ?? user?.role}</div>
               </div>
               <button onClick={() => { logout(); navigate('/login'); }} title="Sign out"
-                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ccc', padding: 4, borderRadius: 6, display: 'flex', flexShrink: 0 }}
+                style={{ border: 'none', background: 'none', cursor: 'pointer', color: dark ? '#555' : '#ccc', padding: 4, borderRadius: 6, display: 'flex', flexShrink: 0 }}
                 onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#ccc')}>
+                onMouseLeave={e => (e.currentTarget.style.color = dark ? '#555' : '#ccc')}>
                 <IconLogout size={14} strokeWidth={1.75} />
               </button>
             </div>
@@ -268,7 +270,7 @@ export default function Layout() {
       {/* Right panel */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         {/* Topbar */}
-        <header style={{ height: 50, display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 16, flexShrink: 0, background: '#fff', gap: 10 }}>
+        <header style={{ height: 50, display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 16, flexShrink: 0, background: dark ? '#111' : '#fff', gap: 10, borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
           {/* Mobile hamburger */}
           <button
             className="yt-topbar-hamburger"
@@ -291,7 +293,7 @@ export default function Layout() {
                     value={searchQ}
                     onChange={e => setSearchQ(e.target.value)}
                     placeholder="Search clients, users, vehicles…"
-                    style={{ width: 280, height: 34, padding: '0 12px 0 30px', border: '1px solid #dc2626', borderRadius: 8, fontSize: 12.5, color: '#111', background: '#fff', outline: 'none', boxShadow: '0 0 0 3px rgba(220,38,38,0.1)' }}
+                    style={{ width: 280, height: 34, padding: '0 12px 0 30px', border: '1px solid #dc2626', borderRadius: 8, fontSize: 12.5, color: dark ? '#e5e5e5' : '#111', background: dark ? '#1e1e1e' : '#fff', outline: 'none', boxShadow: '0 0 0 3px rgba(220,38,38,0.1)' }}
                   />
                 </div>
                 <button onClick={() => { setSearchOpen(false); setSearchQ(''); setSearchResults([]); }}
@@ -315,26 +317,26 @@ export default function Layout() {
 
             {/* Search results dropdown */}
             {searchOpen && (
-              <div style={{ position: 'absolute', right: 0, top: 42, width: 340, background: '#fff', border: '1px solid #ebebeb', borderRadius: 10, boxShadow: '0 6px 24px rgba(0,0,0,0.1)', zIndex: 300, overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', right: 0, top: 42, width: 340, background: dark ? '#1a1a1a' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#ebebeb'}`, borderRadius: 10, boxShadow: dark ? '0 6px 24px rgba(0,0,0,0.5)' : '0 6px 24px rgba(0,0,0,0.1)', zIndex: 300, overflow: 'hidden' }}>
                 {searchQ.trim() === '' ? (
-                  <div style={{ padding: '14px 16px', fontSize: 12, color: '#bbb', textAlign: 'center' }}>Type to search across all pages</div>
+                  <div style={{ padding: '14px 16px', fontSize: 12, color: dark ? '#555' : '#bbb', textAlign: 'center' }}>Type to search across all pages</div>
                 ) : searchLoading ? (
-                  <div style={{ padding: '14px 16px', fontSize: 12, color: '#bbb', textAlign: 'center' }}>Searching…</div>
+                  <div style={{ padding: '14px 16px', fontSize: 12, color: dark ? '#555' : '#bbb', textAlign: 'center' }}>Searching…</div>
                 ) : searchResults.length === 0 ? (
-                  <div style={{ padding: '14px 16px', fontSize: 12, color: '#bbb', textAlign: 'center' }}>No results for "{searchQ}"</div>
+                  <div style={{ padding: '14px 16px', fontSize: 12, color: dark ? '#555' : '#bbb', textAlign: 'center' }}>No results for "{searchQ}"</div>
                 ) : (
                   searchResults.map((r, i) => (
                     <button
                       key={`${r.type}-${r.id}`}
                       onClick={() => { navigate(r.to); setSearchOpen(false); setSearchQ(''); setSearchResults([]); }}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: i < searchResults.length - 1 ? '1px solid #f5f5f5' : 'none' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#f8f8f8')}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: i < searchResults.length - 1 ? `1px solid ${dark ? '#222' : '#f5f5f5'}` : 'none', color: dark ? '#e5e5e5' : '#1a1a1a' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = dark ? '#222' : '#f8f8f8')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                     >
-                      <span style={{ fontSize: 10, fontWeight: 700, color: typeColor[r.type] ?? '#888', textTransform: 'uppercase', letterSpacing: 0.5, minWidth: 44, padding: '2px 6px', background: `${typeColor[r.type]}18`, borderRadius: 4, textAlign: 'center' }}>{r.type}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: typeColor[r.type] ?? '#888', textTransform: 'uppercase', letterSpacing: 0.5, minWidth: 44, padding: '2px 6px', background: `${typeColor[r.type]}22`, borderRadius: 4, textAlign: 'center' }}>{r.type}</span>
                       <div>
-                        <div style={{ fontSize: 13, color: '#1a1a1a', fontWeight: 500 }}>{r.label}</div>
-                        {r.sub && <div style={{ fontSize: 11, color: '#aaa', marginTop: 1 }}>{r.sub}</div>}
+                        <div style={{ fontSize: 13, color: dark ? '#e5e5e5' : '#1a1a1a', fontWeight: 500 }}>{r.label}</div>
+                        {r.sub && <div style={{ fontSize: 11, color: dark ? '#555' : '#aaa', marginTop: 1 }}>{r.sub}</div>}
                       </div>
                     </button>
                   ))
@@ -343,25 +345,36 @@ export default function Layout() {
             )}
           </div>
 
+          {/* Dark mode toggle */}
+          <button
+            onClick={toggleTheme}
+            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={{ border: 'none', background: 'none', cursor: 'pointer', color: dark ? '#888' : '#aaa', padding: 6, borderRadius: 8, display: 'flex', transition: 'color 0.15s, background 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.07)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = dark ? '#888' : '#aaa'; e.currentTarget.style.background = 'none'; }}
+          >
+            {dark ? <IconSun size={16} /> : <IconMoon size={16} />}
+          </button>
+
           {/* Profile */}
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setProfileOpen(o => !o)}
               style={{ display: 'flex', alignItems: 'center', gap: 7, border: 'none', background: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: 8 }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+              onMouseEnter={e => (e.currentTarget.style.background = dark ? 'rgba(255,255,255,0.06)' : '#f5f5f5')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#dc2626', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: '#111', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{displayName}</div>
-                <div style={{ fontSize: 10.5, color: '#aaa', lineHeight: 1.2 }}>{ROLE_LABEL[user?.role ?? ''] ?? user?.role}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{displayName}</div>
+                <div style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa', lineHeight: 1.2 }}>{ROLE_LABEL[user?.role ?? ''] ?? user?.role}</div>
               </div>
-              <IconChevronDown size={12} style={{ color: '#ccc' }} />
+              <IconChevronDown size={12} style={{ color: dark ? '#444' : '#ccc' }} />
             </button>
             {profileOpen && (
-              <div style={{ position: 'absolute', right: 0, top: 44, background: '#fff', border: '1px solid #ebebeb', borderRadius: 10, minWidth: 150, zIndex: 200, boxShadow: '0 6px 20px rgba(0,0,0,0.09)', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', right: 0, top: 44, background: dark ? '#1a1a1a' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#ebebeb'}`, borderRadius: 10, minWidth: 150, zIndex: 200, boxShadow: dark ? '0 6px 20px rgba(0,0,0,0.5)' : '0 6px 20px rgba(0,0,0,0.09)', overflow: 'hidden' }}>
                 <button
                   onClick={() => { setProfileOpen(false); logout(); navigate('/login'); }}
                   style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12.5, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500 }}
@@ -376,7 +389,7 @@ export default function Layout() {
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, overflowY: 'auto', background: '#fff' }}>
+        <main style={{ flex: 1, overflowY: 'auto', background: dark ? '#111' : '#fff' }}>
           <div className="page-wrap">
             <Outlet />
           </div>

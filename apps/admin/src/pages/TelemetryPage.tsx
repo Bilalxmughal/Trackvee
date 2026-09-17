@@ -21,12 +21,12 @@ interface Telemetry {
 }
 
 const sel: React.CSSProperties = {
-  height: 30, padding: '0 8px', border: '1px solid #e8e8e8',
-  borderRadius: 3, fontSize: 12, color: '#555', background: '#fff', outline: 'none', cursor: 'pointer',
+  height: 30, padding: '0 8px', border: '1px solid var(--input-border)',
+  borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer',
 };
 const inp: React.CSSProperties = {
-  height: 30, padding: '0 10px 0 30px', border: '1px solid #e8e8e8',
-  borderRadius: 3, fontSize: 12, color: '#111', outline: 'none', background: '#fff', width: 180,
+  height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)',
+  borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180,
 };
 
 export default function TelemetryPage() {
