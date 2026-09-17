@@ -16,6 +16,16 @@ import { Client } from 'pg';
         await client.query(
           `CREATE SEQUENCE IF NOT EXISTS global_display_id_seq START WITH 1001 INCREMENT BY 1`,
         );
+        // Extract user from connection string and grant sequence access
+        try {
+          const url = new URL(dbUrl);
+          const dbUser = url.username;
+          if (dbUser) {
+            await client.query(
+              `GRANT USAGE, SELECT ON SEQUENCE global_display_id_seq TO "${dbUser}"`,
+            );
+          }
+        } catch { /* ignore if already granted or superuser */ }
         await client.end();
 
         return {
