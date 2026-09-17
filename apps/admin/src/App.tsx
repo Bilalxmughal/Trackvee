@@ -11,6 +11,7 @@ import VehiclesPage from './pages/VehiclesPage';
 import DevicesPage from './pages/DevicesPage';
 import TelemetryPage from './pages/TelemetryPage';
 import RoleAccessPage from './pages/RoleAccessPage';
+import SetupGuidePage from './pages/SetupGuidePage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/telemetry" element={<TelemetryPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/roles" element={<RoleAccessPage />} />
+        <Route path="/setup" element={<SetupGuidePage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

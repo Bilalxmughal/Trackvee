@@ -50,4 +50,9 @@ export class DevicesService {
   async updateLastSeen(imei: string): Promise<void> {
     await this.repo.update({ imei }, { lastSeenAt: new Date(), status: 'active' });
   }
+
+  async remove(id: string): Promise<void> {
+    const device = await this.findOne(id);
+    await this.repo.remove(device);
+  }
 }
