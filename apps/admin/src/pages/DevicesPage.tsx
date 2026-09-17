@@ -107,6 +107,7 @@ export default function DevicesPage() {
       </div>
 
       {loading ? <Spinner /> : (
+        <div className="tbl-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
@@ -146,6 +147,7 @@ export default function DevicesPage() {
             {!filtered.length && <tr><td colSpan={8} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No devices found</td></tr>}
           </tbody>
         </table>
+        </div>
       )}
 
       <Modal open={modal} title={editing ? 'Edit Device' : 'Add Device'} onClose={closeModal}>

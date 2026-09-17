@@ -22,7 +22,6 @@ export default function Modal({ open, title, onClose, children, width = 480 }: P
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{ width, background: '#fff', borderRadius: 10, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', overflow: 'hidden', maxWidth: 'calc(100vw - 32px)' }}>
         {/* Header */}

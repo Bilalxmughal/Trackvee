@@ -98,7 +98,8 @@ export default function VehiclesPage() {
       </div>
 
       {loading ? <Spinner /> : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <div className="tbl-wrap">
+        <table>
           <thead>
             <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
               {['ID', 'Plate', 'Make / Model', 'Year', 'Status', 'Added', ''].map(h => (
@@ -128,6 +129,7 @@ export default function VehiclesPage() {
             {!filtered.length && <tr><td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No vehicles found</td></tr>}
           </tbody>
         </table>
+        </div>
       )}
 
       <Modal open={modal} title={editing ? 'Edit Vehicle' : 'Add Vehicle'} onClose={closeModal}>

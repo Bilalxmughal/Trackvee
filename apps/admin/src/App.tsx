@@ -5,7 +5,7 @@ import Spinner from './components/Spinner';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
-import OrganizationsPage from './pages/OrganizationsPage';
+import ClientsPage from './pages/ClientsPage';
 import VehiclesPage from './pages/VehiclesPage';
 import DevicesPage from './pages/DevicesPage';
 import TelemetryPage from './pages/TelemetryPage';
@@ -20,30 +20,22 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const { user, loading } = useAuth();
-
   if (loading) return <Spinner style={{ height: '100vh' }} />;
 
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />}
-      />
+      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
 
-      <Route
-        element={
-          <RequireAuth>
-            <Layout />
-          </RequireAuth>
-        }
-      >
+      <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/users" element={<UsersPage />} />
-        <Route path="/organizations" element={<OrganizationsPage />} />
+        <Route path="/clients" element={<ClientsPage />} />
+        {/* backward compat redirect */}
+        <Route path="/organizations" element={<Navigate to="/clients" replace />} />
         <Route path="/vehicles" element={<VehiclesPage />} />
         <Route path="/devices" element={<DevicesPage />} />
         <Route path="/telemetry" element={<TelemetryPage />} />
+        <Route path="/users" element={<UsersPage />} />
         <Route path="/roles" element={<RoleAccessPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>

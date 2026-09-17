@@ -3,7 +3,7 @@ import { IconCheck, IconX, IconShield } from '@tabler/icons-react';
 import PageHeader from '../components/PageHeader';
 
 type Action = 'view' | 'add' | 'edit' | 'delete';
-type Role = 'super_admin' | 'org_admin' | 'dispatcher' | 'viewer';
+type Role = 'super_admin' | 'org_admin' | 'dispatcher' | 'viewer' | 'customer';
 
 interface PageDef { key: string; label: string; actions: Action[]; group: string; }
 
@@ -22,6 +22,7 @@ const ROLES: { key: Role; label: string; isSystem?: boolean }[] = [
   { key: 'org_admin', label: 'Org Admin' },
   { key: 'dispatcher', label: 'Dispatcher' },
   { key: 'viewer', label: 'Viewer' },
+  { key: 'customer', label: 'Customer' },
 ];
 
 const ALL_ACTIONS: Action[] = ['view', 'add', 'edit', 'delete'];
@@ -30,6 +31,15 @@ type PermMatrix = Record<Role, Record<string, Record<Action, boolean>>>;
 
 const DEFAULT: PermMatrix = {
   super_admin: Object.fromEntries(PAGES.map(p => [p.key, Object.fromEntries(ALL_ACTIONS.map(a => [a, true]))])) as Record<string, Record<Action, boolean>>,
+  customer: {
+    dashboard: { view: true, add: false, edit: false, delete: false },
+    organizations: { view: false, add: false, edit: false, delete: false },
+    vehicles: { view: true, add: false, edit: false, delete: false },
+    devices: { view: false, add: false, edit: false, delete: false },
+    telemetry: { view: true, add: false, edit: false, delete: false },
+    users: { view: false, add: false, edit: false, delete: false },
+    roles: { view: false, add: false, edit: false, delete: false },
+  },
   org_admin: {
     dashboard: { view: true, add: false, edit: false, delete: false },
     organizations: { view: true, add: true, edit: true, delete: false },

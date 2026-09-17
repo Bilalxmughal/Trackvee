@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { IconRefresh, IconSearch } from '@tabler/icons-react';
-import type { DateRange } from 'react-day-picker';
+import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
@@ -99,7 +99,8 @@ export default function TelemetryPage() {
       </div>
 
       {loading ? <Spinner /> : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <div className="tbl-wrap">
+        <table>
           <thead>
             <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
               {['Time', 'Device', 'Lat / Lng', 'Speed', 'Hdg', 'Alt', 'Sats', 'IGN'].map(h => (
@@ -125,6 +126,7 @@ export default function TelemetryPage() {
             )}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

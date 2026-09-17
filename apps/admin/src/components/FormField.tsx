@@ -33,10 +33,10 @@ export default function FormField({ label, children, error }: Props) {
 export function FormActions({ onClose, loading, submitLabel = 'Save' }: { onClose: () => void; loading?: boolean; submitLabel?: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid #f5f5f5' }}>
-      <button type="button" onClick={onClose} style={{ padding: '7px 16px', border: '1px solid #e8e8e8', borderRadius: 3, fontSize: 12, color: '#555', background: '#fff', cursor: 'pointer' }}>
+      <button type="button" onClick={onClose} style={{ padding: '7px 16px', border: '1px solid #e8e8e8', borderRadius: 8, fontSize: 12, color: '#555', background: '#fff', cursor: 'pointer' }}>
         Cancel
       </button>
-      <button type="submit" disabled={loading} style={{ padding: '7px 20px', border: 'none', borderRadius: 3, fontSize: 12, color: '#fff', background: loading ? '#fca5a5' : '#dc2626', cursor: loading ? 'default' : 'pointer', fontWeight: 500 }}>
+      <button type="submit" disabled={loading} style={{ padding: '7px 20px', border: 'none', borderRadius: 8, fontSize: 12, color: '#fff', background: loading ? '#fca5a5' : '#dc2626', cursor: loading ? 'default' : 'pointer', fontWeight: 500 }}>
         {loading ? 'Saving…' : submitLabel}
       </button>
     </div>
