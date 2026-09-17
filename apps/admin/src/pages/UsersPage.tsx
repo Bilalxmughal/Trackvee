@@ -88,7 +88,7 @@ export default function UsersPage() {
         </button>
       } />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid #f5f5f5', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative' }}>
           <IconSearch size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#ccc' }} />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search name, email…" style={inp}
@@ -109,7 +109,7 @@ export default function UsersPage() {
         <div className="tbl-wrap">
         <table>
           <thead>
-            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['ID', 'Name', 'Email', 'Role', 'Status', 'Joined', ''].map(h => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
               ))}
@@ -117,13 +117,13 @@ export default function UsersPage() {
           </thead>
           <tbody>
             {filtered.map(u => (
-              <tr key={u.id} style={{ borderBottom: '1px solid #f8f8f8', borderLeft: `3px solid ${u.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                <td style={{ padding: '10px 16px', color: '#aaa' }}>#{u.displayId}</td>
+              <tr key={u.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${u.isActive ? '#22c55e' : '#e5e7eb'}` }}>
+                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>#{u.displayId}</td>
                 <td style={{ padding: '10px 16px', fontWeight: 500 }}>{u.firstName || u.lastName ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() : '—'}</td>
-                <td style={{ padding: '10px 16px', color: '#555' }}>{u.email}</td>
-                <td style={{ padding: '10px 16px', color: '#555' }}>{roleLabel[u.role] ?? u.role}</td>
-                <td style={{ padding: '10px 16px', color: u.isActive ? '#16a34a' : '#aaa' }}>{u.isActive ? 'Active' : 'Inactive'}</td>
-                <td style={{ padding: '10px 16px', color: '#aaa' }}>{new Date(u.createdAt).toLocaleDateString()}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{u.email}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{roleLabel[u.role] ?? u.role}</td>
+                <td style={{ padding: '10px 16px', color: u.isActive ? '#16a34a' : 'var(--muted)' }}>{u.isActive ? 'Active' : 'Inactive'}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{new Date(u.createdAt).toLocaleDateString()}</td>
                 <td style={{ padding: '10px 16px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => openEdit(u)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}

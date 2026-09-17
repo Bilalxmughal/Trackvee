@@ -92,7 +92,7 @@ export default function DevicesPage() {
         </button>
       } />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid #f5f5f5', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative' }}>
           <IconSearch size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#ccc' }} />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="IMEI or name…" style={inp}
@@ -110,7 +110,7 @@ export default function DevicesPage() {
         <div className="tbl-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['ID', 'IMEI', 'Name', 'SIM', 'Vehicle', 'Last Seen', 'Status', ''].map(h => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
               ))}
@@ -121,15 +121,15 @@ export default function DevicesPage() {
               const online = d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < 5 * 60 * 1000;
               const borderColor = !d.isActive ? '#e5e7eb' : online ? '#22c55e' : '#dc2626';
               return (
-                <tr key={d.id} style={{ borderBottom: '1px solid #f8f8f8', borderLeft: `3px solid ${borderColor}` }}>
-                  <td style={{ padding: '10px 16px', color: '#aaa' }}>#{d.displayId}</td>
+                <tr key={d.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${borderColor}` }}>
+                  <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>#{d.displayId}</td>
                   <td style={{ padding: '10px 16px', fontFamily: 'monospace', fontSize: 11 }}>{d.imei}</td>
                   <td style={{ padding: '10px 16px' }}>{d.name ?? '—'}</td>
-                  <td style={{ padding: '10px 16px', color: '#555' }}>{d.simNumber ?? '—'}</td>
-                  <td style={{ padding: '10px 16px', color: '#555' }}>
-                    {d.vehicle ? `#${d.vehicle.displayId} ${d.vehicle.licensePlate ?? ''}`.trim() : <span style={{ color: '#ddd' }}>Unassigned</span>}
+                  <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{d.simNumber ?? '—'}</td>
+                  <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>
+                    {d.vehicle ? `#${d.vehicle.displayId} ${d.vehicle.licensePlate ?? ''}`.trim() : <span style={{ color: 'var(--muted2)' }}>Unassigned</span>}
                   </td>
-                  <td style={{ padding: '10px 16px', color: '#aaa' }}>{lastSeenLabel(d.lastSeenAt)}</td>
+                  <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{lastSeenLabel(d.lastSeenAt)}</td>
                   <td style={{ padding: '10px 16px', color: !d.isActive ? '#aaa' : online ? '#16a34a' : '#dc2626' }}>
                     {!d.isActive ? 'Inactive' : online ? 'Online' : 'Offline'}
                   </td>

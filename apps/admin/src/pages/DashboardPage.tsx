@@ -21,11 +21,11 @@ const card = (label: string, value: number | undefined) => (
   <div style={{
     borderTop: '2px solid #dc2626',
     padding: '16px 20px',
-    background: '#fff',
+    background: 'var(--bg2)',
     minWidth: 140,
     flex: 1,
   }}>
-    <div style={{ fontSize: 26, fontWeight: 700, color: '#111', lineHeight: 1 }}>
+    <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', lineHeight: 1 }}>
       {value ?? '—'}
     </div>
     <div style={{ fontSize: 11, color: '#aaa', marginTop: 5, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -63,7 +63,7 @@ export default function DashboardPage() {
     <div>
       {/* Greeting */}
       <div style={{ padding: '28px 24px 20px' }}>
-        <div style={{ fontSize: 20, fontWeight: 700, color: '#111', lineHeight: 1.2 }}>
+        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>
           {text}, {fullName}
         </div>
         <div style={{ fontSize: 12, color: '#bbb', marginTop: 4 }}>{sub}</div>

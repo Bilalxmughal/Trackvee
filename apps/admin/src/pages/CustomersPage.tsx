@@ -80,7 +80,7 @@ export default function CustomersPage() {
         </button>
       } />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid #f5f5f5', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative' }}>
           <IconSearch size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#ccc' }} />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Name or email…" style={inp}
@@ -100,7 +100,7 @@ export default function CustomersPage() {
         <div className="tbl-wrap">
           <table>
             <thead>
-              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 {['ID', 'Name', 'Email', 'Client', 'Status', 'Joined', ''].map(h => (
                   <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
                 ))}
@@ -108,15 +108,15 @@ export default function CustomersPage() {
             </thead>
             <tbody>
               {filtered.map(c => (
-                <tr key={c.id} style={{ borderBottom: '1px solid #f8f8f8', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                  <td style={{ padding: '11px 16px', color: '#aaa' }}>#{c.displayId}</td>
+                <tr key={c.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
+                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>#{c.displayId}</td>
                   <td style={{ padding: '11px 16px', fontWeight: 500 }}>
                     {c.firstName || c.lastName ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() : '—'}
                   </td>
-                  <td style={{ padding: '11px 16px', color: '#555' }}>{c.email}</td>
-                  <td style={{ padding: '11px 16px', color: '#555' }}>{orgName(c.organizationId)}</td>
-                  <td style={{ padding: '11px 16px', color: c.isActive ? '#16a34a' : '#aaa' }}>{c.isActive ? 'Active' : 'Inactive'}</td>
-                  <td style={{ padding: '11px 16px', color: '#aaa' }}>{new Date(c.createdAt).toLocaleDateString()}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.email}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{orgName(c.organizationId)}</td>
+                  <td style={{ padding: '11px 16px', color: c.isActive ? '#16a34a' : 'var(--muted)' }}>{c.isActive ? 'Active' : 'Inactive'}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{new Date(c.createdAt).toLocaleDateString()}</td>
                   <td style={{ padding: '11px 16px' }}>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => openEdit(c)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}

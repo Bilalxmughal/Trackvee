@@ -83,7 +83,7 @@ export default function VehiclesPage() {
         </button>
       } />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid #f5f5f5', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative' }}>
           <IconSearch size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#ccc' }} />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Plate, make, model…" style={inp}
@@ -101,7 +101,7 @@ export default function VehiclesPage() {
         <div className="tbl-wrap">
         <table>
           <thead>
-            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['ID', 'Plate', 'Make / Model', 'Year', 'Status', 'Added', ''].map(h => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
               ))}
@@ -109,13 +109,13 @@ export default function VehiclesPage() {
           </thead>
           <tbody>
             {filtered.map(v => (
-              <tr key={v.id} style={{ borderBottom: '1px solid #f8f8f8', borderLeft: `3px solid ${v.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                <td style={{ padding: '10px 16px', color: '#aaa' }}>#{v.displayId}</td>
+              <tr key={v.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${v.isActive ? '#22c55e' : '#e5e7eb'}` }}>
+                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>#{v.displayId}</td>
                 <td style={{ padding: '10px 16px', fontWeight: 500 }}>{v.licensePlate ?? '—'}</td>
-                <td style={{ padding: '10px 16px', color: '#555' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
-                <td style={{ padding: '10px 16px', color: '#555' }}>{v.year ?? '—'}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{v.year ?? '—'}</td>
                 <td style={{ padding: '10px 16px', color: v.isActive ? '#16a34a' : '#aaa' }}>{v.isActive ? 'Active' : 'Inactive'}</td>
-                <td style={{ padding: '10px 16px', color: '#aaa' }}>{new Date(v.createdAt).toLocaleDateString()}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{new Date(v.createdAt).toLocaleDateString()}</td>
                 <td style={{ padding: '10px 16px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => openEdit(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}

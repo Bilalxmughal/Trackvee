@@ -68,17 +68,17 @@ export default function TelemetryPage() {
     <div>
       <PageHeader title="Telemetry" count={rows.length} action={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#888', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', cursor: 'pointer' }}>
             <input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} style={{ accentColor: '#dc2626' }} />
             Auto 5s
           </label>
-          <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: '#fff', color: '#555', border: '1px solid #e8e8e8', borderRadius: 3, fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--input-bg)', color: 'var(--text2)', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, cursor: 'pointer' }}>
             <IconRefresh size={13} /> Refresh
           </button>
         </div>
       } />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid #f5f5f5', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative' }}>
           <IconSearch size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#ccc' }} />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Device ID…" style={inp}
@@ -102,7 +102,7 @@ export default function TelemetryPage() {
         <div className="tbl-wrap">
         <table>
           <thead>
-            <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['Time', 'Device', 'Lat / Lng', 'Speed', 'Hdg', 'Alt', 'Sats', 'IGN'].map(h => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
               ))}
@@ -110,14 +110,14 @@ export default function TelemetryPage() {
           </thead>
           <tbody>
             {filtered.map(t => (
-              <tr key={t.id} style={{ borderBottom: '1px solid #f8f8f8', borderLeft: `3px solid ${t.ignition ? '#22c55e' : '#e5e7eb'}` }}>
-                <td style={{ padding: '9px 16px', color: '#aaa', whiteSpace: 'nowrap' }}>{new Date(t.timestamp).toLocaleTimeString()}</td>
-                <td style={{ padding: '9px 16px', fontFamily: 'monospace', fontSize: 10, color: '#999' }}>{t.deviceId.slice(0, 8)}…</td>
+              <tr key={t.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${t.ignition ? '#22c55e' : '#e5e7eb'}` }}>
+                <td style={{ padding: '9px 16px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{new Date(t.timestamp).toLocaleTimeString()}</td>
+                <td style={{ padding: '9px 16px', fontFamily: 'monospace', fontSize: 10, color: 'var(--muted)' }}>{t.deviceId.slice(0, 8)}…</td>
                 <td style={{ padding: '9px 16px', fontVariantNumeric: 'tabular-nums' }}>{t.latitude.toFixed(5)}, {t.longitude.toFixed(5)}</td>
                 <td style={{ padding: '9px 16px' }}>{t.speed != null ? `${t.speed} km/h` : '—'}</td>
-                <td style={{ padding: '9px 16px', color: '#aaa' }}>{t.heading != null ? `${t.heading}°` : '—'}</td>
-                <td style={{ padding: '9px 16px', color: '#aaa' }}>{t.altitude != null ? `${t.altitude}m` : '—'}</td>
-                <td style={{ padding: '9px 16px', color: '#aaa' }}>{t.satellites ?? '—'}</td>
+                <td style={{ padding: '9px 16px', color: 'var(--muted)' }}>{t.heading != null ? `${t.heading}°` : '—'}</td>
+                <td style={{ padding: '9px 16px', color: 'var(--muted)' }}>{t.altitude != null ? `${t.altitude}m` : '—'}</td>
+                <td style={{ padding: '9px 16px', color: 'var(--muted)' }}>{t.satellites ?? '—'}</td>
                 <td style={{ padding: '9px 16px', color: t.ignition ? '#16a34a' : '#ccc' }}>{t.ignition ? 'On' : 'Off'}</td>
               </tr>
             ))}

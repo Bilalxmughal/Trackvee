@@ -13,7 +13,7 @@ export default function PageHeader({ title, count, action }: Props) {
       padding: '20px 24px 16px',
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <h1 style={{ fontSize: 15, fontWeight: 600, color: '#111', margin: 0 }}>{title}</h1>
+        <h1 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{title}</h1>
         {count !== undefined && (
           <span style={{ fontSize: 12, color: '#bbb' }}>{count}</span>
         )}

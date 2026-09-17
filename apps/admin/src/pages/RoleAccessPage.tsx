@@ -73,7 +73,7 @@ const GROUPS = ['Main', 'Administration'];
 
 const cellBtn = (on: boolean, disabled: boolean, onClick: () => void): React.CSSProperties => ({
   width: 30, height: 30, border: 0, borderRadius: 5, cursor: disabled ? 'default' : 'pointer',
-  background: on ? 'rgba(34,197,94,0.12)' : 'rgba(0,0,0,0.04)',
+  background: on ? 'rgba(34,197,94,0.12)' : 'var(--bg3)',
   color: on ? '#16a34a' : '#bbb',
   display: 'grid', placeItems: 'center',
   transition: 'background 0.15s, color 0.15s',
@@ -120,7 +120,7 @@ export default function RoleAccessPage() {
 
       <div style={{ display: 'flex', height: 'calc(100vh - 110px)' }}>
         {/* Role list */}
-        <div style={{ width: 220, flexShrink: 0, borderRight: '1px solid #f0f0f0', overflowY: 'auto' }}>
+        <div style={{ width: 220, flexShrink: 0, borderRight: '1px solid var(--border)', overflowY: 'auto' }}>
           <div style={{ padding: '10px 16px 6px', fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1 }}>
             Roles
           </div>
@@ -138,11 +138,11 @@ export default function RoleAccessPage() {
                   borderLeft: `3px solid ${on ? '#dc2626' : 'transparent'}`,
                   transition: 'background 0.15s',
                 }}
-                onMouseEnter={e => { if (!on) e.currentTarget.style.background = '#f8f8f8'; }}
+                onMouseEnter={e => { if (!on) e.currentTarget.style.background = 'var(--bg2)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = on ? 'rgba(220,38,38,0.06)' : 'transparent'; }}
               >
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: on ? 600 : 400, color: on ? '#dc2626' : '#333' }}>{role.label}</div>
+                  <div style={{ fontSize: 13, fontWeight: on ? 600 : 400, color: on ? '#dc2626' : 'var(--text)' }}>{role.label}</div>
                   <div style={{ fontSize: 11, color: '#bbb', marginTop: 1 }}>
                     {role.key === 'super_admin' ? 'Full access' : `${count}/${PAGES.length} pages`}
                   </div>
@@ -155,9 +155,9 @@ export default function RoleAccessPage() {
 
         {/* Permission grid */}
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-          <div style={{ padding: '12px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{activeRoleDef.label} permissions</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{activeRoleDef.label} permissions</div>
               <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
                 {isReadOnly ? 'Super Admin always has full access' : 'Click a cell to toggle permission'}
               </div>
@@ -172,7 +172,7 @@ export default function RoleAccessPage() {
 
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
-              <tr style={{ borderBottom: '1.5px solid #f0f0f0' }}>
+              <tr style={{ borderBottom: '1.5px solid var(--border)' }}>
                 <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.6, width: 180 }}>Page</th>
                 {ALL_ACTIONS.map(a => (
                   <th key={a} style={{ padding: '10px 16px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.6 }}>{a}</th>
@@ -184,14 +184,14 @@ export default function RoleAccessPage() {
                 const groupPages = PAGES.filter(p => p.group === group);
                 return (
                   <>
-                    <tr key={group} style={{ background: '#f9f9f9' }}>
-                      <td colSpan={5} style={{ padding: '7px 20px', fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #f0f0f0' }}>
+                    <tr key={group} style={{ background: 'var(--bg3)' }}>
+                      <td colSpan={5} style={{ padding: '7px 20px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--border)' }}>
                         {group}
                       </td>
                     </tr>
                     {groupPages.map(page => (
-                      <tr key={page.key} style={{ borderBottom: '1px solid #f8f8f8' }}>
-                        <td style={{ padding: '10px 20px', color: '#333', fontSize: 13, fontWeight: 400 }}>{page.label}</td>
+                      <tr key={page.key} style={{ borderBottom: '1px solid var(--border2)' }}>
+                        <td style={{ padding: '10px 20px', color: 'var(--text)', fontSize: 13, fontWeight: 400 }}>{page.label}</td>
                         {ALL_ACTIONS.map(action => {
                           const hasAction = page.actions.includes(action);
                           if (!hasAction) {
