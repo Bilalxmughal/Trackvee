@@ -172,6 +172,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@tabler/icons-react':
+        specifier: ^3.46.0
+        version: 3.46.0(react@18.3.1)
       '@tanstack/react-query':
         specifier: ^5.51.0
         version: 5.103.0(react@18.3.1)
@@ -199,7 +202,7 @@ importers:
         version: 18.3.7(@types/react@18.3.31)
       '@vitejs/plugin-react':
         specifier: ^4.3.1
-        version: 4.7.0(supports-color@8.1.1)(vite@5.4.21)
+        version: 4.7.0(supports-color@8.1.1)(vite@5.4.21(@types/node@22.20.3)(terser@5.51.2))
       autoprefixer:
         specifier: ^10.4.19
         version: 10.6.1(postcss@8.5.28)
@@ -1009,6 +1012,14 @@ packages:
 
   '@sqltools/formatter@1.2.5':
     resolution: {integrity: sha512-Uy0+khmZqUrUGm5dmMqVlnvufZRSK0FbYzVgp0UMstm+F5+W2/jnEEQyc9vo1ZR/E5ZI/B1WjjoTqBqwJL6Krw==}
+
+  '@tabler/icons-react@3.46.0':
+    resolution: {integrity: sha512-CCm7xJWhDT2PH4ZIFkP6AgYKtVhq0gpYkjUN+GVh1AzmIQaa77OW0bQPBPQiTE0PsXMR9oSxFqA3qBglzPyrVQ==}
+    peerDependencies:
+      react: '>= 16'
+
+  '@tabler/icons@3.46.0':
+    resolution: {integrity: sha512-f2RYFl3fzPwj5WO82x6en0dmkjefxEfOm16D1ByM6cj/McNiwOkL4VaPUoP9VVIrXAD9WnTSVFr70px703b//A==}
 
   '@tanstack/query-core@5.103.0':
     resolution: {integrity: sha512-PfafnHQHEu7mZDsSalxSW/EBxPgF77k3atIJeQbqbb1Z7DmK2mH6YLJyqrvbbDk5M6Ua/egs7LLEs04a8robxA==}
@@ -3733,6 +3744,13 @@ snapshots:
 
   '@sqltools/formatter@1.2.5': {}
 
+  '@tabler/icons-react@3.46.0(react@18.3.1)':
+    dependencies:
+      '@tabler/icons': 3.46.0
+      react: 18.3.1
+
+  '@tabler/icons@3.46.0': {}
+
   '@tanstack/query-core@5.103.0': {}
 
   '@tanstack/react-query@5.103.0(react@18.3.1)':
@@ -3902,6 +3920,18 @@ snapshots:
   '@types/ws@8.18.1':
     dependencies:
       '@types/node': 22.20.3
+
+  '@vitejs/plugin-react@4.7.0(supports-color@8.1.1)(vite@5.4.21(@types/node@22.20.3)(terser@5.51.2))':
+    dependencies:
+      '@babel/core': 7.29.7(supports-color@8.1.1)
+      '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/plugin-transform-react-jsx-source': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@rolldown/pluginutils': 1.0.0-beta.27
+      '@types/babel__core': 7.20.5
+      react-refresh: 0.17.0
+      vite: 5.4.21(@types/node@22.20.3)(terser@5.51.2)
+    transitivePeerDependencies:
+      - supports-color
 
   '@vitejs/plugin-react@4.7.0(supports-color@8.1.1)(vite@5.4.21)':
     dependencies:

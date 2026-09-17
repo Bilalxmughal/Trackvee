@@ -1,12 +1,50 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
+import Layout from './components/Layout';
+import Spinner from './components/Spinner';
+import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
+import UsersPage from './pages/UsersPage';
+import OrganizationsPage from './pages/OrganizationsPage';
+import VehiclesPage from './pages/VehiclesPage';
+import DevicesPage from './pages/DevicesPage';
+import TelemetryPage from './pages/TelemetryPage';
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Spinner className="h-screen" />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
 
 export default function App() {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Spinner className="h-screen" />;
+
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/dashboard" element={<div className="p-8 text-gray-900">YoTrack Admin — Dashboard (Phase 5)</div>} />
-      <Route path="/login" element={<div className="p-8 text-gray-900">YoTrack Admin — Login (Phase 4)</div>} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="/login"
+        element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+      />
+
+      <Route
+        element={
+          <RequireAuth>
+            <Layout />
+          </RequireAuth>
+        }
+      >
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/users" element={<UsersPage />} />
+        <Route path="/organizations" element={<OrganizationsPage />} />
+        <Route path="/vehicles" element={<VehiclesPage />} />
+        <Route path="/devices" element={<DevicesPage />} />
+        <Route path="/telemetry" element={<TelemetryPage />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
     </Routes>
   );
 }
