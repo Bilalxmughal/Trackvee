@@ -3,6 +3,33 @@ import { parseGt06Frame, buildGt06Response, PROTO_LOGIN, PROTO_HEARTBEAT } from 
 import { createLogger } from '@yotrack/utils';
 import { connectionManager } from './connection-manager.js';
 
+const API_URL = process.env['API_URL'] ?? 'http://localhost:3000/api/v1';
+const INTERNAL_KEY = process.env['INTERNAL_API_KEY'] ?? '';
+
+async function saveTelemetry(imei: string, packet: {
+  latitude: number; longitude: number; speedKmh: number;
+  heading: number; gpsValid: boolean; satellites: number;
+  timestamp?: Date;
+}): Promise<void> {
+  const body = {
+    imei,
+    timestamp: (packet.timestamp ?? new Date()).toISOString(),
+    latitude: packet.latitude,
+    longitude: packet.longitude,
+    speedKmh: packet.speedKmh,
+    heading: packet.heading,
+    gpsValid: packet.gpsValid,
+    satellites: packet.satellites,
+    raw: { protocol: 'gt06' },
+  };
+  const res = await fetch(`${API_URL}/telemetry/ingest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-internal-key': INTERNAL_KEY },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
 const logger = createLogger('TcpServer');
 
 function handleBuffer(socket: Socket, remote: string, buf: Buffer, imeiRef: { value: string | null }): Buffer {
@@ -46,7 +73,11 @@ function handleBuffer(socket: Socket, remote: string, buf: Buffer, imeiRef: { va
       const resp = buildGt06Response(0x12, packet.serial);
       socket.write(resp);
       logger.info(`[${imei}] GPS | valid:${packet.gpsValid} | ${packet.latitude.toFixed(6)},${packet.longitude.toFixed(6)} | ${packet.speedKmh}km/h | hdg:${packet.heading}° | sats:${packet.satellites}`);
-      // TODO Phase 4: publish to Redis, store telemetry in PostgreSQL
+      if (imeiRef.value && packet.gpsValid) {
+        saveTelemetry(imeiRef.value, packet).catch((err: unknown) =>
+          logger.error(`[${imeiRef.value}] Failed to save telemetry: ${err}`)
+        );
+      }
 
     } else if (packet.type === 'heartbeat') {
       const imei = imeiRef.value ?? 'unknown';
