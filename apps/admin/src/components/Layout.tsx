@@ -260,7 +260,7 @@ export default function Layout() {
       {/* Right panel */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         {/* Topbar */}
-        <header style={{ height: 50, borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 16, flexShrink: 0, background: '#fff', gap: 10 }}>
+        <header style={{ height: 50, boxShadow: '0 1px 6px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 16, flexShrink: 0, background: '#fff', gap: 10, zIndex: 10, position: 'relative' }}>
           {/* Mobile hamburger */}
           <button
             className="yt-topbar-hamburger"
