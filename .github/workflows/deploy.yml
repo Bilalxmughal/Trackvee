@@ -21,9 +21,12 @@ jobs:
             cd /home/ubuntu/yotrack &&
             git pull origin main &&
             pnpm install --frozen-lockfile &&
+            pnpm --filter @yotrack/protocol build &&
+            pnpm --filter @yotrack/utils build &&
             pnpm --filter @yotrack/api build &&
+            pnpm --filter @yotrack/gateway build &&
             pnpm --filter @yotrack/admin build &&
-            pm2 restart yotrack-api &&
-            pm2 restart yotrack-gateway &&
+            pm2 restart yotrack-api --update-env &&
+            pm2 restart yotrack-gateway --update-env &&
             echo Deploy complete
           "
