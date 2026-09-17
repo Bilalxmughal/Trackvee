@@ -12,8 +12,8 @@ const errStyle: React.CSSProperties = { fontSize: 11, color: '#dc2626', marginTo
 
 export const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 10px', border: '1px solid #e8e8e8',
-  borderRadius: 3, fontSize: 13, color: '#111', outline: 'none', background: '#fff',
-  boxSizing: 'border-box',
+  borderRadius: 5, fontSize: 13, color: '#111', outline: 'none', background: '#fff',
+  boxSizing: 'border-box', transition: 'border-color 0.15s, box-shadow 0.15s',
 };
 
 export const selectStyle: React.CSSProperties = {

@@ -24,7 +24,7 @@ export default function Modal({ open, title, onClose, children, width = 480 }: P
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{ width, background: '#fff', borderRadius: 6, boxShadow: '0 16px 48px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+      <div style={{ width, background: '#fff', borderRadius: 10, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', overflow: 'hidden', maxWidth: 'calc(100vw - 32px)' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f0f0f0' }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{title}</span>
