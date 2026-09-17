@@ -1,0 +1,24 @@
+{
+  "name": "yotrack",
+  "private": true,
+  "version": "0.1.0",
+  "description": "YoTrack — Vehicle Tracking Platform",
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev:gateway": "pnpm --filter @yotrack/gateway dev",
+    "dev:api": "pnpm --filter @yotrack/api dev",
+    "dev:admin": "pnpm --filter @yotrack/admin dev",
+    "dev:portal": "pnpm --filter @yotrack/portal dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r exec rm -rf dist node_modules"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@yotrack/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@yotrack/protocol": "workspace:*",
+    "@yotrack/types": "workspace:*",
+    "@yotrack/utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.4"
+  }
+}
