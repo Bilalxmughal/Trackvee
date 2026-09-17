@@ -62,7 +62,7 @@ export default function DashboardPage() {
   return (
     <div>
       {/* Greeting */}
-      <div style={{ padding: '28px 24px 20px', borderBottom: '1px solid #f5f5f5' }}>
+      <div style={{ padding: '28px 24px 20px' }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: '#111', lineHeight: 1.2 }}>
           {text}, {fullName}
         </div>
