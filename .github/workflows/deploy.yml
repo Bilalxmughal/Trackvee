@@ -22,6 +22,7 @@ jobs:
             git pull origin main &&
             pnpm install --frozen-lockfile &&
             pnpm --filter @yotrack/api build &&
+            pnpm --filter @yotrack/admin build &&
             pm2 restart yotrack-api &&
             pm2 restart yotrack-gateway &&
             echo Deploy complete
