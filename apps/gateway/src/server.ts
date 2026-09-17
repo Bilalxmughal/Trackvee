@@ -36,12 +36,23 @@ export function createTcpServer(port: number, host: string): void {
     let buffer = '';
 
     socket.on('data', (chunk: Buffer) => {
-      buffer += chunk.toString('ascii');
-      const nlIndex = buffer.lastIndexOf('\n');
+      const raw = chunk.toString('ascii');
+      logger.debug(`Raw data (${remote}): ${JSON.stringify(raw)}`);
+      buffer += raw;
+      // AT06 frames may use \r\n, \r, or \n as terminator
+      const normalized = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const nlIndex = normalized.lastIndexOf('\n');
       if (nlIndex !== -1) {
-        const complete = buffer.slice(0, nlIndex + 1);
-        buffer = buffer.slice(nlIndex + 1);
+        const complete = normalized.slice(0, nlIndex + 1);
+        buffer = normalized.slice(nlIndex + 1);
         handleData(socket, complete);
+      } else {
+        buffer = normalized;
+        // If buffer has $$ and is long enough, try parsing without terminator
+        if (buffer.includes('$$') && buffer.length > 50) {
+          handleData(socket, buffer + '\n');
+          buffer = '';
+        }
       }
     });
 
