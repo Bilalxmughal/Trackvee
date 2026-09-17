@@ -72,14 +72,14 @@ export function parseGt06Frame(buf: Buffer): Gt06ParseResult {
     const latitude  = latRaw / 1800000.0;
     const longitude = lonRaw / 1800000.0;
     const heading   = flags & 0x03FF;
-    const latS      = (flags >> 10) & 1; // 1=South
+    const latN      = (flags >> 10) & 1; // 1=North (ATS-GO/AOT06 variant)
     const lonW      = (flags >> 11) & 1; // 1=West
     const gpsValid  = !!((flags >> 12) & 1);
 
     packet = {
       type: 'gps',
       timestamp,
-      latitude:  latS ? -latitude : latitude,
+      latitude:  latN ? latitude : -latitude,
       longitude: lonW ? -longitude : longitude,
       speedKmh: speed,
       heading,
