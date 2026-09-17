@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { User } from '../users/entities/user.entity.js';
 
 @ApiTags('organizations')
 @ApiBearerAuth()
@@ -21,12 +23,17 @@ export class OrganizationsController {
   }
 
   @Post()
-  create(@Body() body: Partial<any>) {
-    return this.orgService.create(body);
+  create(@Body() body: Partial<any>, @CurrentUser() user: User) {
+    return this.orgService.create(body, user.id);
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() body: Partial<any>) {
     return this.orgService.update(id, body);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.orgService.remove(id);
   }
 }

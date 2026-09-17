@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
 import ClientsPage from './pages/ClientsPage';
+import CustomersPage from './pages/CustomersPage';
 import VehiclesPage from './pages/VehiclesPage';
 import DevicesPage from './pages/DevicesPage';
 import TelemetryPage from './pages/TelemetryPage';
@@ -30,6 +31,7 @@ export default function App() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/clients" element={<ClientsPage />} />
+        <Route path="/customers" element={<CustomersPage />} />
         {/* backward compat redirect */}
         <Route path="/organizations" element={<Navigate to="/clients" replace />} />
         <Route path="/vehicles" element={<VehiclesPage />} />

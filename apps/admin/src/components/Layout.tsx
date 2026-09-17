@@ -4,6 +4,7 @@ import {
   IconLayoutDashboard, IconBuilding, IconUsers, IconCar,
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
+  IconUserCheck,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/client';
@@ -20,6 +21,7 @@ const NAV_SECTIONS: Section[] = [
     label: 'Fleet Management',
     items: [
       { to: '/clients', icon: IconBuilding, label: 'Clients' },
+      { to: '/customers', icon: IconUserCheck, label: 'Customers' },
       { to: '/vehicles', icon: IconCar, label: 'Vehicles' },
       { to: '/devices', icon: IconCpu, label: 'Devices' },
       { to: '/telemetry', icon: IconMap, label: 'Telemetry' },

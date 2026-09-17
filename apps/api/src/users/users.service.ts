@@ -40,8 +40,25 @@ export class UsersService {
     return this.repo.save(user);
   }
 
-  async findAll(): Promise<User[]> {
+  async findAll(role?: string): Promise<User[]> {
+    if (role) return this.repo.find({ where: { role: role as UserRole } });
     return this.repo.find();
+  }
+
+  async update(id: string, data: Partial<{ email: string; password: string; firstName: string; lastName: string; role: UserRole; isActive: boolean; organizationId: string | null }>): Promise<User> {
+    const user = await this.repo.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    if (data.password) {
+      data = { ...data, password: await bcrypt.hash(data.password, 12) };
+    }
+    Object.assign(user, data);
+    return this.repo.save(user);
+  }
+
+  async remove(id: string): Promise<void> {
+    const user = await this.repo.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    await this.repo.remove(user);
   }
 
   async updateRole(id: string, role: UserRole): Promise<User> {

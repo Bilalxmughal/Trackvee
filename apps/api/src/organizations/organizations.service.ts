@@ -20,9 +20,20 @@ export class OrganizationsService {
     return org;
   }
 
-  async create(data: Partial<Organization>): Promise<Organization> {
-    const org = this.repo.create(data);
+  async create(data: Partial<Organization>, ownerId: string): Promise<Organization> {
+    const base = (data.name ?? 'org').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    let slug = base;
+    let suffix = 1;
+    while (await this.repo.findOne({ where: { slug } })) {
+      slug = `${base}-${suffix++}`;
+    }
+    const org = this.repo.create({ ...data, slug, ownerId });
     return this.repo.save(org);
+  }
+
+  async remove(id: string): Promise<void> {
+    const org = await this.findOne(id);
+    await this.repo.remove(org);
   }
 
   async update(id: string, data: Partial<Organization>): Promise<Organization> {
