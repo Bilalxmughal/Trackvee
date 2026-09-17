@@ -35,7 +35,7 @@ input, select, button { font-family: inherit; }
 .tbl-wrap table { min-width: 640px; width: 100%; border-collapse: collapse; font-size: 12px; }
 
 /* ── Page content container ── */
-.page-wrap { max-width: 1440px; margin: 0 auto; padding: 0 8px; }
+.page-wrap { width: 100%; padding: 0 8px; box-sizing: border-box; }
 
 /* ── Global scrollbar ── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
