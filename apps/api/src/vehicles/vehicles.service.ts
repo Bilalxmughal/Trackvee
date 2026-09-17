@@ -29,8 +29,10 @@ export class VehiclesService {
   }
 
   async create(data: Partial<Vehicle>, user: User): Promise<Vehicle> {
+    const autoName = [data.make, data.model, data.licensePlate].filter(Boolean).join(' ') || 'Vehicle';
     const vehicle = this.repo.create({
       ...data,
+      name: data.name || autoName,
       ownerId: user.id,
       organizationId: data.organizationId ?? user.organizationId ?? null,
     });
