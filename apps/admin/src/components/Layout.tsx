@@ -98,7 +98,7 @@ export default function Layout() {
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, overflowY: 'auto', background: '#fafafa' }}>
+        <main style={{ flex: 1, overflowY: 'auto', background: '#fff' }}>
           <Outlet />
         </main>
       </div>

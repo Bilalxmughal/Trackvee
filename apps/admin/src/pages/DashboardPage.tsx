@@ -51,8 +51,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div style={{
         padding: '20px 24px 16px',
-        borderBottom: '1px solid #f0f0f0',
-        background: '#fff',
+        borderBottom: '1px solid #ececec',
       }}>
         <h1 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#111' }}>Dashboard</h1>
       </div>
@@ -62,7 +61,6 @@ export default function DashboardPage() {
         display: 'flex',
         gap: 1,
         padding: '24px',
-        background: '#f5f5f5',
       }}>
         {card('Organizations', stats?.organizations)}
         {card('Users', stats?.users)}
