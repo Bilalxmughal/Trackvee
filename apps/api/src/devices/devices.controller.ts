@@ -2,6 +2,8 @@ import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/co
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { DevicesService } from './devices.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { User } from '../users/entities/user.entity.js';
 
 @ApiTags('devices')
 @ApiBearerAuth()
@@ -11,8 +13,8 @@ export class DevicesController {
   constructor(private devicesService: DevicesService) {}
 
   @Get()
-  findAll() {
-    return this.devicesService.findAll();
+  findAll(@CurrentUser() user: User) {
+    return this.devicesService.findAll(user);
   }
 
   @Get(':id')

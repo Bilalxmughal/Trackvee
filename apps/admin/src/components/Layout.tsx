@@ -115,6 +115,12 @@ export default function Layout() {
     ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
     : user?.email?.split('@')[0] ?? '';
 
+  const isCustomer = user?.role === 'customer';
+  const CUSTOMER_ROUTES = ['/dashboard', '/vehicles', '/telemetry'];
+  const visibleSections: Section[] = isCustomer
+    ? NAV_SECTIONS.map(s => ({ ...s, items: s.items.filter(i => CUSTOMER_ROUTES.includes(i.to)) })).filter(s => s.items.length > 0)
+    : NAV_SECTIONS;
+
   // global search
   useEffect(() => {
     if (!searchOpen) return;
@@ -207,7 +213,7 @@ export default function Layout() {
 
         {/* Nav */}
         <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: collapsed ? '8px 0' : '8px 0' }}>
-          {NAV_SECTIONS.map((section, si) => (
+          {visibleSections.map((section, si) => (
             <div key={si} style={{ marginTop: si === 0 ? 4 : 14 }}>
               {section.label && !collapsed && (
                 <div style={{ padding: '0 18px 6px', fontSize: 10, fontWeight: 700, color: '#ccc', textTransform: 'uppercase', letterSpacing: 1.2 }}>

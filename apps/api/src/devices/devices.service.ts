@@ -2,6 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Device } from './entities/device.entity.js';
+import { User } from '../users/entities/user.entity.js';
+
+const ADMIN_ROLES = ['super_admin', 'admin'];
 
 @Injectable()
 export class DevicesService {
@@ -10,8 +13,17 @@ export class DevicesService {
     private repo: Repository<Device>,
   ) {}
 
-  findAll(): Promise<Device[]> {
-    return this.repo.find({ relations: { vehicle: true } });
+  findAll(user?: User): Promise<Device[]> {
+    if (!user || ADMIN_ROLES.includes(user.role)) {
+      return this.repo.find({ relations: { vehicle: true } });
+    }
+    if (user.organizationId) {
+      return this.repo.find({
+        relations: { vehicle: true },
+        where: { vehicle: { organizationId: user.organizationId } },
+      });
+    }
+    return Promise.resolve([]);
   }
 
   async findByImei(imei: string): Promise<Device | null> {
