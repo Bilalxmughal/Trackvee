@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
 import type { DateRange } from 'react-day-picker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
@@ -6,54 +6,79 @@ import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
+import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
+import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
-interface Vehicle {
-  id: string;
-  displayId: number;
-  licensePlate: string | null;
-  make: string | null;
-  model: string | null;
-  year: number | null;
-  isActive: boolean;
-  createdAt: string;
-}
+interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; year: number | null; isActive: boolean; createdAt: string; }
+interface Org { id: string; name: string; }
 
-const sel: React.CSSProperties = {
-  height: 30, padding: '0 8px', border: '1px solid #e8e8e8',
-  borderRadius: 3, fontSize: 12, color: '#555', background: '#fff', outline: 'none', cursor: 'pointer',
-};
-const inp: React.CSSProperties = {
-  height: 30, padding: '0 10px 0 30px', border: '1px solid #e8e8e8',
-  borderRadius: 3, fontSize: 12, color: '#111', outline: 'none', background: '#fff', width: 180,
-};
+const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid #e8e8e8', borderRadius: 3, fontSize: 12, color: '#555', background: '#fff', outline: 'none', cursor: 'pointer' };
+const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid #e8e8e8', borderRadius: 3, fontSize: 12, color: '#111', outline: 'none', background: '#fff', width: 180 };
+const empty = { licensePlate: '', make: '', model: '', year: '', isActive: true, organizationId: '' };
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState<Vehicle | null>(null);
+  const [form, setForm] = useState(empty);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<Vehicle | null>(null);
+  const [deletingId, setDeletingId] = useState(false);
 
-  useEffect(() => {
-    api.get<Vehicle[]>('/vehicles').then(r => setVehicles(r.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  const load = () => {
+    Promise.all([api.get<Vehicle[]>('/vehicles'), api.get<Org[]>('/organizations')])
+      .then(([v, o]) => { setVehicles(v.data); setOrgs(o.data); })
+      .catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
+  const openEdit = (v: Vehicle) => {
+    setEditing(v);
+    setForm({ licensePlate: v.licensePlate ?? '', make: v.make ?? '', model: v.model ?? '', year: v.year ? String(v.year) : '', isActive: v.isActive, organizationId: '' });
+    setModal(true);
+  };
+  const closeModal = () => { setModal(false); setEditing(null); };
+  const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = { ...form, year: form.year ? Number(form.year) : null, organizationId: form.organizationId || null };
+      if (editing) await api.patch(`/vehicles/${editing.id}`, payload);
+      else await api.post('/vehicles', payload);
+      await load(); closeModal();
+    } catch { } finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setDeletingId(true);
+    try {
+      await api.delete(`/vehicles/${deleting.id}`);
+      setVehicles(v => v.filter(x => x.id !== deleting.id));
+      setDeleting(null);
+    } catch { } finally { setDeletingId(false); }
+  };
 
   const filtered = vehicles.filter(v => {
-    if (q && !(v.licensePlate ?? '').toLowerCase().includes(q.toLowerCase()) &&
-      !(v.make ?? '').toLowerCase().includes(q.toLowerCase()) &&
-      !(v.model ?? '').toLowerCase().includes(q.toLowerCase())) return false;
+    if (q && !(v.licensePlate ?? '').toLowerCase().includes(q.toLowerCase()) && !(v.make ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (statusFilter && String(v.isActive) !== statusFilter) return false;
-    if (dateRange?.from) {
-      const d = parseISO(v.createdAt);
-      if (!isWithinInterval(d, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
-    }
+    if (dateRange?.from && !isWithinInterval(parseISO(v.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });
 
   return (
     <div>
       <PageHeader title="Vehicles" count={vehicles.length} action={
-        <button style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+        <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
           <IconPlus size={13} /> Add Vehicle
         </button>
       } />
@@ -62,20 +87,14 @@ export default function VehiclesPage() {
         <div style={{ position: 'relative' }}>
           <IconSearch size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#ccc' }} />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Plate, make, model…" style={inp}
-            onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')}
-            onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
+            onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
         </div>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
-          <option value="">All Status</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
+          <option value="">All Status</option><option value="true">Active</option><option value="false">Inactive</option>
         </select>
         <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Added date" />
-        {(q || statusFilter || dateRange) && (
-          <button onClick={() => { setQ(''); setStatusFilter(''); setDateRange(undefined); }}
-            style={{ fontSize: 11, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer' }}>Clear all</button>
-        )}
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#bbb' }}>{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
+        {(q || statusFilter || dateRange) && <button onClick={() => { setQ(''); setStatusFilter(''); setDateRange(undefined); }} style={{ fontSize: 11, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer' }}>Clear all</button>}
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#bbb' }}>{filtered.length} results</span>
       </div>
 
       {loading ? <Spinner /> : (
@@ -98,24 +117,59 @@ export default function VehiclesPage() {
                 <td style={{ padding: '10px 16px', color: '#aaa' }}>{new Date(v.createdAt).toLocaleDateString()}</td>
                 <td style={{ padding: '10px 16px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <button style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}>
-                      <IconEdit size={14} />
-                    </button>
-                    <button style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}>
-                      <IconTrash size={14} />
-                    </button>
+                    <button onClick={() => openEdit(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>
+                    <button onClick={() => setDeleting(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconTrash size={14} /></button>
                   </div>
                 </td>
               </tr>
             ))}
-            {!filtered.length && (
-              <tr><td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No vehicles found</td></tr>
-            )}
+            {!filtered.length && <tr><td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No vehicles found</td></tr>}
           </tbody>
         </table>
       )}
+
+      <Modal open={modal} title={editing ? 'Edit Vehicle' : 'Add Vehicle'} onClose={closeModal}>
+        <form onSubmit={handleSubmit}>
+          <FormField label="License Plate">
+            <input value={form.licensePlate} onChange={e => set('licensePlate', e.target.value)} placeholder="LEA-1234" style={inputStyle}
+              onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
+          </FormField>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <FormField label="Make">
+              <input value={form.make} onChange={e => set('make', e.target.value)} placeholder="Toyota" style={inputStyle}
+                onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
+            </FormField>
+            <FormField label="Model">
+              <input value={form.model} onChange={e => set('model', e.target.value)} placeholder="Corolla" style={inputStyle}
+                onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
+            </FormField>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <FormField label="Year">
+              <input type="number" value={form.year} onChange={e => set('year', e.target.value)} placeholder="2022" min="1990" max="2030" style={inputStyle}
+                onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
+            </FormField>
+            <FormField label="Status">
+              <select value={String(form.isActive)} onChange={e => set('isActive', e.target.value === 'true')} style={selectStyle}>
+                <option value="true">Active</option><option value="false">Inactive</option>
+              </select>
+            </FormField>
+          </div>
+          <FormField label="Organization">
+            <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
+              <option value="">None</option>
+              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </FormField>
+          <FormActions onClose={closeModal} loading={saving} submitLabel={editing ? 'Update' : 'Create'} />
+        </form>
+      </Modal>
+
+      <ConfirmDialog open={!!deleting} title="Delete Vehicle"
+        message={`Delete vehicle "${deleting?.licensePlate ?? deleting?.id}"? This cannot be undone.`}
+        onConfirm={handleDelete} onClose={() => setDeleting(null)} loading={deletingId} />
     </div>
   );
 }
