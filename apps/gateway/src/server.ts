@@ -74,6 +74,7 @@ export function createTcpServer(port: number, host: string): void {
     const imeiRef: { value: string | null } = { value: null };
 
     socket.on('data', (chunk: Buffer) => {
+      logger.info(`Raw data from ${remote}: hex=${chunk.toString('hex')} len=${chunk.length}`);
       buffer = Buffer.concat([buffer, chunk]);
       buffer = handleBuffer(socket, remote, Buffer.from(buffer), imeiRef);
     });
