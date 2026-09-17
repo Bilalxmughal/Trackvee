@@ -9,16 +9,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /home/ubuntu/yotrack
-            git pull origin main
-            pnpm install --frozen-lockfile
-            pnpm --filter @yotrack/api build
-            pm2 restart yotrack-api
-            pm2 restart yotrack-gateway
-            echo "Deploy complete"
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@"$SSH_HOST" "
+            cd /home/ubuntu/yotrack &&
+            git pull origin main &&
+            pnpm install --frozen-lockfile &&
+            pnpm --filter @yotrack/api build &&
+            pm2 restart yotrack-api &&
+            pm2 restart yotrack-gateway &&
+            echo Deploy complete
+          "
