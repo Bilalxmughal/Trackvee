@@ -85,11 +85,9 @@ async function reverseGeocode(lat: number, lon: number) {
 
 // ── Car Icon + Popup HTML ────────────────────────────────────────────────────
 
-function makeCarIcon(heading: number, offline: boolean, plate: string, speed: number): L.DivIcon {
-  const color = offline ? '#dc2626' : '#16a34a';
-  const glow = offline
-    ? 'drop-shadow(0 0 5px #dc2626) drop-shadow(0 0 3px #dc2626bb)'
-    : 'drop-shadow(0 0 5px #16a34a) drop-shadow(0 0 3px #16a34abb)';
+function makeCarIcon(heading: number, status: 'moving' | 'idle' | 'parked' | 'offline', plate: string, speed: number): L.DivIcon {
+  const color = STATUS_COLOR[status];
+  const glow = `drop-shadow(0 0 5px ${color}) drop-shadow(0 0 3px ${color}bb)`;
   const label = `${plate} (${Math.round(speed)} kph)`;
   const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-family:system-ui,sans-serif">
     <img src="/car-icon.png" style="display:block;width:34px;height:34px;transform:rotate(${heading}deg);transform-origin:center center;filter:${glow}"/>
@@ -205,8 +203,7 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
       const dv = deviceMap.get(pt.imei);
       const vc = dv?.vehicleId ? vehicleDetails.get(dv.vehicleId) : undefined;
       const plate = dv?.plate || pt.imei;
-      const offline = isOffline(pt);
-      const marker = L.marker([pt.latitude, pt.longitude], { icon: makeCarIcon(pt.heading, offline, plate, pt.speedKmh) });
+      const marker = L.marker([pt.latitude, pt.longitude], { icon: makeCarIcon(pt.heading, vehicleStatus(pt), plate, pt.speedKmh) });
       const popup = L.popup({ minWidth: 280, maxWidth: 340 }).setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching…'));
       marker.bindPopup(popup);
       let wasOpen = false;
@@ -280,7 +277,7 @@ function ThreeDots({ dark }: { dark: boolean }) {
 // ── Vehicle Row ───────────────────────────────────────────────────────────────
 
 function VehicleRow({ pt, plate, onSelect, dark }: { pt: LivePoint; plate: string; onSelect: () => void; dark: boolean; }) {
-  const offline = isOffline(pt);
+  const status = vehicleStatus(pt);
   const [hov, setHov] = useState(false);
   return (
     <div
@@ -290,7 +287,7 @@ function VehicleRow({ pt, plate, onSelect, dark }: { pt: LivePoint; plate: strin
       style={{
         display: 'flex', alignItems: 'center', gap: 5,
         padding: '7px 8px 7px 11px',
-        borderLeft: `3px solid ${offline ? '#dc2626' : '#16a34a'}`,
+        borderLeft: `3px solid ${STATUS_COLOR[status]}`,
         borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`,
         cursor: 'pointer',
         background: hov ? (dark ? '#1e1e1e' : '#f9fafb') : 'transparent',
