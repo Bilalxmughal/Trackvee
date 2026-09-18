@@ -54,7 +54,6 @@ function VehicleSearch({ vehicles, value, onChange }: { vehicles: Vehicle[]; val
       <input
         value={open ? q : displayText}
         onChange={e => { setQ(e.target.value); setOpen(true); }}
-        onFocus={() => { setQ(''); setOpen(true); }}
         placeholder="Search vehicle by plate or make…"
         style={inputStyle}
         onFocus={e => { setQ(''); setOpen(true); e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
