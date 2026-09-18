@@ -58,6 +58,28 @@ function formatAge(ts: string): string {
   return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m ago`;
 }
 
+interface VehicleStats {
+  stopDuration: number | null;
+  odometer: number;
+  engineHours: number;
+}
+
+const statsCache = new Map<string, VehicleStats>();
+async function fetchStats(imei: string): Promise<VehicleStats> {
+  if (statsCache.has(imei)) return statsCache.get(imei)!;
+  const { data } = await api.get<VehicleStats>(`/telemetry/${imei}/stats`);
+  statsCache.set(imei, data);
+  return data;
+}
+
+function formatDuration(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 const geocodeCache = new Map<string, string>();
 async function reverseGeocode(lat: number, lon: number): Promise<string> {
   const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
@@ -99,6 +121,7 @@ function buildPopupHtml(
   vc: VehicleDetail | undefined,
   plate: string,
   address: string,
+  stats?: VehicleStats | null,
 ): string {
   const status = vehicleStatus(pt);
   const statusColor = STATUS_COLOR[status];
@@ -106,6 +129,9 @@ function buildPopupHtml(
   const onVal = (v: boolean | null | undefined) => v == null ? '—' : v ? 'On' : 'Off';
   const voltLabel = pt.voltageLevel != null ? (VOLT_LABELS[pt.voltageLevel] ?? String(pt.voltageLevel)) : '—';
   const gsmLabel = pt.gsmSignal != null ? `${pt.gsmSignal}/4` : '—';
+  const stopDurLabel = stats?.stopDuration != null ? formatDuration(stats.stopDuration) : '—';
+  const odomLabel = stats != null ? `${stats.odometer.toFixed(1)} km` : '—';
+  const engHrLabel = stats != null ? formatDuration(Math.round(stats.engineHours * 3600)) : '—';
   const vehicleDesc = vc ? [vc.make, vc.model, vc.year ? String(vc.year) : null].filter(Boolean).join(' ') || '—' : '';
 
   return `<div style="font-family:system-ui,sans-serif;padding:2px 0;min-width:260px">
@@ -127,15 +153,14 @@ function buildPopupHtml(
       ${row('Last Seen', formatAge(pt.timestamp))}
       ${row('Speed', `${Math.round(pt.speedKmh)} km/h`)}
       ${row('Angle', `${pt.heading}°`)}
-      ${row('Stop Duration', '—')}
+      ${row('Stop Duration', stopDurLabel)}
       ${sectionHead('Device', 'padding-top:8px')}
       ${row('Ignition', onVal(pt.ignition), pt.ignition === true ? 'color:#16a34a' : pt.ignition === false ? 'color:#dc2626' : '')}
       ${row('Immobilizer', onVal(pt.immobilizer), pt.immobilizer === true ? 'color:#dc2626' : '')}
       ${row('Ext. Power', onVal(pt.externalPower), pt.externalPower === true ? 'color:#16a34a' : '')}
-      ${row('Ext. Volts', '—')}
       ${row('Int. Battery', voltLabel)}
-      ${row('Engine Hours', '—')}
-      ${row('Odometer', '—')}
+      ${row('Engine Hours', engHrLabel)}
+      ${row('Odometer', odomLabel)}
       ${sectionHead('Signal', 'padding-top:8px')}
       ${row('GPS', `${gpsPercent}%`)}
       ${row('Satellites', String(pt.satellites))}
@@ -209,13 +234,17 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: {
       });
 
       const popup = L.popup({ minWidth: 280, maxWidth: 340 })
-        .setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching address…'));
+        .setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching…'));
 
       marker.bindPopup(popup);
       marker.on('popupopen', () => {
-        reverseGeocode(pt.latitude, pt.longitude)
-          .then(addr => popup.setContent(buildPopupHtml(pt, dv, vc, plate, addr)))
-          .catch(() => popup.setContent(buildPopupHtml(pt, dv, vc, plate, `${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}`)));
+        Promise.all([
+          reverseGeocode(pt.latitude, pt.longitude)
+            .catch(() => `${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}`),
+          fetchStats(pt.imei).catch(() => null),
+        ]).then(([addr, stats]) => {
+          popup.setContent(buildPopupHtml(pt, dv, vc, plate, addr, stats));
+        });
       });
 
       group.addLayer(marker);

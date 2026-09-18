@@ -78,6 +78,13 @@ export class TelemetryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get(':imei/stats')
+  getStats(@Param('imei') imei: string) {
+    return this.telemetryService.getVehicleStats(imei);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get(':imei/latest')
   getLatest(@Param('imei') imei: string) {
     return this.telemetryService.getLatest(imei);
