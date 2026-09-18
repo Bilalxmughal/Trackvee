@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { useCityFilter } from '../contexts/CityFilterContext';
+
+interface RawItem { id: string; cityId?: string | null; }
 
 interface Stats {
   users: number;
@@ -34,30 +37,34 @@ const card = (label: string, value: number | undefined) => (
   </div>
 );
 
-const len = (x: unknown): number => Array.isArray(x) ? x.length : 0;
+const filterByCity = (arr: RawItem[], cityId: string) =>
+  cityId ? arr.filter(x => x.cityId === cityId) : arr;
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [raw, setRaw] = useState<{ users: RawItem[]; orgs: RawItem[]; vehicles: RawItem[]; devices: RawItem[] } | null>(null);
   const { user } = useAuth();
+  const { selectedCityId } = useCityFilter();
   const { text, sub } = getGreeting();
 
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'there';
 
   useEffect(() => {
     Promise.all([
-      api.get('/users'),
-      api.get('/organizations'),
-      api.get('/vehicles'),
-      api.get('/devices'),
+      api.get<RawItem[]>('/users'),
+      api.get<RawItem[]>('/organizations'),
+      api.get<RawItem[]>('/vehicles'),
+      api.get<RawItem[]>('/devices'),
     ]).then(([u, o, v, d]) => {
-      setStats({
-        users: len(u.data),
-        organizations: len(o.data),
-        vehicles: len(v.data),
-        devices: len(d.data),
-      });
+      setRaw({ users: Array.isArray(u.data) ? u.data : [], orgs: Array.isArray(o.data) ? o.data : [], vehicles: Array.isArray(v.data) ? v.data : [], devices: Array.isArray(d.data) ? d.data : [] });
     }).catch(() => {});
   }, []);
+
+  const stats: Stats | null = raw ? {
+    users: filterByCity(raw.users, selectedCityId).length,
+    organizations: filterByCity(raw.orgs, selectedCityId).length,
+    vehicles: filterByCity(raw.vehicles, selectedCityId).length,
+    devices: filterByCity(raw.devices, selectedCityId).length,
+  } : null;
 
   return (
     <div>

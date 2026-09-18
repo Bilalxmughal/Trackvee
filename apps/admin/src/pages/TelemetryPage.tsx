@@ -6,6 +6,7 @@ import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
+import { useCityFilter } from '../contexts/CityFilterContext';
 
 interface Telemetry {
   id: string;
@@ -37,6 +38,8 @@ export default function TelemetryPage() {
   const [ignFilter, setIgnFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { selectedCityId } = useCityFilter();
+  const [deviceCityMap, setDeviceCityMap] = useState<Map<string, string>>(new Map());
 
   const load = () => {
     api.get<Telemetry[] | { data: Telemetry[] }>('/telemetry?limit=100')
@@ -48,12 +51,22 @@ export default function TelemetryPage() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
+    api.get<{ id: string; cityId: string | null }[]>('/devices')
+      .then(r => {
+        const m = new Map<string, string>();
+        r.data.forEach(d => { if (d.cityId) m.set(d.id, d.cityId); });
+        setDeviceCityMap(m);
+      }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (auto) { timerRef.current = setInterval(load, 5000); }
     else { if (timerRef.current) clearInterval(timerRef.current); }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [auto]);
 
   const filtered = rows.filter(t => {
+    if (selectedCityId && deviceCityMap.get(t.deviceId) !== selectedCityId) return false;
     if (q && !t.deviceId.toLowerCase().includes(q.toLowerCase())) return false;
     if (ignFilter === 'on' && !t.ignition) return false;
     if (ignFilter === 'off' && t.ignition) return false;

@@ -4,6 +4,7 @@ import L from 'leaflet';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import { useTheme } from '../contexts/ThemeContext';
+import { useCityFilter } from '../contexts/CityFilterContext';
 
 interface LivePoint {
   id: string;
@@ -57,11 +58,12 @@ function InvalidateSize() {
   return null;
 }
 
-function FitBounds({ points }: { points: LivePoint[] }) {
+function FitBounds({ points, resetKey }: { points: LivePoint[]; resetKey?: string }) {
   const map = useMap();
-  const fitted = useRef(false);
+  const fittedForKey = useRef<string>('');
   useEffect(() => {
-    if (fitted.current || points.length === 0) return;
+    const key = resetKey ?? '__all__';
+    if (fittedForKey.current === key || points.length === 0) return;
     const valid = points.filter(p => p.gpsValid);
     if (!valid.length) return;
     if (valid.length === 1) {
@@ -70,8 +72,8 @@ function FitBounds({ points }: { points: LivePoint[] }) {
       const bounds = L.latLngBounds(valid.map(p => [p.latitude, p.longitude]));
       map.fitBounds(bounds, { padding: [50, 50] });
     }
-    fitted.current = true;
-  }, [map, points]);
+    fittedForKey.current = key;
+  }, [map, points, resetKey]);
   return null;
 }
 
@@ -84,9 +86,11 @@ function formatAge(ts: string): string {
 
 export default function MapPage() {
   const { dark } = useTheme();
+  const { selectedCityId } = useCityFilter();
   const [points, setPoints] = useState<LivePoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [deviceImeiCityMap, setDeviceImeiCityMap] = useState<Map<string, string>>(new Map());
 
   const load = async () => {
     try {
@@ -103,8 +107,21 @@ export default function MapPage() {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    api.get<{ imei: string; cityId: string | null }[]>('/devices')
+      .then(r => {
+        const m = new Map<string, string>();
+        r.data.forEach(d => { if (d.cityId) m.set(d.imei, d.cityId); });
+        setDeviceImeiCityMap(m);
+      }).catch(() => {});
+  }, []);
+
+  const visiblePoints = selectedCityId
+    ? points.filter(p => deviceImeiCityMap.get(p.imei) === selectedCityId)
+    : points;
+
   const counts = { moving: 0, idle: 0, offline: 0 };
-  points.forEach(p => counts[vehicleStatus(p)]++);
+  visiblePoints.forEach(p => counts[vehicleStatus(p)]++);
 
   const tileUrl = dark
     ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
@@ -118,7 +135,7 @@ export default function MapPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <PageHeader
         title="Live Map"
-        count={points.length}
+        count={visiblePoints.length}
       />
 
       {/* Status chips */}
@@ -146,8 +163,8 @@ export default function MapPage() {
         >
           <TileLayer url={tileUrl} attribution={tileAttr} />
           <InvalidateSize />
-          <FitBounds points={points} />
-          {points.map(pt => {
+          <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'} />
+          {visiblePoints.map(pt => {
             const status = vehicleStatus(pt);
             return (
               <Marker
