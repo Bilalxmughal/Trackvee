@@ -287,7 +287,7 @@ function LayoutInner() {
       {/* Right panel */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         {/* Topbar */}
-        <header style={{ height: 50, display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 16, flexShrink: 0, background: dark ? '#111' : '#fff', gap: 10 }}>
+        <header style={{ height: 50, display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 16, paddingTop: 8, flexShrink: 0, background: dark ? '#111' : '#fff', gap: 10 }}>
           {/* Mobile hamburger */}
           <button
             className="yt-topbar-hamburger"
