@@ -20,6 +20,12 @@ export class Organization {
   @Column({ name: 'poc_name', type: 'varchar', nullable: true })
   pocName: string | null;
 
+  @Column({ name: 'contact_no', type: 'varchar', nullable: true })
+  contactNo: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  email: string | null;
+
   @Index({ unique: true })
   @Column()
   slug: string;

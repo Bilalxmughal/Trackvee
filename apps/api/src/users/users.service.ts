@@ -61,6 +61,10 @@ export class UsersService {
     await this.repo.remove(user);
   }
 
+  async findByOrgRole(organizationId: string, role: UserRole): Promise<User | null> {
+    return this.repo.findOne({ where: { organizationId, role } });
+  }
+
   async updateRole(id: string, role: UserRole): Promise<User> {
     const user = await this.repo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
