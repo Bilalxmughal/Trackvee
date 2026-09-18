@@ -11,7 +11,7 @@ export class City {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   province: string | null;
 
   @Column({ name: 'is_active', default: true })

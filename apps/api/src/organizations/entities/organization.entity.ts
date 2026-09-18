@@ -14,10 +14,10 @@ export class Organization {
   @Column()
   name: string;
 
-  @Column({ name: 'company_name', nullable: true })
+  @Column({ name: 'company_name', type: 'varchar', nullable: true })
   companyName: string | null;
 
-  @Column({ name: 'poc_name', nullable: true })
+  @Column({ name: 'poc_name', type: 'varchar', nullable: true })
   pocName: string | null;
 
   @Index({ unique: true })
