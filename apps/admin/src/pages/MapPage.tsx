@@ -275,9 +275,9 @@ function ThreeDots({ dark }: { dark: boolean }) {
   );
 }
 
-// ── Vehicle Card (3-col grid) ─────────────────────────────────────────────────
+// ── Vehicle Row ───────────────────────────────────────────────────────────────
 
-function VehicleCard({ pt, plate, onSelect, dark }: { pt: LivePoint; plate: string; onSelect: () => void; dark: boolean; }) {
+function VehicleRow({ pt, plate, onSelect, dark }: { pt: LivePoint; plate: string; onSelect: () => void; dark: boolean; }) {
   const offline = isOffline(pt);
   const [hov, setHov] = useState(false);
   return (
@@ -286,37 +286,22 @@ function VehicleCard({ pt, plate, onSelect, dark }: { pt: LivePoint; plate: stri
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display: 'flex', flexDirection: 'column', gap: 3,
-        padding: '7px 7px 6px 9px',
-        border: `1px solid ${dark ? '#242424' : '#efefef'}`,
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '7px 8px 7px 11px',
         borderLeft: `3px solid ${offline ? '#dc2626' : '#16a34a'}`,
-        borderRadius: 6,
+        borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`,
         cursor: 'pointer',
-        background: hov ? (dark ? '#222' : '#f9fafb') : (dark ? '#1a1a1a' : '#fff'),
-        transition: 'background 0.1s',
-        minWidth: 0,
+        background: hov ? (dark ? '#1e1e1e' : '#f9fafb') : 'transparent',
       }}
     >
-      <div style={{ fontSize: 11, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</div>
-      <div style={{ fontSize: 10, color: dark ? '#555' : '#9ca3af', lineHeight: 1 }}>{Math.round(pt.speedKmh)} km/h</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 1 }}>
-        <IconPower on={pt.ignition}/>
-        <IconBattery level={pt.voltageLevel}/>
-        <IconSignal level={pt.gsmSignal}/>
-        <div style={{ flex: 1 }}/>
-        <ThreeDots dark={dark}/>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</div>
       </div>
-    </div>
-  );
-}
-
-function VehicleGrid({ pts, deviceMap, onSelect, dark }: { pts: LivePoint[]; deviceMap: DMap; onSelect: (imei: string) => void; dark: boolean; }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5, padding: '6px 8px' }}>
-      {pts.map(pt => {
-        const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
-        return <VehicleCard key={pt.imei} pt={pt} plate={plate} onSelect={() => onSelect(pt.imei)} dark={dark}/>;
-      })}
+      <span style={{ fontSize: 10, color: dark ? '#666' : '#9ca3af', flexShrink: 0, minWidth: 38, textAlign: 'right' }}>{Math.round(pt.speedKmh)} km/h</span>
+      <IconPower on={pt.ignition}/>
+      <IconBattery level={pt.voltageLevel}/>
+      <IconSignal level={pt.gsmSignal}/>
+      <ThreeDots dark={dark}/>
     </div>
   );
 }
@@ -348,7 +333,10 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
           </svg>
         </button>
       </div>
-      {!collapsed && <VehicleGrid pts={gpPts} deviceMap={deviceMap} onSelect={onSelect} dark={dark}/>}
+      {!collapsed && gpPts.map(pt => {
+        const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
+        return <VehicleRow key={pt.imei} pt={pt} plate={plate} onSelect={() => onSelect(pt.imei)} dark={dark}/>;
+      })}
     </div>
   );
 }
@@ -527,7 +515,10 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
         {ungrouped.length > 0 && (
           <>
             {groups.length > 0 && <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 700, color: dark ? '#444' : '#ccc', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>Ungrouped</div>}
-            <VehicleGrid pts={ungrouped} deviceMap={deviceMap} onSelect={onSelectVehicle} dark={dark}/>
+            {ungrouped.map(pt => {
+              const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
+              return <VehicleRow key={pt.imei} pt={pt} plate={plate} onSelect={() => onSelectVehicle(pt.imei)} dark={dark}/>;
+            })}
           </>
         )}
 
