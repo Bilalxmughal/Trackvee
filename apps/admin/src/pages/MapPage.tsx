@@ -227,9 +227,9 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
 // ── Left Panel Icons ─────────────────────────────────────────────────────────
 
 function IconPower({ on }: { on?: boolean | null }) {
-  const c = on === true ? '#16a34a' : on === false ? '#ef4444' : '#9ca3af';
+  const c = on === true ? '#16a34a' : on === false ? '#dc2626' : '#9ca3af';
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
     </svg>
   );
@@ -239,7 +239,7 @@ function IconBattery({ level }: { level?: number | null }) {
   const pct = level != null ? level / 5 : 0;
   const fc = level == null ? '#9ca3af' : level <= 1 ? '#ef4444' : level <= 3 ? '#f59e0b' : '#16a34a';
   return (
-    <svg width="18" height="11" viewBox="0 0 18 11" style={{ flexShrink: 0 }}>
+    <svg width="17" height="10" viewBox="0 0 18 11" style={{ flexShrink: 0 }}>
       <rect x="0.5" y="0.5" width="15" height="10" rx="2" stroke="#9ca3af" strokeWidth="1" fill="none"/>
       <rect x="16" y="3.5" width="1.5" height="4" rx="0.75" fill="#9ca3af"/>
       {pct > 0 && <rect x="1.5" y="1.5" width={Math.max(1, 12 * pct)} height="8" rx="1.5" fill={fc}/>}
@@ -249,18 +249,25 @@ function IconBattery({ level }: { level?: number | null }) {
 
 function IconSignal({ level }: { level?: number | null }) {
   const bars = level != null ? Math.min(4, Math.max(0, level)) : 0;
+  const fc = bars === 0 ? '#9ca3af' : bars <= 1 ? '#ef4444' : bars === 2 ? '#f59e0b' : '#16a34a';
   return (
-    <svg width="16" height="13" viewBox="0 0 16 13" style={{ flexShrink: 0 }}>
+    <svg width="15" height="12" viewBox="0 0 16 13" style={{ flexShrink: 0 }}>
       {[0,1,2,3].map(i => (
-        <rect key={i} x={i*4} y={12-(i+1)*3} width="3" height={(i+1)*3} rx="0.5" fill={i < bars ? '#16a34a' : '#d1d5db'}/>
+        <rect key={i} x={i*4} y={12-(i+1)*3} width="3" height={(i+1)*3} rx="0.5" fill={i < bars ? fc : '#d1d5db'}/>
       ))}
     </svg>
   );
 }
 
 function ThreeDots({ dark }: { dark: boolean }) {
+  const [hov, setHov] = useState(false);
   return (
-    <button onClick={(e) => e.stopPropagation()} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 3px', borderRadius: 4, color: dark ? '#555' : '#9ca3af', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+    <button
+      onClick={(e) => e.stopPropagation()}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 3px', borderRadius: 4, color: hov ? '#dc2626' : (dark ? '#555' : '#9ca3af'), display: 'flex', alignItems: 'center', flexShrink: 0, transition: 'color 0.12s' }}
+    >
       <svg width="3" height="13" viewBox="0 0 3 13" fill="currentColor">
         <circle cx="1.5" cy="1.5" r="1.5"/><circle cx="1.5" cy="6.5" r="1.5"/><circle cx="1.5" cy="11.5" r="1.5"/>
       </svg>
@@ -268,9 +275,9 @@ function ThreeDots({ dark }: { dark: boolean }) {
   );
 }
 
-// ── Vehicle Row ──────────────────────────────────────────────────────────────
+// ── Vehicle Card (3-col grid) ─────────────────────────────────────────────────
 
-function VehicleRow({ pt, plate, onSelect, dark }: { pt: LivePoint; plate: string; onSelect: () => void; dark: boolean; }) {
+function VehicleCard({ pt, plate, onSelect, dark }: { pt: LivePoint; plate: string; onSelect: () => void; dark: boolean; }) {
   const offline = isOffline(pt);
   const [hov, setHov] = useState(false);
   return (
@@ -279,32 +286,47 @@ function VehicleRow({ pt, plate, onSelect, dark }: { pt: LivePoint; plate: strin
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display: 'flex', alignItems: 'center', gap: 5,
-        padding: '7px 8px 7px 11px',
-        borderLeft: `3px solid ${offline ? '#fca5a5' : '#16a34a'}`,
-        borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`,
+        display: 'flex', flexDirection: 'column', gap: 3,
+        padding: '7px 7px 6px 9px',
+        border: `1px solid ${dark ? '#242424' : '#efefef'}`,
+        borderLeft: `3px solid ${offline ? '#dc2626' : '#16a34a'}`,
+        borderRadius: 6,
         cursor: 'pointer',
-        background: hov ? (dark ? '#1e1e1e' : '#f9fafb') : 'transparent',
+        background: hov ? (dark ? '#222' : '#f9fafb') : (dark ? '#1a1a1a' : '#fff'),
+        transition: 'background 0.1s',
+        minWidth: 0,
       }}
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</div>
+      <div style={{ fontSize: 10, color: dark ? '#555' : '#9ca3af', lineHeight: 1 }}>{Math.round(pt.speedKmh)} km/h</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 1 }}>
+        <IconPower on={pt.ignition}/>
+        <IconBattery level={pt.voltageLevel}/>
+        <IconSignal level={pt.gsmSignal}/>
+        <div style={{ flex: 1 }}/>
+        <ThreeDots dark={dark}/>
       </div>
-      <span style={{ fontSize: 10, color: dark ? '#666' : '#9ca3af', flexShrink: 0, minWidth: 38, textAlign: 'right' }}>{Math.round(pt.speedKmh)} km/h</span>
-      <IconPower on={pt.ignition}/>
-      <IconBattery level={pt.voltageLevel}/>
-      <IconSignal level={pt.gsmSignal}/>
-      <ThreeDots dark={dark}/>
+    </div>
+  );
+}
+
+function VehicleGrid({ pts, deviceMap, onSelect, dark }: { pts: LivePoint[]; deviceMap: DMap; onSelect: (imei: string) => void; dark: boolean; }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5, padding: '6px 8px' }}>
+      {pts.map(pt => {
+        const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
+        return <VehicleCard key={pt.imei} pt={pt} plate={plate} onSelect={() => onSelect(pt.imei)} dark={dark}/>;
+      })}
     </div>
   );
 }
 
 // ── Group Section ────────────────────────────────────────────────────────────
 
-function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, onDelete, dark }: {
+function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark }: {
   group: VehicleGroup; pts: LivePoint[]; deviceMap: DMap;
   onSelect: (imei: string) => void; collapsed: boolean;
-  onToggle: () => void; onEdit: () => void; onDelete: () => void; dark: boolean;
+  onToggle: () => void; onEdit: () => void; dark: boolean;
 }) {
   const gpPts = pts.filter(p => group.imeis.includes(p.imei));
   const [hov, setHov] = useState(false);
@@ -325,15 +347,34 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/>
           </svg>
         </button>
-        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 3px', borderRadius: 3, color: dark ? '#555' : '#aaa', display: 'flex', flexShrink: 0 }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6M14,11v6"/><path d="M9,6V4h6v2"/>
-          </svg>
-        </button>
       </div>
-      {!collapsed && gpPts.map(pt => {
-        const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
-        return <VehicleRow key={pt.imei} pt={pt} plate={plate} onSelect={() => onSelect(pt.imei)} dark={dark}/>;
+      {!collapsed && <VehicleGrid pts={gpPts} deviceMap={deviceMap} onSelect={onSelect} dark={dark}/>}
+    </div>
+  );
+}
+
+// ── Shared modal vehicle list ────────────────────────────────────────────────
+
+function ModalVehicleList({ allImeis, points, deviceMap, sel, toggle, dark }: {
+  allImeis: string[]; points: LivePoint[]; deviceMap: DMap;
+  sel: Set<string>; toggle: (imei: string) => void; dark: boolean;
+}) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
+      {allImeis.map(imei => {
+        const plate = deviceMap.get(imei)?.plate || imei.slice(-8);
+        const pt = points.find(p => p.imei === imei);
+        const chk = sel.has(imei);
+        const offline = pt ? isOffline(pt) : true;
+        return (
+          <label key={imei} onClick={() => toggle(imei)} style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '7px 8px', borderRadius: 7, border: `2px solid ${chk ? '#dc2626' : (dark ? '#2a2a2a' : '#e5e7eb')}`, cursor: 'pointer', background: chk ? (dark ? '#2a1010' : '#fff5f5') : (dark ? '#161616' : '#fafafa'), transition: 'border-color 0.12s, background 0.12s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <input type="checkbox" checked={chk} onChange={() => toggle(imei)} onClick={e => e.stopPropagation()} style={{ flexShrink: 0, accentColor: '#dc2626' }}/>
+              <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</span>
+            </div>
+            <span style={{ fontSize: 10, color: offline ? '#dc2626' : '#16a34a', fontWeight: 500 }}>{offline ? 'Offline' : `${Math.round(pt!.speedKmh)} km/h`}</span>
+          </label>
+        );
       })}
     </div>
   );
@@ -348,30 +389,27 @@ function CreateGroupModal({ points, deviceMap, onClose, onCreate, dark }: {
   const [name, setName] = useState('');
   const [sel, setSel] = useState<Set<string>>(new Set());
   const toggle = (imei: string) => setSel(p => { const n = new Set(p); n.has(imei) ? n.delete(imei) : n.add(imei); return n; });
-  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 20, width: 340, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
-  const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, marginBottom: 12, boxSizing: 'border-box', outline: 'none' };
+  const allImeis = points.map(p => p.imei);
+  const allSelected = allImeis.length > 0 && allImeis.every(i => sel.has(i));
+  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 14, padding: 24, width: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
+  const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' };
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={card} onClick={e => e.stopPropagation()}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', marginBottom: 14 }}>Create Group</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', marginBottom: 16 }}>Create Group</div>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Group name" style={inp} autoFocus/>
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 12, border: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}`, borderRadius: 6 }}>
-          {points.length === 0 && <div style={{ padding: '20px', textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>No vehicles online</div>}
-          {points.map(pt => {
-            const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
-            const chk = sel.has(pt.imei);
-            return (
-              <label key={pt.imei} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderBottom: `1px solid ${dark ? '#1f1f1f' : '#f5f5f5'}`, cursor: 'pointer', background: chk ? (dark ? '#162116' : '#f0faf0') : 'transparent' }}>
-                <input type="checkbox" checked={chk} onChange={() => toggle(pt.imei)} style={{ flexShrink: 0 }}/>
-                <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: dark ? '#e5e5e5' : '#111' }}>{plate}</span>
-                <span style={{ fontSize: 10, color: dark ? '#555' : '#aaa' }}>{Math.round(pt.speedKmh)} km/h</span>
-              </label>
-            );
-          })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 12, color: dark ? '#666' : '#aaa', flex: 1 }}>{sel.size} of {allImeis.length} selected</span>
+          <button onClick={() => setSel(new Set(allImeis))} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Select All</button>
+          <button onClick={() => setSel(new Set())} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Deselect All</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
+          {points.length === 0 ? <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>No vehicles online</div>
+          : <ModalVehicleList allImeis={allImeis} points={points} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark}/>}
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={() => { if (name.trim() && sel.size > 0) { onCreate(name.trim(), [...sel]); onClose(); } }} disabled={!name.trim() || sel.size === 0} style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: !name.trim() || sel.size === 0 ? '#9ca3af' : '#dc2626', color: '#fff', fontSize: 12, fontWeight: 600, cursor: !name.trim() || sel.size === 0 ? 'not-allowed' : 'pointer' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => { if (name.trim() && sel.size > 0) { onCreate(name.trim(), [...sel]); onClose(); } }} disabled={!name.trim() || sel.size === 0} style={{ padding: '8px 16px', borderRadius: 7, border: 'none', background: !name.trim() || sel.size === 0 ? '#9ca3af' : '#dc2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: !name.trim() || sel.size === 0 ? 'not-allowed' : 'pointer' }}>
             Create {sel.size > 0 ? `(${sel.size})` : ''}
           </button>
         </div>
@@ -391,33 +429,26 @@ function EditGroupModal({ group, points, deviceMap, onClose, onSave, onDelete, d
   const [sel, setSel] = useState<Set<string>>(new Set(group.imeis));
   const toggle = (imei: string) => setSel(p => { const n = new Set(p); n.has(imei) ? n.delete(imei) : n.add(imei); return n; });
   const allImeis = [...new Set([...group.imeis, ...points.map(p => p.imei)])];
-  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 20, width: 340, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' };
-  const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, marginBottom: 12, boxSizing: 'border-box', outline: 'none' };
+  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 14, padding: 24, width: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
+  const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' };
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={card} onClick={e => e.stopPropagation()}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', marginBottom: 14 }}>Edit Group</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', marginBottom: 16 }}>Edit Group</div>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Group name" style={inp}/>
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 12, border: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}`, borderRadius: 6 }}>
-          {allImeis.map(imei => {
-            const plate = deviceMap.get(imei)?.plate || imei.slice(-8);
-            const pt = points.find(p => p.imei === imei);
-            const chk = sel.has(imei);
-            const offline = pt ? isOffline(pt) : true;
-            return (
-              <label key={imei} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderBottom: `1px solid ${dark ? '#1f1f1f' : '#f5f5f5'}`, cursor: 'pointer', background: chk ? (dark ? '#162116' : '#f0faf0') : 'transparent' }}>
-                <input type="checkbox" checked={chk} onChange={() => toggle(imei)} style={{ flexShrink: 0 }}/>
-                <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: dark ? '#e5e5e5' : '#111' }}>{plate}</span>
-                <span style={{ fontSize: 10, color: offline ? '#fca5a5' : '#16a34a', flexShrink: 0 }}>{offline ? 'Offline' : `${Math.round(pt!.speedKmh)} km/h`}</span>
-              </label>
-            );
-          })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 12, color: dark ? '#666' : '#aaa', flex: 1 }}>{sel.size} of {allImeis.length} selected</span>
+          <button onClick={() => setSel(new Set(allImeis))} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Select All</button>
+          <button onClick={() => setSel(new Set())} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Deselect All</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
+          <ModalVehicleList allImeis={allImeis} points={points} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark}/>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-          <button onClick={() => { onDelete(group.id); onClose(); }} style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #fca5a5', background: 'transparent', color: '#ef4444', fontSize: 12, cursor: 'pointer' }}>Delete Group</button>
+          <button onClick={() => { onDelete(group.id); onClose(); }} style={{ padding: '8px 14px', borderRadius: 7, border: '1px solid #fca5a5', background: 'transparent', color: '#ef4444', fontSize: 13, cursor: 'pointer' }}>Delete Group</button>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onClose} style={{ padding: '7px 12px', borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
-            <button onClick={() => { if (name.trim()) { onSave(group.id, name.trim(), [...sel]); onClose(); } }} disabled={!name.trim()} style={{ padding: '7px 12px', borderRadius: 6, border: 'none', background: name.trim() ? '#dc2626' : '#9ca3af', color: '#fff', fontSize: 12, fontWeight: 600, cursor: name.trim() ? 'pointer' : 'not-allowed' }}>Save</button>
+            <button onClick={onClose} style={{ padding: '8px 14px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => { if (name.trim()) { onSave(group.id, name.trim(), [...sel]); onClose(); } }} disabled={!name.trim()} style={{ padding: '8px 14px', borderRadius: 7, border: 'none', background: name.trim() ? '#dc2626' : '#9ca3af', color: '#fff', fontSize: 13, fontWeight: 600, cursor: name.trim() ? 'pointer' : 'not-allowed' }}>Save</button>
           </div>
         </div>
       </div>
@@ -489,17 +520,14 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
           return (
             <GroupSection key={group.id} group={{ ...group, imeis: gImeis }} pts={points} deviceMap={deviceMap}
               onSelect={onSelectVehicle} collapsed={collapsed.has(group.id)} onToggle={() => toggleCollapse(group.id)}
-              onEdit={() => setEditingGroup(group)} onDelete={() => deleteGroup(group.id)} dark={dark}/>
+              onEdit={() => setEditingGroup(group)} dark={dark}/>
           );
         })}
 
         {ungrouped.length > 0 && (
           <>
             {groups.length > 0 && <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 700, color: dark ? '#444' : '#ccc', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>Ungrouped</div>}
-            {ungrouped.map(pt => {
-              const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
-              return <VehicleRow key={pt.imei} pt={pt} plate={plate} onSelect={() => onSelectVehicle(pt.imei)} dark={dark}/>;
-            })}
+            <VehicleGrid pts={ungrouped} deviceMap={deviceMap} onSelect={onSelectVehicle} dark={dark}/>
           </>
         )}
 
