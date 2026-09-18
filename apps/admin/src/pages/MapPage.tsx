@@ -74,8 +74,8 @@ function makeCarIcon(heading: number, offline: boolean, plate: string, speed: nu
   const label = `${plate} (${Math.round(speed)} kph)`;
 
   const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;font-family:system-ui,sans-serif">
-    <img src="/car-icon.png" width="24" height="24"
-      style="display:block;transform:rotate(${heading}deg);transform-origin:center center;filter:${glow}"/>
+    <img src="/car-icon.png"
+      style="display:block;width:28px;height:28px;transform:rotate(${heading}deg);transform-origin:center center;filter:${glow}"/>
     <div style="background:rgba(10,10,10,0.82);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;letter-spacing:0.3px;border-left:3px solid ${color}">${label}</div>
   </div>`;
 
