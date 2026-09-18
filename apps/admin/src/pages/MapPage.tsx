@@ -32,12 +32,14 @@ type DMap = Map<string, { plate: string | null; vehicleId: string | null; cityId
 // ── Utilities ────────────────────────────────────────────────────────────────
 
 function isOffline(pt: LivePoint) { return Date.now() - new Date(pt.timestamp).getTime() > 10 * 60 * 1000; }
-function vehicleStatus(pt: LivePoint): 'moving' | 'idle' | 'offline' {
+function vehicleStatus(pt: LivePoint): 'moving' | 'idle' | 'parked' | 'offline' {
   if (isOffline(pt)) return 'offline';
-  return pt.speedKmh > 0 ? 'moving' : 'idle';
+  if (pt.speedKmh > 0) return 'moving';
+  if (pt.ignition === false) return 'parked';
+  return 'idle';
 }
-const STATUS_COLOR = { moving: '#16a34a', idle: '#f59e0b', offline: '#9ca3af' } as const;
-const STATUS_LABEL = { moving: 'Moving', idle: 'Stopped', offline: 'Offline' } as const;
+const STATUS_COLOR = { moving: '#16a34a', idle: '#f59e0b', parked: '#6b7280', offline: '#9ca3af' } as const;
+const STATUS_LABEL = { moving: 'Moving', idle: 'Idle', parked: 'Parked', offline: 'Offline' } as const;
 const VOLT_LABELS = ['No Power', 'Critical', 'Low', 'Medium', 'High', 'Full'];
 
 function formatTs(ts: string) {
@@ -561,7 +563,7 @@ export default function MapPage() {
   }, []);
 
   const visiblePoints = selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points;
-  const counts = { moving: 0, idle: 0, offline: 0 };
+  const counts = { moving: 0, idle: 0, parked: 0, offline: 0 };
   visiblePoints.forEach(p => counts[vehicleStatus(p)]++);
 
   const handleSelect = (imei: string) => {
@@ -579,7 +581,7 @@ export default function MapPage() {
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Status chips */}
           <div style={{ display: 'flex', gap: 10, paddingBottom: 12, flexWrap: 'wrap' }}>
-            {(['moving', 'idle', 'offline'] as const).map(s => (
+            {(['moving', 'idle', 'parked', 'offline'] as const).map(s => (
               <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, background: `${STATUS_COLOR[s]}18`, fontSize: 12.5, fontWeight: 500, color: STATUS_COLOR[s] }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[s], display: 'inline-block' }}/>
                 {STATUS_LABEL[s]}: {counts[s]}
