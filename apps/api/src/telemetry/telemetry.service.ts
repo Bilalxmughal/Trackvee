@@ -49,7 +49,6 @@ export class TelemetryService {
   }
 
   async getLiveLocations(user: User): Promise<Telemetry[]> {
-    const ADMIN_ROLES = ['super_admin', 'admin'];
     let imeis: string[] | null = null;
 
     if (!ADMIN_ROLES.includes(user.role) && user.organizationId) {

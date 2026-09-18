@@ -108,7 +108,7 @@ export default function MapPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <PageHeader
         title="Live Map"
-        subtitle={`${points.length} device${points.length !== 1 ? 's' : ''} — updated ${lastRefresh.toLocaleTimeString()}`}
+        count={points.length}
       />
 
       {/* Status chips */}
