@@ -51,6 +51,36 @@ export class DevicesService {
     await this.repo.update({ imei }, { lastSeenAt: new Date(), status: 'active' });
   }
 
+  async saveHeartbeat(imei: string, data: {
+    ignition: boolean; externalPower: boolean; immobilizer: boolean;
+    voltageLevel: number; gsmSignal: number;
+  }): Promise<void> {
+    await this.repo.update({ imei }, {
+      lastIgnition: data.ignition,
+      lastExternalPower: data.externalPower,
+      lastImmobilizer: data.immobilizer,
+      lastVoltageLevel: data.voltageLevel,
+      lastGsmSignal: data.gsmSignal,
+      lastSeenAt: new Date(),
+      status: 'active',
+    });
+  }
+
+  async getLastHeartbeat(imei: string): Promise<{
+    ignition: boolean | null; externalPower: boolean | null;
+    immobilizer: boolean | null; voltageLevel: number | null; gsmSignal: number | null;
+  } | null> {
+    const d = await this.repo.findOne({ where: { imei }, select: { lastIgnition: true, lastExternalPower: true, lastImmobilizer: true, lastVoltageLevel: true, lastGsmSignal: true } });
+    if (!d || d.lastIgnition == null) return null;
+    return {
+      ignition: d.lastIgnition,
+      externalPower: d.lastExternalPower,
+      immobilizer: d.lastImmobilizer,
+      voltageLevel: d.lastVoltageLevel,
+      gsmSignal: d.lastGsmSignal,
+    };
+  }
+
   async remove(id: string): Promise<void> {
     const device = await this.findOne(id);
     await this.repo.remove(device);

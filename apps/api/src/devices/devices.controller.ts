@@ -10,15 +10,29 @@ import { User } from '../users/entities/user.entity.js';
 export class DevicesController {
   constructor(private devicesService: DevicesService) {}
 
-  // Called by gateway on LOGIN and HEARTBEAT — marks device active
+  // Called by gateway on LOGIN and HEARTBEAT — marks device active, persists heartbeat status
   @Post('checkin')
   async checkin(
     @Headers('x-internal-key') key: string,
-    @Body() body: { imei: string },
+    @Body() body: {
+      imei: string;
+      ignition?: boolean; externalPower?: boolean; immobilizer?: boolean;
+      voltageLevel?: number; gsmSignal?: number;
+    },
   ) {
     const expected = process.env.INTERNAL_API_KEY;
     if (!expected || key !== expected) throw new UnauthorizedException('Invalid internal key');
-    await this.devicesService.updateLastSeen(body.imei).catch(() => {});
+    if (body.ignition !== undefined) {
+      await this.devicesService.saveHeartbeat(body.imei, {
+        ignition: body.ignition,
+        externalPower: body.externalPower ?? false,
+        immobilizer: body.immobilizer ?? false,
+        voltageLevel: body.voltageLevel ?? 0,
+        gsmSignal: body.gsmSignal ?? 0,
+      }).catch(() => {});
+    } else {
+      await this.devicesService.updateLastSeen(body.imei).catch(() => {});
+    }
     return { ok: true };
   }
 

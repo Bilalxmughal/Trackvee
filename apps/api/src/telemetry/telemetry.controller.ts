@@ -42,6 +42,24 @@ export class TelemetryController {
     const device = await this.devicesService.findByImei(body.imei);
     await this.devicesService.updateLastSeen(body.imei).catch(() => {});
 
+    // If gateway didn't send heartbeat fields, fall back to device's last known heartbeat
+    let ignition   = body.ignition   ?? null;
+    let extPower   = body.externalPower ?? null;
+    let immob      = body.immobilizer ?? null;
+    let voltLevel  = body.voltageLevel ?? null;
+    let gsmSig     = body.gsmSignal ?? null;
+
+    if (ignition == null && device) {
+      const hb = await this.devicesService.getLastHeartbeat(body.imei).catch(() => null);
+      if (hb) {
+        ignition  = hb.ignition;
+        extPower  = hb.externalPower;
+        immob     = hb.immobilizer;
+        voltLevel = hb.voltageLevel;
+        gsmSig    = hb.gsmSignal;
+      }
+    }
+
     return this.telemetryService.save({
       imei: body.imei,
       deviceId: device?.id ?? null,
@@ -53,11 +71,11 @@ export class TelemetryController {
       gpsValid: body.gpsValid,
       satellites: body.satellites ?? 0,
       altitude: body.altitude ?? null,
-      ignition: body.ignition ?? null,
-      externalPower: body.externalPower ?? null,
-      immobilizer: body.immobilizer ?? null,
-      voltageLevel: body.voltageLevel ?? null,
-      gsmSignal: body.gsmSignal ?? null,
+      ignition,
+      externalPower: extPower,
+      immobilizer: immob,
+      voltageLevel: voltLevel,
+      gsmSignal: gsmSig,
       raw: body.raw ?? null,
     });
   }

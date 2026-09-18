@@ -15,11 +15,11 @@ interface HeartbeatStatus {
 }
 const heartbeatCache = new Map<string, HeartbeatStatus>();
 
-async function checkin(imei: string): Promise<void> {
+async function checkin(imei: string, heartbeat?: HeartbeatStatus): Promise<void> {
   await fetch(`${API_URL}/devices/checkin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-internal-key': INTERNAL_KEY },
-    body: JSON.stringify({ imei }),
+    body: JSON.stringify(heartbeat ? { imei, ...heartbeat } : { imei }),
   }).catch(() => {});
 }
 
@@ -109,16 +109,19 @@ function handleBuffer(socket: Socket, remote: string, buf: Buffer, imeiRef: { va
       const imei = imeiRef.value ?? 'unknown';
       if (imeiRef.value) {
         connectionManager.heartbeat(imeiRef.value);
-        checkin(imeiRef.value);
         if (packet.terminalInfo !== undefined) {
           const ti = packet.terminalInfo;
-          heartbeatCache.set(imeiRef.value, {
+          const hb: HeartbeatStatus = {
             ignition:      !!(ti & 0x10), // bit 4 = ACC (ignition)
             externalPower: !!(ti & 0x08), // bit 3 = charging/external power
             immobilizer:   !!(ti & 0x01), // bit 0 = oil/electricity cut
             voltageLevel:  packet.voltageLevel ?? 0,
             gsmSignal:     packet.gsmSignal ?? 0,
-          });
+          };
+          heartbeatCache.set(imeiRef.value, hb);
+          checkin(imeiRef.value, hb); // persist to DB
+        } else {
+          checkin(imeiRef.value);
         }
       }
       const resp = buildGt06Response(PROTO_HEARTBEAT, packet.serial);

@@ -41,6 +41,21 @@ export class Device {
   @Column({ name: 'last_seen_at', type: 'timestamptz', nullable: true })
   lastSeenAt: Date | null;
 
+  @Column({ name: 'last_ignition', type: 'boolean', nullable: true })
+  lastIgnition: boolean | null;
+
+  @Column({ name: 'last_external_power', type: 'boolean', nullable: true })
+  lastExternalPower: boolean | null;
+
+  @Column({ name: 'last_immobilizer', type: 'boolean', nullable: true })
+  lastImmobilizer: boolean | null;
+
+  @Column({ name: 'last_voltage_level', type: 'int', nullable: true })
+  lastVoltageLevel: number | null;
+
+  @Column({ name: 'last_gsm_signal', type: 'int', nullable: true })
+  lastGsmSignal: number | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
