@@ -8,6 +8,7 @@ import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
+import { useAlert, AlertSettings } from '../contexts/AlertContext';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,6 @@ interface VehicleDetail {
 interface VehicleGroup { id: string; name: string; imeis: string[]; }
 interface VehicleStats { stopDuration: number | null; odometer: number; engineHours: number; }
 type DMap = Map<string, { plate: string | null; vehicleId: string | null; cityId: string | null }>;
-interface AlertSettings { speedLimit: number; idleMinutes: number; notifications: boolean; }
 interface TripPoint {
   id: string; imei: string; latitude: number; longitude: number;
   speedKmh: number; heading: number; timestamp: string; gpsValid: boolean;
@@ -93,16 +93,6 @@ function predictDR(lat: number, lng: number, speedKmh: number, headingDeg: numbe
 
 const EMA_ALPHA = 0.75;
 const POLL_MS = 5_000;
-
-// ── Alert Settings ─────────────────────────────────────────────────────────────
-
-const ALERT_KEY = 'yt_alert_v1';
-const DEFAULT_ALERT: AlertSettings = { speedLimit: 80, idleMinutes: 15, notifications: false };
-function loadAlertSettings(): AlertSettings {
-  try { return { ...DEFAULT_ALERT, ...JSON.parse(localStorage.getItem(ALERT_KEY) ?? '{}') }; }
-  catch { return { ...DEFAULT_ALERT }; }
-}
-function saveAlertSettings(s: AlertSettings) { try { localStorage.setItem(ALERT_KEY, JSON.stringify(s)); } catch {} }
 
 const notifCooldownMap = new Map<string, number>();
 function fireNotification(title: string, body: string) {
@@ -879,76 +869,6 @@ function EditGroupModal({ group, points, deviceMap, onClose, onSave, onDelete, d
   );
 }
 
-// ── Alert Settings Modal ──────────────────────────────────────────────────────
-
-function AlertSettingsModal({ settings, onSave, onClose, dark }: {
-  settings: AlertSettings; onSave: (s: AlertSettings) => void; onClose: () => void; dark: boolean;
-}) {
-  const [speedLimit, setSpeedLimit] = useState(settings.speedLimit);
-  const [idleMinutes, setIdleMinutes] = useState(settings.idleMinutes);
-  const [notifications, setNotifications] = useState(settings.notifications);
-  const inp: React.CSSProperties = { padding: '8px 12px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, width: '100%', boxSizing: 'border-box', outline: 'none' };
-  const notifStatus = typeof Notification !== 'undefined' ? Notification.permission : 'default';
-
-  const handleNotifToggle = async (checked: boolean) => {
-    if (checked && notifStatus !== 'granted') {
-      const perm = await Notification.requestPermission();
-      if (perm === 'granted') setNotifications(true);
-    } else {
-      setNotifications(checked);
-    }
-  };
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px' }}>
-      <div style={{ background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 14, padding: 24, width: 'min(420px, 95vw)', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' }}>
-        <ModalHeader title="Alert Settings" onClose={onClose} dark={dark}/>
-
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-            <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e5e5e5' : '#111' }}>Speed Alert</span>
-          </div>
-          <div style={{ fontSize: 11, color: dark ? '#666' : '#9ca3af', marginBottom: 6 }}>Speed limit in km/h — set 0 to disable</div>
-          <input type="number" min={0} max={300} value={speedLimit} onChange={e => setSpeedLimit(+e.target.value)} style={inp} placeholder="e.g. 80"/>
-          {speedLimit > 0 && <div style={{ marginTop: 5, fontSize: 11, color: '#dc2626' }}>Vehicles exceeding {speedLimit} km/h will glow red</div>}
-        </div>
-
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e5e5e5' : '#111' }}>Idle Alert</span>
-          </div>
-          <div style={{ fontSize: 11, color: dark ? '#666' : '#9ca3af', marginBottom: 6 }}>Minimum idle time in minutes — set 0 to disable</div>
-          <input type="number" min={0} max={300} value={idleMinutes} onChange={e => setIdleMinutes(+e.target.value)} style={inp} placeholder="e.g. 15"/>
-          {idleMinutes > 0 && <div style={{ marginTop: 5, fontSize: 11, color: '#f59e0b' }}>Idle vehicles will glow amber</div>}
-        </div>
-
-        <div style={{ marginBottom: 24, padding: '12px 14px', borderRadius: 9, background: dark ? '#111' : '#f9fafb', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', flex: 1 }}>Browser Notifications</span>
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <input type="checkbox" checked={notifications} onChange={e => handleNotifToggle(e.target.checked)} style={{ accentColor: '#dc2626', width: 14, height: 14, cursor: 'pointer' }}/>
-            </label>
-          </div>
-          <div style={{ fontSize: 11, color: dark ? '#666' : '#9ca3af', marginTop: 5 }}>
-            {notifStatus === 'denied' ? '🚫 Blocked in browser — reset in site settings' : 'Get notified when alerts trigger'}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={() => { const s = { speedLimit, idleMinutes, notifications }; onSave(s); saveAlertSettings(s); onClose(); }}
-            style={{ padding: '8px 16px', borderRadius: 7, border: 'none', background: '#dc2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Active Alerts Panel ───────────────────────────────────────────────────────
 
 interface VehicleAlert { imei: string; plate: string; type: 'speed' | 'idle'; value: number; }
@@ -1206,11 +1126,8 @@ export default function MapPage() {
   const [trails, setTrails] = useState<Map<string, [number,number][]>>(new Map());
   const [mapStyle, setMapStyle] = useState<MapStyle>('street');
 
-  // Alert state
-  const [alertSettings, setAlertSettings] = useState<AlertSettings>(loadAlertSettings);
-  const alertSettingsRef = useRef<AlertSettings>(alertSettings);
-  useEffect(() => { alertSettingsRef.current = alertSettings; }, [alertSettings]);
-  const [showAlertSettings, setShowAlertSettings] = useState(false);
+  // Alert state — from global context
+  const { alertSettings, alertSettingsRef, setActiveAlertCount } = useAlert();
   const [showAlerts, setShowAlerts] = useState(false);
 
   // Distance tool
@@ -1274,6 +1191,9 @@ export default function MapPage() {
     return alerts;
   }, [visiblePoints, alertSettings, deviceMap]);
 
+  // Sync active alert count to global context (topbar badge)
+  useEffect(() => { setActiveAlertCount(activeAlerts.length); }, [activeAlerts, setActiveAlertCount]);
+
   // Browser notifications
   useEffect(() => {
     if (!alertSettings.notifications) return;
@@ -1302,18 +1222,18 @@ export default function MapPage() {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader title="Live Map" count={visiblePoints.length} action={
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {/* Alert button */}
-          <button
-            onClick={() => activeAlerts.length > 0 ? setShowAlerts(true) : setShowAlertSettings(true)}
-            title="Alert Settings"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: `1px solid ${activeAlerts.length > 0 ? '#fca5a5' : (dark ? '#333' : '#e5e7eb')}`, background: activeAlerts.length > 0 ? (dark ? '#2a0a0a' : '#fff5f5') : (dark ? '#222' : '#f9fafb'), color: activeAlerts.length > 0 ? '#dc2626' : (dark ? '#aaa' : '#555'), cursor: 'pointer', fontSize: 12, fontWeight: 600, position: 'relative' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            {activeAlerts.length > 0 && (
+          {/* Alerts panel button (only when alerts exist) */}
+          {activeAlerts.length > 0 && (
+            <button
+              onClick={() => setShowAlerts(true)}
+              title="View active alerts"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: '1px solid #fca5a5', background: dark ? '#2a0a0a' : '#fff5f5', color: '#dc2626', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
               <span style={{ background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 9 }}>{activeAlerts.length}</span>
-            )}
-            {!isMobile && <span>Alerts</span>}
-          </button>
+              {!isMobile && <span>Alerts</span>}
+            </button>
+          )}
           {/* Panel toggle */}
           <button
             onClick={() => setPanelOpen(o => !o)}
@@ -1366,15 +1286,6 @@ export default function MapPage() {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
               {distanceMode ? 'Stop' : 'Distance'}
             </button>
-            {/* Alert settings shortcut */}
-            <button
-              onClick={() => setShowAlertSettings(true)}
-              title="Alert Settings"
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 11.5, fontWeight: 500, cursor: 'pointer' }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="6" y1="18" x2="18" y2="18"/></svg>
-              Alert Rules
-            </button>
           </div>
 
           {/* Distance mode hint */}
@@ -1412,9 +1323,6 @@ export default function MapPage() {
       </div>
 
       {/* Modals */}
-      {showAlertSettings && (
-        <AlertSettingsModal settings={alertSettings} onSave={setAlertSettings} onClose={() => setShowAlertSettings(false)} dark={dark}/>
-      )}
       {showAlerts && (
         <AlertsPanel alerts={activeAlerts} dark={dark} onClose={() => { setShowAlerts(false); }}/>
       )}

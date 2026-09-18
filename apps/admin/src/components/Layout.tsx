@@ -5,10 +5,12 @@ import {
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
   IconUserCheck, IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
+  IconBell, IconGauge, IconClock,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { CityFilterProvider, useCityFilter } from '../contexts/CityFilterContext';
+import { AlertProvider, useAlert, type AlertSettings } from '../contexts/AlertContext';
 import api from '../api/client';
 
 interface NavItemDef { to: string; icon: React.ElementType; label: string; }
@@ -103,13 +105,96 @@ function NavItem({ to, icon: Icon, label, collapsed }: NavItemDef & { collapsed:
   );
 }
 
+// ── Alert Settings Modal ──────────────────────────────────────────────────────
+
+function AlertSettingsModal({ settings, onSave, onClose, dark }: {
+  settings: AlertSettings; onSave: (s: AlertSettings) => void; onClose: () => void; dark: boolean;
+}) {
+  const [speedLimit, setSpeedLimit] = useState(settings.speedLimit);
+  const [idleMinutes, setIdleMinutes] = useState(settings.idleMinutes);
+  const [notifications, setNotifications] = useState(settings.notifications);
+  const inp: React.CSSProperties = { padding: '8px 12px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, width: '100%', boxSizing: 'border-box', outline: 'none' };
+  const notifStatus = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+
+  const handleNotifToggle = async (checked: boolean) => {
+    if (checked && notifStatus !== 'granted') {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') setNotifications(true);
+    } else {
+      setNotifications(checked);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px' }}>
+      <div style={{ background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 14, padding: 24, width: 'min(420px, 95vw)', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 14, marginBottom: 14, borderBottom: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}` }}>
+          <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>Alert Settings</span>
+          <button onClick={onClose} style={{ background: dark ? '#2a2a2a' : '#f5f5f5', border: 'none', cursor: 'pointer', color: dark ? '#888' : '#666', padding: '4px 5px', borderRadius: 5, display: 'flex' }}>
+            <IconX size={14} />
+          </button>
+        </div>
+
+        {/* Speed */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+            <IconGauge size={15} style={{ color: '#dc2626', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e5e5e5' : '#111' }}>Speed Alert</span>
+          </div>
+          <div style={{ fontSize: 11, color: dark ? '#666' : '#9ca3af', marginBottom: 6 }}>Speed limit in km/h — set 0 to disable</div>
+          <input type="number" min={0} max={300} value={speedLimit} onChange={e => setSpeedLimit(+e.target.value)} style={inp} placeholder="e.g. 80"/>
+          {speedLimit > 0 && <div style={{ marginTop: 5, fontSize: 11, color: '#dc2626' }}>Vehicles exceeding {speedLimit} km/h will glow red</div>}
+        </div>
+
+        {/* Idle */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+            <IconClock size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e5e5e5' : '#111' }}>Idle Alert</span>
+          </div>
+          <div style={{ fontSize: 11, color: dark ? '#666' : '#9ca3af', marginBottom: 6 }}>Minimum idle time in minutes — set 0 to disable</div>
+          <input type="number" min={0} max={300} value={idleMinutes} onChange={e => setIdleMinutes(+e.target.value)} style={inp} placeholder="e.g. 15"/>
+          {idleMinutes > 0 && <div style={{ marginTop: 5, fontSize: 11, color: '#f59e0b' }}>Idle vehicles will glow amber</div>}
+        </div>
+
+        {/* Notifications */}
+        <div style={{ marginBottom: 24, padding: '12px 14px', borderRadius: 9, background: dark ? '#111' : '#f9fafb', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconBell size={15} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', flex: 1 }}>Browser Notifications</span>
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <input type="checkbox" checked={notifications} onChange={e => handleNotifToggle(e.target.checked)} style={{ accentColor: '#dc2626', width: 14, height: 14, cursor: 'pointer' }}/>
+            </label>
+          </div>
+          <div style={{ fontSize: 11, color: dark ? '#666' : '#9ca3af', marginTop: 5 }}>
+            {notifStatus === 'denied' ? 'Blocked in browser — reset in site settings' : 'Get notified when alerts trigger'}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => { onSave({ speedLimit, idleMinutes, notifications }); onClose(); }}
+            style={{ padding: '8px 16px', borderRadius: 7, border: 'none', background: '#dc2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── LayoutInner ───────────────────────────────────────────────────────────────
+
 function LayoutInner() {
   const { user, logout } = useAuth();
   const { dark, toggle: toggleTheme } = useTheme();
   const { cities, selectedCityId, setSelectedCityId } = useCityFilter();
+  const { alertSettings, setAlertSettings, activeAlertCount } = useAlert();
   const navigate = useNavigate();
   const location = useLocation();
   const isMap = location.pathname === '/map';
+  const [showAlertSettings, setShowAlertSettings] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('yt_sidebar') === '1'; } catch { return false; }
   });
@@ -297,6 +382,22 @@ function LayoutInner() {
             <IconMenu2 size={20} />
           </button>
 
+          {/* Global alert bell */}
+          <button
+            onClick={() => setShowAlertSettings(true)}
+            title="Alert Settings"
+            style={{ position: 'relative', border: 'none', background: 'none', cursor: 'pointer', color: activeAlertCount > 0 ? '#dc2626' : (dark ? '#888' : '#aaa'), padding: 6, borderRadius: 8, display: 'flex', transition: 'color 0.15s, background 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.07)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = activeAlertCount > 0 ? '#dc2626' : (dark ? '#888' : '#aaa'); e.currentTarget.style.background = 'none'; }}
+          >
+            <IconBell size={16} />
+            {activeAlertCount > 0 && (
+              <span style={{ position: 'absolute', top: 2, right: 2, background: '#dc2626', color: '#fff', fontSize: 9, fontWeight: 700, minWidth: 14, height: 14, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1 }}>
+                {activeAlertCount}
+              </span>
+            )}
+          </button>
+
           <div style={{ flex: 1 }} />
 
           {/* City filter */}
@@ -418,6 +519,16 @@ function LayoutInner() {
           </div>
         </header>
 
+        {/* Alert Settings Modal */}
+        {showAlertSettings && (
+          <AlertSettingsModal
+            settings={alertSettings}
+            onSave={setAlertSettings}
+            onClose={() => setShowAlertSettings(false)}
+            dark={dark}
+          />
+        )}
+
         {/* Page content */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: dark ? '#111' : '#fff' }}>
           {isMap ? (
@@ -437,8 +548,10 @@ function LayoutInner() {
 
 export default function Layout() {
   return (
-    <CityFilterProvider>
-      <LayoutInner />
-    </CityFilterProvider>
+    <AlertProvider>
+      <CityFilterProvider>
+        <LayoutInner />
+      </CityFilterProvider>
+    </AlertProvider>
   );
 }
