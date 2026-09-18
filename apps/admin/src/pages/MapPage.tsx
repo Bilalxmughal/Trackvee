@@ -95,6 +95,18 @@ interface MarkerState {
   animStart: number; animDur: number;
 }
 
+// ── Responsive hook ─────────────────────────────────────────────────────────
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const fn = () => setMobile(window.innerWidth < 768);
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
+  }, []);
+  return mobile;
+}
+
 // ── Groups (localStorage) ────────────────────────────────────────────────────
 
 const GK = 'yotrack_map_groups_v1';
@@ -672,9 +684,9 @@ function EditGroupModal({ group, points, deviceMap, onClose, onSave, onDelete, d
 
 // ── Left Panel ───────────────────────────────────────────────────────────────
 
-function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark }: {
+function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
-  onSelectVehicle: (imei: string) => void; dark: boolean;
+  onSelectVehicle: (imei: string) => void; dark: boolean; onClose?: () => void;
 }) {
   const [groups, setGroups] = useState<VehicleGroup[]>(loadGroups);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -703,7 +715,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   const ungrouped = filtered.filter(p => !groupedImeis.has(p.imei));
 
   return (
-    <div style={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column', background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 12, overflow: 'hidden' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '12px 12px 10px', borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
         <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>
@@ -712,6 +724,11 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
         <button onClick={() => setShowCreate(true)} title="Create group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', cursor: 'pointer', color: dark ? '#888' : '#666' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
+        {onClose && (
+          <button onClick={onClose} title="Close" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, marginLeft: 4, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', cursor: 'pointer', color: dark ? '#888' : '#666' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        )}
       </div>
 
       {/* Search */}
@@ -762,6 +779,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
 export default function MapPage() {
   const { dark } = useTheme();
   const { selectedCityId } = useCityFilter();
+  const isMobile = useIsMobile();
+  const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 768);
   const [points, setPoints] = useState<LivePoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [deviceMap, setDeviceMap] = useState<DMap>(new Map());
@@ -814,19 +833,57 @@ export default function MapPage() {
     if (pt) setFlyTarget({ lat: pt.latitude, lng: pt.longitude, ts: Date.now() });
   };
 
+  // Toggle icon SVG (hamburger list)
+  const PanelToggleIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <PageHeader title="Live Map" count={visiblePoints.length}/>
+      <PageHeader title="Live Map" count={visiblePoints.length} action={
+        <button
+          onClick={() => setPanelOpen(o => !o)}
+          title={panelOpen ? 'Hide panel' : 'Show vehicles'}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: panelOpen ? (dark ? '#2a1010' : '#fff0f0') : (dark ? '#222' : '#f9fafb'), color: panelOpen ? '#dc2626' : (dark ? '#aaa' : '#555'), cursor: 'pointer', fontSize: 12, fontWeight: 500 }}
+        >
+          <PanelToggleIcon/>
+          {!isMobile && <span>{panelOpen ? 'Hide' : 'Vehicles'}</span>}
+        </button>
+      }/>
 
-      <div style={{ display: 'flex', flex: 1, gap: 12, overflow: 'hidden', minHeight: 0 }}>
-        <LeftPanel points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} onSelectVehicle={handleSelect} dark={dark}/>
+      <div style={{ display: 'flex', flex: 1, gap: isMobile ? 0 : 12, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
+
+        {/* Mobile backdrop */}
+        {isMobile && panelOpen && (
+          <div onClick={() => setPanelOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 8998, background: 'rgba(0,0,0,0.45)' }}/>
+        )}
+
+        {/* Panel — desktop: sliding width | mobile: fixed drawer */}
+        <div style={isMobile ? {
+          position: 'fixed', top: 0, left: panelOpen ? 0 : -300, bottom: 0,
+          zIndex: 8999, width: 290,
+          transition: 'left 0.25s cubic-bezier(0.4,0,0.2,1)',
+        } : {
+          width: panelOpen ? 290 : 0, flexShrink: 0,
+          overflow: 'hidden',
+          transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
+        }}>
+          <LeftPanel
+            points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails}
+            onSelectVehicle={(imei) => { handleSelect(imei); if (isMobile) setPanelOpen(false); }}
+            dark={dark}
+            onClose={isMobile ? () => setPanelOpen(false) : undefined}
+          />
+        </div>
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Status chips */}
-          <div style={{ display: 'flex', gap: 10, paddingBottom: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, paddingBottom: 12, flexWrap: 'wrap' }}>
             {(['moving', 'idle', 'parked', 'offline'] as const).map(s => (
-              <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, background: `${STATUS_COLOR[s]}18`, fontSize: 12.5, fontWeight: 500, color: STATUS_COLOR[s] }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[s], display: 'inline-block' }}/>
+              <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, background: `${STATUS_COLOR[s]}18`, fontSize: 11.5, fontWeight: 500, color: STATUS_COLOR[s] }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[s], display: 'inline-block' }}/>
                 {STATUS_LABEL[s]}: {counts[s]}
               </div>
             ))}
@@ -834,6 +891,15 @@ export default function MapPage() {
 
           {/* Map */}
           <div style={{ flex: 1, minHeight: 0, borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, position: 'relative' }}>
+            {/* Floating panel toggle on mobile (bottom-left of map) */}
+            {isMobile && !panelOpen && (
+              <button
+                onClick={() => setPanelOpen(true)}
+                style={{ position: 'absolute', bottom: 20, left: 12, zIndex: 1001, display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 24, background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#333' : '#ddd'}`, color: dark ? '#e5e5e5' : '#333', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}
+              >
+                <PanelToggleIcon/> Vehicles
+              </button>
+            )}
             {loading && <div style={{ position: 'absolute', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#555' : '#aaa', fontSize: 13, background: dark ? '#1a1a1a' : '#f8f9fa', borderRadius: 12 }}>Loading map…</div>}
             <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} dark={dark}/>
             <MapContainer center={[30.3753, 69.3451]} zoom={5} style={{ height: '100%', width: '100%' }} zoomControl>
