@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import MarkerClusterGroup from 'react-leaflet-cluster';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import { useTheme } from '../contexts/ThemeContext';
@@ -73,14 +75,74 @@ function makeCarIcon(heading: number, offline: boolean, plate: string, speed: nu
     ? 'drop-shadow(0 0 5px #dc2626) drop-shadow(0 0 3px #dc2626bb)'
     : 'drop-shadow(0 0 5px #16a34a) drop-shadow(0 0 3px #16a34abb)';
   const label = `${plate} (${Math.round(speed)} kph)`;
-
   const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;font-family:system-ui,sans-serif">
-    <img src="/car-icon.png"
-      style="display:block;width:32px;height:32px;transform:rotate(${heading}deg);transform-origin:center center;filter:${glow}"/>
+    <img src="/car-icon.png" style="display:block;width:32px;height:32px;transform:rotate(${heading}deg);transform-origin:center center;filter:${glow}"/>
     <div style="background:rgba(10,10,10,0.82);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;letter-spacing:0.3px;border-left:3px solid ${color}">${label}</div>
   </div>`;
-
   return L.divIcon({ html, className: '', iconSize: [130, 52], iconAnchor: [65, 38], popupAnchor: [0, -40] });
+}
+
+function row(label: string, value: string, extraStyle = '') {
+  return `<tr>
+    <td style="color:#888;padding-right:10px;padding-bottom:4px;white-space:nowrap;font-size:11px;vertical-align:top">${label}</td>
+    <td style="font-weight:500;padding-bottom:4px;font-size:12px;${extraStyle}">${value}</td>
+  </tr>`;
+}
+
+function sectionHead(title: string, extra = 'padding-top:2px') {
+  return `<tr><td colspan="2" style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;padding-bottom:4px;${extra}">${title}</td></tr>`;
+}
+
+function buildPopupHtml(
+  pt: LivePoint,
+  dv: { plate: string | null; vehicleId: string | null } | undefined,
+  vc: VehicleDetail | undefined,
+  plate: string,
+  address: string,
+): string {
+  const status = vehicleStatus(pt);
+  const statusColor = STATUS_COLOR[status];
+  const gpsPercent = Math.min(100, Math.round((pt.satellites / 12) * 100));
+  const onVal = (v: boolean | null | undefined) => v == null ? '—' : v ? 'On' : 'Off';
+  const voltLabel = pt.voltageLevel != null ? (VOLT_LABELS[pt.voltageLevel] ?? String(pt.voltageLevel)) : '—';
+  const gsmLabel = pt.gsmSignal != null ? `${pt.gsmSignal}/4` : '—';
+  const vehicleDesc = vc ? [vc.make, vc.model, vc.year ? String(vc.year) : null].filter(Boolean).join(' ') || '—' : '';
+
+  return `<div style="font-family:system-ui,sans-serif;padding:2px 0;min-width:260px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #f0f0f0">
+      <span style="width:10px;height:10px;border-radius:50%;background:${statusColor};display:inline-block;flex-shrink:0"></span>
+      <div>
+        <div style="font-size:14px;font-weight:700">${plate}</div>
+        ${vehicleDesc ? `<div style="font-size:11px;color:#888;margin-top:1px">${vehicleDesc}</div>` : ''}
+      </div>
+      <span style="margin-left:auto;font-size:11px;font-weight:600;color:${statusColor}">${STATUS_LABEL[status]}</span>
+    </div>
+    <table style="border-collapse:collapse;width:100%"><tbody>
+      ${sectionHead('Location')}
+      ${row('Address', `<span style="font-size:11px;color:#444;word-break:break-word">${address}</span>`)}
+      ${row('Coordinates', `${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}`)}
+      ${row('Altitude', pt.altitude != null ? `${pt.altitude.toFixed(1)} m` : '—')}
+      ${sectionHead('Status', 'padding-top:8px')}
+      ${row('Time', formatTs(pt.timestamp))}
+      ${row('Last Seen', formatAge(pt.timestamp))}
+      ${row('Speed', `${Math.round(pt.speedKmh)} km/h`)}
+      ${row('Angle', `${pt.heading}°`)}
+      ${row('Stop Duration', '—')}
+      ${sectionHead('Device', 'padding-top:8px')}
+      ${row('Ignition', onVal(pt.ignition), pt.ignition === true ? 'color:#16a34a' : pt.ignition === false ? 'color:#dc2626' : '')}
+      ${row('Immobilizer', onVal(pt.immobilizer), pt.immobilizer === true ? 'color:#dc2626' : '')}
+      ${row('Ext. Power', onVal(pt.externalPower), pt.externalPower === true ? 'color:#16a34a' : '')}
+      ${row('Ext. Volts', '—')}
+      ${row('Int. Battery', voltLabel)}
+      ${row('Engine Hours', '—')}
+      ${row('Odometer', '—')}
+      ${sectionHead('Signal', 'padding-top:8px')}
+      ${row('GPS', `${gpsPercent}%`)}
+      ${row('Satellites', String(pt.satellites))}
+      ${row('GSM', gsmLabel)}
+      ${row('IMEI', `<span style="font-family:monospace;font-size:11px">${pt.imei}</span>`)}
+    </tbody></table>
+  </div>`;
 }
 
 function InvalidateSize() {
@@ -112,98 +174,59 @@ function FitBounds({ points, resetKey }: { points: LivePoint[]; resetKey?: strin
   return null;
 }
 
-function PopupRow({ label, value, highlight }: { label: string; value: React.ReactNode; highlight?: string }) {
-  return (
-    <tr>
-      <td style={{ color: '#888', paddingRight: 10, paddingBottom: 4, whiteSpace: 'nowrap', fontSize: 11, verticalAlign: 'top' }}>{label}</td>
-      <td style={{ fontWeight: 500, paddingBottom: 4, fontSize: 12, color: highlight ?? 'inherit' }}>{value}</td>
-    </tr>
-  );
-}
-
-function LiveMarker({ pt, deviceMap, vehicleDetails }: {
-  pt: LivePoint;
-  deviceMap: Map<string, { plate: string | null; vehicleId: string | null }>;
+function ClusterLayer({ points, deviceMap, vehicleDetails }: {
+  points: LivePoint[];
+  deviceMap: Map<string, { plate: string | null; vehicleId: string | null; cityId: string | null }>;
   vehicleDetails: Map<string, VehicleDetail>;
 }) {
-  const [address, setAddress] = useState('Fetching…');
+  const map = useMap();
 
-  const dv = deviceMap.get(pt.imei);
-  const vc = dv?.vehicleId ? vehicleDetails.get(dv.vehicleId) : undefined;
-  const plate = dv?.plate || pt.imei;
-  const offline = isOffline(pt);
-  const status = vehicleStatus(pt);
-  const statusColor = STATUS_COLOR[status];
-  const gpsPercent = Math.min(100, Math.round((pt.satellites / 12) * 100));
+  useEffect(() => {
+    const group = L.markerClusterGroup({
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: true,
+      chunkedLoading: true,
+      iconCreateFunction: (cluster) => {
+        const n = cluster.getChildCount();
+        const size = n >= 20 ? 44 : n >= 10 ? 40 : 34;
+        const fs = n >= 10 ? 12 : 13;
+        return L.divIcon({
+          html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#111;border:3px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:${fs}px;box-shadow:0 2px 8px rgba(0,0,0,0.35)">${n}</div>`,
+          className: '',
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+        });
+      },
+    });
 
-  const onVal = (v: boolean | null | undefined) => v == null ? '—' : v ? 'On' : 'Off';
-  const voltLabel = pt.voltageLevel != null ? (VOLT_LABELS[pt.voltageLevel] ?? `${pt.voltageLevel}`) : '—';
-  const gsmLabel = pt.gsmSignal != null ? `${pt.gsmSignal}/4` : '—';
+    for (const pt of points) {
+      const dv = deviceMap.get(pt.imei);
+      const vc = dv?.vehicleId ? vehicleDetails.get(dv.vehicleId) : undefined;
+      const plate = dv?.plate || pt.imei;
+      const offline = isOffline(pt);
 
-  return (
-    <Marker
-      position={[pt.latitude, pt.longitude]}
-      icon={makeCarIcon(pt.heading, offline, plate, pt.speedKmh)}
-      eventHandlers={{
-        popupopen: () => {
-          reverseGeocode(pt.latitude, pt.longitude)
-            .then(a => setAddress(a))
-            .catch(() => setAddress(`${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}`));
-        },
-      }}
-    >
-      <Popup minWidth={280} maxWidth={340}>
-        <div style={{ fontFamily: 'system-ui, sans-serif', padding: '2px 0' }}>
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid #f0f0f0' }}>
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: statusColor, display: 'inline-block', flexShrink: 0 }} />
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{plate}</div>
-              {vc && <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>
-                {[vc.make, vc.model, vc.year ? String(vc.year) : null].filter(Boolean).join(' ') || '—'}
-              </div>}
-            </div>
-            <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: statusColor }}>{STATUS_LABEL[status]}</span>
-          </div>
+      const marker = L.marker([pt.latitude, pt.longitude], {
+        icon: makeCarIcon(pt.heading, offline, plate, pt.speedKmh),
+      });
 
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-            <tbody>
-              {/* Section: Location */}
-              <tr><td colSpan={2} style={{ fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, paddingBottom: 4, paddingTop: 2 }}>Location</td></tr>
-              <PopupRow label="Address" value={<span style={{ fontSize: 11, color: '#444', wordBreak: 'break-word' }}>{address}</span>} />
-              <PopupRow label="Coordinates" value={`${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}`} />
-              <PopupRow label="Altitude" value={pt.altitude != null ? `${pt.altitude.toFixed(1)} m` : '—'} />
+      const popup = L.popup({ minWidth: 280, maxWidth: 340 })
+        .setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching address…'));
 
-              {/* Section: Status */}
-              <tr><td colSpan={2} style={{ fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, paddingBottom: 4, paddingTop: 8 }}>Status</td></tr>
-              <PopupRow label="Time" value={formatTs(pt.timestamp)} />
-              <PopupRow label="Last Seen" value={formatAge(pt.timestamp)} />
-              <PopupRow label="Speed" value={`${Math.round(pt.speedKmh)} km/h`} />
-              <PopupRow label="Angle" value={`${pt.heading}°`} />
-              <PopupRow label="Stop Duration" value="—" />
+      marker.bindPopup(popup);
+      marker.on('popupopen', () => {
+        reverseGeocode(pt.latitude, pt.longitude)
+          .then(addr => popup.setContent(buildPopupHtml(pt, dv, vc, plate, addr)))
+          .catch(() => popup.setContent(buildPopupHtml(pt, dv, vc, plate, `${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}`)));
+      });
 
-              {/* Section: Device */}
-              <tr><td colSpan={2} style={{ fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, paddingBottom: 4, paddingTop: 8 }}>Device</td></tr>
-              <PopupRow label="Ignition" value={onVal(pt.ignition)} highlight={pt.ignition === true ? '#16a34a' : pt.ignition === false ? '#dc2626' : undefined} />
-              <PopupRow label="Immobilizer" value={onVal(pt.immobilizer)} highlight={pt.immobilizer === true ? '#dc2626' : undefined} />
-              <PopupRow label="Ext. Power" value={onVal(pt.externalPower)} highlight={pt.externalPower === true ? '#16a34a' : undefined} />
-              <PopupRow label="Ext. Volts" value="—" />
-              <PopupRow label="Int. Battery" value={voltLabel} />
-              <PopupRow label="Engine Hours" value="—" />
-              <PopupRow label="Odometer" value="—" />
+      group.addLayer(marker);
+    }
 
-              {/* Section: Signal */}
-              <tr><td colSpan={2} style={{ fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, paddingBottom: 4, paddingTop: 8 }}>Signal</td></tr>
-              <PopupRow label="GPS" value={`${gpsPercent}%`} />
-              <PopupRow label="Satellites" value={pt.satellites} />
-              <PopupRow label="GSM" value={gsmLabel} />
-              <PopupRow label="IMEI" value={<span style={{ fontFamily: 'monospace', fontSize: 11 }}>{pt.imei}</span>} />
-            </tbody>
-          </table>
-        </div>
-      </Popup>
-    </Marker>
-  );
+    map.addLayer(group);
+    return () => { map.removeLayer(group); };
+  }, [map, points, deviceMap, vehicleDetails]);
+
+  return null;
 }
 
 export default function MapPage() {
@@ -236,7 +259,6 @@ export default function MapPage() {
       const dm = new Map<string, { plate: string | null; vehicleId: string | null; cityId: string | null }>();
       dr.data.forEach(d => dm.set(d.imei, { plate: d.vehicle?.licensePlate ?? null, vehicleId: d.vehicle?.id ?? null, cityId: d.cityId }));
       setDeviceMap(dm);
-
       const vm = new Map<string, VehicleDetail>();
       vr.data.forEach(v => vm.set(v.id, v));
       setVehicleDetails(vm);
@@ -281,23 +303,7 @@ export default function MapPage() {
           <TileLayer url={tileUrl} attribution={tileAttr} />
           <InvalidateSize />
           <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'} />
-          <MarkerClusterGroup
-            chunkedLoading
-            iconCreateFunction={(cluster: { getChildCount: () => number }) => {
-              const n = cluster.getChildCount();
-              const size = n >= 20 ? 44 : n >= 10 ? 40 : 34;
-              return L.divIcon({
-                html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#111;border:3px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:${n>=10?12:13}px;box-shadow:0 2px 8px rgba(0,0,0,0.35)">${n}</div>`,
-                className: '',
-                iconSize: [size, size],
-                iconAnchor: [size / 2, size / 2],
-              });
-            }}
-          >
-            {visiblePoints.map(pt => (
-              <LiveMarker key={pt.imei} pt={pt} deviceMap={deviceMap} vehicleDetails={vehicleDetails} />
-            ))}
-          </MarkerClusterGroup>
+          <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} />
         </MapContainer>
       </div>
     </div>
