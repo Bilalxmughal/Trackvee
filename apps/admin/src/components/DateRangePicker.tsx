@@ -204,7 +204,7 @@ export default function DateRangePicker({ value, onChange, placeholder = 'Pick a
 
       {open && (
         <div style={{
-          position: 'absolute', zIndex: 1000, top: 'calc(100% + 6px)', right: 0,
+          position: 'absolute', zIndex: 1000, top: 'calc(100% + 6px)', left: 0,
           display: 'flex', background: '#fff',
           border: '1px solid #e8e8e8', borderRadius: 8,
           boxShadow: '0 6px 20px rgba(0,0,0,0.1)', overflow: 'hidden',

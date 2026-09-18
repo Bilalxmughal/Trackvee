@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, FormEvent } from 'react';
-import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
@@ -114,7 +114,7 @@ export default function UsersPage() {
         <table>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {['ID', 'Name', 'Email', 'Role', 'Status', 'Joined', ''].map(h => (
+              {['ID', 'Name', 'Email', 'Role', 'Status', 'Joined', 'Actions'].map(h => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
               ))}
             </tr>
@@ -129,7 +129,9 @@ export default function UsersPage() {
                 <td style={{ padding: '10px 16px', color: u.isActive ? '#16a34a' : 'var(--muted)' }}>{u.isActive ? 'Active' : 'Inactive'}</td>
                 <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{fmtDate(u.createdAt)}</td>
                 <td style={{ padding: '10px 16px' }}>
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    <button onClick={() => openEdit(u)} title="View / Edit" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEye size={14} /></button>
                     <button onClick={() => openEdit(u)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                       onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>
                     <button onClick={() => setDeleting(u)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState, FormEvent } from 'react';
-import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye } from '@tabler/icons-react';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
@@ -17,6 +18,7 @@ const sel: React.CSSProperties = { height: 34, padding: '0 10px', border: '1px s
 const empty = { firstName: '', lastName: '', email: '', password: '', contactNo: '', cityId: '', isActive: true, organizationId: '' };
 
 export default function CustomersPage() {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +107,7 @@ export default function CustomersPage() {
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Name', 'Email', 'Client', 'Status', 'Joined', ''].map(h => (
+                {['ID', 'Name', 'Email', 'Client', 'Status', 'Joined', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
                 ))}
               </tr>
@@ -122,7 +124,9 @@ export default function CustomersPage() {
                   <td style={{ padding: '11px 16px', color: c.isActive ? '#16a34a' : 'var(--muted)' }}>{c.isActive ? 'Active' : 'Inactive'}</td>
                   <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{fmtDate(c.createdAt)}</td>
                   <td style={{ padding: '11px 16px' }}>
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      <button onClick={() => navigate(`/customers/${c.id}`)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEye size={14} /></button>
                       <button onClick={() => openEdit(c)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}
                         onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>
                       <button onClick={() => setDeleting(c)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}

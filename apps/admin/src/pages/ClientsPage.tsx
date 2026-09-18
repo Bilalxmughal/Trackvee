@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconUsers, IconCar, IconCpu } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
@@ -118,7 +118,7 @@ export default function ClientsPage() {
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Company', 'POC', 'Contact', 'Customers', 'Vehicles', 'Devices', 'Status', 'Added', ''].map(h => (
+                {['ID', 'Company', 'POC', 'Contact', 'Customers', 'Vehicles', 'Devices', 'Status', 'Added', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -130,21 +130,9 @@ export default function ClientsPage() {
                   <td style={{ padding: '10px 14px', fontWeight: 500, fontSize: 13 }}>{c.name}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.pocName ?? '—'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.contactNo ?? '—'}</td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--text)' }}>
-                      <IconUsers size={12} color="var(--muted)" /> {c.customerCount}
-                    </div>
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--text)' }}>
-                      <IconCar size={12} color="var(--muted)" /> {c.vehicleCount}
-                    </div>
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--text)' }}>
-                      <IconCpu size={12} color="var(--muted)" /> {c.deviceCount}
-                    </div>
-                  </td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.customerCount}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.vehicleCount}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.deviceCount}</td>
                   <td style={{ padding: '10px 14px', color: c.isActive ? '#16a34a' : 'var(--muted)', fontSize: 12 }}>{c.isActive ? 'Active' : 'Inactive'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{fmtDate(c.createdAt)}</td>
                   <td style={{ padding: '10px 14px' }}>
