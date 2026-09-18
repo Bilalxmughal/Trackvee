@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   IconLayoutDashboard, IconBuilding, IconUsers, IconCar,
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
@@ -108,6 +108,8 @@ function LayoutInner() {
   const { dark, toggle: toggleTheme } = useTheme();
   const { cities, selectedCityId, setSelectedCityId } = useCityFilter();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMap = location.pathname === '/map';
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('yt_sidebar') === '1'; } catch { return false; }
   });
@@ -285,7 +287,7 @@ function LayoutInner() {
       {/* Right panel */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         {/* Topbar */}
-        <header style={{ height: 50, display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 16, flexShrink: 0, background: dark ? '#111' : '#fff', gap: 10, borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
+        <header style={{ height: 50, display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 16, flexShrink: 0, background: dark ? '#111' : '#fff', gap: 10 }}>
           {/* Mobile hamburger */}
           <button
             className="yt-topbar-hamburger"
@@ -416,10 +418,16 @@ function LayoutInner() {
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, overflowY: 'auto', background: dark ? '#111' : '#fff' }}>
-          <div className="page-wrap">
-            <Outlet />
-          </div>
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: dark ? '#111' : '#fff' }}>
+          {isMap ? (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 8px 8px' }}>
+              <Outlet />
+            </div>
+          ) : (
+            <div className="page-wrap" style={{ flex: 1, overflowY: 'auto' }}>
+              <Outlet />
+            </div>
+          )}
         </main>
       </div>
     </div>
