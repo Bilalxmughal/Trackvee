@@ -42,6 +42,14 @@ const STATUS_COLOR = { moving: '#16a34a', idle: '#f59e0b', parked: '#6b7280', of
 const STATUS_LABEL = { moving: 'Moving', idle: 'Idle', parked: 'Parked', offline: 'Offline' } as const;
 const VOLT_LABELS = ['No Power', 'Critical', 'Low', 'Medium', 'High', 'Full'];
 
+type MapStyle = 'street' | 'satellite' | 'terrain' | 'dark';
+const TILE_CONFIG: Record<MapStyle, { url: string; attribution: string; darkFilter?: boolean; label: string; icon: string }> = {
+  street:    { label: 'Street',    icon: '🗺', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap' },
+  satellite: { label: 'Satellite', icon: '🛰', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri' },
+  terrain:   { label: 'Terrain',   icon: '⛰', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri' },
+  dark:      { label: 'Dark',      icon: '🌙', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap', darkFilter: true },
+};
+
 function formatTs(ts: string) {
   const d = new Date(ts);
   const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
@@ -223,6 +231,56 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
   return null;
 }
 
+// ── Trail Layer ───────────────────────────────────────────────────────────────
+
+function TrailLayer({ trails, visibleImeis }: { trails: Map<string, [number,number][]>; visibleImeis: Set<string> }) {
+  const map = useMap();
+  useEffect(() => {
+    const layers: L.Polyline[] = [];
+    trails.forEach((pts, imei) => {
+      if (!visibleImeis.has(imei) || pts.length < 2) return;
+      const line = L.polyline(pts, { color: '#dc2626', weight: 2, opacity: 0.45, dashArray: '5 4' });
+      line.addTo(map);
+      layers.push(line);
+    });
+    return () => { layers.forEach(l => map.removeLayer(l)); };
+  }, [map, trails, visibleImeis]);
+  return null;
+}
+
+// ── Map Style Switcher ────────────────────────────────────────────────────────
+
+function MapStyleSwitcher({ current, onChange, dark }: { current: MapStyle; onChange: (s: MapStyle) => void; dark: boolean }) {
+  const [open, setOpen] = useState(false);
+  const styles: MapStyle[] = ['street', 'satellite', 'terrain', 'dark'];
+  return (
+    <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Map style"
+        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#ddd'}`, background: dark ? '#1e1e1e' : '#fff', color: dark ? '#e5e5e5' : '#333', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}
+      >
+        <span>{TILE_CONFIG[current].icon}</span> {TILE_CONFIG[current].label}
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', right: 0, top: 36, background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', minWidth: 130 }}>
+          {styles.map(s => (
+            <button key={s} onClick={() => { onChange(s); setOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', border: 'none', background: s === current ? (dark ? '#2a1010' : '#fff5f5') : 'transparent', color: s === current ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), fontSize: 12.5, fontWeight: s === current ? 600 : 400, cursor: 'pointer', textAlign: 'left' }}
+              onMouseEnter={e => { if (s !== current) e.currentTarget.style.background = dark ? '#222' : '#f5f5f5'; }}
+              onMouseLeave={e => { if (s !== current) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <span style={{ fontSize: 15 }}>{TILE_CONFIG[s].icon}</span> {TILE_CONFIG[s].label}
+              {s === current && <span style={{ marginLeft: 'auto', fontSize: 10 }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Left Panel Icons ─────────────────────────────────────────────────────────
 
 function IconPower({ on }: { on?: boolean | null }) {
@@ -324,8 +382,8 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
       >
         <span style={{ fontSize: 9, color: dark ? '#555' : '#999', flexShrink: 0 }}>{collapsed ? '▶' : '▼'}</span>
         <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</span>
-        <span style={{ fontSize: 10, color: dark ? '#555' : '#bbb', flexShrink: 0, marginRight: 2 }}>{gpPts.length}</span>
-        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 3px', borderRadius: 3, color: dark ? '#555' : '#aaa', display: 'flex', flexShrink: 0 }}>
+        <span style={{ fontSize: 10, color: dark ? '#aaa' : '#555', flexShrink: 0, marginRight: 2 }}>{gpPts.length}</span>
+        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 3px', borderRadius: 3, color: dark ? '#aaa' : '#555', display: 'flex', flexShrink: 0 }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/>
@@ -369,32 +427,61 @@ function ModalVehicleList({ allImeis, points, deviceMap, sel, toggle, dark }: {
 
 // ── Create Group Modal ───────────────────────────────────────────────────────
 
+function ModalHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', padding: '14px 20px', background: '#dc2626', borderRadius: '12px 12px 0 0', margin: '-24px -24px 18px' }}>
+      <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: 0.2 }}>{title}</span>
+      <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', color: '#fff', padding: '4px 5px', borderRadius: 5, display: 'flex' }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.28)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+function ModalSearch({ value, onChange, dark }: { value: string; onChange: (v: string) => void; dark: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: dark ? '#111' : '#f5f5f5', borderRadius: 7, padding: '6px 10px', marginBottom: 10 }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder="Search vehicles…" style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 12, color: dark ? '#e5e5e5' : '#111', outline: 'none' }}/>
+      {value && <button onClick={() => onChange('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex' }}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>}
+    </div>
+  );
+}
+
 function CreateGroupModal({ points, deviceMap, onClose, onCreate, dark }: {
   points: LivePoint[]; deviceMap: DMap;
   onClose: () => void; onCreate: (name: string, imeis: string[]) => void; dark: boolean;
 }) {
   const [name, setName] = useState('');
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [q, setQ] = useState('');
   const toggle = (imei: string) => setSel(p => { const n = new Set(p); n.has(imei) ? n.delete(imei) : n.add(imei); return n; });
   const allImeis = points.map(p => p.imei);
-  const allSelected = allImeis.length > 0 && allImeis.every(i => sel.has(i));
-  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 14, padding: 24, width: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
+  const filtered = q.trim() ? allImeis.filter(i => (deviceMap.get(i)?.plate ?? i).toLowerCase().includes(q.toLowerCase())) : allImeis;
+  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 24, width: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' };
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={card} onClick={e => e.stopPropagation()}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', marginBottom: 16 }}>Create Group</div>
+        <ModalHeader title="Create Group" onClose={onClose}/>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Group name" style={inp} autoFocus/>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: 12, color: dark ? '#666' : '#aaa', flex: 1 }}>{sel.size} of {allImeis.length} selected</span>
           <button onClick={() => setSel(new Set(allImeis))} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Select All</button>
           <button onClick={() => setSel(new Set())} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Deselect All</button>
         </div>
+        <ModalSearch value={q} onChange={setQ} dark={dark}/>
         <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
           {points.length === 0 ? <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>No vehicles online</div>
-          : <ModalVehicleList allImeis={allImeis} points={points} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark}/>}
+          : <ModalVehicleList allImeis={filtered} points={points} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark}/>}
         </div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
           <button onClick={() => { if (name.trim() && sel.size > 0) { onCreate(name.trim(), [...sel]); onClose(); } }} disabled={!name.trim() || sel.size === 0} style={{ padding: '8px 16px', borderRadius: 7, border: 'none', background: !name.trim() || sel.size === 0 ? '#9ca3af' : '#dc2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: !name.trim() || sel.size === 0 ? 'not-allowed' : 'pointer' }}>
             Create {sel.size > 0 ? `(${sel.size})` : ''}
@@ -414,24 +501,27 @@ function EditGroupModal({ group, points, deviceMap, onClose, onSave, onDelete, d
 }) {
   const [name, setName] = useState(group.name);
   const [sel, setSel] = useState<Set<string>>(new Set(group.imeis));
+  const [q, setQ] = useState('');
   const toggle = (imei: string) => setSel(p => { const n = new Set(p); n.has(imei) ? n.delete(imei) : n.add(imei); return n; });
   const allImeis = [...new Set([...group.imeis, ...points.map(p => p.imei)])];
-  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 14, padding: 24, width: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
+  const filtered = q.trim() ? allImeis.filter(i => (deviceMap.get(i)?.plate ?? i).toLowerCase().includes(q.toLowerCase())) : allImeis;
+  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 24, width: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' };
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={card} onClick={e => e.stopPropagation()}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', marginBottom: 16 }}>Edit Group</div>
+        <ModalHeader title="Edit Group" onClose={onClose}/>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Group name" style={inp}/>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: 12, color: dark ? '#666' : '#aaa', flex: 1 }}>{sel.size} of {allImeis.length} selected</span>
           <button onClick={() => setSel(new Set(allImeis))} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Select All</button>
           <button onClick={() => setSel(new Set())} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Deselect All</button>
         </div>
+        <ModalSearch value={q} onChange={setQ} dark={dark}/>
         <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
-          <ModalVehicleList allImeis={allImeis} points={points} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark}/>
+          <ModalVehicleList allImeis={filtered} points={points} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark}/>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, paddingTop: 4, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
           <button onClick={() => { onDelete(group.id); onClose(); }} style={{ padding: '8px 14px', borderRadius: 7, border: '1px solid #fca5a5', background: 'transparent', color: '#ef4444', fontSize: 13, cursor: 'pointer' }}>Delete Group</button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onClose} style={{ padding: '8px 14px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
@@ -540,9 +630,28 @@ export default function MapPage() {
   const [deviceMap, setDeviceMap] = useState<DMap>(new Map());
   const [vehicleDetails, setVehicleDetails] = useState<Map<string, VehicleDetail>>(new Map());
   const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; ts: number } | null>(null);
+  const [trails, setTrails] = useState<Map<string, [number,number][]>>(new Map());
+  const [mapStyle, setMapStyle] = useState<MapStyle>('street');
 
   const load = async () => {
-    try { const { data } = await api.get<LivePoint[]>('/telemetry/live'); setPoints(data.filter(p => p.gpsValid)); }
+    try {
+      const { data } = await api.get<LivePoint[]>('/telemetry/live');
+      const valid = data.filter(p => p.gpsValid);
+      setTrails(prev => {
+        const next = new Map(prev);
+        valid.forEach(pt => {
+          const trail = next.get(pt.imei) ? [...next.get(pt.imei)!] : [];
+          const last = trail[trail.length - 1];
+          if (!last || last[0] !== pt.latitude || last[1] !== pt.longitude) {
+            trail.push([pt.latitude, pt.longitude]);
+            if (trail.length > 15) trail.shift();
+            next.set(pt.imei, trail);
+          }
+        });
+        return next;
+      });
+      setPoints(valid);
+    }
     catch {} finally { setLoading(false); }
   };
 
@@ -589,11 +698,18 @@ export default function MapPage() {
           {/* Map */}
           <div style={{ flex: 1, minHeight: 0, borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, position: 'relative' }}>
             {loading && <div style={{ position: 'absolute', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#555' : '#aaa', fontSize: 13, background: dark ? '#1a1a1a' : '#f8f9fa', borderRadius: 12 }}>Loading map…</div>}
+            <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} dark={dark}/>
             <MapContainer center={[30.3753, 69.3451]} zoom={5} style={{ height: '100%', width: '100%' }} zoomControl>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" className={dark ? 'map-tiles-dark' : ''}/>
+              <TileLayer
+                key={mapStyle}
+                url={TILE_CONFIG[mapStyle].url}
+                attribution={TILE_CONFIG[mapStyle].attribution}
+                className={TILE_CONFIG[mapStyle].darkFilter || (mapStyle === 'street' && dark) ? 'map-tiles-dark' : ''}
+              />
               <InvalidateSize/>
               <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'}/>
               <FlyToPoint target={flyTarget}/>
+              <TrailLayer trails={trails} visibleImeis={new Set(visiblePoints.map(p => p.imei))}/>
               <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails}/>
             </MapContainer>
           </div>
