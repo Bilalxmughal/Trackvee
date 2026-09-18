@@ -331,10 +331,6 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
           icon: makeCarIcon(pt.heading, vehicleStatus(pt), plate, pt.speedKmh),
         });
         marker.bindPopup(popup.setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching…')));
-        marker.on('click', () => {
-          if (marker.isPopupOpen()) marker.closePopup();
-          else marker.openPopup();
-        });
         marker.on('popupopen', () => {
           Promise.all([
             reverseGeocode(ctx.pt.latitude, ctx.pt.longitude).catch(() => `${ctx.pt.latitude.toFixed(5)}, ${ctx.pt.longitude.toFixed(5)}`),
