@@ -67,6 +67,34 @@ function formatDuration(sec: number) {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+// Dead reckoning: predict position from last known speed + heading
+function predictDR(lat: number, lng: number, speedKmh: number, headingDeg: number, elapsedMs: number): [number, number] {
+  if (speedKmh < 3) return [lat, lng];
+  const distM = (speedKmh / 3.6) * (elapsedMs / 1000);
+  const headRad = (headingDeg * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = (distM * Math.cos(headRad)) / R * (180 / Math.PI);
+  const cosLat = Math.cos((lat * Math.PI) / 180);
+  const dLng = cosLat > 0.001 ? (distM * Math.sin(headRad)) / (R * cosLat) * (180 / Math.PI) : 0;
+  return [lat + dLat, lng + dLng];
+}
+
+const EMA_ALPHA = 0.75; // GPS smoothing: 0=fully smooth, 1=raw
+const POLL_MS = 10_000;
+
+type DEntry = { plate: string | null; vehicleId: string | null; cityId: string | null };
+interface MarkerState {
+  marker: L.Marker;
+  popup: L.Popup;
+  ctx: { pt: LivePoint; dv: DEntry | undefined; vc: VehicleDetail | undefined; plate: string };
+  pt: LivePoint;
+  emaLat: number; emaLng: number;
+  dispLat: number; dispLng: number;
+  animFromLat: number; animFromLng: number;
+  animToLat: number; animToLng: number;
+  animStart: number; animDur: number;
+}
+
 // ── Groups (localStorage) ────────────────────────────────────────────────────
 
 const GK = 'yotrack_map_groups_v1';
@@ -193,8 +221,13 @@ function FlyToPoint({ target }: { target: { lat: number; lng: number; ts: number
   return null;
 }
 
-function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>; }) {
+function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail> }) {
   const map = useMap();
+  const groupRef = useRef<L.MarkerClusterGroup | null>(null);
+  const stateRef = useRef<Map<string, MarkerState>>(new Map());
+  const rafRef = useRef<number>(0);
+
+  // Mount once: create cluster group + start animation/dead-reckoning RAF loop
   useEffect(() => {
     const group = L.markerClusterGroup({
       showCoverageOnHover: false, spiderfyOnMaxZoom: true, chunkedLoading: true,
@@ -207,27 +240,108 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
         });
       },
     });
+    groupRef.current = group;
+    map.addLayer(group);
+
+    let prevTime = performance.now();
+    function rafLoop(now: number) {
+      const dt = now - prevTime;
+      prevTime = now;
+      stateRef.current.forEach(s => {
+        const elapsed = now - s.animStart;
+        const t = Math.min(elapsed / s.animDur, 1);
+        const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        let lat: number, lng: number;
+        if (t < 1) {
+          lat = s.animFromLat + (s.animToLat - s.animFromLat) * ease;
+          lng = s.animFromLng + (s.animToLng - s.animFromLng) * ease;
+        } else {
+          // Animation done — continuously dead-reckon from last display position
+          [lat, lng] = predictDR(s.dispLat, s.dispLng, s.pt.speedKmh, s.pt.heading, dt);
+        }
+        s.dispLat = lat;
+        s.dispLng = lng;
+        s.marker.setLatLng([lat, lng]);
+      });
+      rafRef.current = requestAnimationFrame(rafLoop);
+    }
+    rafRef.current = requestAnimationFrame(rafLoop);
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      map.removeLayer(group);
+      stateRef.current.clear();
+    };
+  }, [map]);
+
+  // Sync to latest GPS data on each poll
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+
+    const prev = stateRef.current;
+    const next = new Map<string, MarkerState>();
+    const imeiSet = new Set(points.map(p => p.imei));
+
+    // Remove vehicles that left the visible set
+    prev.forEach((s, imei) => { if (!imeiSet.has(imei)) group.removeLayer(s.marker); });
+
     for (const pt of points) {
       const dv = deviceMap.get(pt.imei);
       const vc = dv?.vehicleId ? vehicleDetails.get(dv.vehicleId) : undefined;
       const plate = dv?.plate || pt.imei;
-      const marker = L.marker([pt.latitude, pt.longitude], { icon: makeCarIcon(pt.heading, vehicleStatus(pt), plate, pt.speedKmh) });
-      const popup = L.popup({ minWidth: 280, maxWidth: 340 }).setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching…'));
-      marker.bindPopup(popup);
-      let wasOpen = false;
-      marker.on('mousedown', () => { wasOpen = marker.isPopupOpen(); });
-      marker.on('click', () => { if (wasOpen) marker.closePopup(); });
-      marker.on('popupopen', () => {
-        Promise.all([
-          reverseGeocode(pt.latitude, pt.longitude).catch(() => `${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}`),
-          fetchStats(pt.imei).catch(() => null),
-        ]).then(([addr, stats]) => popup.setContent(buildPopupHtml(pt, dv, vc, plate, addr, stats)));
-      });
-      group.addLayer(marker);
+      const existing = prev.get(pt.imei);
+
+      if (existing) {
+        // EMA-smooth incoming GPS to reduce noise / wrong-street jumps
+        const emaLat = EMA_ALPHA * pt.latitude + (1 - EMA_ALPHA) * existing.emaLat;
+        const emaLng = EMA_ALPHA * pt.longitude + (1 - EMA_ALPHA) * existing.emaLng;
+        // Mutate ctx so popup handler always sees latest data (shallow-copy in spread preserves same object ref)
+        Object.assign(existing.ctx, { pt, dv, vc, plate });
+        existing.marker.setIcon(makeCarIcon(pt.heading, vehicleStatus(pt), plate, pt.speedKmh));
+        // Start smooth animation from current display position to new EMA position
+        const updated: MarkerState = {
+          ...existing,
+          pt, emaLat, emaLng,
+          animFromLat: existing.dispLat,
+          animFromLng: existing.dispLng,
+          animToLat: emaLat,
+          animToLng: emaLng,
+          animStart: performance.now(),
+          animDur: POLL_MS * 0.85,
+        };
+        next.set(pt.imei, updated);
+      } else {
+        // First time seeing this vehicle — create marker
+        const popup = L.popup({ minWidth: 280, maxWidth: 340 });
+        const ctx = { pt, dv, vc, plate };
+        const marker = L.marker([pt.latitude, pt.longitude], {
+          icon: makeCarIcon(pt.heading, vehicleStatus(pt), plate, pt.speedKmh),
+        });
+        marker.bindPopup(popup.setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching…')));
+        let wasOpen = false;
+        marker.on('mousedown', () => { wasOpen = marker.isPopupOpen(); });
+        marker.on('click', () => { if (wasOpen) marker.closePopup(); });
+        marker.on('popupopen', () => {
+          Promise.all([
+            reverseGeocode(ctx.pt.latitude, ctx.pt.longitude).catch(() => `${ctx.pt.latitude.toFixed(5)}, ${ctx.pt.longitude.toFixed(5)}`),
+            fetchStats(ctx.pt.imei).catch(() => null),
+          ]).then(([addr, stats]) => popup.setContent(buildPopupHtml(ctx.pt, ctx.dv, ctx.vc, ctx.plate, addr, stats)));
+        });
+        group.addLayer(marker);
+        next.set(pt.imei, {
+          marker, popup, ctx, pt,
+          emaLat: pt.latitude, emaLng: pt.longitude,
+          dispLat: pt.latitude, dispLng: pt.longitude,
+          animFromLat: pt.latitude, animFromLng: pt.longitude,
+          animToLat: pt.latitude, animToLng: pt.longitude,
+          animStart: 0, animDur: 1,
+        });
+      }
     }
-    map.addLayer(group);
-    return () => { map.removeLayer(group); };
-  }, [map, points, deviceMap, vehicleDetails]);
+    stateRef.current = next;
+  }, [points, deviceMap, vehicleDetails]);
+
   return null;
 }
 

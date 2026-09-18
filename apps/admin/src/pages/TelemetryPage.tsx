@@ -40,6 +40,7 @@ export default function TelemetryPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { selectedCityId } = useCityFilter();
   const [deviceCityMap, setDeviceCityMap] = useState<Map<string, string>>(new Map());
+  const [devicePlateMap, setDevicePlateMap] = useState<Map<string, string>>(new Map());
 
   const load = () => {
     api.get<Telemetry[] | { data: Telemetry[] }>('/telemetry?limit=100')
@@ -51,11 +52,16 @@ export default function TelemetryPage() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
-    api.get<{ id: string; cityId: string | null }[]>('/devices')
+    api.get<{ id: string; cityId: string | null; vehicle: { licensePlate: string | null } | null }[]>('/devices')
       .then(r => {
-        const m = new Map<string, string>();
-        r.data.forEach(d => { if (d.cityId) m.set(d.id, d.cityId); });
-        setDeviceCityMap(m);
+        const cm = new Map<string, string>();
+        const pm = new Map<string, string>();
+        r.data.forEach(d => {
+          if (d.cityId) cm.set(d.id, d.cityId);
+          if (d.vehicle?.licensePlate) pm.set(d.id, d.vehicle.licensePlate);
+        });
+        setDeviceCityMap(cm);
+        setDevicePlateMap(pm);
       }).catch(() => {});
   }, []);
 
@@ -67,7 +73,11 @@ export default function TelemetryPage() {
 
   const filtered = rows.filter(t => {
     if (selectedCityId && deviceCityMap.get(t.deviceId) !== selectedCityId) return false;
-    if (q && !t.deviceId.toLowerCase().includes(q.toLowerCase())) return false;
+    if (q) {
+      const ql = q.toLowerCase();
+      const plate = (devicePlateMap.get(t.deviceId) ?? '').toLowerCase();
+      if (!plate.includes(ql) && !t.deviceId.toLowerCase().includes(ql)) return false;
+    }
     if (ignFilter === 'on' && !t.ignition) return false;
     if (ignFilter === 'off' && t.ignition) return false;
     if (dateRange?.from) {
@@ -94,7 +104,7 @@ export default function TelemetryPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative' }}>
           <IconSearch size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#ccc' }} />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Device ID…" style={inp}
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Vehicle / Device…" style={inp}
             onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')}
             onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
         </div>
@@ -116,7 +126,7 @@ export default function TelemetryPage() {
         <table>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {['Time', 'Device', 'Lat / Lng', 'Speed', 'Hdg', 'Alt', 'Sats', 'IGN'].map(h => (
+              {['Time', 'Vehicle', 'Lat / Lng', 'Speed', 'Hdg', 'Alt', 'Sats', 'IGN'].map(h => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
               ))}
             </tr>
@@ -125,7 +135,7 @@ export default function TelemetryPage() {
             {filtered.map(t => (
               <tr key={t.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${t.ignition ? '#22c55e' : '#e5e7eb'}` }}>
                 <td style={{ padding: '9px 16px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{new Date(t.timestamp).toLocaleTimeString()}</td>
-                <td style={{ padding: '9px 16px', fontFamily: 'monospace', fontSize: 10, color: 'var(--muted)' }}>{t.deviceId.slice(0, 8)}…</td>
+                <td style={{ padding: '9px 16px', fontSize: 12, fontWeight: 600 }}>{devicePlateMap.get(t.deviceId) ?? <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--muted)' }}>{t.deviceId.slice(0, 8)}…</span>}</td>
                 <td style={{ padding: '9px 16px', fontVariantNumeric: 'tabular-nums' }}>{t.latitude.toFixed(5)}, {t.longitude.toFixed(5)}</td>
                 <td style={{ padding: '9px 16px' }}>{t.speed != null ? `${t.speed} km/h` : '—'}</td>
                 <td style={{ padding: '9px 16px', color: 'var(--muted)' }}>{t.heading != null ? `${t.heading}°` : '—'}</td>
