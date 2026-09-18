@@ -5,33 +5,46 @@ import { authApi, AuthUser } from '../api/auth';
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, remember?: boolean) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function getToken() {
+  return localStorage.getItem('yt_token') || sessionStorage.getItem('yt_token');
+}
+
+function clearAuth() {
+  localStorage.removeItem('yt_token');
+  localStorage.removeItem('yt_refresh');
+  sessionStorage.removeItem('yt_token');
+  sessionStorage.removeItem('yt_refresh');
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('yt_token');
+    const token = getToken();
     if (!token) { setLoading(false); return; }
     authApi.me()
       .then((r: AxiosResponse<AuthUser>) => setUser(r.data))
-      .catch(() => localStorage.removeItem('yt_token'))
+      .catch(() => clearAuth())
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, remember = false) => {
     const r = await authApi.login(email, password);
-    localStorage.setItem('yt_token', r.data.accessToken);
+    const store = remember ? localStorage : sessionStorage;
+    store.setItem('yt_token', r.data.accessToken);
+    if (r.data.refreshToken) store.setItem('yt_refresh', r.data.refreshToken);
     setUser(r.data.user);
   };
 
   const logout = () => {
-    localStorage.removeItem('yt_token');
+    clearAuth();
     setUser(null);
   };
 

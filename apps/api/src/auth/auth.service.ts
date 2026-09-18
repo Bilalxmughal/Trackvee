@@ -34,6 +34,20 @@ export class AuthService {
     return { accessToken, refreshToken, user: userWithoutPassword };
   }
 
+  async refresh(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify<{ sub: string; email: string; role: string }>(refreshToken, {
+        secret: this.config.get<string>('JWT_REFRESH_SECRET'),
+      });
+      const user = await this.usersService.findById(payload.sub);
+      if (!user || !user.isActive) throw new Error();
+      const newPayload = { sub: user.id, email: user.email, role: user.role };
+      return { accessToken: this.jwtService.sign(newPayload) };
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
   async me(userId: string) {
     return this.usersService.findById(userId);
   }

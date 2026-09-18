@@ -12,6 +12,6 @@ export interface AuthUser {
 
 export const authApi = {
   login: (email: string, password: string) =>
-    api.post<{ accessToken: string; user: AuthUser }>('/auth/login', { email, password }),
+    api.post<{ accessToken: string; refreshToken: string; user: AuthUser }>('/auth/login', { email, password }),
   me: () => api.get<AuthUser>('/auth/me'),
 };
