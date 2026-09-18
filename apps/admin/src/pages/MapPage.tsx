@@ -286,6 +286,14 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
     groupRef.current = group;
     map.addLayer(group);
 
+    // Group-level click: reliable popup open + zoom in (bindPopup click is unreliable in markercluster)
+    group.on('click', (e: L.LeafletEvent) => {
+      const marker = (e as unknown as { layer: L.Marker }).layer;
+      if (!marker?.getPopup?.()) return;
+      map.setView(marker.getLatLng(), Math.max(map.getZoom(), 16), { animate: true, duration: 0.5 });
+      marker.openPopup();
+    });
+
     let prevTime = performance.now();
     function rafLoop(now: number) {
       const dt = now - prevTime;
