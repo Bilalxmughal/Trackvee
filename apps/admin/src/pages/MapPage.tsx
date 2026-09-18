@@ -131,6 +131,37 @@ async function reverseGeocode(lat: number, lon: number) {
   geocodeCache.set(k, a); return a;
 }
 
+// ── Road Snapping (OSRM) ─────────────────────────────────────────────────────
+const snapCache = new Map<string, [number, number]>();
+const snapPending = new Set<string>();
+async function snapToRoad(lat: number, lng: number): Promise<[number, number]> {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`; // ~11 m grid
+  if (snapCache.has(key)) return snapCache.get(key)!;
+  if (snapPending.has(key)) return [lat, lng];
+  snapPending.add(key);
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 2000);
+    const r = await fetch(
+      `https://router.project-osrm.org/nearest/v1/driving/${lng},${lat}?number=1`,
+      { signal: ctrl.signal },
+    );
+    clearTimeout(timer);
+    const j = await r.json() as { code: string; waypoints?: { location: [number, number] }[] };
+    if (j.code === 'Ok' && j.waypoints?.[0]) {
+      const [sLng, sLat] = j.waypoints[0].location;
+      if (snapCache.size > 2000) snapCache.delete(snapCache.keys().next().value!);
+      const result: [number, number] = [sLat, sLng];
+      snapCache.set(key, result);
+      snapPending.delete(key);
+      return result;
+    }
+  } catch { /* timeout / network — fall through */ }
+  snapPending.delete(key);
+  snapCache.set(key, [lat, lng]);
+  return [lat, lng];
+}
+
 // ── Car Icon + Popup HTML ────────────────────────────────────────────────────
 
 function makeCarIcon(heading: number, status: 'moving' | 'idle' | 'parked' | 'offline', plate: string, speed: number): L.DivIcon {
@@ -308,10 +339,8 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
         // EMA-smooth incoming GPS to reduce noise / wrong-street jumps
         const emaLat = EMA_ALPHA * pt.latitude + (1 - EMA_ALPHA) * existing.emaLat;
         const emaLng = EMA_ALPHA * pt.longitude + (1 - EMA_ALPHA) * existing.emaLng;
-        // Mutate ctx so popup handler always sees latest data (shallow-copy in spread preserves same object ref)
         Object.assign(existing.ctx, { pt, dv, vc, plate });
         existing.marker.setIcon(makeCarIcon(pt.heading, vehicleStatus(pt), plate, pt.speedKmh));
-        // Start smooth animation from current display position to new EMA position
         const updated: MarkerState = {
           ...existing,
           pt, emaLat, emaLng,
@@ -323,6 +352,14 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
           animDur: POLL_MS * 0.85,
         };
         next.set(pt.imei, updated);
+        // Async road snap — updates animation target once OSRM responds (~50-200ms)
+        snapToRoad(emaLat, emaLng).then(([sLat, sLng]) => {
+          const s = stateRef.current.get(pt.imei);
+          if (s && (Math.abs(sLat - emaLat) > 0.000005 || Math.abs(sLng - emaLng) > 0.000005)) {
+            s.animToLat = sLat; s.animToLng = sLng;
+            s.emaLat = sLat;   s.emaLng = sLng;
+          }
+        });
       } else {
         // First time seeing this vehicle — create marker
         const popup = L.popup({ minWidth: 280, maxWidth: 340 });
@@ -345,6 +382,16 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
           animFromLat: pt.latitude, animFromLng: pt.longitude,
           animToLat: pt.latitude, animToLng: pt.longitude,
           animStart: 0, animDur: 1,
+        });
+        // Snap initial placement to road
+        snapToRoad(pt.latitude, pt.longitude).then(([sLat, sLng]) => {
+          const s = stateRef.current.get(pt.imei);
+          if (s) {
+            s.emaLat = sLat; s.emaLng = sLng;
+            s.dispLat = sLat; s.dispLng = sLng;
+            s.animToLat = sLat; s.animToLng = sLng;
+            s.marker.setLatLng([sLat, sLng]);
+          }
         });
       }
     }
