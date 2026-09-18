@@ -80,7 +80,7 @@ function predictDR(lat: number, lng: number, speedKmh: number, headingDeg: numbe
 }
 
 const EMA_ALPHA = 0.75; // GPS smoothing: 0=fully smooth, 1=raw
-const POLL_MS = 10_000;
+const POLL_MS = 5_000;
 
 type DEntry = { plate: string | null; vehicleId: string | null; cityId: string | null };
 interface MarkerState {
@@ -792,7 +792,7 @@ export default function MapPage() {
     catch {} finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); const t = setInterval(load, 10_000); return () => clearInterval(t); }, []);
+  useEffect(() => { load(); const t = setInterval(load, POLL_MS); return () => clearInterval(t); }, []);
 
   useEffect(() => {
     Promise.all([api.get<DeviceInfo[]>('/devices'), api.get<VehicleDetail[]>('/vehicles')]).then(([dr, vr]) => {
