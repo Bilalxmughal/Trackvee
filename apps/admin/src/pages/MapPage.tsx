@@ -48,7 +48,12 @@ function makeIcon(heading: number, status: 'moving' | 'idle' | 'offline'): L.Div
 
 function InvalidateSize() {
   const map = useMap();
-  useEffect(() => { map.invalidateSize(); }, [map]);
+  useEffect(() => {
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 200);
+    const t2 = setTimeout(() => map.invalidateSize(), 800);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [map]);
   return null;
 }
 
@@ -126,60 +131,59 @@ export default function MapPage() {
         ))}
       </div>
 
-      {/* Map */}
-      <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, height: 'calc(100vh - 220px)', minHeight: 400 }}>
-        {loading ? (
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#555' : '#aaa', fontSize: 13 }}>
+      {/* Map — always mounted so Leaflet never re-initializes */}
+      <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, height: 'calc(100vh - 220px)', minHeight: 400, position: 'relative' }}>
+        {loading && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#555' : '#aaa', fontSize: 13, background: dark ? '#1a1a1a' : '#f8f9fa', borderRadius: 12 }}>
             Loading map…
           </div>
-        ) : (
-          <MapContainer
-            center={[30.3753, 69.3451]}
-            zoom={5}
-            style={{ height: '100%', width: '100%' }}
-            zoomControl={true}
-          >
-            <TileLayer url={tileUrl} attribution={tileAttr} />
-            <InvalidateSize />
-            <FitBounds points={points} />
-            {points.map(pt => {
-              const status = vehicleStatus(pt);
-              return (
-                <Marker
-                  key={pt.imei}
-                  position={[pt.latitude, pt.longitude]}
-                  icon={makeIcon(pt.heading, status)}
-                >
-                  <Popup>
-                    <div style={{ minWidth: 180, fontFamily: 'inherit' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[status], display: 'inline-block', flexShrink: 0 }} />
-                        <strong style={{ fontSize: 13 }}>{STATUS_LABEL[status]}</strong>
-                      </div>
-                      <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
-                        <tbody>
-                          {[
-                            ['IMEI', pt.imei],
-                            ['Speed', `${pt.speedKmh} km/h`],
-                            ['Heading', `${pt.heading}°`],
-                            ['Satellites', pt.satellites],
-                            ['Location', `${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}`],
-                            ['Last seen', formatAge(pt.timestamp)],
-                          ].map(([k, v]) => (
-                            <tr key={k as string}>
-                              <td style={{ color: '#888', paddingRight: 10, paddingBottom: 3, whiteSpace: 'nowrap' }}>{k}</td>
-                              <td style={{ fontWeight: 500, paddingBottom: 3 }}>{v}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Popup>
-                </Marker>
-              );
-            })}
-          </MapContainer>
         )}
+        <MapContainer
+          center={[30.3753, 69.3451]}
+          zoom={5}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={true}
+        >
+          <TileLayer url={tileUrl} attribution={tileAttr} />
+          <InvalidateSize />
+          <FitBounds points={points} />
+          {points.map(pt => {
+            const status = vehicleStatus(pt);
+            return (
+              <Marker
+                key={pt.imei}
+                position={[pt.latitude, pt.longitude]}
+                icon={makeIcon(pt.heading, status)}
+              >
+                <Popup>
+                  <div style={{ minWidth: 180, fontFamily: 'inherit' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[status], display: 'inline-block', flexShrink: 0 }} />
+                      <strong style={{ fontSize: 13 }}>{STATUS_LABEL[status]}</strong>
+                    </div>
+                    <table style={{ fontSize: 12, borderCollapse: 'collapse', width: '100%' }}>
+                      <tbody>
+                        {[
+                          ['IMEI', pt.imei],
+                          ['Speed', `${pt.speedKmh} km/h`],
+                          ['Heading', `${pt.heading}°`],
+                          ['Satellites', pt.satellites],
+                          ['Location', `${pt.latitude.toFixed(5)}, ${pt.longitude.toFixed(5)}`],
+                          ['Last seen', formatAge(pt.timestamp)],
+                        ].map(([k, v]) => (
+                          <tr key={k as string}>
+                            <td style={{ color: '#888', paddingRight: 10, paddingBottom: 3, whiteSpace: 'nowrap' }}>{k}</td>
+                            <td style={{ fontWeight: 500, paddingBottom: 3 }}>{v}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MapContainer>
       </div>
     </div>
   );
