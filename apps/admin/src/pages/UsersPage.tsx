@@ -4,6 +4,7 @@ import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
+import { useCityFilter } from '../contexts/CityFilterContext';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
@@ -11,13 +12,13 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
-interface User { id: string; displayId: number; email: string; firstName: string | null; lastName: string | null; role: string; isActive: boolean; createdAt: string; organizationId: string | null; }
+interface User { id: string; displayId: number; email: string; firstName: string | null; lastName: string | null; role: string; cityId: string | null; isActive: boolean; createdAt: string; organizationId: string | null; }
 interface Org { id: string; name: string; }
 
 const roleLabel: Record<string, string> = { super_admin: 'Super Admin', org_admin: 'Org Admin', dispatcher: 'Dispatcher', viewer: 'Viewer' };
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
-const empty = { firstName: '', lastName: '', email: '', password: '', role: 'viewer', isActive: true, organizationId: '' };
+const empty = { firstName: '', lastName: '', email: '', password: '', role: 'viewer', cityId: '', isActive: true, organizationId: '' };
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -33,6 +34,7 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<User | null>(null);
   const [deletingId, setDeletingId] = useState(false);
+  const { cities, selectedCityId } = useCityFilter();
 
   const load = () => {
     Promise.all([api.get<User[]>('/users'), api.get<Org[]>('/organizations')])
@@ -44,7 +46,7 @@ export default function UsersPage() {
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (u: User) => {
     setEditing(u);
-    setForm({ firstName: u.firstName ?? '', lastName: u.lastName ?? '', email: u.email, password: '', role: u.role, isActive: u.isActive, organizationId: u.organizationId ?? '' });
+    setForm({ firstName: u.firstName ?? '', lastName: u.lastName ?? '', email: u.email, password: '', role: u.role, cityId: u.cityId ?? '', isActive: u.isActive, organizationId: u.organizationId ?? '' });
     setModal(true);
   };
   const closeModal = () => { setModal(false); setEditing(null); };
@@ -55,7 +57,7 @@ export default function UsersPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload: Record<string, unknown> = { ...form, organizationId: form.organizationId || null };
+      const payload: Record<string, unknown> = { ...form, organizationId: form.organizationId || null, cityId: form.cityId || null };
       if (!payload.password) delete payload.password;
       if (editing) await api.patch(`/users/${editing.id}`, payload);
       else await api.post('/users', payload);
@@ -77,6 +79,7 @@ export default function UsersPage() {
     if (q && !u.email.toLowerCase().includes(q.toLowerCase()) && !(u.firstName ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (roleFilter && u.role !== roleFilter) return false;
     if (statusFilter && String(u.isActive) !== statusFilter) return false;
+    if (selectedCityId && u.cityId !== selectedCityId) return false;
     if (dateRange?.from && !isWithinInterval(parseISO(u.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });
@@ -119,7 +122,7 @@ export default function UsersPage() {
           <tbody>
             {filtered.map(u => (
               <tr key={u.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${u.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>#{u.displayId}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{u.displayId}</td>
                 <td style={{ padding: '10px 16px', fontWeight: 500 }}>{u.firstName || u.lastName ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() : '—'}</td>
                 <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{u.email}</td>
                 <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{roleLabel[u.role] ?? u.role}</td>
@@ -177,12 +180,20 @@ export default function UsersPage() {
               </select>
             </FormField>
           </div>
-          <FormField label="Organization">
-            <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
-              <option value="">None (Super Admin)</option>
-              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
-          </FormField>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <FormField label="Organization">
+              <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
+                <option value="">None (Super Admin)</option>
+                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </FormField>
+            <FormField label="City">
+              <select value={form.cityId} onChange={e => set('cityId', e.target.value)} style={selectStyle}>
+                <option value="">— Select City —</option>
+                {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </FormField>
+          </div>
           <FormActions onClose={closeModal} loading={saving} submitLabel={editing ? 'Update' : 'Create'} />
         </form>
       </Modal>

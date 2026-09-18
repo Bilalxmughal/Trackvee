@@ -8,6 +8,7 @@ import {
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { CityFilterProvider, useCityFilter } from '../contexts/CityFilterContext';
 import api from '../api/client';
 
 interface NavItemDef { to: string; icon: React.ElementType; label: string; }
@@ -102,9 +103,10 @@ function NavItem({ to, icon: Icon, label, collapsed }: NavItemDef & { collapsed:
   );
 }
 
-export default function Layout() {
+function LayoutInner() {
   const { user, logout } = useAuth();
   const { dark, toggle: toggleTheme } = useTheme();
+  const { cities, selectedCityId, setSelectedCityId } = useCityFilter();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('yt_sidebar') === '1'; } catch { return false; }
@@ -295,6 +297,18 @@ export default function Layout() {
 
           <div style={{ flex: 1 }} />
 
+          {/* City filter */}
+          {cities.length > 0 && (
+            <select
+              value={selectedCityId}
+              onChange={e => setSelectedCityId(e.target.value)}
+              style={{ height: 30, padding: '0 8px', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 6, fontSize: 12, color: selectedCityId ? '#dc2626' : (dark ? '#666' : '#aaa'), background: dark ? '#1a1a1a' : '#fafafa', outline: 'none', cursor: 'pointer', maxWidth: 140 }}
+            >
+              <option value="">All Cities</option>
+              {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+
           {/* Global search */}
           <div ref={searchRef} style={{ position: 'relative' }}>
             {searchOpen ? (
@@ -409,5 +423,13 @@ export default function Layout() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function Layout() {
+  return (
+    <CityFilterProvider>
+      <LayoutInner />
+    </CityFilterProvider>
   );
 }

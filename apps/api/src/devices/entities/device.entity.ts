@@ -35,6 +35,9 @@ export class Device {
   @JoinColumn({ name: 'vehicle_id' })
   vehicle: Vehicle | null;
 
+  @Column({ name: 'city_id', type: 'uuid', nullable: true })
+  cityId: string | null;
+
   @Column({ name: 'last_seen_at', type: 'timestamptz', nullable: true })
   lastSeenAt: Date | null;
 

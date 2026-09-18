@@ -4,6 +4,7 @@ import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
+import { useCityFilter } from '../contexts/CityFilterContext';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
@@ -11,11 +12,11 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
-interface Client { id: string; displayId: number; name: string; companyName: string | null; pocName: string | null; isActive: boolean; createdAt: string; }
+interface Client { id: string; displayId: number; name: string; companyName: string | null; pocName: string | null; cityId: string | null; isActive: boolean; createdAt: string; }
 
 const sel: React.CSSProperties = { height: 34, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 200 };
-const empty = { name: '', companyName: '', pocName: '', isActive: true };
+const empty = { name: '', companyName: '', pocName: '', cityId: '', isActive: true };
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -25,7 +26,8 @@ export default function ClientsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
-  const [form, setForm] = useState<{ name: string; companyName: string; pocName: string; isActive: boolean }>(empty);
+  const [form, setForm] = useState<{ name: string; companyName: string; pocName: string; cityId: string; isActive: boolean }>(empty);
+  const { cities, selectedCityId } = useCityFilter();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Client | null>(null);
   const [deletingId, setDeletingId] = useState(false);
@@ -34,13 +36,13 @@ export default function ClientsPage() {
   useEffect(() => { load(); }, []);
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
-  const openEdit = (c: Client) => { setEditing(c); setForm({ name: c.name, companyName: c.companyName ?? '', pocName: c.pocName ?? '', isActive: c.isActive }); setModal(true); };
+  const openEdit = (c: Client) => { setEditing(c); setForm({ name: c.name, companyName: c.companyName ?? '', pocName: c.pocName ?? '', cityId: c.cityId ?? '', isActive: c.isActive }); setModal(true); };
   const closeModal = () => { setModal(false); setEditing(null); };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault(); setSaving(true);
     try {
-      const payload = { ...form, companyName: form.companyName || null, pocName: form.pocName || null };
+      const payload = { ...form, companyName: form.companyName || null, pocName: form.pocName || null, cityId: form.cityId || null };
       if (editing) await api.patch(`/organizations/${editing.id}`, payload);
       else await api.post('/organizations', payload);
       await load(); closeModal();
@@ -58,6 +60,7 @@ export default function ClientsPage() {
   const filtered = clients.filter(c => {
     if (q && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
     if (statusFilter && String(c.isActive) !== statusFilter) return false;
+    if (selectedCityId && c.cityId !== selectedCityId) return false;
     if (dateRange?.from && !isWithinInterval(parseISO(c.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });
@@ -104,7 +107,7 @@ export default function ClientsPage() {
             <tbody>
               {filtered.map(c => (
                 <tr key={c.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>#{c.displayId}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{c.displayId}</td>
                   <td style={{ padding: '11px 16px', fontWeight: 500 }}>{c.name}</td>
                   <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.companyName ?? '—'}</td>
                   <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.pocName ?? '—'}</td>
@@ -148,11 +151,19 @@ export default function ClientsPage() {
                 onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
             </FormField>
           </div>
-          <FormField label="Status">
-            <select value={String(form.isActive)} onChange={e => setForm(f => ({ ...f, isActive: e.target.value === 'true' }))} style={selectStyle}>
-              <option value="true">Active</option><option value="false">Inactive</option>
-            </select>
-          </FormField>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <FormField label="City">
+              <select value={form.cityId} onChange={e => setForm(f => ({ ...f, cityId: e.target.value }))} style={selectStyle}>
+                <option value="">— Select City —</option>
+                {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Status">
+              <select value={String(form.isActive)} onChange={e => setForm(f => ({ ...f, isActive: e.target.value === 'true' }))} style={selectStyle}>
+                <option value="true">Active</option><option value="false">Inactive</option>
+              </select>
+            </FormField>
+          </div>
           <FormActions onClose={closeModal} loading={saving} submitLabel={editing ? 'Update' : 'Create'} />
         </form>
       </Modal>

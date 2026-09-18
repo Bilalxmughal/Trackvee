@@ -27,6 +27,9 @@ export class Organization {
   @Column({ name: 'owner_id' })
   ownerId: string;
 
+  @Column({ name: 'city_id', type: 'uuid', nullable: true })
+  cityId: string | null;
+
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 

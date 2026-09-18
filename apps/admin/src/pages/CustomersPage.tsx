@@ -2,18 +2,19 @@
 import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
+import { useCityFilter } from '../contexts/CityFilterContext';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
-interface Customer { id: string; displayId: number; email: string; firstName: string | null; lastName: string | null; isActive: boolean; createdAt: string; organizationId: string | null; }
+interface Customer { id: string; displayId: number; email: string; firstName: string | null; lastName: string | null; cityId: string | null; isActive: boolean; createdAt: string; organizationId: string | null; }
 interface Org { id: string; name: string; }
 
 const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 200 };
 const sel: React.CSSProperties = { height: 34, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
-const empty = { firstName: '', lastName: '', email: '', password: '', contactNo: '', isActive: true, organizationId: '' };
+const empty = { firstName: '', lastName: '', email: '', password: '', contactNo: '', cityId: '', isActive: true, organizationId: '' };
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -21,6 +22,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const { cities, selectedCityId } = useCityFilter();
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [form, setForm] = useState(empty);
@@ -40,7 +42,7 @@ export default function CustomersPage() {
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (c: Customer) => {
     setEditing(c);
-    setForm({ firstName: c.firstName ?? '', lastName: c.lastName ?? '', email: c.email, password: '', contactNo: '', isActive: c.isActive, organizationId: c.organizationId ?? '' });
+    setForm({ firstName: c.firstName ?? '', lastName: c.lastName ?? '', email: c.email, password: '', contactNo: '', cityId: c.cityId ?? '', isActive: c.isActive, organizationId: c.organizationId ?? '' });
     setModal(true);
   };
   const closeModal = () => { setModal(false); setEditing(null); };
@@ -49,7 +51,7 @@ export default function CustomersPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault(); setSaving(true);
     try {
-      const payload: Record<string, unknown> = { ...form, role: 'customer', organizationId: form.organizationId || null };
+      const payload: Record<string, unknown> = { ...form, role: 'customer', organizationId: form.organizationId || null, cityId: form.cityId || null };
       if (!payload.password) delete payload.password;
       if (editing) await api.patch(`/users/${editing.id}`, payload);
       else await api.post('/users', payload);
@@ -68,6 +70,7 @@ export default function CustomersPage() {
   const filtered = customers.filter(c => {
     if (q && !c.email.toLowerCase().includes(q.toLowerCase()) && !(c.firstName ?? '').toLowerCase().includes(q.toLowerCase()) && !(c.lastName ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (statusFilter && String(c.isActive) !== statusFilter) return false;
+    if (selectedCityId && c.cityId !== selectedCityId) return false;
     return true;
   });
 
@@ -110,7 +113,7 @@ export default function CustomersPage() {
             <tbody>
               {filtered.map(c => (
                 <tr key={c.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>#{c.displayId}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{c.displayId}</td>
                   <td style={{ padding: '11px 16px', fontWeight: 500 }}>
                     {c.firstName || c.lastName ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() : '—'}
                   </td>
@@ -161,12 +164,18 @@ export default function CustomersPage() {
                 {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             </FormField>
-            <FormField label="Status">
-              <select value={String(form.isActive)} onChange={e => set('isActive', e.target.value === 'true')} style={selectStyle}>
-                <option value="true">Active</option><option value="false">Inactive</option>
+            <FormField label="City">
+              <select value={form.cityId} onChange={e => set('cityId', e.target.value)} style={selectStyle}>
+                <option value="">— Select City —</option>
+                {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </FormField>
           </div>
+          <FormField label="Status">
+            <select value={String(form.isActive)} onChange={e => set('isActive', e.target.value === 'true')} style={selectStyle}>
+              <option value="true">Active</option><option value="false">Inactive</option>
+            </select>
+          </FormField>
           <FormActions onClose={closeModal} loading={saving} submitLabel={editing ? 'Update' : 'Add Customer'} />
         </form>
       </Modal>

@@ -113,7 +113,7 @@ export default function SettingsPage() {
                   <tbody>
                     {cities.map(c => (
                       <tr key={c.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                        <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>#{c.displayId}</td>
+                        <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{c.displayId}</td>
                         <td style={{ padding: '11px 16px', fontWeight: 500 }}>{c.name}</td>
                         <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.province ?? '—'}</td>
                         <td style={{ padding: '11px 16px', color: c.isActive ? '#16a34a' : 'var(--muted)' }}>{c.isActive ? 'Active' : 'Inactive'}</td>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { IconCheck, IconX, IconShield } from '@tabler/icons-react';
+import { IconCheck, IconX, IconShield, IconMapPin } from '@tabler/icons-react';
 import PageHeader from '../components/PageHeader';
+import { useCityFilter } from '../contexts/CityFilterContext';
 
 type Action = 'view' | 'add' | 'edit' | 'delete';
 type Role = 'super_admin' | 'org_admin' | 'dispatcher' | 'viewer' | 'customer';
@@ -84,6 +85,29 @@ export default function RoleAccessPage() {
   const [perms, setPerms] = useState<PermMatrix>(DEFAULT);
   const [activeRole, setActiveRole] = useState<Role>('org_admin');
   const [saved, setSaved] = useState(false);
+  const { cities } = useCityFilter();
+  const [cityPerms, setCityPerms] = useState<Record<Role, { all: boolean; ids: string[] }>>({
+    super_admin: { all: true, ids: [] },
+    org_admin: { all: true, ids: [] },
+    dispatcher: { all: true, ids: [] },
+    viewer: { all: true, ids: [] },
+    customer: { all: false, ids: [] },
+  });
+
+  const toggleCityAll = () => {
+    if (activeRole === 'super_admin') return;
+    setCityPerms(p => ({ ...p, [activeRole]: { all: !p[activeRole].all, ids: [] } }));
+    setSaved(false);
+  };
+  const toggleCity = (id: string) => {
+    if (activeRole === 'super_admin') return;
+    setCityPerms(p => {
+      const cur = p[activeRole];
+      const ids = cur.ids.includes(id) ? cur.ids.filter(x => x !== id) : [...cur.ids, id];
+      return { ...p, [activeRole]: { all: false, ids } };
+    });
+    setSaved(false);
+  };
 
   const toggle = (page: string, action: Action) => {
     if (activeRole === 'super_admin') return;
@@ -218,6 +242,32 @@ export default function RoleAccessPage() {
               })}
             </tbody>
           </table>
+          {cities.length > 0 && (
+            <div style={{ padding: '16px 20px', borderTop: '2px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                <IconMapPin size={14} color="#dc2626" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>City Access</span>
+                <span style={{ fontSize: 11, color: '#bbb', marginLeft: 4 }}>
+                  {isReadOnly ? 'Super Admin has access to all cities' : 'Select which cities this role can access'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: isReadOnly ? 'default' : 'pointer', padding: '5px 10px', border: `1px solid ${cityPerms[activeRole].all || isReadOnly ? '#dc2626' : 'var(--border)'}`, borderRadius: 6, background: cityPerms[activeRole].all || isReadOnly ? 'rgba(220,38,38,0.06)' : 'transparent', color: cityPerms[activeRole].all || isReadOnly ? '#dc2626' : 'var(--text)', transition: 'all 0.15s' }}>
+                  <input type="checkbox" checked={cityPerms[activeRole].all || isReadOnly} onChange={toggleCityAll} disabled={isReadOnly} style={{ accentColor: '#dc2626' }} />
+                  All Cities
+                </label>
+                {cities.map(city => {
+                  const checked = isReadOnly || cityPerms[activeRole].all || cityPerms[activeRole].ids.includes(city.id);
+                  return (
+                    <label key={city.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: isReadOnly ? 'default' : 'pointer', padding: '5px 10px', border: `1px solid ${checked ? '#dc2626' : 'var(--border)'}`, borderRadius: 6, background: checked ? 'rgba(220,38,38,0.06)' : 'transparent', color: checked ? '#dc2626' : 'var(--text)', transition: 'all 0.15s', opacity: cityPerms[activeRole].all && !isReadOnly ? 0.5 : 1 }}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleCity(city.id)} disabled={isReadOnly || cityPerms[activeRole].all} style={{ accentColor: '#dc2626' }} />
+                      {city.name}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

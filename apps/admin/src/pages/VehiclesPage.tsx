@@ -4,6 +4,7 @@ import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
+import { useCityFilter } from '../contexts/CityFilterContext';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
@@ -11,12 +12,12 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
-interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; year: number | null; isActive: boolean; createdAt: string; }
+interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; year: number | null; cityId: string | null; isActive: boolean; createdAt: string; }
 interface Org { id: string; name: string; }
 
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
-const empty = { licensePlate: '', make: '', model: '', year: '', isActive: true, organizationId: '' };
+const empty = { licensePlate: '', make: '', model: '', year: '', cityId: '', isActive: true, organizationId: '' };
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -31,6 +32,7 @@ export default function VehiclesPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Vehicle | null>(null);
   const [deletingId, setDeletingId] = useState(false);
+  const { cities, selectedCityId } = useCityFilter();
 
   const load = () => {
     Promise.all([api.get<Vehicle[]>('/vehicles'), api.get<Org[]>('/organizations')])
@@ -42,7 +44,7 @@ export default function VehiclesPage() {
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (v: Vehicle) => {
     setEditing(v);
-    setForm({ licensePlate: v.licensePlate ?? '', make: v.make ?? '', model: v.model ?? '', year: v.year ? String(v.year) : '', isActive: v.isActive, organizationId: '' });
+    setForm({ licensePlate: v.licensePlate ?? '', make: v.make ?? '', model: v.model ?? '', year: v.year ? String(v.year) : '', cityId: v.cityId ?? '', isActive: v.isActive, organizationId: '' });
     setModal(true);
   };
   const closeModal = () => { setModal(false); setEditing(null); };
@@ -52,7 +54,7 @@ export default function VehiclesPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { ...form, year: form.year ? Number(form.year) : null, organizationId: form.organizationId || null };
+      const payload = { ...form, year: form.year ? Number(form.year) : null, organizationId: form.organizationId || null, cityId: form.cityId || null };
       if (editing) await api.patch(`/vehicles/${editing.id}`, payload);
       else await api.post('/vehicles', payload);
       await load(); closeModal();
@@ -72,6 +74,7 @@ export default function VehiclesPage() {
   const filtered = vehicles.filter(v => {
     if (q && !(v.licensePlate ?? '').toLowerCase().includes(q.toLowerCase()) && !(v.make ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (statusFilter && String(v.isActive) !== statusFilter) return false;
+    if (selectedCityId && v.cityId !== selectedCityId) return false;
     if (dateRange?.from && !isWithinInterval(parseISO(v.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });
@@ -111,7 +114,7 @@ export default function VehiclesPage() {
           <tbody>
             {filtered.map(v => (
               <tr key={v.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${v.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>#{v.displayId}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{v.displayId}</td>
                 <td style={{ padding: '10px 16px', fontWeight: 500 }}>{v.licensePlate ?? '—'}</td>
                 <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
                 <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{v.year ?? '—'}</td>
@@ -160,12 +163,20 @@ export default function VehiclesPage() {
               </select>
             </FormField>
           </div>
-          <FormField label="Organization">
-            <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
-              <option value="">None</option>
-              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
-          </FormField>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <FormField label="Organization">
+              <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
+                <option value="">None</option>
+                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </FormField>
+            <FormField label="City">
+              <select value={form.cityId} onChange={e => set('cityId', e.target.value)} style={selectStyle}>
+                <option value="">— Select City —</option>
+                {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </FormField>
+          </div>
           <FormActions onClose={closeModal} loading={saving} submitLabel={editing ? 'Update' : 'Create'} />
         </form>
       </Modal>

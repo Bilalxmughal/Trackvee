@@ -43,6 +43,9 @@ export class Vehicle {
   @JoinColumn({ name: 'organization_id' })
   organization: Organization | null;
 
+  @Column({ name: 'city_id', type: 'uuid', nullable: true })
+  cityId: string | null;
+
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
