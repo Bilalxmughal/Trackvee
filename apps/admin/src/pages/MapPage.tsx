@@ -405,19 +405,22 @@ function ModalVehicleList({ allImeis, points, deviceMap, sel, toggle, dark }: {
   sel: Set<string>; toggle: (imei: string) => void; dark: boolean;
 }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
-      {allImeis.map(imei => {
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
+      {allImeis.map((imei, i) => {
         const plate = deviceMap.get(imei)?.plate || imei.slice(-8);
-        const pt = points.find(p => p.imei === imei);
         const chk = sel.has(imei);
-        const offline = pt ? isOffline(pt) : true;
+        const isLast = i >= allImeis.length - (allImeis.length % 3 || 3);
         return (
-          <label key={imei} onClick={() => toggle(imei)} style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '7px 8px', borderRadius: 7, border: `2px solid ${chk ? '#dc2626' : (dark ? '#2a2a2a' : '#e5e7eb')}`, cursor: 'pointer', background: chk ? (dark ? '#2a1010' : '#fff5f5') : (dark ? '#161616' : '#fafafa'), transition: 'border-color 0.12s, background 0.12s' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <input type="checkbox" checked={chk} onChange={() => toggle(imei)} onClick={e => e.stopPropagation()} style={{ flexShrink: 0, accentColor: '#dc2626' }}/>
-              <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</span>
-            </div>
-            <span style={{ fontSize: 10, color: offline ? '#dc2626' : '#16a34a', fontWeight: 500 }}>{offline ? 'Offline' : `${Math.round(pt!.speedKmh)} km/h`}</span>
+          <label key={imei} style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '7px 10px',
+            borderBottom: `1px solid ${dark ? '#1f1f1f' : '#f0f0f0'}`,
+            borderRight: (i % 3 !== 2) ? `1px solid ${dark ? '#1f1f1f' : '#f0f0f0'}` : 'none',
+            cursor: 'pointer',
+            background: chk ? (dark ? '#1e1010' : '#fff5f5') : 'transparent',
+          }}>
+            <input type="checkbox" checked={chk} onChange={() => toggle(imei)} style={{ flexShrink: 0, accentColor: '#dc2626', cursor: 'pointer' }}/>
+            <span style={{ fontSize: 12, fontWeight: chk ? 600 : 400, color: chk ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</span>
           </label>
         );
       })}
@@ -477,7 +480,7 @@ function CreateGroupModal({ points, deviceMap, onClose, onCreate, dark }: {
           <button onClick={() => setSel(new Set())} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Deselect All</button>
         </div>
         <ModalSearch value={q} onChange={setQ} dark={dark}/>
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16, border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 8, overflow: 'hidden' }}>
           {points.length === 0 ? <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>No vehicles online</div>
           : <ModalVehicleList allImeis={filtered} points={points} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark}/>}
         </div>
@@ -518,7 +521,7 @@ function EditGroupModal({ group, points, deviceMap, onClose, onSave, onDelete, d
           <button onClick={() => setSel(new Set())} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Deselect All</button>
         </div>
         <ModalSearch value={q} onChange={setQ} dark={dark}/>
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16, border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 8, overflow: 'hidden' }}>
           <ModalVehicleList allImeis={filtered} points={points} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark}/>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, paddingTop: 4, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
