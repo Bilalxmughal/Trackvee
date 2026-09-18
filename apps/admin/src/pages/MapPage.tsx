@@ -97,11 +97,11 @@ function makeCarIcon(heading: number, offline: boolean, plate: string, speed: nu
     ? 'drop-shadow(0 0 5px #dc2626) drop-shadow(0 0 3px #dc2626bb)'
     : 'drop-shadow(0 0 5px #16a34a) drop-shadow(0 0 3px #16a34abb)';
   const label = `${plate} (${Math.round(speed)} kph)`;
-  const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;font-family:system-ui,sans-serif">
-    <img src="/car-icon.png" style="display:block;width:32px;height:32px;transform:rotate(${heading}deg);transform-origin:center center;filter:${glow}"/>
-    <div style="background:rgba(10,10,10,0.82);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;letter-spacing:0.3px;border-left:3px solid ${color}">${label}</div>
+  const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-family:system-ui,sans-serif">
+    <img src="/car-icon.png" style="display:block;width:34px;height:34px;transform:rotate(${heading}deg);transform-origin:center center;filter:${glow}"/>
+    <div style="background:rgba(10,10,10,0.85);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;white-space:nowrap;letter-spacing:0.3px;border-left:3px solid ${color}">${label}</div>
   </div>`;
-  return L.divIcon({ html, className: '', iconSize: [130, 52], iconAnchor: [65, 38], popupAnchor: [0, -40] });
+  return L.divIcon({ html, className: '', iconSize: [150, 58], iconAnchor: [75, 40], popupAnchor: [0, -44] });
 }
 
 function row(label: string, value: string, extraStyle = '') {
@@ -237,6 +237,13 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: {
         .setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching…'));
 
       marker.bindPopup(popup);
+
+      // Toggle popup closed when clicking the marker while popup is open.
+      // We capture state on mousedown (before Leaflet re-opens the popup on click).
+      let wasOpenOnDown = false;
+      marker.on('mousedown', () => { wasOpenOnDown = marker.isPopupOpen(); });
+      marker.on('click', () => { if (wasOpenOnDown) marker.closePopup(); });
+
       marker.on('popupopen', () => {
         Promise.all([
           reverseGeocode(pt.latitude, pt.longitude)
