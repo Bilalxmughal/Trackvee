@@ -67,49 +67,19 @@ async function reverseGeocode(lat: number, lon: number): Promise<string> {
 }
 
 function makeCarIcon(heading: number, offline: boolean, plate: string, speed: number): L.DivIcon {
-  const color  = offline ? '#dc2626' : '#16a34a';
-  const dark   = offline ? '#a01010' : '#0d7a3a';
-  const label  = `${plate} (${Math.round(speed)} kph)`;
-
-  // Top-down car silhouette using paths for a realistic look
-  const carSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 50" width="22" height="37" style="display:block">
-    <g transform="rotate(${heading} 15 25)">
-      <!-- Shadow -->
-      <ellipse cx="15" cy="47" rx="10" ry="2.5" fill="rgba(0,0,0,0.18)"/>
-      <!-- Body silhouette -->
-      <path d="M15,2 C20,4 24,9 24,14 L24,37 C24,43 20,47 15,47 C10,47 6,43 6,37 L6,14 C6,9 10,4 15,2Z" fill="${color}"/>
-      <!-- Hood highlight -->
-      <path d="M15,3 C19,5 22,9 22,13 L8,13 C8,9 11,5 15,3Z" fill="rgba(255,255,255,0.18)"/>
-      <!-- Windshield -->
-      <path d="M9,14 L21,14 L20,23 L10,23Z" fill="rgba(180,225,255,0.6)" stroke="rgba(0,0,0,0.08)" stroke-width="0.3"/>
-      <!-- Roof centre (darker panel) -->
-      <rect x="10" y="23" width="10" height="9" rx="1" fill="${dark}" opacity="0.55"/>
-      <!-- Rear window -->
-      <path d="M10,32 L20,32 L21,39 L9,39Z" fill="rgba(180,225,255,0.35)" stroke="rgba(0,0,0,0.06)" stroke-width="0.3"/>
-      <!-- Headlights -->
-      <path d="M10,4 Q15,2 20,4 L19,7 Q15,5 11,7Z" fill="rgba(255,255,210,0.95)"/>
-      <!-- Taillights -->
-      <rect x="9"  y="43" width="5" height="2.5" rx="1" fill="#ff4444" opacity="0.85"/>
-      <rect x="16" y="43" width="5" height="2.5" rx="1" fill="#ff4444" opacity="0.85"/>
-      <!-- Wheels (black with tyre detail) -->
-      <ellipse cx="6"  cy="16" rx="3.5" ry="4.5" fill="#111"/>
-      <ellipse cx="24" cy="16" rx="3.5" ry="4.5" fill="#111"/>
-      <ellipse cx="6"  cy="37" rx="3.5" ry="4.5" fill="#111"/>
-      <ellipse cx="24" cy="37" rx="3.5" ry="4.5" fill="#111"/>
-      <!-- Wheel rim glint -->
-      <ellipse cx="6"  cy="16" rx="1.5" ry="1.8" fill="#555"/>
-      <ellipse cx="24" cy="16" rx="1.5" ry="1.8" fill="#555"/>
-      <ellipse cx="6"  cy="37" rx="1.5" ry="1.8" fill="#555"/>
-      <ellipse cx="24" cy="37" rx="1.5" ry="1.8" fill="#555"/>
-    </g>
-  </svg>`;
+  const color = offline ? '#dc2626' : '#16a34a';
+  const glow  = offline
+    ? 'drop-shadow(0 0 5px #dc2626) drop-shadow(0 0 3px #dc2626bb)'
+    : 'drop-shadow(0 0 5px #16a34a) drop-shadow(0 0 3px #16a34abb)';
+  const label = `${plate} (${Math.round(speed)} kph)`;
 
   const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;font-family:system-ui,sans-serif">
-    ${carSvg}
+    <img src="/car-icon.png" width="38" height="38"
+      style="display:block;transform:rotate(${heading}deg);transform-origin:center center;filter:${glow}"/>
     <div style="background:rgba(10,10,10,0.82);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;letter-spacing:0.3px;border-left:3px solid ${color}">${label}</div>
   </div>`;
 
-  return L.divIcon({ html, className: '', iconSize: [130, 55], iconAnchor: [65, 37], popupAnchor: [0, -38] });
+  return L.divIcon({ html, className: '', iconSize: [130, 52], iconAnchor: [65, 38], popupAnchor: [0, -40] });
 }
 
 function InvalidateSize() {
