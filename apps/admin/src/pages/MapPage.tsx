@@ -68,29 +68,26 @@ async function reverseGeocode(lat: number, lon: number): Promise<string> {
 
 function makeCarIcon(heading: number, offline: boolean, plate: string, speed: number): L.DivIcon {
   const color = offline ? '#dc2626' : '#16a34a';
-  const speedTxt = `${Math.round(speed)} km/h`;
+  const label = `${plate} (${Math.round(speed)} kph)`;
 
-  const carSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 56" width="28" height="39" style="display:block">
-    <g transform="rotate(${heading} 20 28)">
-      <rect x="8" y="4" width="24" height="48" rx="7" fill="${color}"/>
-      <rect x="11" y="8" width="18" height="12" rx="3" fill="rgba(255,255,255,0.35)"/>
-      <rect x="11" y="36" width="18" height="9" rx="2" fill="rgba(255,255,255,0.2)"/>
-      <rect x="5" y="8" width="4" height="8" rx="2" fill="#222"/>
-      <rect x="31" y="8" width="4" height="8" rx="2" fill="#222"/>
-      <rect x="5" y="40" width="4" height="8" rx="2" fill="#222"/>
-      <rect x="31" y="40" width="4" height="8" rx="2" fill="#222"/>
-      <rect x="10" y="5" width="6" height="3" rx="1.5" fill="rgba(255,255,200,0.95)"/>
-      <rect x="24" y="5" width="6" height="3" rx="1.5" fill="rgba(255,255,200,0.95)"/>
+  const carSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 28" width="20" height="28" style="display:block">
+    <g transform="rotate(${heading} 10 14)">
+      <rect x="3" y="2" width="14" height="24" rx="4" fill="${color}"/>
+      <rect x="5" y="4" width="10" height="7" rx="2" fill="rgba(255,255,255,0.35)"/>
+      <rect x="5" y="18" width="10" height="5" rx="1.5" fill="rgba(255,255,255,0.2)"/>
+      <rect x="1" y="5" width="3" height="5" rx="1.5" fill="#1a1a1a"/>
+      <rect x="16" y="5" width="3" height="5" rx="1.5" fill="#1a1a1a"/>
+      <rect x="1" y="20" width="3" height="5" rx="1.5" fill="#1a1a1a"/>
+      <rect x="16" y="20" width="3" height="5" rx="1.5" fill="#1a1a1a"/>
     </g>
   </svg>`;
 
-  const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;font-family:system-ui,sans-serif">
-    <div style="background:rgba(10,10,10,0.82);color:#fff;font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;letter-spacing:0.5px;max-width:110px;overflow:hidden;text-overflow:ellipsis">${plate}</div>
+  const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;font-family:system-ui,sans-serif">
     ${carSvg}
-    <div style="background:#fff;color:${color};font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;border:1px solid ${color}50">${speedTxt}</div>
+    <div style="background:rgba(10,10,10,0.82);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;white-space:nowrap;letter-spacing:0.3px">${label}</div>
   </div>`;
 
-  return L.divIcon({ html, className: '', iconSize: [80, 70], iconAnchor: [40, 35 + 14], popupAnchor: [0, -55] });
+  return L.divIcon({ html, className: '', iconSize: [120, 48], iconAnchor: [60, 28], popupAnchor: [0, -30] });
 }
 
 function InvalidateSize() {
