@@ -14,14 +14,18 @@ interface Customer {
   cityId: string | null; isActive: boolean; createdAt: string;
   organizationId: string | null;
 }
-
 interface Vehicle {
   id: string; displayId: number; licensePlate: string | null;
   make: string | null; model: string | null; year: number | null;
   isActive: boolean; organizationId: string | null;
 }
-
+interface Device {
+  id: string; imei: string; status: string;
+  vehicle?: { id: string } | null;
+}
 interface Org { id: string; name: string; }
+
+const card: React.CSSProperties = { padding: 20, borderRadius: 12, background: 'var(--bg2)' };
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +33,7 @@ export default function CustomerDetailPage() {
   const { cities } = useCityFilter();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
@@ -37,13 +42,15 @@ export default function CustomerDetailPage() {
 
   const load = async () => {
     try {
-      const [cu, vs, os] = await Promise.all([
+      const [cu, vs, ds, os] = await Promise.all([
         api.get<Customer>(`/users/${id}`),
         api.get<Vehicle[]>('/vehicles'),
+        api.get<Device[]>('/devices'),
         api.get<Org[]>('/organizations'),
       ]);
       setCustomer(cu.data);
       setVehicles(vs.data);
+      setDevices(ds.data);
       setOrgs(os.data);
     } catch {
       navigate('/customers', { replace: true });
@@ -81,6 +88,7 @@ export default function CustomerDetailPage() {
   const cityName = cities.find(c => c.id === customer.cityId)?.name ?? '—';
   const orgName = orgs.find(o => o.id === customer.organizationId)?.name ?? '—';
   const myVehicles = vehicles.filter(v => v.organizationId === customer.organizationId && customer.organizationId);
+  const deviceMap = new Map(devices.filter(d => d.vehicle?.id).map(d => [d.vehicle!.id, d]));
 
   return (
     <div style={{ padding: '24px 32px' }}>
@@ -93,7 +101,7 @@ export default function CustomerDetailPage() {
       </button>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 52, height: 52, borderRadius: 12, background: 'rgba(220,38,38,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <IconUser size={24} color="#dc2626" />
@@ -104,10 +112,7 @@ export default function CustomerDetailPage() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 6,
-            borderLeft: `3px solid ${customer.isActive ? '#22c55e' : '#e5e7eb'}`,
-            color: customer.isActive ? '#16a34a' : 'var(--muted)',
-            background: 'var(--bg2)' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 6, borderLeft: `3px solid ${customer.isActive ? '#22c55e' : '#e5e7eb'}`, color: customer.isActive ? '#16a34a' : 'var(--muted)', background: 'var(--bg2)' }}>
             {customer.isActive ? 'Active' : 'Inactive'}
           </span>
           <button onClick={openEdit}
@@ -117,12 +122,12 @@ export default function CustomerDetailPage() {
         </div>
       </div>
 
-      {/* Info + Fleet grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: 16, alignItems: 'start' }}>
-        {/* Left: info cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ padding: 20, borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14 }}>Details</div>
+      {/* Main grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 16, alignItems: 'start' }}>
+        {/* Left */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={card}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Details</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
                 { icon: IconMail, label: 'Email', value: customer.email },
@@ -130,8 +135,8 @@ export default function CustomerDetailPage() {
                 { icon: IconCar, label: 'Client', value: orgName },
                 { icon: IconCalendar, label: 'Joined', value: fmtDate(customer.createdAt) },
               ].map(row => (
-                <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: 'var(--bg2)' }}>
-                  <row.icon size={14} color="var(--muted)" style={{ flexShrink: 0 }} />
+                <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 8, background: 'var(--bg)' }}>
+                  <row.icon size={13} color="var(--muted)" style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 1 }}>{row.label}</div>
                     <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.value}</div>
@@ -141,12 +146,12 @@ export default function CustomerDetailPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {[
               { icon: IconCar, label: 'Vehicles', value: myVehicles.length },
               { icon: IconCpu, label: 'Active', value: myVehicles.filter(v => v.isActive).length },
             ].map(s => (
-              <div key={s.label} style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div key={s.label} style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(220,38,38,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <s.icon size={16} color="#dc2626" />
                 </div>
@@ -159,40 +164,44 @@ export default function CustomerDetailPage() {
           </div>
         </div>
 
-        {/* Right: vehicles table */}
-        <div style={{ padding: 20, borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14 }}>
-            Fleet — {myVehicles.length} vehicle{myVehicles.length !== 1 ? 's' : ''}
+        {/* Right: fleet */}
+        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border2)' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>
+              Fleet — {myVehicles.length} vehicle{myVehicles.length !== 1 ? 's' : ''}
+            </span>
           </div>
           {myVehicles.length === 0 ? (
-            <div style={{ padding: '40px 0', textAlign: 'center', color: '#ccc', fontSize: 13 }}>
+            <div style={{ padding: '48px 20px', textAlign: 'center', color: '#ccc', fontSize: 13 }}>
               {customer.organizationId ? 'No vehicles in this client.' : 'Customer not linked to any client.'}
             </div>
           ) : (
-            <div className="tbl-wrap" style={{ margin: 0, border: 'none', boxShadow: 'none' }}>
-              <table style={{ width: '100%' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    {['ID', 'License Plate', 'Make / Model', 'Year', 'Status'].map(h => (
-                      <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {myVehicles.map(v => (
-                    <tr key={v.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${v.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                      <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{v.displayId}</td>
-                      <td style={{ padding: '10px 12px', fontWeight: 500, fontSize: 13 }}>{v.licensePlate ?? '—'}</td>
-                      <td style={{ padding: '10px 12px', color: 'var(--text2)', fontSize: 12 }}>
-                        {[v.make, v.model].filter(Boolean).join(' ') || '—'}
-                      </td>
-                      <td style={{ padding: '10px 12px', color: 'var(--text2)', fontSize: 12 }}>{v.year ?? '—'}</td>
-                      <td style={{ padding: '10px 12px', color: v.isActive ? '#16a34a' : 'var(--muted)', fontSize: 12 }}>{v.isActive ? 'Active' : 'Inactive'}</td>
-                    </tr>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {['ID', 'License Plate', 'Make / Model', 'Year', 'Device IMEI', 'Status'].map(h => (
+                    <th key={h} style={{ padding: '9px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid var(--border2)' }}>{h}</th>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </tr>
+              </thead>
+              <tbody>
+                {myVehicles.map(v => {
+                  const dev = deviceMap.get(v.id);
+                  return (
+                    <tr key={v.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${v.isActive ? '#22c55e' : '#e5e7eb'}` }}>
+                      <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{v.displayId}</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 500, fontSize: 13 }}>{v.licensePlate ?? '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{v.year ?? '—'}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'monospace', color: dev ? 'var(--text)' : '#ccc' }}>
+                        {dev ? dev.imei : '—'}
+                      </td>
+                      <td style={{ padding: '10px 14px', color: v.isActive ? '#16a34a' : 'var(--muted)', fontSize: 12 }}>{v.isActive ? 'Active' : 'Inactive'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
