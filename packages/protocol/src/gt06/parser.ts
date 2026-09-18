@@ -89,7 +89,11 @@ export function parseGt06Frame(buf: Buffer): Gt06ParseResult {
     };
 
   } else if (protocol === PROTO_HEARTBEAT) {
-    packet = { type: 'heartbeat', serial };
+    // Heartbeat data bytes: terminal_info, voltage_level, gsm_signal
+    const terminalInfo = buf.length > 4 ? buf[4] : undefined;
+    const voltageLevel  = buf.length > 5 ? buf[5] : undefined;
+    const gsmSignal     = buf.length > 6 ? buf[6] : undefined;
+    packet = { type: 'heartbeat', serial, terminalInfo, voltageLevel, gsmSignal };
 
   } else {
     packet = { type: 'unknown', protocol, serial };

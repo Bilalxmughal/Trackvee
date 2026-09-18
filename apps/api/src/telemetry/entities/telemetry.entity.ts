@@ -36,6 +36,24 @@ export class Telemetry {
   @Column({ name: 'gps_valid', default: false })
   gpsValid: boolean;
 
+  @Column({ type: 'boolean', nullable: true })
+  ignition: boolean | null;
+
+  @Column({ name: 'external_power', type: 'boolean', nullable: true })
+  externalPower: boolean | null;
+
+  @Column({ name: 'immobilizer', type: 'boolean', nullable: true })
+  immobilizer: boolean | null;
+
+  @Column({ name: 'voltage_level', type: 'int', nullable: true })
+  voltageLevel: number | null;
+
+  @Column({ name: 'gsm_signal', type: 'int', nullable: true })
+  gsmSignal: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  altitude: number | null;
+
   @Column({ type: 'jsonb', nullable: true })
   raw: object | null;
 

@@ -29,6 +29,9 @@ export interface Gt06GpsPacket {
 export interface Gt06HeartbeatPacket {
   type: 'heartbeat';
   serial: number;
+  terminalInfo?: number | undefined;
+  voltageLevel?: number | undefined;
+  gsmSignal?: number | undefined;
 }
 
 export interface Gt06UnknownPacket {

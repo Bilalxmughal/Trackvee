@@ -27,6 +27,12 @@ export class TelemetryController {
       heading: number;
       gpsValid: boolean;
       satellites: number;
+      altitude?: number | null;
+      ignition?: boolean | null;
+      externalPower?: boolean | null;
+      immobilizer?: boolean | null;
+      voltageLevel?: number | null;
+      gsmSignal?: number | null;
       raw?: object;
     },
   ) {
@@ -46,6 +52,12 @@ export class TelemetryController {
       heading: body.heading,
       gpsValid: body.gpsValid,
       satellites: body.satellites ?? 0,
+      altitude: body.altitude ?? null,
+      ignition: body.ignition ?? null,
+      externalPower: body.externalPower ?? null,
+      immobilizer: body.immobilizer ?? null,
+      voltageLevel: body.voltageLevel ?? null,
+      gsmSignal: body.gsmSignal ?? null,
       raw: body.raw ?? null,
     });
   }

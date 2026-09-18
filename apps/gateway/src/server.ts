@@ -6,6 +6,15 @@ import { connectionManager } from './connection-manager.js';
 const API_URL = process.env['API_URL'] ?? 'http://localhost:3000/api/v1';
 const INTERNAL_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 
+interface HeartbeatStatus {
+  ignition: boolean;
+  externalPower: boolean;
+  immobilizer: boolean;
+  voltageLevel: number;
+  gsmSignal: number;
+}
+const heartbeatCache = new Map<string, HeartbeatStatus>();
+
 async function checkin(imei: string): Promise<void> {
   await fetch(`${API_URL}/devices/checkin`, {
     method: 'POST',
@@ -19,6 +28,7 @@ async function saveTelemetry(imei: string, packet: {
   heading: number; gpsValid: boolean; satellites: number;
   timestamp?: Date;
 }): Promise<void> {
+  const hb = heartbeatCache.get(imei);
   const body = {
     imei,
     timestamp: (packet.timestamp ?? new Date()).toISOString(),
@@ -28,6 +38,13 @@ async function saveTelemetry(imei: string, packet: {
     heading: packet.heading,
     gpsValid: packet.gpsValid,
     satellites: packet.satellites,
+    ...(hb ? {
+      ignition: hb.ignition,
+      externalPower: hb.externalPower,
+      immobilizer: hb.immobilizer,
+      voltageLevel: hb.voltageLevel,
+      gsmSignal: hb.gsmSignal,
+    } : {}),
     raw: { protocol: 'gt06' },
   };
   const res = await fetch(`${API_URL}/telemetry/ingest`, {
@@ -93,10 +110,20 @@ function handleBuffer(socket: Socket, remote: string, buf: Buffer, imeiRef: { va
       if (imeiRef.value) {
         connectionManager.heartbeat(imeiRef.value);
         checkin(imeiRef.value);
+        if (packet.terminalInfo !== undefined) {
+          const ti = packet.terminalInfo;
+          heartbeatCache.set(imeiRef.value, {
+            ignition:      !!(ti & 0x10), // bit 4 = ACC (ignition)
+            externalPower: !!(ti & 0x08), // bit 3 = charging/external power
+            immobilizer:   !!(ti & 0x01), // bit 0 = oil/electricity cut
+            voltageLevel:  packet.voltageLevel ?? 0,
+            gsmSignal:     packet.gsmSignal ?? 0,
+          });
+        }
       }
       const resp = buildGt06Response(PROTO_HEARTBEAT, packet.serial);
       socket.write(resp);
-      logger.info(`[${imei}] HEARTBEAT`);
+      logger.info(`[${imei}] HEARTBEAT ti=0x${(packet.terminalInfo ?? 0).toString(16)} v=${packet.voltageLevel ?? '?'} gsm=${packet.gsmSignal ?? '?'}`);
 
     } else {
       logger.debug(`[${imeiRef.value ?? 'unknown'}] Unknown protocol 0x${packet.protocol.toString(16)}`);
