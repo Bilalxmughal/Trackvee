@@ -322,6 +322,7 @@ function LayoutInner() {
                     value={searchQ}
                     onChange={e => setSearchQ(e.target.value)}
                     placeholder="Search clients, users, vehicles…"
+                    className="yt-search-input"
                     style={{ width: 280, height: 34, padding: '0 12px 0 30px', border: '1px solid #dc2626', borderRadius: 8, fontSize: 12.5, color: dark ? '#e5e5e5' : '#111', background: dark ? '#1e1e1e' : '#fff', outline: 'none', boxShadow: '0 0 0 3px rgba(220,38,38,0.1)' }}
                   />
                 </div>
@@ -396,11 +397,11 @@ function LayoutInner() {
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#dc2626', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
-              <div style={{ textAlign: 'left' }}>
+              <div className="yt-topbar-name" style={{ textAlign: 'left' }}>
                 <div style={{ fontSize: 12.5, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{displayName}</div>
                 <div style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa', lineHeight: 1.2 }}>{ROLE_LABEL[user?.role ?? ''] ?? user?.role}</div>
               </div>
-              <IconChevronDown size={12} style={{ color: dark ? '#444' : '#ccc' }} />
+              <IconChevronDown size={12} className="yt-topbar-name" style={{ color: dark ? '#444' : '#ccc' }} />
             </button>
             {profileOpen && (
               <div style={{ position: 'absolute', right: 0, top: 44, background: dark ? '#1a1a1a' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#ebebeb'}`, borderRadius: 10, minWidth: 150, zIndex: 200, boxShadow: dark ? '0 6px 20px rgba(0,0,0,0.5)' : '0 6px 20px rgba(0,0,0,0.09)', overflow: 'hidden' }}>

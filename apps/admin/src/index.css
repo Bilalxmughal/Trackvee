@@ -133,8 +133,24 @@ input, select, button { font-family: inherit; }
     transform: translateX(0);
   }
   .yt-topbar-hamburger { display: flex !important; }
+  /* Hide profile name/chevron in topbar on mobile — keep avatar only */
+  .yt-topbar-name { display: none !important; }
+  /* Shrink search input on mobile */
+  .yt-search-input { width: 160px !important; }
+  /* Give pages a tighter gutter on small screens */
+  .page-wrap { padding: 0 4px !important; }
 }
 
 @media (min-width: 769px) {
   .yt-topbar-hamburger { display: none !important; }
 }
+
+/* ── Responsive modal helper ── */
+.modal-responsive {
+  width: min(600px, 93vw);
+  max-height: 88vh;
+}
+
+/* ── Other page tables: make sure they scroll on mobile ── */
+.page-table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.page-table-wrap table { min-width: 600px; width: 100%; border-collapse: collapse; }

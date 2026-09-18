@@ -138,7 +138,7 @@ function makeCarIcon(heading: number, status: 'moving' | 'idle' | 'parked' | 'of
   const glow = `drop-shadow(0 0 5px ${color}) drop-shadow(0 0 3px ${color}bb)`;
   const label = `${plate} (${Math.round(speed)} kph)`;
   const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-family:system-ui,sans-serif">
-    <img src="/car-icon.png" style="display:block;width:34px;height:34px;transform:rotate(${heading}deg);transform-origin:center center;filter:${glow}"/>
+    <img src="/car-icon.png" style="display:block;width:34px;height:34px;transform:rotate(${(heading + 180) % 360}deg);transform-origin:center center;filter:${glow}"/>
     <div style="background:rgba(10,10,10,0.85);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;white-space:nowrap;letter-spacing:0.3px;border-left:3px solid ${color}">${label}</div>
   </div>`;
   return L.divIcon({ html, className: '', iconSize: [150, 58], iconAnchor: [75, 40], popupAnchor: [0, -44] });
@@ -331,9 +331,10 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
           icon: makeCarIcon(pt.heading, vehicleStatus(pt), plate, pt.speedKmh),
         });
         marker.bindPopup(popup.setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching…')));
-        let wasOpen = false;
-        marker.on('mousedown', () => { wasOpen = marker.isPopupOpen(); });
-        marker.on('click', () => { if (wasOpen) marker.closePopup(); });
+        marker.on('click', () => {
+          if (marker.isPopupOpen()) marker.closePopup();
+          else marker.openPopup();
+        });
         marker.on('popupopen', () => {
           Promise.all([
             reverseGeocode(ctx.pt.latitude, ctx.pt.longitude).catch(() => `${ctx.pt.latitude.toFixed(5)}, ${ctx.pt.longitude.toFixed(5)}`),
@@ -601,11 +602,11 @@ function CreateGroupModal({ points, deviceMap, onClose, onCreate, dark, groups }
   const toggle = (imei: string) => setSel(p => { const n = new Set(p); n.has(imei) ? n.delete(imei) : n.add(imei); return n; });
   const allImeis = points.map(p => p.imei);
   const filtered = q.trim() ? allImeis.filter(i => (deviceMap.get(i)?.plate ?? i).toLowerCase().includes(q.toLowerCase())) : allImeis;
-  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 24, width: 600, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
+  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 24, width: 'min(600px, 93vw)', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' };
   const btnStyle: React.CSSProperties = { padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' };
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px' }}>
       <div style={card}>
         <ModalHeader title="Create Group" onClose={onClose} dark={dark}/>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Group name" style={inp} autoFocus/>
@@ -648,11 +649,11 @@ function EditGroupModal({ group, points, deviceMap, onClose, onSave, onDelete, d
   const toggle = (imei: string) => setSel(p => { const n = new Set(p); n.has(imei) ? n.delete(imei) : n.add(imei); return n; });
   const allImeis = [...new Set([...group.imeis, ...points.map(p => p.imei)])];
   const filtered = q.trim() ? allImeis.filter(i => (deviceMap.get(i)?.plate ?? i).toLowerCase().includes(q.toLowerCase())) : allImeis;
-  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 24, width: 600, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
+  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 24, width: 'min(600px, 93vw)', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' };
   const btnStyle: React.CSSProperties = { padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' };
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px' }}>
       <div style={card}>
         <ModalHeader title="Edit Group" onClose={onClose} dark={dark}/>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Group name" style={inp}/>
