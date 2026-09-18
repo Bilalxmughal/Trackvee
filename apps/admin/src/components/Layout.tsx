@@ -4,7 +4,7 @@ import {
   IconLayoutDashboard, IconBuilding, IconUsers, IconCar,
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
-  IconUserCheck, IconSun, IconMoon, IconBook,
+  IconUserCheck, IconSun, IconMoon, IconBook, IconDatabase,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -25,7 +25,8 @@ const NAV_SECTIONS: Section[] = [
       { to: '/customers', icon: IconUserCheck, label: 'Customers' },
       { to: '/vehicles', icon: IconCar, label: 'Vehicles' },
       { to: '/devices', icon: IconCpu, label: 'Devices' },
-      { to: '/telemetry', icon: IconMap, label: 'Telemetry' },
+      { to: '/map', icon: IconMap, label: 'Live Map' },
+      { to: '/telemetry', icon: IconDatabase, label: 'Telemetry' },
     ],
   },
   {

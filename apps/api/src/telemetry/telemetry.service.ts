@@ -47,4 +47,31 @@ export class TelemetryService {
       take: limit,
     });
   }
+
+  async getLiveLocations(user: User): Promise<Telemetry[]> {
+    const ADMIN_ROLES = ['super_admin', 'admin'];
+    let imeis: string[] | null = null;
+
+    if (!ADMIN_ROLES.includes(user.role) && user.organizationId) {
+      const devices = await this.devicesService.findAll(user);
+      imeis = devices.map(d => d.imei);
+      if (!imeis.length) return [];
+    }
+
+    const sub = this.repo
+      .createQueryBuilder('t')
+      .select('t.imei', 'imei')
+      .addSelect('MAX(t.timestamp)', 'max_ts')
+      .groupBy('t.imei');
+
+    if (imeis) sub.where('t.imei IN (:...imeis)', { imeis });
+
+    const rows = await sub.getRawMany<{ imei: string; max_ts: string }>();
+    if (!rows.length) return [];
+
+    const results = await Promise.all(
+      rows.map(r => this.repo.findOne({ where: { imei: r.imei, timestamp: new Date(r.max_ts) } }))
+    );
+    return results.filter((r): r is Telemetry => r !== null);
+  }
 }

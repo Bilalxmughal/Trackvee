@@ -52,6 +52,13 @@ export class TelemetryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get('live')
+  getLive(@CurrentUser() user: User) {
+    return this.telemetryService.getLiveLocations(user);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get()
   findRecent(@CurrentUser() user: User, @Query('limit') limit?: string) {
     return this.telemetryService.findRecent(user, limit ? parseInt(limit) : 100);
