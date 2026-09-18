@@ -58,6 +58,48 @@ input, select, button { font-family: inherit; }
 /* ── Map: dark mode tile invert (no API key needed) ── */
 .map-tiles-dark { filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(95%); }
 
+/* ── Map: dark mode UI overrides ── */
+[data-theme="dark"] .leaflet-container {
+  background: #1a1a1a;
+}
+[data-theme="dark"] .leaflet-bar a,
+[data-theme="dark"] .leaflet-bar a:link,
+[data-theme="dark"] .leaflet-bar a:visited {
+  background: #1e1e1e;
+  color: #e5e5e5;
+  border-color: #333;
+}
+[data-theme="dark"] .leaflet-bar a:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+[data-theme="dark"] .leaflet-bar a.leaflet-disabled {
+  background: #1a1a1a;
+  color: #444;
+}
+[data-theme="dark"] .leaflet-control-attribution {
+  background: rgba(18,18,18,0.85) !important;
+  color: #666;
+}
+[data-theme="dark"] .leaflet-control-attribution a {
+  color: #888;
+}
+[data-theme="dark"] .leaflet-popup-content-wrapper {
+  background: #1e1e1e;
+  color: #e5e5e5;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  border: 1px solid #2a2a2a;
+}
+[data-theme="dark"] .leaflet-popup-tip {
+  background: #1e1e1e;
+}
+[data-theme="dark"] .leaflet-popup-close-button {
+  color: #888 !important;
+}
+[data-theme="dark"] .leaflet-popup-close-button:hover {
+  color: #ccc !important;
+}
+
 /* ── Responsive table wrapper ── */
 .tbl-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .tbl-wrap table { min-width: 640px; width: 100%; border-collapse: collapse; font-size: 12px; }
