@@ -13,6 +13,7 @@ import TelemetryPage from './pages/TelemetryPage';
 import RoleAccessPage from './pages/RoleAccessPage';
 import SetupGuidePage from './pages/SetupGuidePage';
 import MapPage from './pages/MapPage';
+import SettingsPage from './pages/SettingsPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/users" element={<UsersPage />} />
         <Route path="/roles" element={<RoleAccessPage />} />
         <Route path="/setup" element={<SetupGuidePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

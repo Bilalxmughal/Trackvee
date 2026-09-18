@@ -1,8 +1,9 @@
-import { useEffect, useState, FormEvent } from 'react';
+﻿import { useEffect, useState, FormEvent } from 'react';
 import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
+import { fmtDate } from '../utils/date';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
@@ -35,7 +36,7 @@ export default function UsersPage() {
 
   const load = () => {
     Promise.all([api.get<User[]>('/users'), api.get<Org[]>('/organizations')])
-      .then(([u, o]) => { setUsers(u.data); setOrgs(o.data); })
+      .then(([u, o]) => { setUsers(u.data.filter(x => x.role !== 'customer')); setOrgs(o.data); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
@@ -123,7 +124,7 @@ export default function UsersPage() {
                 <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{u.email}</td>
                 <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{roleLabel[u.role] ?? u.role}</td>
                 <td style={{ padding: '10px 16px', color: u.isActive ? '#16a34a' : 'var(--muted)' }}>{u.isActive ? 'Active' : 'Inactive'}</td>
-                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{new Date(u.createdAt).toLocaleDateString()}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{fmtDate(u.createdAt)}</td>
                 <td style={{ padding: '10px 16px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => openEdit(u)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}

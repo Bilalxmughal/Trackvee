@@ -46,6 +46,12 @@ function makeIcon(heading: number, status: 'moving' | 'idle' | 'offline'): L.Div
   });
 }
 
+function InvalidateSize() {
+  const map = useMap();
+  useEffect(() => { map.invalidateSize(); }, [map]);
+  return null;
+}
+
 function FitBounds({ points }: { points: LivePoint[] }) {
   const map = useMap();
   const fitted = useRef(false);
@@ -134,6 +140,7 @@ export default function MapPage() {
             zoomControl={true}
           >
             <TileLayer url={tileUrl} attribution={tileAttr} />
+            <InvalidateSize />
             <FitBounds points={points} />
             {points.map(pt => {
               const status = vehicleStatus(pt);

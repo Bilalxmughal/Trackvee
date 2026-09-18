@@ -1,8 +1,9 @@
-import { useEffect, useState, FormEvent } from 'react';
+﻿import { useEffect, useState, FormEvent } from 'react';
 import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
+import { fmtDate } from '../utils/date';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
@@ -10,11 +11,11 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
-interface Client { id: string; displayId: number; name: string; isActive: boolean; createdAt: string; }
+interface Client { id: string; displayId: number; name: string; companyName: string | null; pocName: string | null; isActive: boolean; createdAt: string; }
 
 const sel: React.CSSProperties = { height: 34, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 200 };
-const empty = { name: '', isActive: true };
+const empty = { name: '', companyName: '', pocName: '', isActive: true };
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -24,7 +25,7 @@ export default function ClientsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
-  const [form, setForm] = useState<{ name: string; isActive: boolean }>(empty);
+  const [form, setForm] = useState<{ name: string; companyName: string; pocName: string; isActive: boolean }>(empty);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Client | null>(null);
   const [deletingId, setDeletingId] = useState(false);
@@ -33,14 +34,15 @@ export default function ClientsPage() {
   useEffect(() => { load(); }, []);
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
-  const openEdit = (c: Client) => { setEditing(c); setForm({ name: c.name, isActive: c.isActive }); setModal(true); };
+  const openEdit = (c: Client) => { setEditing(c); setForm({ name: c.name, companyName: c.companyName ?? '', pocName: c.pocName ?? '', isActive: c.isActive }); setModal(true); };
   const closeModal = () => { setModal(false); setEditing(null); };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault(); setSaving(true);
     try {
-      if (editing) await api.patch(`/organizations/${editing.id}`, form);
-      else await api.post('/organizations', form);
+      const payload = { ...form, companyName: form.companyName || null, pocName: form.pocName || null };
+      if (editing) await api.patch(`/organizations/${editing.id}`, payload);
+      else await api.post('/organizations', payload);
       await load(); closeModal();
     } catch { } finally { setSaving(false); }
   };
@@ -94,7 +96,7 @@ export default function ClientsPage() {
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Name', 'Status', 'Created', ''].map(h => (
+                {['ID', 'Name', 'Company Name', 'POC Name', 'Status', 'Created', ''].map(h => (
                   <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
                 ))}
               </tr>
@@ -104,8 +106,10 @@ export default function ClientsPage() {
                 <tr key={c.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
                   <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>#{c.displayId}</td>
                   <td style={{ padding: '11px 16px', fontWeight: 500 }}>{c.name}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.companyName ?? '—'}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.pocName ?? '—'}</td>
                   <td style={{ padding: '11px 16px', color: c.isActive ? '#16a34a' : 'var(--muted)' }}>{c.isActive ? 'Active' : 'Inactive'}</td>
-                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{new Date(c.createdAt).toLocaleDateString()}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{fmtDate(c.createdAt)}</td>
                   <td style={{ padding: '11px 16px' }}>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => openEdit(c)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}
@@ -116,7 +120,7 @@ export default function ClientsPage() {
                   </td>
                 </tr>
               ))}
-              {!filtered.length && <tr><td colSpan={5} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No clients found</td></tr>}
+              {!filtered.length && <tr><td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No clients found</td></tr>}
             </tbody>
           </table>
         </div>
@@ -130,6 +134,20 @@ export default function ClientsPage() {
               onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
           </FormField>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <FormField label="Company Name">
+              <input value={form.companyName} onChange={e => setForm(f => ({ ...f, companyName: e.target.value }))}
+                placeholder="e.g. Acme Inc." style={inputStyle}
+                onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
+            </FormField>
+            <FormField label="POC Name">
+              <input value={form.pocName} onChange={e => setForm(f => ({ ...f, pocName: e.target.value }))}
+                placeholder="e.g. Ali Khan" style={inputStyle}
+                onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
+            </FormField>
+          </div>
           <FormField label="Status">
             <select value={String(form.isActive)} onChange={e => setForm(f => ({ ...f, isActive: e.target.value === 'true' }))} style={selectStyle}>
               <option value="true">Active</option><option value="false">Inactive</option>

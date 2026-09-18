@@ -14,6 +14,12 @@ export class Organization {
   @Column()
   name: string;
 
+  @Column({ name: 'company_name', nullable: true })
+  companyName: string | null;
+
+  @Column({ name: 'poc_name', nullable: true })
+  pocName: string | null;
+
   @Index({ unique: true })
   @Column()
   slug: string;

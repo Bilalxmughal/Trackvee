@@ -1,6 +1,7 @@
-import { useEffect, useState, FormEvent } from 'react';
+﻿import { useEffect, useState, FormEvent } from 'react';
 import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
 import api from '../api/client';
+import { fmtDate } from '../utils/date';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
@@ -116,7 +117,7 @@ export default function CustomersPage() {
                   <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.email}</td>
                   <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{orgName(c.organizationId)}</td>
                   <td style={{ padding: '11px 16px', color: c.isActive ? '#16a34a' : 'var(--muted)' }}>{c.isActive ? 'Active' : 'Inactive'}</td>
-                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{new Date(c.createdAt).toLocaleDateString()}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{fmtDate(c.createdAt)}</td>
                   <td style={{ padding: '11px 16px' }}>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => openEdit(c)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}

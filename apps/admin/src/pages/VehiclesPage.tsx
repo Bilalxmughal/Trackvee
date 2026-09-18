@@ -1,8 +1,9 @@
-import { useEffect, useState, FormEvent } from 'react';
+﻿import { useEffect, useState, FormEvent } from 'react';
 import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
+import { fmtDate } from '../utils/date';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
@@ -115,7 +116,7 @@ export default function VehiclesPage() {
                 <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
                 <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{v.year ?? '—'}</td>
                 <td style={{ padding: '10px 16px', color: v.isActive ? '#16a34a' : '#aaa' }}>{v.isActive ? 'Active' : 'Inactive'}</td>
-                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{new Date(v.createdAt).toLocaleDateString()}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{fmtDate(v.createdAt)}</td>
                 <td style={{ padding: '10px 16px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => openEdit(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
