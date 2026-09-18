@@ -307,13 +307,8 @@ export default function MapPage() {
   const counts = { moving: 0, idle: 0, offline: 0 };
   visiblePoints.forEach(p => counts[vehicleStatus(p)]++);
 
-  const tileUrl = dark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-
-  const tileAttr = dark
-    ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const tileAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -335,7 +330,7 @@ export default function MapPage() {
           </div>
         )}
         <MapContainer center={[30.3753, 69.3451]} zoom={5} style={{ height: '100%', width: '100%' }} zoomControl>
-          <TileLayer url={tileUrl} attribution={tileAttr} />
+          <TileLayer url={tileUrl} attribution={tileAttr} className={dark ? 'map-tiles-dark' : ''} />
           <InvalidateSize />
           <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'} />
           <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} />
