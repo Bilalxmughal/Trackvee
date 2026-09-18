@@ -45,7 +45,7 @@ export class OrganizationsService {
           SELECT v.organization_id, COUNT(d.id) AS cnt
           FROM devices d
           JOIN vehicles v ON v.id = d.vehicle_id
-          WHERE d.is_active = true
+          WHERE d.status = 'active'
           GROUP BY v.organization_id
         ) de ON de.organization_id = o.id
       `);
@@ -85,7 +85,7 @@ export class OrganizationsService {
           SELECT COUNT(d.id) AS cnt
           FROM devices d
           JOIN vehicles v ON v.id = d.vehicle_id
-          WHERE v.organization_id = $1 AND d.is_active = true
+          WHERE v.organization_id = $1 AND d.status = 'active'
         ) de ON true
       `, [id]);
 
