@@ -140,7 +140,6 @@ function buildPopupHtml(
       ${row('GPS', `${gpsPercent}%`)}
       ${row('Satellites', String(pt.satellites))}
       ${row('GSM', gsmLabel)}
-      ${row('IMEI', `<span style="font-family:monospace;font-size:11px">${pt.imei}</span>`)}
     </tbody></table>
   </div>`;
 }
