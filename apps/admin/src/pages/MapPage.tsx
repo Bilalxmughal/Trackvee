@@ -244,7 +244,8 @@ function buildPopupHtml(pt: LivePoint, dv: { plate: string | null; vehicleId: st
     <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f0f0f0">
       <a href="${svUrl}" target="_blank" rel="noopener noreferrer"
         style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#1a73e8;text-decoration:none;padding:4px 10px;border-radius:5px;border:1px solid #d0e2f9;background:#f0f6ff">
-        🌍 Street View
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Street View
       </a>
     </div>
   </div>`;
@@ -636,9 +637,9 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay }: {
 
   const svUrl = `https://maps.google.com/maps?layer=c&cbll=${pt.latitude},${pt.longitude}`;
   const items = [
-    { label: 'View on Map', icon: '📍', action: () => { onViewOnMap(); setOpen(false); } },
-    { label: 'Trip Replay', icon: '▶', action: () => { onTripReplay(); setOpen(false); } },
-    { label: 'Street View', icon: '🌍', action: () => { window.open(svUrl, '_blank', 'noopener'); setOpen(false); } },
+    { label: 'View on Map', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>, action: () => { onViewOnMap(); setOpen(false); } },
+    { label: 'Trip Replay', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21"/></svg>, action: () => { onTripReplay(); setOpen(false); } },
+    { label: 'Street View', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>, action: () => { window.open(svUrl, '_blank', 'noopener'); setOpen(false); } },
   ];
 
   return (
@@ -656,7 +657,7 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay }: {
               style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 13px', border: 'none', background: 'transparent', color: dark ? '#e5e5e5' : '#333', fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}
               onMouseEnter={e => { e.currentTarget.style.background = dark ? '#2a1010' : '#fff5f5'; e.currentTarget.style.color = '#dc2626'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = dark ? '#e5e5e5' : '#333'; }}>
-              <span style={{ fontSize: 13 }}>{it.icon}</span> {it.label}
+              <span style={{ display: 'flex', flexShrink: 0 }}>{it.icon}</span> {it.label}
             </button>
           ))}
         </div>
@@ -702,7 +703,11 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
     <div>
       <div onClick={onToggle} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 8px 7px 10px', background: hov ? (dark ? '#222' : '#f0f0f0') : (dark ? '#1c1c1c' : '#f7f7f7'), borderBottom: `1px solid ${dark ? '#242424' : '#ebebeb'}`, cursor: 'pointer', userSelect: 'none' }}>
-        <span style={{ fontSize: 9, color: dark ? '#555' : '#999', flexShrink: 0 }}>{collapsed ? '▶' : '▼'}</span>
+        <span style={{ display: 'flex', flexShrink: 0, color: dark ? '#555' : '#999' }}>
+          {collapsed
+            ? <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9,6 15,12 9,18"/></svg>
+            : <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>}
+        </span>
         <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</span>
         <span style={{ fontSize: 10, color: dark ? '#aaa' : '#555', flexShrink: 0, marginRight: 2 }}>{gpPts.length}</span>
         <button onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 3px', borderRadius: 3, color: dark ? '#aaa' : '#555', display: 'flex', flexShrink: 0 }}>
@@ -901,7 +906,7 @@ function AlertSettingsModal({ settings, onSave, onClose, dark }: {
 
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-            <span>🚨</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
             <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e5e5e5' : '#111' }}>Speed Alert</span>
           </div>
           <div style={{ fontSize: 11, color: dark ? '#666' : '#9ca3af', marginBottom: 6 }}>Speed limit in km/h — set 0 to disable</div>
@@ -911,7 +916,7 @@ function AlertSettingsModal({ settings, onSave, onClose, dark }: {
 
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-            <span>💤</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e5e5e5' : '#111' }}>Idle Alert</span>
           </div>
           <div style={{ fontSize: 11, color: dark ? '#666' : '#9ca3af', marginBottom: 6 }}>Minimum idle time in minutes — set 0 to disable</div>
@@ -921,7 +926,7 @@ function AlertSettingsModal({ settings, onSave, onClose, dark }: {
 
         <div style={{ marginBottom: 24, padding: '12px 14px', borderRadius: 9, background: dark ? '#111' : '#f9fafb', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>🔔</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', flex: 1 }}>Browser Notifications</span>
             <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
               <input type="checkbox" checked={notifications} onChange={e => handleNotifToggle(e.target.checked)} style={{ accentColor: '#dc2626', width: 14, height: 14, cursor: 'pointer' }}/>
@@ -955,14 +960,20 @@ function AlertsPanel({ alerts, dark, onClose }: { alerts: VehicleAlert[]; dark: 
         <ModalHeader title={`Active Alerts (${alerts.length})`} onClose={onClose} dark={dark}/>
         {alerts.length === 0 ? (
           <div style={{ padding: '32px 0', textAlign: 'center', color: dark ? '#555' : '#bbb', fontSize: 13 }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+            </div>
             No active alerts
           </div>
         ) : (
           <div style={{ overflowY: 'auto', flex: 1 }}>
             {alerts.map((a, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: `1px solid ${dark ? '#222' : '#f5f5f5'}` }}>
-                <span style={{ fontSize: 20 }}>{a.type === 'speed' ? '🚨' : '💤'}</span>
+                <span style={{ display: 'flex', flexShrink: 0 }}>
+                  {a.type === 'speed'
+                    ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                    : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>}
+                </span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>{a.plate}</div>
                   <div style={{ fontSize: 11, color: a.type === 'speed' ? '#dc2626' : '#f59e0b', marginTop: 2 }}>
@@ -1023,7 +1034,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
       <div style={{ width: 'min(900px, 96vw)', height: 'min(600px, 90vh)', background: dark ? '#1a1a1a' : '#fff', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.55)' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}`, gap: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 14 }}>▶</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><polygon points="5,3 19,12 5,21"/></svg>
           <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>Trip Replay — {plate}</span>
           {!loading && history.length > 0 && (
             <span style={{ fontSize: 11, color: dark ? '#666' : '#9ca3af' }}>{history.length} pts · {totalKm.toFixed(1)} km</span>
@@ -1041,7 +1052,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
           )}
           {!loading && history.length === 0 && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}>
-              <span style={{ fontSize: 28 }}>📭</span>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={dark ? '#444' : '#d1d5db'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <span style={{ fontSize: 13, color: dark ? '#555' : '#9ca3af' }}>No GPS history for this vehicle</span>
             </div>
           )}
@@ -1297,11 +1308,11 @@ export default function MapPage() {
             title="Alert Settings"
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: `1px solid ${activeAlerts.length > 0 ? '#fca5a5' : (dark ? '#333' : '#e5e7eb')}`, background: activeAlerts.length > 0 ? (dark ? '#2a0a0a' : '#fff5f5') : (dark ? '#222' : '#f9fafb'), color: activeAlerts.length > 0 ? '#dc2626' : (dark ? '#aaa' : '#555'), cursor: 'pointer', fontSize: 12, fontWeight: 600, position: 'relative' }}
           >
-            🔔
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             {activeAlerts.length > 0 && (
               <span style={{ background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 9 }}>{activeAlerts.length}</span>
             )}
-            {!isMobile && <span>{activeAlerts.length > 0 ? 'Alerts' : 'Alerts'}</span>}
+            {!isMobile && <span>Alerts</span>}
           </button>
           {/* Panel toggle */}
           <button
@@ -1352,7 +1363,8 @@ export default function MapPage() {
               title={distanceMode ? 'Exit distance mode (right-click undo, dblclick reset)' : 'Measure distance between points'}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, border: `1px solid ${distanceMode ? '#dc2626' : (dark ? '#333' : '#e5e7eb')}`, background: distanceMode ? (dark ? '#2a1010' : '#fff0f0') : 'transparent', color: distanceMode ? '#dc2626' : (dark ? '#888' : '#666'), fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
             >
-              📏 {distanceMode ? 'Stop' : 'Distance'}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+              {distanceMode ? 'Stop' : 'Distance'}
             </button>
             {/* Alert settings shortcut */}
             <button
@@ -1360,14 +1372,16 @@ export default function MapPage() {
               title="Alert Settings"
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 11.5, fontWeight: 500, cursor: 'pointer' }}
             >
-              ⚙️ Alert Rules
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="6" y1="18" x2="18" y2="18"/></svg>
+              Alert Rules
             </button>
           </div>
 
           {/* Distance mode hint */}
           {distanceMode && (
-            <div style={{ marginBottom: 8, padding: '6px 12px', borderRadius: 7, background: dark ? '#2a1010' : '#fff0f0', border: `1px solid ${dark ? '#3a1515' : '#fca5a5'}`, fontSize: 11, color: '#dc2626', fontWeight: 500 }}>
-              📏 Click to add points · Right-click to undo · Double-click to reset
+            <div style={{ marginBottom: 8, padding: '6px 12px', borderRadius: 7, background: dark ? '#2a1010' : '#fff0f0', border: `1px solid ${dark ? '#3a1515' : '#fca5a5'}`, fontSize: 11, color: '#dc2626', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
+              Click to add points · Right-click to undo · Double-click to reset
             </div>
           )}
 
