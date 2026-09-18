@@ -138,10 +138,10 @@ function makeCarIcon(heading: number, status: 'moving' | 'idle' | 'parked' | 'of
   const glow = `drop-shadow(0 0 5px ${color}) drop-shadow(0 0 3px ${color}bb)`;
   const label = `${plate} (${Math.round(speed)} kph)`;
   const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-family:system-ui,sans-serif">
-    <img src="/car-icon.png" style="display:block;width:34px;height:34px;transform:rotate(${(heading + 180) % 360}deg);transform-origin:center center;filter:${glow}"/>
-    <div style="background:rgba(10,10,10,0.85);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;white-space:nowrap;letter-spacing:0.3px;border-left:3px solid ${color}">${label}</div>
+    <img src="/car-icon.png" style="display:block;width:38px;height:38px;transform:rotate(${(heading + 180) % 360}deg);transform-origin:center center;filter:${glow};pointer-events:none"/>
+    <div style="background:rgba(10,10,10,0.85);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;white-space:nowrap;letter-spacing:0.3px;border-left:3px solid ${color};pointer-events:none">${label}</div>
   </div>`;
-  return L.divIcon({ html, className: '', iconSize: [150, 58], iconAnchor: [75, 40], popupAnchor: [0, -44] });
+  return L.divIcon({ html, className: 'leaflet-interactive', iconSize: [150, 62], iconAnchor: [75, 42], popupAnchor: [0, -46] });
 }
 
 function row(label: string, value: string, extra = '') {
@@ -248,7 +248,7 @@ function ClusterLayer({ points, deviceMap, vehicleDetails }: { points: LivePoint
         const sz = n >= 20 ? 44 : n >= 10 ? 40 : 34;
         return L.divIcon({
           html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:#111;border:3px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:${n>=10?12:13}px;box-shadow:0 2px 8px rgba(0,0,0,0.35)">${n}</div>`,
-          className: '', iconSize: [sz, sz], iconAnchor: [sz/2, sz/2],
+          className: 'leaflet-interactive', iconSize: [sz, sz], iconAnchor: [sz/2, sz/2],
         });
       },
     });
