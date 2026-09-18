@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
@@ -280,9 +281,23 @@ export default function MapPage() {
           <TileLayer url={tileUrl} attribution={tileAttr} />
           <InvalidateSize />
           <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'} />
-          {visiblePoints.map(pt => (
-            <LiveMarker key={pt.imei} pt={pt} deviceMap={deviceMap} vehicleDetails={vehicleDetails} />
-          ))}
+          <MarkerClusterGroup
+            chunkedLoading
+            iconCreateFunction={(cluster: { getChildCount: () => number }) => {
+              const n = cluster.getChildCount();
+              const size = n >= 20 ? 44 : n >= 10 ? 40 : 34;
+              return L.divIcon({
+                html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#111;border:3px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:${n>=10?12:13}px;box-shadow:0 2px 8px rgba(0,0,0,0.35)">${n}</div>`,
+                className: '',
+                iconSize: [size, size],
+                iconAnchor: [size / 2, size / 2],
+              });
+            }}
+          >
+            {visiblePoints.map(pt => (
+              <LiveMarker key={pt.imei} pt={pt} deviceMap={deviceMap} vehicleDetails={vehicleDetails} />
+            ))}
+          </MarkerClusterGroup>
         </MapContainer>
       </div>
     </div>
