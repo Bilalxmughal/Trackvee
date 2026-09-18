@@ -1,5 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconBuilding, IconUsers, IconCar, IconCpu, IconMapPin, IconPhone, IconMail, IconLock, IconX } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconUsers, IconCar, IconCpu } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
@@ -23,102 +24,8 @@ const sel: React.CSSProperties = { height: 34, padding: '0 10px', border: '1px s
 const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 200 };
 const empty = { name: '', pocName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true };
 
-function StatBadge({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, background: `${color}14`, fontSize: 12, fontWeight: 500, color }}>
-      <Icon size={12} />
-      {value}
-      <span style={{ fontWeight: 400, color, opacity: 0.7 }}>{label}</span>
-    </div>
-  );
-}
-
-function ClientDrawer({ client, cities, onClose }: { client: Client; cities: { id: string; name: string }[]; onClose: () => void }) {
-  const cityName = cities.find(c => c.id === client.cityId)?.name ?? '—';
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 600, display: 'flex' }}>
-      <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)' }} onClick={onClose} />
-      <div style={{ width: 420, background: 'var(--bg)', boxShadow: '-8px 0 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-        {/* Header */}
-        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(220,38,38,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <IconBuilding size={18} color="#dc2626" />
-              </div>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{client.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>Client #{client.displayId}</div>
-              </div>
-            </div>
-            <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: client.isActive ? 'rgba(34,197,94,0.1)' : 'var(--bg3)', color: client.isActive ? '#16a34a' : 'var(--muted)' }}>
-              {client.isActive ? 'Active' : 'Inactive'}
-            </span>
-          </div>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4, borderRadius: 6 }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}>
-            <IconX size={18} />
-          </button>
-        </div>
-
-        {/* Stats */}
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          {[
-            { icon: IconUsers, label: 'Customers', value: client.customerCount, color: '#8b5cf6' },
-            { icon: IconCar, label: 'Vehicles', value: client.vehicleCount, color: '#16a34a' },
-            { icon: IconCpu, label: 'Devices', value: client.deviceCount, color: '#f59e0b' },
-          ].map(s => (
-            <div key={s.label} style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: `${s.color}0d`, border: `1px solid ${s.color}22` }}>
-              <s.icon size={18} color={s.color} style={{ marginBottom: 4 }} />
-              <div style={{ fontSize: 22, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
-              <div style={{ fontSize: 11, color: s.color, opacity: 0.7, marginTop: 2 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Info */}
-        <div style={{ padding: '16px 24px', flex: 1 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Contact Information</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { icon: IconUsers, label: 'POC Name', value: client.pocName ?? '—' },
-              { icon: IconPhone, label: 'Contact No', value: client.contactNo ?? '—' },
-              { icon: IconMail, label: 'Email', value: client.email ?? '—' },
-              { icon: IconMapPin, label: 'City', value: cityName },
-            ].map(row => (
-              <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: 'var(--bg2)' }}>
-                <row.icon size={14} color="var(--muted)" style={{ flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 1 }}>{row.label}</div>
-                  <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.value}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Portal login status */}
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, margin: '20px 0 12px' }}>Portal Access</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 10, background: client.email ? 'rgba(34,197,94,0.06)' : 'var(--bg2)', border: `1px solid ${client.email ? 'rgba(34,197,94,0.2)' : 'var(--border)'}` }}>
-            <IconLock size={16} color={client.email ? '#16a34a' : 'var(--muted)'} />
-            <div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: client.email ? '#16a34a' : 'var(--muted)' }}>
-                {client.email ? 'Portal login enabled' : 'No portal access'}
-              </div>
-              {client.email && <div style={{ fontSize: 11, color: '#16a34a', opacity: 0.7 }}>{client.email}</div>}
-            </div>
-          </div>
-
-          <div style={{ marginTop: 20, padding: '10px 12px', borderRadius: 8, background: 'var(--bg2)', fontSize: 12, color: 'var(--muted)' }}>
-            Added on {fmtDate(client.createdAt)}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function ClientsPage() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -131,7 +38,6 @@ export default function ClientsPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Client | null>(null);
   const [deletingId, setDeletingId] = useState(false);
-  const [viewing, setViewing] = useState<Client | null>(null);
 
   const load = () => api.get<Client[]>('/organizations').then(r => setClients(r.data)).catch(() => {}).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
@@ -225,20 +131,26 @@ export default function ClientsPage() {
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.pocName ?? '—'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.contactNo ?? '—'}</td>
                   <td style={{ padding: '10px 14px' }}>
-                    <StatBadge icon={IconUsers} label="" value={c.customerCount} color="#8b5cf6" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--text)' }}>
+                      <IconUsers size={12} color="var(--muted)" /> {c.customerCount}
+                    </div>
                   </td>
                   <td style={{ padding: '10px 14px' }}>
-                    <StatBadge icon={IconCar} label="" value={c.vehicleCount} color="#16a34a" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--text)' }}>
+                      <IconCar size={12} color="var(--muted)" /> {c.vehicleCount}
+                    </div>
                   </td>
                   <td style={{ padding: '10px 14px' }}>
-                    <StatBadge icon={IconCpu} label="" value={c.deviceCount} color="#f59e0b" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--text)' }}>
+                      <IconCpu size={12} color="var(--muted)" /> {c.deviceCount}
+                    </div>
                   </td>
                   <td style={{ padding: '10px 14px', color: c.isActive ? '#16a34a' : 'var(--muted)', fontSize: 12 }}>{c.isActive ? 'Active' : 'Inactive'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{fmtDate(c.createdAt)}</td>
                   <td style={{ padding: '10px 14px' }}>
                     <div style={{ display: 'flex', gap: 2 }}>
-                      <button onClick={() => setViewing(c)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}
-                        onMouseEnter={e => (e.currentTarget.style.color = '#3b82f6')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEye size={14} /></button>
+                      <button onClick={() => navigate(`/clients/${c.id}`)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEye size={14} /></button>
                       <button onClick={() => openEdit(c)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}
                         onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>
                       <button onClick={() => setDeleting(c)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}
@@ -308,9 +220,6 @@ export default function ClientsPage() {
           <FormActions onClose={closeModal} loading={saving} submitLabel={editing ? 'Update' : 'Create Client'} />
         </form>
       </Modal>
-
-      {/* View Drawer */}
-      {viewing && <ClientDrawer client={viewing} cities={cities} onClose={() => setViewing(null)} />}
 
       <ConfirmDialog open={!!deleting} title="Delete Client"
         message={`Delete client "${deleting?.name}"? This cannot be undone.`}
