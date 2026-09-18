@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import { useTheme } from '../contexts/ThemeContext';
