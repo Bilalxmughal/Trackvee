@@ -400,43 +400,61 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
 
 // ── Shared modal vehicle list ────────────────────────────────────────────────
 
-function ModalVehicleList({ allImeis, points, deviceMap, sel, toggle, dark }: {
-  allImeis: string[]; points: LivePoint[]; deviceMap: DMap;
+function ModalVehicleList({ allImeis, deviceMap, sel, toggle, dark, groups, excludeGroupId }: {
+  allImeis: string[]; deviceMap: DMap;
   sel: Set<string>; toggle: (imei: string) => void; dark: boolean;
+  groups?: VehicleGroup[]; excludeGroupId?: string;
 }) {
+  const activeGroups = (groups ?? []).filter(g => g.id !== excludeGroupId);
+  const groupedSet = new Set(activeGroups.flatMap(g => g.imeis));
+  const ungrouped = allImeis.filter(i => !groupedSet.has(i));
+
+  const sections: { title?: string; imeis: string[] }[] = [];
+  if (ungrouped.length > 0) sections.push({ imeis: ungrouped });
+  activeGroups.forEach(g => {
+    const gImeis = g.imeis.filter(i => allImeis.includes(i));
+    if (gImeis.length > 0) sections.push({ title: g.name, imeis: gImeis });
+  });
+  if (sections.length === 0) sections.push({ imeis: allImeis });
+
+  const VehicleItem = ({ imei }: { imei: string }) => {
+    const plate = deviceMap.get(imei)?.plate || imei.slice(-8);
+    const chk = sel.has(imei);
+    return (
+      <label style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', cursor: 'pointer', borderRadius: 4, background: chk ? (dark ? '#2a1010' : '#fff5f5') : 'transparent' }}>
+        <input type="checkbox" checked={chk} onChange={() => toggle(imei)} style={{ flexShrink: 0, accentColor: '#dc2626', cursor: 'pointer' }}/>
+        <span style={{ fontSize: 12, fontWeight: chk ? 600 : 400, color: chk ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</span>
+      </label>
+    );
+  };
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
-      {allImeis.map((imei, i) => {
-        const plate = deviceMap.get(imei)?.plate || imei.slice(-8);
-        const chk = sel.has(imei);
-        const isLast = i >= allImeis.length - (allImeis.length % 3 || 3);
-        return (
-          <label key={imei} style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '7px 10px',
-            borderBottom: `1px solid ${dark ? '#1f1f1f' : '#f0f0f0'}`,
-            borderRight: (i % 3 !== 2) ? `1px solid ${dark ? '#1f1f1f' : '#f0f0f0'}` : 'none',
-            cursor: 'pointer',
-            background: chk ? (dark ? '#1e1010' : '#fff5f5') : 'transparent',
-          }}>
-            <input type="checkbox" checked={chk} onChange={() => toggle(imei)} style={{ flexShrink: 0, accentColor: '#dc2626', cursor: 'pointer' }}/>
-            <span style={{ fontSize: 12, fontWeight: chk ? 600 : 400, color: chk ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</span>
-          </label>
-        );
-      })}
+    <div style={{ padding: '4px 4px' }}>
+      {sections.map((section, si) => (
+        <div key={si} style={{ marginBottom: si < sections.length - 1 ? 8 : 0 }}>
+          {section.title && (
+            <div style={{ padding: '6px 8px 3px', fontSize: 10, fontWeight: 700, color: dark ? '#555' : '#bbb', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+              {section.title}
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
+            {section.imeis.map(imei => <VehicleItem key={imei} imei={imei}/>)}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
 // ── Create Group Modal ───────────────────────────────────────────────────────
 
-function ModalHeader({ title, onClose }: { title: string; onClose: () => void }) {
+function ModalHeader({ title, onClose, dark }: { title: string; onClose: () => void; dark: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', padding: '14px 20px', background: '#dc2626', borderRadius: '12px 12px 0 0', margin: '-24px -24px 18px' }}>
-      <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: 0.2 }}>{title}</span>
-      <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', color: '#fff', padding: '4px 5px', borderRadius: 5, display: 'flex' }}
-        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.28)')}
-        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}>
+    <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 14, marginBottom: 14, borderBottom: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}` }}>
+      <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', letterSpacing: 0.2 }}>{title}</span>
+      <button onClick={onClose} style={{ background: dark ? '#2a2a2a' : '#f5f5f5', border: 'none', cursor: 'pointer', color: dark ? '#888' : '#666', padding: '4px 5px', borderRadius: 5, display: 'flex' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = dark ? '#333' : '#ebebeb'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = dark ? '#2a2a2a' : '#f5f5f5'; }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
@@ -445,21 +463,11 @@ function ModalHeader({ title, onClose }: { title: string; onClose: () => void })
   );
 }
 
-function ModalSearch({ value, onChange, dark }: { value: string; onChange: (v: string) => void; dark: boolean }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: dark ? '#111' : '#f5f5f5', borderRadius: 7, padding: '6px 10px', marginBottom: 10 }}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input value={value} onChange={e => onChange(e.target.value)} placeholder="Search vehicles…" style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 12, color: dark ? '#e5e5e5' : '#111', outline: 'none' }}/>
-      {value && <button onClick={() => onChange('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex' }}>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>}
-    </div>
-  );
-}
 
-function CreateGroupModal({ points, deviceMap, onClose, onCreate, dark }: {
+function CreateGroupModal({ points, deviceMap, onClose, onCreate, dark, groups }: {
   points: LivePoint[]; deviceMap: DMap;
   onClose: () => void; onCreate: (name: string, imeis: string[]) => void; dark: boolean;
+  groups: VehicleGroup[];
 }) {
   const [name, setName] = useState('');
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -467,22 +475,28 @@ function CreateGroupModal({ points, deviceMap, onClose, onCreate, dark }: {
   const toggle = (imei: string) => setSel(p => { const n = new Set(p); n.has(imei) ? n.delete(imei) : n.add(imei); return n; });
   const allImeis = points.map(p => p.imei);
   const filtered = q.trim() ? allImeis.filter(i => (deviceMap.get(i)?.plate ?? i).toLowerCase().includes(q.toLowerCase())) : allImeis;
-  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 24, width: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
+  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 24, width: 600, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' };
+  const btnStyle: React.CSSProperties = { padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' };
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={card} onClick={e => e.stopPropagation()}>
-        <ModalHeader title="Create Group" onClose={onClose}/>
+        <ModalHeader title="Create Group" onClose={onClose} dark={dark}/>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Group name" style={inp} autoFocus/>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: dark ? '#666' : '#aaa', flex: 1 }}>{sel.size} of {allImeis.length} selected</span>
-          <button onClick={() => setSel(new Set(allImeis))} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Select All</button>
-          <button onClick={() => setSel(new Set())} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Deselect All</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <button onClick={() => setSel(new Set(allImeis))} style={btnStyle}>Select All</button>
+          <button onClick={() => setSel(new Set())} style={btnStyle}>Deselect All</button>
+          <span style={{ fontSize: 11, color: dark ? '#555' : '#bbb', marginLeft: 4 }}>{sel.size}/{allImeis.length}</span>
+          <div style={{ flex: 1 }}/>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: dark ? '#111' : '#f5f5f5', borderRadius: 7, padding: '5px 10px' }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search…" style={{ border: 'none', background: 'transparent', fontSize: 12, color: dark ? '#e5e5e5' : '#111', outline: 'none', width: 120 }}/>
+            {q && <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex' }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>}
+          </div>
         </div>
-        <ModalSearch value={q} onChange={setQ} dark={dark}/>
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16, border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16, border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 8 }}>
           {points.length === 0 ? <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>No vehicles online</div>
-          : <ModalVehicleList allImeis={filtered} points={points} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark}/>}
+          : <ModalVehicleList allImeis={filtered} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark} groups={groups}/>}
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
@@ -497,10 +511,10 @@ function CreateGroupModal({ points, deviceMap, onClose, onCreate, dark }: {
 
 // ── Edit Group Modal ─────────────────────────────────────────────────────────
 
-function EditGroupModal({ group, points, deviceMap, onClose, onSave, onDelete, dark }: {
+function EditGroupModal({ group, points, deviceMap, onClose, onSave, onDelete, dark, groups }: {
   group: VehicleGroup; points: LivePoint[]; deviceMap: DMap;
   onClose: () => void; onSave: (id: string, name: string, imeis: string[]) => void;
-  onDelete: (id: string) => void; dark: boolean;
+  onDelete: (id: string) => void; dark: boolean; groups: VehicleGroup[];
 }) {
   const [name, setName] = useState(group.name);
   const [sel, setSel] = useState<Set<string>>(new Set(group.imeis));
@@ -508,21 +522,27 @@ function EditGroupModal({ group, points, deviceMap, onClose, onSave, onDelete, d
   const toggle = (imei: string) => setSel(p => { const n = new Set(p); n.has(imei) ? n.delete(imei) : n.add(imei); return n; });
   const allImeis = [...new Set([...group.imeis, ...points.map(p => p.imei)])];
   const filtered = q.trim() ? allImeis.filter(i => (deviceMap.get(i)?.plate ?? i).toLowerCase().includes(q.toLowerCase())) : allImeis;
-  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 24, width: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
+  const card: React.CSSProperties = { background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 12, padding: 24, width: 600, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' };
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' };
+  const btnStyle: React.CSSProperties = { padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' };
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={card} onClick={e => e.stopPropagation()}>
-        <ModalHeader title="Edit Group" onClose={onClose}/>
+        <ModalHeader title="Edit Group" onClose={onClose} dark={dark}/>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Group name" style={inp}/>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: dark ? '#666' : '#aaa', flex: 1 }}>{sel.size} of {allImeis.length} selected</span>
-          <button onClick={() => setSel(new Set(allImeis))} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Select All</button>
-          <button onClick={() => setSel(new Set())} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#555', fontSize: 11, cursor: 'pointer' }}>Deselect All</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <button onClick={() => setSel(new Set(allImeis))} style={btnStyle}>Select All</button>
+          <button onClick={() => setSel(new Set())} style={btnStyle}>Deselect All</button>
+          <span style={{ fontSize: 11, color: dark ? '#555' : '#bbb', marginLeft: 4 }}>{sel.size}/{allImeis.length}</span>
+          <div style={{ flex: 1 }}/>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: dark ? '#111' : '#f5f5f5', borderRadius: 7, padding: '5px 10px' }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search…" style={{ border: 'none', background: 'transparent', fontSize: 12, color: dark ? '#e5e5e5' : '#111', outline: 'none', width: 120 }}/>
+            {q && <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex' }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>}
+          </div>
         </div>
-        <ModalSearch value={q} onChange={setQ} dark={dark}/>
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16, border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 8, overflow: 'hidden' }}>
-          <ModalVehicleList allImeis={filtered} points={points} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark}/>
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16, border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 8 }}>
+          <ModalVehicleList allImeis={filtered} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark} groups={groups} excludeGroupId={group.id}/>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, paddingTop: 4, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
           <button onClick={() => { onDelete(group.id); onClose(); }} style={{ padding: '8px 14px', borderRadius: 7, border: '1px solid #fca5a5', background: 'transparent', color: '#ef4444', fontSize: 13, cursor: 'pointer' }}>Delete Group</button>
@@ -617,8 +637,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
         {filtered.length === 0 && <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: dark ? '#555' : '#aaa' }}>{search ? 'No results' : 'No vehicles online'}</div>}
       </div>
 
-      {showCreate && <CreateGroupModal points={points} deviceMap={deviceMap} onClose={() => setShowCreate(false)} onCreate={createGroup} dark={dark}/>}
-      {editingGroup && <EditGroupModal group={editingGroup} points={points} deviceMap={deviceMap} onClose={() => setEditingGroup(null)} onSave={saveGroup} onDelete={deleteGroup} dark={dark}/>}
+      {showCreate && <CreateGroupModal points={points} deviceMap={deviceMap} onClose={() => setShowCreate(false)} onCreate={createGroup} dark={dark} groups={groups}/>}
+      {editingGroup && <EditGroupModal group={editingGroup} points={points} deviceMap={deviceMap} onClose={() => setEditingGroup(null)} onSave={saveGroup} onDelete={deleteGroup} dark={dark} groups={groups}/>}
     </div>
   );
 }
