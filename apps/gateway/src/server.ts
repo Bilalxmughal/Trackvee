@@ -6,6 +6,14 @@ import { connectionManager } from './connection-manager.js';
 const API_URL = process.env['API_URL'] ?? 'http://localhost:3000/api/v1';
 const INTERNAL_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 
+async function checkin(imei: string): Promise<void> {
+  await fetch(`${API_URL}/devices/checkin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-internal-key': INTERNAL_KEY },
+    body: JSON.stringify({ imei }),
+  }).catch(() => {});
+}
+
 async function saveTelemetry(imei: string, packet: {
   latitude: number; longitude: number; speedKmh: number;
   heading: number; gpsValid: boolean; satellites: number;
@@ -66,6 +74,7 @@ function handleBuffer(socket: Socket, remote: string, buf: Buffer, imeiRef: { va
       const resp = buildGt06Response(PROTO_LOGIN, packet.serial);
       socket.write(resp);
       logger.info(`[${packet.imei}] LOGIN — responded with ACK`);
+      checkin(packet.imei);
 
     } else if (packet.type === 'gps') {
       const imei = imeiRef.value ?? 'unknown';
@@ -81,7 +90,10 @@ function handleBuffer(socket: Socket, remote: string, buf: Buffer, imeiRef: { va
 
     } else if (packet.type === 'heartbeat') {
       const imei = imeiRef.value ?? 'unknown';
-      if (imeiRef.value) connectionManager.heartbeat(imeiRef.value);
+      if (imeiRef.value) {
+        connectionManager.heartbeat(imeiRef.value);
+        checkin(imeiRef.value);
+      }
       const resp = buildGt06Response(PROTO_HEARTBEAT, packet.serial);
       socket.write(resp);
       logger.info(`[${imei}] HEARTBEAT`);

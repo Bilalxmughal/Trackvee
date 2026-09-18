@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Headers, UnauthorizedException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { DevicesService } from './devices.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -6,32 +6,52 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { User } from '../users/entities/user.entity.js';
 
 @ApiTags('devices')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('devices')
 export class DevicesController {
   constructor(private devicesService: DevicesService) {}
 
+  // Called by gateway on LOGIN and HEARTBEAT — marks device active
+  @Post('checkin')
+  async checkin(
+    @Headers('x-internal-key') key: string,
+    @Body() body: { imei: string },
+  ) {
+    const expected = process.env.INTERNAL_API_KEY;
+    if (!expected || key !== expected) throw new UnauthorizedException('Invalid internal key');
+    await this.devicesService.updateLastSeen(body.imei).catch(() => {});
+    return { ok: true };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get()
   findAll(@CurrentUser() user: User) {
     return this.devicesService.findAll(user);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.devicesService.findOne(id);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() body: Partial<any>) {
     return this.devicesService.create(body);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   update(@Param('id') id: string, @Body() body: Partial<any>) {
     return this.devicesService.update(id, body);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.devicesService.remove(id);
