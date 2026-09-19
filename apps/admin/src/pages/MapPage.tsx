@@ -1833,6 +1833,7 @@ export default function MapPage() {
 
   // Open panel when alerts panel activates from topbar
   useEffect(() => { if (alertPanelOpen) setPanelOpen(true); }, [alertPanelOpen]);
+  useEffect(() => { if (showGeofencesPanel) setPanelOpen(true); }, [showGeofencesPanel]);
 
   const gfOpenNew = () => { resetGfForm(); setGfView('form'); };
   const gfOpenEdit = (gf: Geofence) => {
