@@ -1305,7 +1305,7 @@ function AlertsPanel({ alerts, dark, onClose }: { alerts: VehicleAlert[]; dark: 
                     {a.type === 'speed' ? `Speed: ${a.value} km/h` : 'Vehicle is idle'}
                   </div>
                 </div>
-                <span style={{ padding: '3px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, color: '#fff', background: a.type === 'speed' ? '#dc2626' : '#f59e0b' }}>
+                <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, color: '#fff', background: a.type === 'speed' ? '#dc2626' : '#f59e0b' }}>
                   {a.type === 'speed' ? 'SPEED' : 'IDLE'}
                 </span>
               </div>
@@ -1719,7 +1719,7 @@ export default function MapPage() {
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: '1px solid #fca5a5', background: dark ? '#2a0a0a' : '#fff5f5', color: '#dc2626', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              <span style={{ background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 9 }}>{activeAlerts.length}</span>
+              <span style={{ background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 3 }}>{activeAlerts.length}</span>
               {!isMobile && <span>Alerts</span>}
             </button>
           )}
@@ -1784,7 +1784,7 @@ export default function MapPage() {
           {/* Status chips + tools */}
           <div style={{ display: 'flex', gap: 8, paddingBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             {(['moving', 'idle', 'parked', 'offline'] as const).map(s => (
-              <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, background: `${STATUS_COLOR[s]}18`, fontSize: 11.5, fontWeight: 500, color: STATUS_COLOR[s] }}>
+              <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 4, background: `${STATUS_COLOR[s]}18`, fontSize: 11.5, fontWeight: 500, color: STATUS_COLOR[s] }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[s], display: 'inline-block' }}/>
                 {STATUS_LABEL[s]}: {counts[s]}
               </div>
@@ -1794,7 +1794,7 @@ export default function MapPage() {
             <button
               onClick={() => setDistanceMode(d => !d)}
               title={distanceMode ? 'Exit distance mode (right-click undo, dblclick reset)' : 'Measure distance between points'}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, border: `1px solid ${distanceMode ? '#dc2626' : (dark ? '#333' : '#e5e7eb')}`, background: distanceMode ? (dark ? '#2a1010' : '#fff0f0') : 'transparent', color: distanceMode ? '#dc2626' : (dark ? '#888' : '#666'), fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 4, border: `1px solid ${distanceMode ? '#dc2626' : (dark ? '#333' : '#e5e7eb')}`, background: distanceMode ? (dark ? '#2a1010' : '#fff0f0') : 'transparent', color: distanceMode ? '#dc2626' : (dark ? '#888' : '#666'), fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
               {distanceMode ? 'Stop' : 'Distance'}
@@ -1814,7 +1814,7 @@ export default function MapPage() {
             {isMobile && !panelOpen && (
               <button
                 onClick={() => setPanelOpen(true)}
-                style={{ position: 'absolute', bottom: 20, left: 12, zIndex: 1001, display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 24, background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#333' : '#ddd'}`, color: dark ? '#e5e5e5' : '#333', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}
+                style={{ position: 'absolute', bottom: 20, left: 12, zIndex: 1001, display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 6, background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#333' : '#ddd'}`, color: dark ? '#e5e5e5' : '#333', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}
               >
                 <PanelToggleIcon/> Vehicles
               </button>
