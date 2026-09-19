@@ -660,7 +660,7 @@ function HistoryLayer({ points, speedLimit }: { points: TripPoint[]; speedLimit:
     L.polyline(coords, { color: '#dc2626', weight: 3.5, opacity: 0.85 }).addTo(layer);
 
     // Direction arrow markers — placed every ~N moving points, clickable with popup
-    const step = Math.max(2, Math.floor(points.length / 150));
+    const step = Math.max(1, Math.floor(points.length / 200));
     for (let i = step; i < points.length - 1; i += step) {
       const p = points[i];
       if (p.speedKmh < 2) continue; // only where vehicle is actually moving
