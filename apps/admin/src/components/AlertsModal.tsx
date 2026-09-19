@@ -198,7 +198,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 16, width: 'min(580px, 100%)', maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
+      <div style={{ background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 16, width: 'min(580px, 100%)', height: 'min(640px, 92vh)', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
 
         {/* ── Header ── */}
         <div style={{ padding: '18px 24px 14px', borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}`, flexShrink: 0 }}>
@@ -236,11 +236,11 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
         </div>
 
         {/* ── Body ── */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+        <div style={{ flex: 1, overflow: 'hidden', padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
 
           {/* ─ Step 1: Name + Vehicles ─ */}
           {step === 1 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minHeight: 0 }}>
               {/* Alert name */}
               <div>
                 <span style={lbl}>Alert Name</span>
@@ -249,28 +249,27 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
               </div>
 
               {/* Vehicle selection */}
-              <div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ ...lbl, margin: 0, flex: 1 }}>Select Vehicles</span>
                   <span style={{ fontSize: 11, color: selectedImeis.size === 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
                     {selectedImeis.size === 0 ? 'None selected' : `${selectedImeis.size} selected`}
                   </span>
                 </div>
-                {/* Toolbar */}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center' }}>
+                {/* Toolbar — 3 equal columns */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 8 }}>
                   <button onClick={() => setSelectedImeis(new Set(vehicles.map(v => v.imei)))}
-                    style={{ fontSize: 11, padding: '5px 10px', borderRadius: 5, border, background: 'transparent', color: dark ? '#aaa' : '#555', cursor: 'pointer', fontWeight: 500 }}>
+                    style={{ fontSize: 11, padding: '6px 8px', borderRadius: 5, border, background: 'transparent', color: dark ? '#aaa' : '#555', cursor: 'pointer', fontWeight: 500, textAlign: 'center' }}>
                     Select All
                   </button>
                   <button onClick={() => setSelectedImeis(new Set())}
-                    style={{ fontSize: 11, padding: '5px 10px', borderRadius: 5, border, background: 'transparent', color: dark ? '#aaa' : '#555', cursor: 'pointer', fontWeight: 500 }}>
-                    Clear
+                    style={{ fontSize: 11, padding: '6px 8px', borderRadius: 5, border, background: 'transparent', color: dark ? '#aaa' : '#555', cursor: 'pointer', fontWeight: 500, textAlign: 'center' }}>
+                    Deselect All
                   </button>
-                  <div style={{ flex: 1 }}/>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: dark ? '#111' : '#f5f5f5', borderRadius: 6, padding: '5px 10px', border }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                    <input value={vSearch} onChange={e => setVSearch(e.target.value)} placeholder="Search vehicle..." style={{ border: 'none', background: 'transparent', fontSize: 11.5, color: dark ? '#e5e5e5' : '#111', outline: 'none', width: 100 }}/>
-                    {vSearch && <button onClick={() => setVSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex' }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: dark ? '#111' : '#f5f5f5', borderRadius: 5, padding: '6px 8px', border }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <input value={vSearch} onChange={e => setVSearch(e.target.value)} placeholder="Search…" style={{ border: 'none', background: 'transparent', fontSize: 11, color: dark ? '#e5e5e5' : '#111', outline: 'none', width: '100%', minWidth: 0 }}/>
+                    {vSearch && <button onClick={() => setVSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex', flexShrink: 0 }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>}
                   </div>
                 </div>
 
@@ -278,7 +277,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
                 {vehicles.length === 0
                   ? <div style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: dark ? '#555' : '#aaa', border, borderRadius: 8 }}>No vehicles online</div>
                   : (
-                    <div style={{ border, borderRadius: 9, overflow: 'hidden', maxHeight: 240, overflowY: 'auto' }}>
+                    <div style={{ border, borderRadius: 9, overflow: 'hidden', flex: 1, overflowY: 'auto' }}>
                       {/* Grouped vehicles */}
                       {groups.map(group => {
                         const gVehicles = group.imeis.map(i => vehicleMap.get(i)).filter((v): v is Vehicle => !!v && matchesSearch(v));
@@ -353,7 +352,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
 
           {/* ─ Step 2: Alert Type + Config ─ */}
           {step === 2 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, flex: 1, overflowY: 'auto', minHeight: 0 }}>
               <div>
                 <span style={lbl}>Alert Type</span>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
@@ -387,7 +386,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
 
           {/* ─ Step 3: Schedule + Notifications ─ */}
           {step === 3 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, flex: 1, overflowY: 'auto', minHeight: 0 }}>
               {/* Schedule */}
               <div style={{ border, borderRadius: 10, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', background: dark ? '#111' : '#f9fafb', borderBottom: scheduled ? `1px solid ${dark ? '#222' : '#e5e7eb'}` : 'none' }}>
