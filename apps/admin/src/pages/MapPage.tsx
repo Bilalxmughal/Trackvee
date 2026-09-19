@@ -648,12 +648,64 @@ function IconSignal({ level }: { level?: number | null }) {
 
 // ── History Layer (map) ───────────────────────────────────────────────────────
 
-function HistoryLayer({ points, speedLimit }: { points: TripPoint[]; speedLimit: number }) {
+function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoint[]; speedLimit: number; selectedSegment: TimelineEvent | null }) {
   const map = useMap();
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const pMarkersRef = useRef<Map<string, L.Marker>>(new Map());
+  const highlightRef = useRef<L.Polyline | null>(null);
+  const dPopupRef = useRef<L.Popup | null>(null);
+
+  // Handle selectedSegment changes (timeline click)
+  useEffect(() => {
+    if (highlightRef.current) { map.removeLayer(highlightRef.current); highlightRef.current = null; }
+    if (dPopupRef.current) { map.closePopup(dPopupRef.current); dPopupRef.current = null; }
+    if (!selectedSegment) return;
+
+    if (selectedSegment.type === 'parked') {
+      map.flyTo([selectedSegment.lat, selectedSegment.lng], 18, { animate: true, duration: 0.7 });
+      const key = selectedSegment.startTime;
+      const m = pMarkersRef.current.get(key);
+      if (m) setTimeout(() => m.openPopup(), 800);
+    } else {
+      // Driving: highlight segment in green + popup with from/to
+      const segPts = points.filter(p => p.timestamp >= selectedSegment.startTime && p.timestamp <= selectedSegment.endTime);
+      if (segPts.length < 2) return;
+      const coords: [number,number][] = segPts.map(p => [p.latitude, p.longitude]);
+      highlightRef.current = L.polyline(coords, { color: '#16a34a', weight: 5, opacity: 0.95 }).addTo(map);
+      try { map.fitBounds(L.latLngBounds(coords), { padding: [50, 50], animate: true }); } catch {}
+      // Popup at midpoint
+      const mid = segPts[Math.floor(segPts.length / 2)];
+      const addrFromId = `dhfrom-${Date.now()}`;
+      const addrToId = `dhto-${Date.now()}`;
+      const sp = segPts[0], ep = segPts[segPts.length - 1];
+      const popupHtml = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:210px;line-height:1.6">
+        <div style="font-weight:700;margin-bottom:6px;color:#16a34a;font-size:13px">Driving Segment</div>
+        <div style="margin-bottom:5px">
+          <div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div>
+          <div style="font-weight:600;font-size:11px">${formatTsFull(sp.timestamp)}</div>
+          <div id="${addrFromId}" style="color:#555;font-size:10.5px">Loading…</div>
+        </div>
+        <div style="margin-bottom:5px">
+          <div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div>
+          <div style="font-weight:600;font-size:11px">${formatTsFull(ep.timestamp)}</div>
+          <div id="${addrToId}" style="color:#555;font-size:10.5px">Loading…</div>
+        </div>
+        <div style="display:flex;gap:14px;font-size:11px;margin-top:4px">
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase">Duration</div><div style="font-weight:600">${formatDuration(selectedSegment.durationSec)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase">Avg Speed</div><div style="font-weight:600">${selectedSegment.avgSpeed ?? '—'} km/h</div></div>
+        </div>
+      </div>`;
+      const popup = L.popup({ maxWidth: 280 }).setLatLng([mid.latitude, mid.longitude]).setContent(popupHtml);
+      dPopupRef.current = popup;
+      popup.addTo(map);
+      reverseGeocode(sp.latitude, sp.longitude).then(a => { const el = document.getElementById(addrFromId); if (el) el.textContent = a; });
+      reverseGeocode(ep.latitude, ep.longitude).then(a => { const el = document.getElementById(addrToId); if (el) el.textContent = a; });
+    }
+  }, [selectedSegment, map, points]);
 
   useEffect(() => {
     if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
+    pMarkersRef.current.clear();
     if (points.length < 2) return;
 
     const layer = L.layerGroup().addTo(map);
@@ -715,6 +767,7 @@ function HistoryLayer({ points, speedLimit }: { points: TripPoint[]; speedLimit:
       const m = L.marker([sp.latitude, sp.longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 100 });
       m.bindPopup(popup, { maxWidth: 280 }).addTo(layer);
       m.on('popupopen', async () => { const addr = await reverseGeocode(sp.latitude, sp.longitude); const el = document.getElementById(addrId); if (el) el.textContent = addr; });
+      pMarkersRef.current.set(sp.timestamp, m);
     });
 
     // Ignition-off (Stop) markers
@@ -761,7 +814,12 @@ function HistoryLayer({ points, speedLimit }: { points: TripPoint[]; speedLimit:
 
     try { map.fitBounds(L.latLngBounds(coords), { padding: [30, 30] }); } catch {}
 
-    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+    return () => {
+      if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
+      if (highlightRef.current) { map.removeLayer(highlightRef.current); highlightRef.current = null; }
+      if (dPopupRef.current) { map.closePopup(dPopupRef.current); dPopupRef.current = null; }
+      pMarkersRef.current.clear();
+    };
   }, [points, speedLimit, map]);
 
   return null;
@@ -769,11 +827,12 @@ function HistoryLayer({ points, speedLimit }: { points: TripPoint[]; speedLimit:
 
 // ── History Panel (left panel) ────────────────────────────────────────────────
 
-function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicles, onVehicleSelect }: {
+function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicles, onVehicleSelect, onSegmentClick }: {
   mode: HistoryMode; points: TripPoint[]; loading: boolean; dark: boolean;
   onLoad: (from: string, to: string) => void; onClear: () => void;
   allVehicles: Array<{ imei: string; plate: string }>;
   onVehicleSelect: (imei: string, plate: string, from: string, to: string) => void;
+  onSegmentClick: (ev: TimelineEvent) => void;
 }) {
   const [from, setFrom] = useState(mode.from);
   const [to, setTo] = useState(mode.to);
@@ -888,7 +947,9 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
               <div style={{ fontSize: 11, color: dark ? '#888' : '#666' }}>{formatTsFull(points[0].timestamp)}</div>
             </div>
             {timeline.map((ev, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
+              <div key={i} onClick={() => onSegmentClick(ev)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`, cursor: 'pointer', transition: 'background .15s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1a1a1a' : '#f9fafb'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
                 <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'parked' ? '#dc2626' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
                   {ev.type === 'parked' ? 'P' : 'D'}
                 </div>
@@ -899,6 +960,7 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
                 {ev.type === 'driving' && ev.avgSpeed !== undefined && (
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#16a34a' }}>{ev.avgSpeed} km/h</div>
                 )}
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={dark ? '#444' : '#ccc'} strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0 }}><polyline points="9,18 15,12 9,6"/></svg>
               </div>
             ))}
           </>
@@ -1344,7 +1406,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
 
 // ── Left Panel ────────────────────────────────────────────────────────────────
 
-function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory }: {
+function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   onSelectVehicle: (imei: string) => void; dark: boolean; onClose?: () => void;
   onTripReplay: (imei: string, plate: string) => void;
@@ -1356,6 +1418,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   onClearHistory: () => void;
   allVehicles: Array<{ imei: string; plate: string }>;
   onVehicleSelectForHistory: (imei: string, plate: string, from: string, to: string) => void;
+  onSegmentClick: (ev: TimelineEvent) => void;
 }) {
   const [groups, setGroups] = useState<VehicleGroup[]>(loadGroups);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -1386,7 +1449,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   return (
     <div style={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 12, overflow: 'hidden' }}>
       {historyMode ? (
-        <HistoryPanel mode={historyMode} points={historyPoints} loading={historyLoading} dark={dark} onLoad={onLoadHistory} onClear={onClearHistory} allVehicles={allVehicles} onVehicleSelect={onVehicleSelectForHistory}/>
+        <HistoryPanel mode={historyMode} points={historyPoints} loading={historyLoading} dark={dark} onLoad={onLoadHistory} onClear={onClearHistory} allVehicles={allVehicles} onVehicleSelect={onVehicleSelectForHistory} onSegmentClick={onSegmentClick}/>
       ) : (
         <>
           <div style={{ display: 'flex', alignItems: 'center', padding: '12px 12px 10px', borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
@@ -1478,6 +1541,7 @@ export default function MapPage() {
   const [historyMode, setHistoryMode] = useState<HistoryMode | null>(null);
   const [historyPoints, setHistoryPoints] = useState<TripPoint[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedSegment, setSelectedSegment] = useState<TimelineEvent | null>(null);
 
   const handleShowHistory = async (imei: string, plate: string, preset: 'lastHour' | 'today' | 'yesterday') => {
     const range = getPresetRange(preset);
@@ -1501,7 +1565,7 @@ export default function MapPage() {
     } catch {} finally { setHistoryLoading(false); }
   };
 
-  const handleClearHistory = () => { setHistoryMode(null); setHistoryPoints([]); };
+  const handleClearHistory = () => { setHistoryMode(null); setHistoryPoints([]); setSelectedSegment(null); };
 
   const handleVehicleSelectForHistory = async (imei: string, plate: string, from: string, to: string) => {
     setHistoryMode({ imei, plate, from, to });
@@ -1653,6 +1717,7 @@ export default function MapPage() {
             onClearHistory={handleClearHistory}
             allVehicles={allVehicles}
             onVehicleSelectForHistory={handleVehicleSelectForHistory}
+            onSegmentClick={ev => setSelectedSegment(ev)}
           />
         </div>
 
@@ -1704,7 +1769,7 @@ export default function MapPage() {
               <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'}/>
               <FlyToPoint target={flyTarget}/>
               {historyPoints.length > 0
-                ? <HistoryLayer points={historyPoints} speedLimit={alertSettings.speedLimit}/>
+                ? <HistoryLayer points={historyPoints} speedLimit={alertSettings.speedLimit} selectedSegment={selectedSegment}/>
                 : <>
                     <TrailLayer trails={trails} visibleImeis={new Set(visiblePoints.map(p => p.imei))}/>
                     <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef}/>
