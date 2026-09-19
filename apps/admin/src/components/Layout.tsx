@@ -128,6 +128,8 @@ function LayoutInner() {
   const [searchLoading, setSearchLoading] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
+  const cityRef = useRef<HTMLDivElement>(null);
+  const [cityDropOpen, setCityDropOpen] = useState(false);
 
   const sidebarW = collapsed ? 56 : 220;
 
@@ -160,6 +162,15 @@ function LayoutInner() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [searchOpen]);
+
+  useEffect(() => {
+    if (!cityDropOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (cityRef.current && !cityRef.current.contains(e.target as Node)) setCityDropOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [cityDropOpen]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -344,14 +355,34 @@ function LayoutInner() {
 
           {/* City filter */}
           {cities.length > 0 && (
-            <select
-              value={selectedCityId}
-              onChange={e => setSelectedCityId(e.target.value)}
-              style={{ height: 30, padding: '0 8px', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 6, fontSize: 12, color: selectedCityId ? '#dc2626' : (dark ? '#666' : '#aaa'), background: dark ? '#1a1a1a' : '#fafafa', outline: 'none', cursor: 'pointer', maxWidth: 140 }}
-            >
-              <option value="">All Cities</option>
-              {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <div ref={cityRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setCityDropOpen(o => !o)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#ddd'}`, background: dark ? '#1e1e1e' : '#fff', color: selectedCityId ? '#dc2626' : (dark ? '#888' : '#555'), fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', whiteSpace: 'nowrap', maxWidth: 160 }}
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>
+                  {selectedCityId ? (cities.find(c => c.id === selectedCityId)?.name ?? 'All Cities') : 'All Cities'}
+                </span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
+              </button>
+              {cityDropOpen && (
+                <div style={{ position: 'absolute', right: 0, top: 36, background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', minWidth: 150, zIndex: 2000 }}>
+                  {[{ id: '', name: 'All Cities' }, ...cities].map(c => {
+                    const active = c.id === selectedCityId;
+                    return (
+                      <button key={c.id} onClick={() => { setSelectedCityId(c.id); setCityDropOpen(false); }}
+                        style={{ display: 'block', width: '100%', padding: '8px 14px', border: 'none', background: active ? (dark ? '#2a1010' : '#fff5f5') : 'transparent', color: active ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), fontSize: 12.5, fontWeight: active ? 700 : 400, cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap' }}
+                        onMouseEnter={e => { if (!active) e.currentTarget.style.background = dark ? '#222' : '#f5f5f5'; }}
+                        onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        {c.name}
+                        {active && <span style={{ marginLeft: 8, fontSize: 10 }}>✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Global search */}
