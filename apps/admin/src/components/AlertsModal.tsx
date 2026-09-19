@@ -180,10 +180,10 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
             {geofences.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
           <span style={lbl}>Trigger on</span>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}` }}>
             {(['enter','exit','both'] as const).map(ev => (
               <button key={ev} onClick={() => setConfig(c => ({ ...c, geofenceEvent: ev }))}
-                style={{ flex: 1, padding: '8px 4px', borderRadius: 7, border: `2px solid ${config.geofenceEvent === ev ? '#0891b2' : (dark ? '#333' : '#e5e7eb')}`, background: config.geofenceEvent === ev ? '#ecfeff' : 'transparent', color: config.geofenceEvent === ev ? '#0891b2' : (dark ? '#aaa' : '#555'), fontSize: 12, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize' }}>
+                style={{ flex: 1, padding: '6px 4px', border: 'none', borderBottom: `2px solid ${config.geofenceEvent === ev ? '#0891b2' : 'transparent'}`, background: 'transparent', color: config.geofenceEvent === ev ? '#0891b2' : (dark ? '#888' : '#999'), fontSize: 12, fontWeight: config.geofenceEvent === ev ? 700 : 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'color 0.15s, border-color 0.15s', marginBottom: -1 }}>
                 {ev}
               </button>
             ))}

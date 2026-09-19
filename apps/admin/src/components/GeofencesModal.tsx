@@ -157,9 +157,9 @@ function GfForm({ dark, editing, name, onName, type, onType, color, onColor, cen
         {/* Type */}
         <div style={{ marginBottom: 16 }}>
           <span style={lbl}>Shape</span>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}` }}>
             {(['circle', 'polygon'] as const).map(t => (
-              <button key={t} onClick={() => onType(t)} style={{ flex: 1, padding: '8px', border: `2px solid ${type === t ? color : (dark ? '#2a2a2a' : '#e5e7eb')}`, borderRadius: 6, background: type === t ? `${color}15` : 'transparent', color: type === t ? color : (dark ? '#888' : '#666'), fontSize: 12, fontWeight: type === t ? 700 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <button key={t} onClick={() => onType(t)} style={{ flex: 1, padding: '6px 4px', border: 'none', borderBottom: `2px solid ${type === t ? color : 'transparent'}`, background: 'transparent', color: type === t ? color : (dark ? '#888' : '#999'), fontSize: 12, fontWeight: type === t ? 700 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'color 0.15s, border-color 0.15s', marginBottom: -1 }}>
                 {t === 'circle'
                   ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/></svg>
                   : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="12 2 22 20 2 20"/></svg>}
