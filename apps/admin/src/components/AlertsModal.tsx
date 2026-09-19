@@ -252,8 +252,8 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ ...lbl, margin: 0, flex: 1 }}>Select Vehicles</span>
-                  <span style={{ fontSize: 11, color: selectedImeis.size === 0 ? '#f59e0b' : '#16a34a', fontWeight: 600 }}>
-                    {selectedImeis.size === 0 ? 'All vehicles' : `${selectedImeis.size} selected`}
+                  <span style={{ fontSize: 11, color: selectedImeis.size === 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
+                    {selectedImeis.size === 0 ? 'None selected' : `${selectedImeis.size} selected`}
                   </span>
                 </div>
                 {/* Toolbar */}
@@ -345,7 +345,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
                     </div>
                   )}
                 {selectedImeis.size === 0 && vehicles.length > 0 && (
-                  <div style={{ marginTop: 7, fontSize: 11, color: '#f59e0b' }}>No selection = alert applies to all vehicles</div>
+                  <div style={{ marginTop: 7, fontSize: 11, color: '#dc2626' }}>At least one vehicle must be selected</div>
                 )}
               </div>
             </div>
@@ -493,8 +493,8 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
             Cancel
           </button>
           {step < 3 ? (
-            <button onClick={() => setStep(s => s + 1)} disabled={step === 1 && !name.trim()}
-              style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: (step === 1 && !name.trim()) ? '#e5e7eb' : '#dc2626', color: (step === 1 && !name.trim()) ? '#aaa' : '#fff', fontSize: 13, fontWeight: 600, cursor: (step === 1 && !name.trim()) ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <button onClick={() => setStep(s => s + 1)} disabled={step === 1 && (!name.trim() || selectedImeis.size === 0)}
+              style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: (step === 1 && (!name.trim() || selectedImeis.size === 0)) ? '#e5e7eb' : '#dc2626', color: (step === 1 && (!name.trim() || selectedImeis.size === 0)) ? '#aaa' : '#fff', fontSize: 13, fontWeight: 600, cursor: (step === 1 && (!name.trim() || selectedImeis.size === 0)) ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
               Next
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
@@ -677,7 +677,7 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
                       <Chip label={ALERT_TYPE_LABELS[alert.type]} color={color} bg={`${color}14`}/>
                       <span style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa' }}>
-                        {alert.vehicleImeis.length === 0 ? 'All vehicles' : `${alert.vehicleImeis.length} vehicle${alert.vehicleImeis.length !== 1 ? 's' : ''}`}
+                        {`${alert.vehicleImeis.length} vehicle${alert.vehicleImeis.length !== 1 ? 's' : ''}`}
                       </span>
                       {alert.schedule && <Chip label="Scheduled" color="#0284c7" bg="#e0f2fe"/>}
                     </div>
