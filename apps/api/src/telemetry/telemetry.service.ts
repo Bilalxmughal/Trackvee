@@ -3,9 +3,49 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, MoreThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { Telemetry } from './entities/telemetry.entity.js';
 import { DevicesService } from '../devices/devices.service.js';
+import { AlertsService } from '../alerts/alerts.service.js';
+import { GeofencesService } from '../geofences/geofences.service.js';
+import type { CircleCoords, PolygonCoords } from '../geofences/entities/geofence.entity.js';
 import { User } from '../users/entities/user.entity.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin'];
+
+// Geospatial helpers
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371, r = Math.PI / 180;
+  const dLat = (lat2 - lat1) * r, dLng = (lng2 - lng1) * r;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function pointInPolygon(lat: number, lng: number, points: [number,number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [yi, xi] = points[i], [yj, xj] = points[j];
+    if ((yi > lat) !== (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function isScheduleActive(schedule: { from?: string; to?: string; days?: string[]; timeFrom?: string; timeTo?: string } | null): boolean {
+  if (!schedule) return true;
+  const now = new Date();
+  if (schedule.from && now < new Date(schedule.from)) return false;
+  if (schedule.to && now > new Date(schedule.to)) return false;
+  if (schedule.days && schedule.days.length > 0) {
+    const dayNames = ['sun','mon','tue','wed','thu','fri','sat'];
+    if (!schedule.days.includes(dayNames[now.getDay()])) return false;
+  }
+  if (schedule.timeFrom || schedule.timeTo) {
+    const hhmm = now.getHours() * 100 + now.getMinutes();
+    const parse = (t: string) => { const [h,m] = t.split(':').map(Number); return h*100+(m||0); };
+    if (schedule.timeFrom && hhmm < parse(schedule.timeFrom)) return false;
+    if (schedule.timeTo && hhmm > parse(schedule.timeTo)) return false;
+  }
+  return true;
+}
+
+// Cooldown map to avoid duplicate logs (alertId+imei → last triggered ms)
+const triggerCooldown = new Map<string, number>();
+const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 @Injectable()
 export class TelemetryService {
@@ -13,6 +53,8 @@ export class TelemetryService {
     @InjectRepository(Telemetry)
     private repo: Repository<Telemetry>,
     private devicesService: DevicesService,
+    private alertsService: AlertsService,
+    private geofencesService: GeofencesService,
   ) {}
 
   async findRecent(user: User, limit = 100): Promise<Telemetry[]> {
@@ -30,7 +72,103 @@ export class TelemetryService {
 
   async save(data: Partial<Telemetry>): Promise<Telemetry> {
     const record = this.repo.create(data);
-    return this.repo.save(record);
+    const saved = await this.repo.save(record);
+    // Fire-and-forget alert evaluation
+    this.evaluateAlerts(saved).catch(() => {});
+    return saved;
+  }
+
+  private async evaluateAlerts(pt: Telemetry): Promise<void> {
+    const device = await this.devicesService.findByImei(pt.imei).catch(() => null);
+    const orgId = device ? (device as any).organizationId ?? null : null;
+    const alerts = await this.alertsService.findActiveForImei(pt.imei, orgId);
+    if (!alerts.length) return;
+
+    const prevRows = await this.repo.find({ where: { imei: pt.imei }, order: { timestamp: 'DESC' }, skip: 1, take: 1 });
+    const prev = prevRows[0] ?? null;
+    const MOVING = 5;
+
+    for (const alert of alerts) {
+      if (!isScheduleActive(alert.schedule)) continue;
+      const key = `${alert.id}:${pt.imei}`;
+      const lastTriggered = triggerCooldown.get(key) ?? 0;
+      if (Date.now() - lastTriggered < COOLDOWN_MS) continue;
+
+      let triggered = false;
+      const payload: Record<string, unknown> = { speed: pt.speedKmh, lat: pt.latitude, lng: pt.longitude, ts: pt.timestamp };
+
+      switch (alert.type) {
+        case 'over_speed':
+          triggered = pt.speedKmh >= (alert.config.speedLimit ?? 80);
+          break;
+        case 'idle':
+          triggered = pt.ignition === true && pt.speedKmh < MOVING;
+          // Idle needs sustained duration — simplified: trigger once per cooldown window when idle
+          break;
+        case 'ignition_on':
+          triggered = pt.ignition === true && prev?.ignition !== true;
+          break;
+        case 'ignition_off':
+          triggered = pt.ignition === false && prev?.ignition !== false;
+          break;
+        case 'power_cut':
+          triggered = pt.externalPower === false && prev?.externalPower !== false;
+          break;
+        case 'low_battery':
+          triggered = pt.voltageLevel != null && pt.voltageLevel <= (alert.config.level ?? 1);
+          break;
+        case 'no_gps':
+          triggered = !pt.gpsValid;
+          break;
+        case 'offline':
+          // Offline is evaluated by absence of data — skip here (checked separately)
+          break;
+        case 'tow':
+          triggered = pt.ignition !== true && pt.speedKmh >= MOVING;
+          break;
+        case 'over_parking':
+          // Simplified: trigger if parked (ignition off, speed < threshold) once per cooldown
+          triggered = pt.ignition !== true && pt.speedKmh < MOVING;
+          break;
+        case 'geofence': {
+          if (!alert.config.geofenceId) break;
+          const geofences = await this.geofencesService.findAll({ organizationId: orgId } as any).catch(() => []);
+          const gf = geofences.find(g => g.id === alert.config.geofenceId);
+          if (!gf) break;
+          let inside = false;
+          if (gf.type === 'circle') {
+            const c = gf.coordinates as CircleCoords;
+            inside = haversineKm(pt.latitude, pt.longitude, c.center[0], c.center[1]) * 1000 <= c.radius;
+          } else {
+            const p = gf.coordinates as PolygonCoords;
+            inside = pointInPolygon(pt.latitude, pt.longitude, p.points);
+          }
+          let prevInside = false;
+          if (prev) {
+            if (gf.type === 'circle') {
+              const c = gf.coordinates as CircleCoords;
+              prevInside = haversineKm(prev.latitude, prev.longitude, c.center[0], c.center[1]) * 1000 <= c.radius;
+            } else {
+              const p = gf.coordinates as PolygonCoords;
+              prevInside = pointInPolygon(prev.latitude, prev.longitude, p.points);
+            }
+          }
+          const event = alert.config.geofenceEvent ?? 'both';
+          if (event === 'enter') triggered = inside && !prevInside;
+          else if (event === 'exit') triggered = !inside && prevInside;
+          else triggered = inside !== prevInside;
+          payload['geofenceId'] = gf.id;
+          payload['geofenceName'] = gf.name;
+          payload['event'] = inside ? 'enter' : 'exit';
+          break;
+        }
+      }
+
+      if (triggered) {
+        triggerCooldown.set(key, Date.now());
+        await this.alertsService.logTrigger(alert.id, pt.imei, payload);
+      }
+    }
   }
 
   async getLatest(imei: string): Promise<Telemetry | null> {

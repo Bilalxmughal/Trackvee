@@ -8,6 +8,8 @@ import { VehiclesModule } from './vehicles/vehicles.module.js';
 import { DevicesModule } from './devices/devices.module.js';
 import { TelemetryModule } from './telemetry/telemetry.module.js';
 import { CitiesModule } from './cities/cities.module.js';
+import { GeofencesModule } from './geofences/geofences.module.js';
+import { AlertsModule } from './alerts/alerts.module.js';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { CitiesModule } from './cities/cities.module.js';
     DevicesModule,
     TelemetryModule,
     CitiesModule,
+    GeofencesModule,
+    AlertsModule,
   ],
 })
 export class AppModule {}
