@@ -112,7 +112,7 @@ function LayoutInner() {
   const { user, logout } = useAuth();
   const { dark, toggle: toggleTheme } = useTheme();
   const { cities, selectedCityId, setSelectedCityId } = useCityFilter();
-  const { activeAlertCount, alertPanelOpen, openAlertPanel } = useAlert();
+  const { activeAlertCount, alertPanelOpen, openAlertPanel, closeAlertPanel } = useAlert();
   const { gfPanelOpen, openGfPanel, closeGfPanel, gfCount } = useGeofence();
   const navigate = useNavigate();
   const location = useLocation();
@@ -309,15 +309,15 @@ function LayoutInner() {
             {
               key: 'alerts',
               active: alertPanelOpen,
-              onClick: () => { if (!isMap) navigate('/map'); openAlertPanel(); },
+              onClick: () => { if (!isMap) navigate('/map'); closeGfPanel(); openAlertPanel(); },
               icon: <IconBell size={15}/>,
               label: 'Alerts',
               badge: activeAlertCount > 0 ? activeAlertCount : null,
             },
             {
               key: 'geofences',
-              active: gfPanelOpen,
-              onClick: () => { if (!isMap) navigate('/map'); openGfPanel(); },
+              active: gfPanelOpen && !alertPanelOpen,
+              onClick: () => { if (!isMap) navigate('/map'); closeAlertPanel(); openGfPanel(); },
               icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
               label: 'Geofences',
               badge: null,
