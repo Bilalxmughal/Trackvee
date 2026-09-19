@@ -6,6 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
+import AlertsModal from '../components/AlertsModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAlert, AlertSettings } from '../contexts/AlertContext';
@@ -979,11 +980,12 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
   );
 }
 
-function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowHistory }: {
+function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowHistory, onCreateAlert }: {
   pt: LivePoint; plate: string; dark: boolean;
   onViewOnMap: () => void;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
+  onCreateAlert: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, right: 0 });
@@ -1017,6 +1019,8 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
     { label: 'History: Last Hour', icon: <ClockIcon/>, action: () => { onShowHistory('lastHour'); setOpen(false); } },
     { label: 'History: Today', icon: <CalIcon/>, action: () => { onShowHistory('today'); setOpen(false); } },
     { label: 'History: Yesterday', icon: <CalIcon/>, action: () => { onShowHistory('yesterday'); setOpen(false); } },
+    { label: '──', icon: null, action: () => {}, divider: true },
+    { label: 'Create Alert', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="1" x2="12" y2="4"/></svg>, action: () => { onCreateAlert(); setOpen(false); } },
   ];
 
   return (
@@ -1047,10 +1051,11 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
 
 // ── Vehicle Row ───────────────────────────────────────────────────────────────
 
-function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory }: {
+function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, onCreateAlert }: {
   pt: LivePoint; plate: string; onSelect: () => void; dark: boolean;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
+  onCreateAlert: () => void;
 }) {
   const status = vehicleStatus(pt);
   const [hov, setHov] = useState(false);
@@ -1066,19 +1071,20 @@ function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory }: 
         <IconBattery level={pt.voltageLevel}/>
         <IconSignal level={pt.gsmSignal}/>
       </div>
-      <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay} onShowHistory={onShowHistory}/>
+      <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onCreateAlert={onCreateAlert}/>
     </div>
   );
 }
 
 // ── Group Section ─────────────────────────────────────────────────────────────
 
-function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark, onTripReplay, onShowHistory }: {
+function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark, onTripReplay, onShowHistory, onCreateAlert }: {
   group: VehicleGroup; pts: LivePoint[]; deviceMap: DMap;
   onSelect: (imei: string) => void; collapsed: boolean;
   onToggle: () => void; onEdit: () => void; dark: boolean;
   onTripReplay: (imei: string, plate: string) => void;
   onShowHistory: (imei: string, plate: string, preset: 'lastHour' | 'today' | 'yesterday') => void;
+  onCreateAlert: (imei: string) => void;
 }) {
   const gpPts = pts.filter(p => group.imeis.includes(p.imei));
   const [hov, setHov] = useState(false);
@@ -1106,7 +1112,8 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
           <VehicleRow key={pt.imei} pt={pt} plate={plate}
             onSelect={() => onSelect(pt.imei)} dark={dark}
             onTripReplay={() => onTripReplay(pt.imei, plate)}
-            onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}/>
+            onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}
+            onCreateAlert={() => onCreateAlert(pt.imei)}/>
         );
       })}
     </div>
@@ -1417,7 +1424,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
 
 // ── Left Panel ────────────────────────────────────────────────────────────────
 
-function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick }: {
+function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   onSelectVehicle: (imei: string) => void; dark: boolean; onClose?: () => void;
   onTripReplay: (imei: string, plate: string) => void;
@@ -1430,6 +1437,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   allVehicles: Array<{ imei: string; plate: string }>;
   onVehicleSelectForHistory: (imei: string, plate: string, from: string, to: string) => void;
   onSegmentClick: (ev: TimelineEvent) => void;
+  onCreateAlert: (imei: string) => void;
 }) {
   const [groups, setGroups] = useState<VehicleGroup[]>(loadGroups);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -1495,7 +1503,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
                   onSelect={onSelectVehicle} collapsed={collapsed.has(group.id)} onToggle={() => toggleCollapse(group.id)}
                   onEdit={() => setEditingGroup(group)} dark={dark}
                   onTripReplay={onTripReplay}
-                  onShowHistory={onShowHistory}/>
+                  onShowHistory={onShowHistory}
+                  onCreateAlert={onCreateAlert}/>
               );
             })}
             {ungrouped.length > 0 && (
@@ -1507,7 +1516,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
                     <VehicleRow key={pt.imei} pt={pt} plate={plate}
                       onSelect={() => onSelectVehicle(pt.imei)} dark={dark}
                       onTripReplay={() => onTripReplay(pt.imei, plate)}
-                      onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}/>
+                      onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}
+                      onCreateAlert={() => onCreateAlert(pt.imei)}/>
                   );
                 })}
               </>
@@ -1540,6 +1550,8 @@ export default function MapPage() {
   // Alert state — from global context
   const { alertSettings, alertSettingsRef, setActiveAlertCount } = useAlert();
   const [showAlerts, setShowAlerts] = useState(false);
+  const [alertCreateImei, setAlertCreateImei] = useState<string | undefined>(undefined);
+  const [showAlertsModal, setShowAlertsModal] = useState(false);
 
   // Distance tool
   const [distanceMode, setDistanceMode] = useState(false);
@@ -1729,6 +1741,7 @@ export default function MapPage() {
             allVehicles={allVehicles}
             onVehicleSelectForHistory={handleVehicleSelectForHistory}
             onSegmentClick={ev => setSelectedSegment(ev)}
+            onCreateAlert={(imei) => { setAlertCreateImei(imei); setShowAlertsModal(true); }}
           />
         </div>
 
@@ -1798,6 +1811,13 @@ export default function MapPage() {
       {tripReplay && (
         <TripReplayModal imei={tripReplay.imei} plate={tripReplay.plate} onClose={() => setTripReplay(null)} dark={dark}/>
       )}
+      <AlertsModal
+        open={showAlertsModal}
+        onClose={() => { setShowAlertsModal(false); setAlertCreateImei(undefined); }}
+        dark={dark}
+        vehicles={allVehicles}
+        preSelectedImei={alertCreateImei}
+      />
     </div>
   );
 }
