@@ -310,18 +310,19 @@ function LayoutInner() {
             onClick={async () => {
               setShowAlerts(true);
               try {
-                const r = await api.get<{ imei: string; licensePlate: string | null }[]>('/devices');
-                setAlertVehicles(r.data.map(d => ({ imei: d.imei, plate: d.licensePlate ?? d.imei })));
+                const r = await api.get<{ imei: string; vehicle: { licensePlate: string | null } | null }[]>('/devices');
+                setAlertVehicles(r.data.map(d => ({ imei: d.imei, plate: d.vehicle?.licensePlate ?? d.imei })));
               } catch {}
             }}
             title="Alerts"
-            style={{ position: 'relative', border: 'none', background: 'none', cursor: 'pointer', color: activeAlertCount > 0 ? '#dc2626' : (dark ? '#888' : '#aaa'), padding: 6, borderRadius: 8, display: 'flex', transition: 'color 0.15s, background 0.15s' }}
+            style={{ position: 'relative', border: 'none', background: 'none', cursor: 'pointer', color: activeAlertCount > 0 ? '#dc2626' : (dark ? '#888' : '#aaa'), padding: '5px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6, transition: 'color 0.15s, background 0.15s' }}
             onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.07)'; }}
             onMouseLeave={e => { e.currentTarget.style.color = activeAlertCount > 0 ? '#dc2626' : (dark ? '#888' : '#aaa'); e.currentTarget.style.background = 'none'; }}
           >
             <IconBell size={16} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>Alerts</span>
             {activeAlertCount > 0 && (
-              <span style={{ position: 'absolute', top: 2, right: 2, background: '#dc2626', color: '#fff', fontSize: 9, fontWeight: 700, minWidth: 14, height: 14, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1 }}>
+              <span style={{ background: '#dc2626', color: '#fff', fontSize: 9.5, fontWeight: 700, minWidth: 16, height: 16, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>
                 {activeAlertCount}
               </span>
             )}

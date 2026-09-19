@@ -88,6 +88,12 @@ function StepDot({ n, active, done }: { n: number; active: boolean; done: boolea
   );
 }
 
+// ── Vehicle Group types (mirror MapPage) ────────────────────────────────────
+
+interface VehicleGroup { id: string; name: string; imeis: string[]; }
+const GK = 'yotrack_map_groups_v1';
+function loadVehicleGroups(): VehicleGroup[] { try { return JSON.parse(localStorage.getItem(GK) ?? '[]'); } catch { return []; } }
+
 // ── Wizard Form Modal ──────────────────────────────────────────────────────────
 
 interface Vehicle { imei: string; plate: string; }
@@ -108,6 +114,8 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
   const [active, setActive] = useState(init?.active ?? true);
   const [selectedImeis, setSelectedImeis] = useState<Set<string>>(new Set(init?.vehicleImeis ?? []));
   const [vSearch, setVSearch] = useState('');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [groups] = useState<VehicleGroup[]>(loadVehicleGroups);
 
   // Step 2
   const [type, setType] = useState<AlertType>(init?.type ?? 'over_speed');
@@ -123,11 +131,20 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
   const inp: React.CSSProperties = { padding: '9px 12px', borderRadius: 7, border, background: dark_bg, color: dark ? '#e5e5e5' : '#111', fontSize: 13, outline: 'none', boxSizing: 'border-box' as const, width: '100%' };
   const lbl: React.CSSProperties = { fontSize: 10.5, fontWeight: 700, color: dark ? '#666' : '#9ca3af', textTransform: 'uppercase' as const, letterSpacing: 0.5, display: 'block', marginBottom: 5 };
 
-  const filteredVehicles = vSearch.trim()
-    ? vehicles.filter(v => v.plate.toLowerCase().includes(vSearch.toLowerCase()) || v.imei.includes(vSearch))
-    : vehicles;
+  const q = vSearch.trim().toLowerCase();
+  const matchesSearch = (v: Vehicle) => !q || v.plate.toLowerCase().includes(q) || v.imei.includes(q);
+  const vehicleMap = new Map(vehicles.map(v => [v.imei, v]));
 
   const toggleImei = (imei: string) => setSelectedImeis(prev => { const n = new Set(prev); n.has(imei) ? n.delete(imei) : n.add(imei); return n; });
+  const toggleGroup = (id: string) => setCollapsedGroups(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleGroupSelect = (imeis: string[]) => {
+    const available = imeis.filter(i => vehicleMap.has(i));
+    const allSel = available.every(i => selectedImeis.has(i));
+    setSelectedImeis(prev => { const n = new Set(prev); available.forEach(i => allSel ? n.delete(i) : n.add(i)); return n; });
+  };
+
+  const groupedImeis = new Set(groups.flatMap(g => g.imeis));
+  const ungrouped = vehicles.filter(v => !groupedImeis.has(v.imei) && matchesSearch(v));
   const toggleDay = (d: string) => setSchedule(s => { const days = s.days ?? []; return { ...s, days: days.includes(d) ? days.filter(x => x !== d) : [...days, d] }; });
 
   const handleSave = () => {
@@ -233,58 +250,102 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
 
               {/* Vehicle selection */}
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ ...lbl, margin: 0, flex: 1 }}>Select Vehicles</span>
                   <span style={{ fontSize: 11, color: selectedImeis.size === 0 ? '#f59e0b' : '#16a34a', fontWeight: 600 }}>
                     {selectedImeis.size === 0 ? 'All vehicles' : `${selectedImeis.size} selected`}
                   </span>
                 </div>
                 {/* Toolbar */}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center' }}>
                   <button onClick={() => setSelectedImeis(new Set(vehicles.map(v => v.imei)))}
                     style={{ fontSize: 11, padding: '5px 10px', borderRadius: 5, border, background: 'transparent', color: dark ? '#aaa' : '#555', cursor: 'pointer', fontWeight: 500 }}>
-                    All
+                    Select All
                   </button>
                   <button onClick={() => setSelectedImeis(new Set())}
                     style={{ fontSize: 11, padding: '5px 10px', borderRadius: 5, border, background: 'transparent', color: dark ? '#aaa' : '#555', cursor: 'pointer', fontWeight: 500 }}>
-                    None
+                    Clear
                   </button>
                   <div style={{ flex: 1 }}/>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: dark ? '#111' : '#f5f5f5', borderRadius: 6, padding: '5px 10px', border }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                    <input value={vSearch} onChange={e => setVSearch(e.target.value)} placeholder="Search..." style={{ border: 'none', background: 'transparent', fontSize: 11.5, color: dark ? '#e5e5e5' : '#111', outline: 'none', width: 85 }}/>
+                    <input value={vSearch} onChange={e => setVSearch(e.target.value)} placeholder="Search vehicle..." style={{ border: 'none', background: 'transparent', fontSize: 11.5, color: dark ? '#e5e5e5' : '#111', outline: 'none', width: 100 }}/>
+                    {vSearch && <button onClick={() => setVSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex' }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>}
                   </div>
                 </div>
-                {/* Vehicle cards grid */}
+
+                {/* Group-style vehicle list */}
                 {vehicles.length === 0
-                  ? <div style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: dark ? '#555' : '#aaa', border, borderRadius: 8 }}>No vehicles</div>
+                  ? <div style={{ padding: '16px', textAlign: 'center', fontSize: 12, color: dark ? '#555' : '#aaa', border, borderRadius: 8 }}>No vehicles online</div>
                   : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, maxHeight: 220, overflowY: 'auto', padding: 2 }}>
-                      {filteredVehicles.map(v => {
-                        const sel = selectedImeis.has(v.imei);
+                    <div style={{ border, borderRadius: 9, overflow: 'hidden', maxHeight: 240, overflowY: 'auto' }}>
+                      {/* Grouped vehicles */}
+                      {groups.map(group => {
+                        const gVehicles = group.imeis.map(i => vehicleMap.get(i)).filter((v): v is Vehicle => !!v && matchesSearch(v));
+                        if (gVehicles.length === 0) return null;
+                        const collapsed = collapsedGroups.has(group.id);
+                        const allSel = gVehicles.every(v => selectedImeis.has(v.imei));
+                        const someSel = gVehicles.some(v => selectedImeis.has(v.imei));
                         return (
-                          <button key={v.imei} onClick={() => toggleImei(v.imei)}
-                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '9px 10px', borderRadius: 8,
-                              border: `2px solid ${sel ? '#dc2626' : (dark ? '#2a2a2a' : '#e5e7eb')}`,
-                              background: sel ? (dark ? '#2a0a0a' : '#fff5f5') : 'transparent',
-                              cursor: 'pointer', textAlign: 'left', transition: 'all .15s', position: 'relative' }}>
-                            {sel && (
-                              <div style={{ position: 'absolute', top: 5, right: 5, width: 14, height: 14, borderRadius: '50%', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                              </div>
-                            )}
-                            <span style={{ fontSize: 11, color: dark ? '#555' : '#aaa', marginBottom: 2 }}>
-                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ display: 'inline', marginRight: 2 }}><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                              {v.imei.slice(-6)}
-                            </span>
-                            <span style={{ fontSize: 12, fontWeight: sel ? 700 : 600, color: sel ? '#dc2626' : (dark ? '#e5e5e5' : '#111'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{v.plate}</span>
-                          </button>
+                          <div key={group.id}>
+                            {/* Group header */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px 7px 10px', background: dark ? '#1c1c1c' : '#f7f7f7', borderBottom: `1px solid ${dark ? '#242424' : '#ebebeb'}`, cursor: 'pointer', userSelect: 'none' }}
+                              onClick={() => toggleGroup(group.id)}>
+                              <span style={{ color: dark ? '#555' : '#999', display: 'flex', flexShrink: 0 }}>
+                                {collapsed
+                                  ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9,6 15,12 9,18"/></svg>
+                                  : <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>}
+                              </span>
+                              <span style={{ flex: 1, fontSize: 11.5, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>{group.name}</span>
+                              <span style={{ fontSize: 10, color: dark ? '#555' : '#aaa', marginRight: 6 }}>{gVehicles.length}</span>
+                              {/* Group checkbox */}
+                              <span onClick={e => { e.stopPropagation(); toggleGroupSelect(group.imeis); }}
+                                style={{ width: 15, height: 15, borderRadius: 3, border: `2px solid ${allSel ? '#dc2626' : someSel ? '#dc2626' : (dark ? '#444' : '#d1d5db')}`, background: allSel ? '#dc2626' : someSel ? '#fca5a5' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                                {allSel && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                              </span>
+                            </div>
+                            {/* Group vehicles */}
+                            {!collapsed && gVehicles.map(v => {
+                              const sel = selectedImeis.has(v.imei);
+                              return (
+                                <label key={v.imei} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px 8px 28px', borderBottom: `1px solid ${dark ? '#1c1c1c' : '#f5f5f5'}`, cursor: 'pointer', background: sel ? (dark ? '#1a0808' : '#fff5f5') : 'transparent', transition: 'background .12s' }}>
+                                  <div style={{ width: 15, height: 15, borderRadius: 3, border: `2px solid ${sel ? '#dc2626' : (dark ? '#444' : '#d1d5db')}`, background: sel ? '#dc2626' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                                    onClick={() => toggleImei(v.imei)}>
+                                    {sel && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                  </div>
+                                  <span style={{ flex: 1, fontSize: 12.5, fontWeight: sel ? 700 : 500, color: sel ? '#dc2626' : (dark ? '#e5e5e5' : '#111'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => toggleImei(v.imei)}>{v.plate}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
                         );
                       })}
+                      {/* Ungrouped vehicles */}
+                      {ungrouped.length > 0 && (
+                        <>
+                          {groups.length > 0 && <div style={{ padding: '5px 10px 4px', fontSize: 10, fontWeight: 700, color: dark ? '#444' : '#ccc', textTransform: 'uppercase', letterSpacing: 0.5, background: dark ? '#1c1c1c' : '#f7f7f7', borderBottom: `1px solid ${dark ? '#242424' : '#ebebeb'}` }}>Ungrouped</div>}
+                          {ungrouped.map(v => {
+                            const sel = selectedImeis.has(v.imei);
+                            return (
+                              <label key={v.imei} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: `1px solid ${dark ? '#1c1c1c' : '#f5f5f5'}`, cursor: 'pointer', background: sel ? (dark ? '#1a0808' : '#fff5f5') : 'transparent', transition: 'background .12s' }}>
+                                <div style={{ width: 15, height: 15, borderRadius: 3, border: `2px solid ${sel ? '#dc2626' : (dark ? '#444' : '#d1d5db')}`, background: sel ? '#dc2626' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                                  onClick={() => toggleImei(v.imei)}>
+                                  {sel && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                </div>
+                                <span style={{ flex: 1, fontSize: 12.5, fontWeight: sel ? 700 : 500, color: sel ? '#dc2626' : (dark ? '#e5e5e5' : '#111'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => toggleImei(v.imei)}>{v.plate}</span>
+                              </label>
+                            );
+                          })}
+                        </>
+                      )}
+                      {/* Empty search */}
+                      {q && groups.every(g => g.imeis.every(i => !vehicleMap.has(i) || !matchesSearch(vehicleMap.get(i)!))) && ungrouped.length === 0 && (
+                        <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: dark ? '#555' : '#aaa' }}>No results for "{vSearch}"</div>
+                      )}
                     </div>
                   )}
                 {selectedImeis.size === 0 && vehicles.length > 0 && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: '#f59e0b' }}>No selection = alert applies to all vehicles</div>
+                  <div style={{ marginTop: 7, fontSize: 11, color: '#f59e0b' }}>No selection = alert applies to all vehicles</div>
                 )}
               </div>
             </div>
