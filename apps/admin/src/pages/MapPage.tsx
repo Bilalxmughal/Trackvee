@@ -7,7 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import AlertsModal, { AlertRecord } from '../components/AlertsModal';
-import GeofencesModal, { Geofence, CircleCoords, PolygonCoords } from '../components/GeofencesModal';
+import GeofencesPanel, { Geofence, CircleCoords, PolygonCoords } from '../components/GeofencesModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAlert, AlertSettings } from '../contexts/AlertContext';
@@ -592,28 +592,100 @@ function TrailLayer({ trails, visibleImeis }: { trails: Map<string, [number,numb
   return null;
 }
 
+const GF_COLOR = '#dc2626';
+
 function GeofenceLayer({ geofences }: { geofences: Geofence[] }) {
   const map = useMap();
-  const GF_COLORS = ['#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777'];
   useEffect(() => {
     const layers: L.Layer[] = [];
-    geofences.forEach((gf, i) => {
-      const color = GF_COLORS[i % GF_COLORS.length];
+    geofences.forEach(gf => {
+      const opts = { color: GF_COLOR, weight: 2, fillOpacity: 0.08 };
       let layer: L.Layer;
       if (gf.type === 'circle') {
         const c = gf.coordinates as CircleCoords;
-        layer = L.circle([c.center[0], c.center[1]], { radius: c.radius, color, weight: 2, fillOpacity: 0.1 })
-          .bindTooltip(gf.name, { sticky: true });
+        layer = L.circle([c.center[0], c.center[1]], { ...opts, radius: c.radius }).bindTooltip(gf.name, { sticky: true });
       } else {
         const p = gf.coordinates as PolygonCoords;
-        layer = L.polygon(p.points as L.LatLngTuple[], { color, weight: 2, fillOpacity: 0.1 })
-          .bindTooltip(gf.name, { sticky: true });
+        layer = L.polygon(p.points as L.LatLngTuple[], opts).bindTooltip(gf.name, { sticky: true });
       }
       layer.addTo(map);
       layers.push(layer);
     });
     return () => { layers.forEach(l => map.removeLayer(l)); };
   }, [map, geofences]);
+  return null;
+}
+
+function GeofenceDrawLayer({
+  drawActive, drawType, center, radius, points,
+  onSetCenter, onAddPoint,
+}: {
+  drawActive: boolean; drawType: 'circle' | 'polygon';
+  center: [number, number] | null; radius: number;
+  points: [number, number][];
+  onSetCenter: (lat: number, lng: number) => void;
+  onAddPoint: (lat: number, lng: number) => void;
+}) {
+  const map = useMap();
+  const layersRef = useRef<L.Layer[]>([]);
+  const onSetCenterRef = useRef(onSetCenter);
+  const onAddPointRef = useRef(onAddPoint);
+  onSetCenterRef.current = onSetCenter;
+  onAddPointRef.current = onAddPoint;
+
+  // Map cursor + click handler
+  useEffect(() => {
+    if (!drawActive) { map.getContainer().style.cursor = ''; return; }
+    map.getContainer().style.cursor = 'crosshair';
+    const handler = (e: L.LeafletMouseEvent) => {
+      if (drawType === 'circle') onSetCenterRef.current(e.latlng.lat, e.latlng.lng);
+      else onAddPointRef.current(e.latlng.lat, e.latlng.lng);
+    };
+    map.on('click', handler);
+    return () => { map.off('click', handler); map.getContainer().style.cursor = ''; };
+  }, [drawActive, drawType, map]);
+
+  // Draw preview layers
+  useEffect(() => {
+    layersRef.current.forEach(l => map.removeLayer(l));
+    layersRef.current = [];
+
+    if (drawType === 'circle' && center) {
+      const circ = L.circle(center as L.LatLngTuple, { radius: radius || 500, color: GF_COLOR, weight: 2, dashArray: '7 5', fillOpacity: 0.12 });
+      const icon = L.divIcon({
+        className: '',
+        html: '<div style="width:14px;height:14px;border-radius:50%;background:#dc2626;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);cursor:move"></div>',
+        iconSize: [14, 14], iconAnchor: [7, 7],
+      });
+      const marker = L.marker(center as L.LatLngTuple, { icon, draggable: true });
+      marker.on('drag', (e: any) => circ.setLatLng(e.target.getLatLng()));
+      marker.on('dragend', (e: any) => {
+        const ll = e.target.getLatLng();
+        onSetCenterRef.current(ll.lat, ll.lng);
+      });
+      circ.addTo(map); marker.addTo(map);
+      layersRef.current.push(circ, marker);
+    }
+
+    if (drawType === 'polygon' && points.length > 0) {
+      points.forEach(pt => {
+        const m = L.circleMarker(pt as L.LatLngTuple, { radius: 5, color: GF_COLOR, fillColor: '#fff', fillOpacity: 1, weight: 2 });
+        m.addTo(map);
+        layersRef.current.push(m);
+      });
+      if (points.length >= 2) {
+        const line = L.polyline(points as L.LatLngTuple[], { color: GF_COLOR, weight: 2, dashArray: '6 4' });
+        line.addTo(map);
+        layersRef.current.push(line);
+      }
+      if (points.length >= 3) {
+        const poly = L.polygon(points as L.LatLngTuple[], { color: GF_COLOR, weight: 2, dashArray: '6 4', fillOpacity: 0.1 });
+        poly.addTo(map);
+        layersRef.current.push(poly);
+      }
+    }
+  }, [map, drawType, center, radius, points]);
+
   return null;
 }
 
@@ -1587,8 +1659,18 @@ export default function MapPage() {
   const [alertEditRecord, setAlertEditRecord] = useState<AlertRecord | undefined>(undefined);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [alertsByImei, setAlertsByImei] = useState<Map<string, AlertRecord[]>>(new Map());
-  const [showGeofencesModal, setShowGeofencesModal] = useState(false);
+  const [showGeofencesPanel, setShowGeofencesPanel] = useState(false);
   const [geofences, setGeofences] = useState<Geofence[]>([]);
+  const [gfLoading, setGfLoading] = useState(false);
+  const [gfView, setGfView] = useState<'list' | 'form'>('list');
+  const [gfEditing, setGfEditing] = useState<Geofence | null>(null);
+  const [gfName, setGfName] = useState('');
+  const [gfType, setGfType] = useState<'circle' | 'polygon'>('circle');
+  const [gfCenter, setGfCenter] = useState<[number, number] | null>(null);
+  const [gfRadius, setGfRadius] = useState(500);
+  const [gfPoints, setGfPoints] = useState<[number, number][]>([]);
+  const [gfDrawActive, setGfDrawActive] = useState(false);
+  const [gfSaving, setGfSaving] = useState(false);
 
   // Distance tool
   const [distanceMode, setDistanceMode] = useState(false);
@@ -1684,7 +1766,8 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => {
-    api.get<Geofence[]>('/geofences').then(r => setGeofences(r.data)).catch(() => {});
+    setGfLoading(true);
+    api.get<Geofence[]>('/geofences').then(r => setGeofences(r.data)).catch(() => {}).finally(() => setGfLoading(false));
   }, []);
 
   const visiblePoints = selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points;
@@ -1733,6 +1816,46 @@ export default function MapPage() {
     if (pt) setFlyTarget({ lat: pt.latitude, lng: pt.longitude, ts: Date.now() });
   };
 
+  // ── Geofence handlers ──────────────────────────────────────────────────────
+
+  const resetGfForm = () => {
+    setGfView('list'); setGfEditing(null); setGfName(''); setGfType('circle');
+    setGfCenter(null); setGfRadius(500); setGfPoints([]); setGfDrawActive(false);
+  };
+
+  const openGfPanel = () => { setShowGeofencesPanel(true); setPanelOpen(true); resetGfForm(); };
+  const closeGfPanel = () => { setShowGeofencesPanel(false); resetGfForm(); };
+
+  const gfOpenNew = () => { resetGfForm(); setGfView('form'); };
+  const gfOpenEdit = (gf: Geofence) => {
+    setGfEditing(gf); setGfName(gf.name); setGfType(gf.type);
+    if (gf.type === 'circle') { const c = gf.coordinates as CircleCoords; setGfCenter(c.center); setGfRadius(c.radius); setGfPoints([]); }
+    else { const p = gf.coordinates as PolygonCoords; setGfPoints([...p.points]); setGfCenter(null); }
+    setGfDrawActive(false); setGfView('form');
+  };
+  const gfDelete = async (id: string) => {
+    if (!confirm('Delete this geofence?')) return;
+    try { await api.delete(`/geofences/${id}`); setGeofences(g => g.filter(x => x.id !== id)); } catch {}
+  };
+  const gfSave = async () => {
+    if (!gfName.trim()) return;
+    const data = {
+      name: gfName.trim(), type: gfType,
+      coordinates: gfType === 'circle' ? { center: gfCenter!, radius: gfRadius } : { points: gfPoints },
+    };
+    setGfSaving(true);
+    try {
+      if (gfEditing) {
+        const r = await api.put<Geofence>(`/geofences/${gfEditing.id}`, data);
+        setGeofences(g => g.map(x => x.id === gfEditing.id ? r.data : x));
+      } else {
+        const r = await api.post<Geofence>('/geofences', data);
+        setGeofences(g => [r.data, ...g]);
+      }
+      resetGfForm();
+    } catch {} finally { setGfSaving(false); }
+  };
+
   const PanelToggleIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
       <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
@@ -1757,9 +1880,9 @@ export default function MapPage() {
           )}
           {/* Geofences button */}
           <button
-            onClick={() => setShowGeofencesModal(true)}
+            onClick={() => showGeofencesPanel ? closeGfPanel() : openGfPanel()}
             title="Manage geofences"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#222' : '#f9fafb', color: dark ? '#aaa' : '#555', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: showGeofencesPanel ? '1px solid #fca5a5' : `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: showGeofencesPanel ? (dark ? '#2a0a0a' : '#fff5f5') : (dark ? '#222' : '#f9fafb'), color: showGeofencesPanel ? '#dc2626' : (dark ? '#aaa' : '#555'), cursor: 'pointer', fontSize: 12, fontWeight: showGeofencesPanel ? 600 : 500 }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             {!isMobile && <span>Geofences</span>}
@@ -1788,37 +1911,62 @@ export default function MapPage() {
           width: panelOpen ? 290 : 0, flexShrink: 0, overflow: 'hidden',
           transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
         }}>
-          <LeftPanel
-            points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails}
-            onSelectVehicle={(imei) => { handleSelect(imei); if (isMobile) setPanelOpen(false); }}
-            dark={dark}
-            onClose={isMobile ? () => setPanelOpen(false) : undefined}
-            onTripReplay={(imei, plate) => setTripReplay({ imei, plate })}
-            historyMode={historyMode}
-            historyPoints={historyPoints}
-            historyLoading={historyLoading}
-            onShowHistory={handleShowHistory}
-            onLoadHistory={handleLoadHistory}
-            onClearHistory={handleClearHistory}
-            allVehicles={allVehicles}
-            onVehicleSelectForHistory={handleVehicleSelectForHistory}
-            onSegmentClick={ev => setSelectedSegment(ev)}
-            onCreateAlert={(imei) => {
-              const vAlerts = alertsByImei.get(imei) ?? [];
-              if (vAlerts.length === 1) {
-                setAlertEditRecord(vAlerts[0]);
-                setAlertCreateImei(undefined);
-              } else if (vAlerts.length > 1) {
-                setAlertEditRecord(undefined);
-                setAlertCreateImei(undefined);
-              } else {
-                setAlertEditRecord(undefined);
-                setAlertCreateImei(imei);
-              }
-              setShowAlertsModal(true);
-            }}
-            hasAlertImeis={alertsByImei}
-          />
+          {showGeofencesPanel
+            ? <GeofencesPanel
+                dark={dark}
+                geofences={geofences}
+                loading={gfLoading}
+                view={gfView}
+                editing={gfEditing}
+                name={gfName} onName={setGfName}
+                type={gfType} onType={t => { setGfType(t); setGfCenter(null); setGfPoints([]); setGfDrawActive(false); }}
+                center={gfCenter}
+                radius={gfRadius} onRadius={setGfRadius}
+                points={gfPoints}
+                onRemovePoint={i => setGfPoints(p => p.filter((_, j) => j !== i))}
+                onClearPoints={() => setGfPoints([])}
+                drawActive={gfDrawActive}
+                onToggleDraw={() => setGfDrawActive(a => !a)}
+                saving={gfSaving}
+                onNew={gfOpenNew}
+                onEdit={gfOpenEdit}
+                onDelete={gfDelete}
+                onSave={gfSave}
+                onBack={resetGfForm}
+                onClose={closeGfPanel}
+              />
+            : <LeftPanel
+                points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails}
+                onSelectVehicle={(imei) => { handleSelect(imei); if (isMobile) setPanelOpen(false); }}
+                dark={dark}
+                onClose={isMobile ? () => setPanelOpen(false) : undefined}
+                onTripReplay={(imei, plate) => setTripReplay({ imei, plate })}
+                historyMode={historyMode}
+                historyPoints={historyPoints}
+                historyLoading={historyLoading}
+                onShowHistory={handleShowHistory}
+                onLoadHistory={handleLoadHistory}
+                onClearHistory={handleClearHistory}
+                allVehicles={allVehicles}
+                onVehicleSelectForHistory={handleVehicleSelectForHistory}
+                onSegmentClick={ev => setSelectedSegment(ev)}
+                onCreateAlert={(imei) => {
+                  const vAlerts = alertsByImei.get(imei) ?? [];
+                  if (vAlerts.length === 1) {
+                    setAlertEditRecord(vAlerts[0]);
+                    setAlertCreateImei(undefined);
+                  } else if (vAlerts.length > 1) {
+                    setAlertEditRecord(undefined);
+                    setAlertCreateImei(undefined);
+                  } else {
+                    setAlertEditRecord(undefined);
+                    setAlertCreateImei(imei);
+                  }
+                  setShowAlertsModal(true);
+                }}
+                hasAlertImeis={alertsByImei}
+              />
+          }
         </div>
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -1876,6 +2024,15 @@ export default function MapPage() {
                   </>}
               <DistanceTool active={distanceMode} distanceModeRef={distanceModeRef}/>
               <GeofenceLayer geofences={geofences}/>
+              <GeofenceDrawLayer
+                drawActive={gfDrawActive}
+                drawType={gfType}
+                center={gfCenter}
+                radius={gfRadius}
+                points={gfPoints}
+                onSetCenter={(lat, lng) => { setGfCenter([lat, lng]); setGfDrawActive(false); }}
+                onAddPoint={(lat, lng) => setGfPoints(p => [...p, [lat, lng]])}
+              />
             </MapContainer>
           </div>
         </div>
@@ -1895,11 +2052,6 @@ export default function MapPage() {
         vehicles={allVehicles}
         preSelectedImei={alertCreateImei}
         editAlertRecord={alertEditRecord}
-      />
-      <GeofencesModal
-        open={showGeofencesModal}
-        onClose={() => setShowGeofencesModal(false)}
-        dark={dark}
       />
     </div>
   );
