@@ -332,7 +332,7 @@ function FlyToPoint({ target }: { target: { lat: number; lng: number; ts: number
   useEffect(() => {
     if (!target || target.ts === lastTs.current) return;
     lastTs.current = target.ts;
-    map.flyTo([target.lat, target.lng], 16, { animate: true, duration: 0.8 });
+    map.flyTo([target.lat, target.lng], 15, { animate: true, duration: 0.8 });
   }, [map, target]);
   return null;
 }
