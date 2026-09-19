@@ -659,12 +659,26 @@ function HistoryLayer({ points, speedLimit }: { points: TripPoint[]; speedLimit:
     const coords: [number, number][] = points.map(p => [p.latitude, p.longitude]);
     L.polyline(coords, { color: '#dc2626', weight: 3.5, opacity: 0.85 }).addTo(layer);
 
-    // Direction arrows
-    const step = Math.max(8, Math.floor(points.length / 18));
+    // Direction arrow markers — placed every ~N moving points, clickable with popup
+    const step = Math.max(10, Math.floor(points.length / 15));
     for (let i = step; i < points.length - 1; i += step) {
-      const bearing = calcBearing(points[i-1].latitude, points[i-1].longitude, points[i].latitude, points[i].longitude);
-      const html = `<div style="width:12px;height:12px;display:flex;align-items:center;justify-content:center;pointer-events:none;transform:translate(-50%,-50%) rotate(${bearing}deg)"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polygon points="5,0 10,10 5,7 0,10" fill="#dc2626" stroke="white" stroke-width="0.8"/></svg></div>`;
-      L.marker([points[i].latitude, points[i].longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), interactive: false }).addTo(layer);
+      const p = points[i];
+      if (p.speedKmh < 2) continue; // only where vehicle is actually moving
+      const bearing = calcBearing(points[i-1].latitude, points[i-1].longitude, p.latitude, p.longitude);
+      const addrId = `arrow-${i}-${Date.now()}`;
+      const html = `<div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%) rotate(${bearing}deg);cursor:pointer"><svg width="20" height="20" viewBox="0 0 20 20"><polygon points="10,2 17,18 10,14 3,18" fill="#2563eb" stroke="white" stroke-width="1.5"/></svg></div>`;
+      const popup = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:175px;line-height:1.5">
+        <div style="font-weight:700;margin-bottom:5px;color:#2563eb;font-size:13px">Moving</div>
+        <div id="${addrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
+        <div style="color:#9ca3af;font-size:10px;margin-bottom:5px">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</div>
+        <div style="display:flex;gap:14px;font-size:11px">
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Time</div><div style="font-weight:600">${formatTsFull(p.timestamp)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Speed</div><div style="font-weight:600">${Math.round(p.speedKmh)} km/h</div></div>
+        </div>
+      </div>`;
+      const m = L.marker([p.latitude, p.longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 60 });
+      m.bindPopup(popup, { maxWidth: 260 }).addTo(layer);
+      m.on('popupopen', async () => { const addr = await reverseGeocode(p.latitude, p.longitude); const el = document.getElementById(addrId); if (el) el.textContent = addr; });
     }
 
     // Segment detection for P markers
@@ -682,6 +696,7 @@ function HistoryLayer({ points, speedLimit }: { points: TripPoint[]; speedLimit:
       if (seg.type !== 'parked') return;
       const sp = points[seg.start], ep = points[seg.end];
       const dur = Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000));
+      if (dur < 120) return; // skip stops shorter than 2 minutes
       const addrId = `paddr-${idx}-${Date.now()}`;
       const html = `<div style="width:26px;height:26px;border-radius:50%;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transform:translate(-50%,-50%)">P</div>`;
       const popup = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:190px;line-height:1.5">
@@ -751,13 +766,31 @@ function HistoryLayer({ points, speedLimit }: { points: TripPoint[]; speedLimit:
 
 // ── History Panel (left panel) ────────────────────────────────────────────────
 
-function HistoryPanel({ mode, points, loading, dark, onLoad, onClear }: {
+function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicles, onVehicleSelect }: {
   mode: HistoryMode; points: TripPoint[]; loading: boolean; dark: boolean;
   onLoad: (from: string, to: string) => void; onClear: () => void;
+  allVehicles: Array<{ imei: string; plate: string }>;
+  onVehicleSelect: (imei: string, plate: string, from: string, to: string) => void;
 }) {
   const [from, setFrom] = useState(mode.from);
   const [to, setTo] = useState(mode.to);
+  const [vSearch, setVSearch] = useState('');
+  const [showDrop, setShowDrop] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => { setFrom(mode.from); setTo(mode.to); }, [mode.from, mode.to]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!showDrop) return;
+    const close = (e: MouseEvent) => { if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowDrop(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [showDrop]);
+
+  const filteredVehicles = vSearch.trim()
+    ? allVehicles.filter(v => v.plate.toLowerCase().includes(vSearch.toLowerCase()) || v.imei.includes(vSearch))
+    : allVehicles;
 
   const timeline = useMemo(() => deriveTimeline(points), [points]);
   const totalKm = useMemo(() => {
@@ -777,7 +810,6 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear }: {
       <div style={{ display: 'flex', alignItems: 'center', padding: '10px 12px', borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}`, flexShrink: 0 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 10, color: dark ? '#555' : '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Route History</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>{mode.plate}</div>
         </div>
         <button onClick={onClear} title="Exit history" style={{ border: 'none', background: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 4, borderRadius: 6, display: 'flex' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -785,6 +817,38 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear }: {
       </div>
       {/* Date form */}
       <div style={{ padding: '10px 12px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`, display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0 }}>
+        {/* Vehicle search */}
+        <div ref={searchRef} style={{ position: 'relative' }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, color: dark ? '#555' : '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Vehicle</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: dark ? '#111' : '#f5f5f5', borderRadius: 7, padding: '5px 9px', border: `1px solid ${showDrop ? '#dc2626' : (dark ? '#333' : '#e5e7eb')}` }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input
+              value={showDrop ? vSearch : mode.plate}
+              onChange={e => { setVSearch(e.target.value); setShowDrop(true); }}
+              onFocus={() => { setVSearch(''); setShowDrop(true); }}
+              placeholder="Search vehicle…"
+              style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 12, color: dark ? '#e5e5e5' : '#111', outline: 'none' }}
+            />
+            {showDrop && vSearch && (
+              <button onClick={() => setVSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex', flexShrink: 0 }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            )}
+          </div>
+          {showDrop && filteredVehicles.length > 0 && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999, background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', maxHeight: 180, overflowY: 'auto', marginTop: 2 }}>
+              {filteredVehicles.slice(0, 20).map(v => (
+                <button key={v.imei} onClick={() => { onVehicleSelect(v.imei, v.plate, from, to); setShowDrop(false); setVSearch(''); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', padding: '8px 11px', border: 'none', background: v.imei === mode.imei ? (dark ? '#2a1010' : '#fff0f0') : 'transparent', color: v.imei === mode.imei ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}
+                  onMouseEnter={e => { if (v.imei !== mode.imei) { e.currentTarget.style.background = dark ? '#222' : '#f5f5f5'; } }}
+                  onMouseLeave={e => { if (v.imei !== mode.imei) { e.currentTarget.style.background = 'transparent'; } }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  {v.plate}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div>
           <div style={{ fontSize: 9.5, fontWeight: 700, color: dark ? '#555' : '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>From</div>
           {inp(from, setFrom)}
@@ -1274,7 +1338,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
 
 // ── Left Panel ────────────────────────────────────────────────────────────────
 
-function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory }: {
+function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   onSelectVehicle: (imei: string) => void; dark: boolean; onClose?: () => void;
   onTripReplay: (imei: string, plate: string) => void;
@@ -1284,6 +1348,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   onShowHistory: (imei: string, plate: string, preset: 'lastHour' | 'today' | 'yesterday') => void;
   onLoadHistory: (from: string, to: string) => void;
   onClearHistory: () => void;
+  allVehicles: Array<{ imei: string; plate: string }>;
+  onVehicleSelectForHistory: (imei: string, plate: string, from: string, to: string) => void;
 }) {
   const [groups, setGroups] = useState<VehicleGroup[]>(loadGroups);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -1314,7 +1380,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   return (
     <div style={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 12, overflow: 'hidden' }}>
       {historyMode ? (
-        <HistoryPanel mode={historyMode} points={historyPoints} loading={historyLoading} dark={dark} onLoad={onLoadHistory} onClear={onClearHistory}/>
+        <HistoryPanel mode={historyMode} points={historyPoints} loading={historyLoading} dark={dark} onLoad={onLoadHistory} onClear={onClearHistory} allVehicles={allVehicles} onVehicleSelect={onVehicleSelectForHistory}/>
       ) : (
         <>
           <div style={{ display: 'flex', alignItems: 'center', padding: '12px 12px 10px', borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
@@ -1431,6 +1497,16 @@ export default function MapPage() {
 
   const handleClearHistory = () => { setHistoryMode(null); setHistoryPoints([]); };
 
+  const handleVehicleSelectForHistory = async (imei: string, plate: string, from: string, to: string) => {
+    setHistoryMode({ imei, plate, from, to });
+    setHistoryLoading(true);
+    setHistoryPoints([]);
+    try {
+      const { data } = await api.get<TripPoint[]>(`/telemetry/${imei}/history?from=${encodeURIComponent(new Date(from).toISOString())}&to=${encodeURIComponent(new Date(to).toISOString())}&limit=2000`);
+      setHistoryPoints(data.filter(p => p.gpsValid));
+    } catch {} finally { setHistoryLoading(false); }
+  };
+
   const load = async () => {
     try {
       const { data } = await api.get<LivePoint[]>('/telemetry/live');
@@ -1466,6 +1542,11 @@ export default function MapPage() {
   }, []);
 
   const visiblePoints = selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points;
+  const allVehicles = useMemo(() =>
+    visiblePoints.map(p => ({ imei: p.imei, plate: deviceMap.get(p.imei)?.plate || p.imei.slice(-8) }))
+      .sort((a, b) => a.plate.localeCompare(b.plate)),
+    [visiblePoints, deviceMap]
+  );
   const counts = { moving: 0, idle: 0, parked: 0, offline: 0 };
   visiblePoints.forEach(p => counts[vehicleStatus(p)]++);
 
@@ -1564,6 +1645,8 @@ export default function MapPage() {
             onShowHistory={handleShowHistory}
             onLoadHistory={handleLoadHistory}
             onClearHistory={handleClearHistory}
+            allVehicles={allVehicles}
+            onVehicleSelectForHistory={handleVehicleSelectForHistory}
           />
         </div>
 
