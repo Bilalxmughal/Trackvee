@@ -555,10 +555,11 @@ function Chip({ label, color, bg }: { label: string; color: string; bg: string }
 
 // ── Main AlertsModal ───────────────────────────────────────────────────────────
 
-export default function AlertsModal({ open, onClose, dark, vehicles, preSelectedImei }: {
+export default function AlertsModal({ open, onClose, dark, vehicles, preSelectedImei, editAlertRecord }: {
   open: boolean; onClose: () => void; dark: boolean;
   vehicles: Array<{ imei: string; plate: string }>;
   preSelectedImei?: string;
+  editAlertRecord?: AlertRecord;
 }) {
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [geofences, setGeofences] = useState<Geofence[]>([]);
@@ -579,12 +580,14 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
   useEffect(() => {
     if (!open) return;
     load();
-    // If a preSelectedImei is given, auto-open the form with that vehicle selected
-    if (preSelectedImei) {
+    if (editAlertRecord) {
+      setEditTarget(editAlertRecord);
+      setFormOpen(true);
+    } else if (preSelectedImei) {
       setEditTarget({ vehicleImeis: [preSelectedImei], active: true });
       setFormOpen(true);
     }
-  }, [open, preSelectedImei]);
+  }, [open, preSelectedImei, editAlertRecord]);
 
   if (!open) return null;
 
