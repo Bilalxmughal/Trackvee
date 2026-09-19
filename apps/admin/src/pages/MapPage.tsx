@@ -1912,7 +1912,6 @@ export default function MapPage() {
               position: 'absolute',
               left: panelOpen ? 349 : -11,
               top: '50%', transform: 'translateY(-50%)',
-              transition: 'left 0.25s cubic-bezier(0.4,0,0.2,1)',
               zIndex: 1002, width: 22, height: 48,
               background: dark ? '#1e1e1e' : '#fff',
               border: `1px solid ${dark ? '#333' : '#e0e0e0'}`,
