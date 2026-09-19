@@ -37,16 +37,18 @@ interface TripPoint {
   ignition?: boolean | null;
 }
 interface HistoryMode { imei: string; plate: string; from: string; to: string; }
-interface TimelineEvent { type: 'parked' | 'driving'; startTime: string; endTime: string; durationSec: number; lat: number; lng: number; avgSpeed?: number; }
+interface TimelineEvent { type: 'parked' | 'idle' | 'driving'; startTime: string; endTime: string; durationSec: number; lat: number; lng: number; avgSpeed?: number; }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+
+const MOVING_SPEED = 5; // km/h — professional threshold: GPS noise stays below this
 
 function isOffline(pt: LivePoint) { return Date.now() - new Date(pt.timestamp).getTime() > 10 * 60 * 1000; }
 function vehicleStatus(pt: LivePoint): 'moving' | 'idle' | 'parked' | 'offline' {
   if (isOffline(pt)) return 'offline';
-  if (pt.speedKmh > 0) return 'moving';
-  if (pt.ignition === false) return 'parked';
-  return 'idle';
+  if (pt.speedKmh >= MOVING_SPEED) return 'moving';
+  if (pt.ignition === true) return 'idle';    // engine on, not moving
+  return 'parked';                             // engine off (or no ignition data)
 }
 const STATUS_COLOR = { moving: '#16a34a', idle: '#f59e0b', parked: '#6b7280', offline: '#9ca3af' } as const;
 const STATUS_LABEL = { moving: 'Moving', idle: 'Idle', parked: 'Parked', offline: 'Offline' } as const;
@@ -98,10 +100,14 @@ function calcBearing(lat1: number, lng1: number, lat2: number, lng2: number): nu
   const x = Math.cos(lat1 * r) * Math.sin(lat2 * r) - Math.sin(lat1 * r) * Math.cos(lat2 * r) * Math.cos(dL);
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
+function tripSegType(p: TripPoint): 'parked' | 'idle' | 'driving' {
+  if (p.speedKmh >= MOVING_SPEED) return 'driving';
+  if (p.ignition === true) return 'idle';  // engine on, speed < threshold
+  return 'parked';                          // engine off or no ignition data
+}
 function deriveTimeline(pts: TripPoint[]): TimelineEvent[] {
   if (pts.length === 0) return [];
-  const isStop = (p: TripPoint) => p.speedKmh < 2 && p.ignition !== true;
-  const makeEvent = (type: 'parked' | 'driving', si: number, ei: number): TimelineEvent => {
+  const makeEvent = (type: 'parked' | 'idle' | 'driving', si: number, ei: number): TimelineEvent => {
     const sp = pts[si], ep = pts[ei];
     const seg = pts.slice(si, ei + 1);
     const avgSpeed = type === 'driving' && seg.length > 0
@@ -110,10 +116,10 @@ function deriveTimeline(pts: TripPoint[]): TimelineEvent[] {
     return { type, startTime: sp.timestamp, endTime: ep.timestamp, durationSec: Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000)), lat: sp.latitude, lng: sp.longitude, avgSpeed };
   };
   const events: TimelineEvent[] = [];
-  let type: 'parked' | 'driving' = isStop(pts[0]) ? 'parked' : 'driving';
+  let type = tripSegType(pts[0]);
   let si = 0;
   for (let i = 1; i < pts.length; i++) {
-    const next: 'parked' | 'driving' = isStop(pts[i]) ? 'parked' : 'driving';
+    const next = tripSegType(pts[i]);
     if (next !== type) { events.push(makeEvent(type, si, i - 1)); type = next; si = i; }
   }
   events.push(makeEvent(type, si, pts.length - 1));
@@ -661,7 +667,7 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
     if (dPopupRef.current) { map.closePopup(dPopupRef.current); dPopupRef.current = null; }
     if (!selectedSegment) return;
 
-    if (selectedSegment.type === 'parked') {
+    if (selectedSegment.type === 'parked' || selectedSegment.type === 'idle') {
       map.flyTo([selectedSegment.lat, selectedSegment.lng], 18, { animate: true, duration: 0.7 });
       const key = selectedSegment.startTime;
       const m = pMarkersRef.current.get(key);
@@ -718,7 +724,7 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
     const step = Math.max(1, Math.floor(points.length / 200));
     for (let i = step; i < points.length - 1; i += step) {
       const p = points[i];
-      if (p.speedKmh < 2) continue; // only where vehicle is actually moving
+      if (p.speedKmh < MOVING_SPEED) continue; // only where vehicle is actually moving
       const bearing = calcBearing(points[i-1].latitude, points[i-1].longitude, p.latitude, p.longitude);
       const addrId = `arrow-${i}-${Date.now()}`;
       const html = `<div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%) rotate(${bearing}deg);cursor:pointer"><svg width="20" height="20" viewBox="0 0 20 20"><polygon points="10,2 17,18 10,14 3,18" fill="#2563eb" stroke="white" stroke-width="1.5"/></svg></div>`;
@@ -736,31 +742,34 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
       m.on('popupopen', async () => { const addr = await reverseGeocode(p.latitude, p.longitude); const el = document.getElementById(addrId); if (el) el.textContent = addr; });
     }
 
-    // Segment detection for P markers
-    const isStop = (p: TripPoint) => p.speedKmh < 2 && p.ignition !== true;
-    const segments: Array<{ type: 'parked'|'driving'; start: number; end: number }> = [];
-    let segType: 'parked'|'driving' = isStop(points[0]) ? 'parked' : 'driving';
+    // Segment detection for P / I markers (3-state model)
+    const segments: Array<{ type: 'parked'|'idle'|'driving'; start: number; end: number }> = [];
+    let curSegType = tripSegType(points[0]);
     let si = 0;
     for (let i = 1; i < points.length; i++) {
-      const nt: 'parked'|'driving' = isStop(points[i]) ? 'parked' : 'driving';
-      if (nt !== segType) { segments.push({ type: segType, start: si, end: i-1 }); segType = nt; si = i; }
+      const nt = tripSegType(points[i]);
+      if (nt !== curSegType) { segments.push({ type: curSegType, start: si, end: i-1 }); curSegType = nt; si = i; }
     }
-    segments.push({ type: segType, start: si, end: points.length - 1 });
+    segments.push({ type: curSegType, start: si, end: points.length - 1 });
 
     segments.forEach((seg, idx) => {
-      if (seg.type !== 'parked') return;
+      if (seg.type === 'driving') return;
       const sp = points[seg.start], ep = points[seg.end];
       const dur = Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000));
       if (dur < 120) return; // skip stops shorter than 2 minutes
+      const isIdle = seg.type === 'idle';
+      const color = isIdle ? '#f59e0b' : '#dc2626';
+      const label = isIdle ? 'I' : 'P';
+      const title = isIdle ? 'Idle (Engine On)' : 'Parked';
       const addrId = `paddr-${idx}-${Date.now()}`;
-      const html = `<div style="width:26px;height:26px;border-radius:50%;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transform:translate(-50%,-50%)">P</div>`;
+      const html = `<div style="width:26px;height:26px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transform:translate(-50%,-50%)">${label}</div>`;
       const popup = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:190px;line-height:1.5">
-        <div style="font-weight:700;margin-bottom:5px;color:#dc2626;font-size:13px">Parked</div>
+        <div style="font-weight:700;margin-bottom:5px;color:${color};font-size:13px">${title}</div>
         <div id="${addrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
         <div style="color:#9ca3af;font-size:10px;margin-bottom:6px">${sp.latitude.toFixed(5)}, ${sp.longitude.toFixed(5)}</div>
         <div style="display:flex;gap:14px;font-size:11px">
-          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Arrived</div><div style="font-weight:600">${formatTsFull(sp.timestamp)}</div></div>
-          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Left</div><div style="font-weight:600">${formatTsFull(ep.timestamp)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div><div style="font-weight:600">${formatTsFull(sp.timestamp)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div><div style="font-weight:600">${formatTsFull(ep.timestamp)}</div></div>
         </div>
         <div style="margin-top:5px;color:#6b7280;font-size:10.5px">Duration: ${formatDuration(dur)}</div>
       </div>`;
@@ -950,12 +959,12 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
               <div key={i} onClick={() => onSegmentClick(ev)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`, cursor: 'pointer', transition: 'background .15s' }}
                 onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1a1a1a' : '#f9fafb'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'parked' ? '#dc2626' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
-                  {ev.type === 'parked' ? 'P' : 'D'}
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'parked' ? '#dc2626' : ev.type === 'idle' ? '#f59e0b' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
+                  {ev.type === 'parked' ? 'P' : ev.type === 'idle' ? 'I' : 'D'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: dark ? '#ccc' : '#333' }}>{formatTsFull(ev.startTime)}</div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'parked' ? '#dc2626' : '#16a34a' }}>{formatDuration(ev.durationSec)}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'parked' ? '#dc2626' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{formatDuration(ev.durationSec)}</div>
                 </div>
                 {ev.type === 'driving' && ev.avgSpeed !== undefined && (
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#16a34a' }}>{ev.avgSpeed} km/h</div>

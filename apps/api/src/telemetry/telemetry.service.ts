@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, MoreThan, Repository } from 'typeorm';
+import { Between, In, MoreThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { Telemetry } from './entities/telemetry.entity.js';
 import { DevicesService } from '../devices/devices.service.js';
 import { User } from '../users/entities/user.entity.js';
@@ -61,11 +61,13 @@ export class TelemetryService {
   }> {
     const latest = await this.repo.findOne({ where: { imei }, order: { timestamp: 'DESC' } });
 
-    // Stop duration: time since last movement (only meaningful when currently stopped)
+    // Stop duration: time since last genuine movement (speed >= 5 km/h)
+    // Using 5 km/h threshold to filter GPS noise which commonly reads 1-3 km/h even when stopped
+    const MOVING_KMH = 5;
     let stopDuration: number | null = null;
-    if (latest && latest.speedKmh === 0) {
+    if (latest && latest.speedKmh < MOVING_KMH) {
       const lastMoving = await this.repo.findOne({
-        where: { imei, speedKmh: MoreThan(0) },
+        where: { imei, speedKmh: MoreThanOrEqual(MOVING_KMH) },
         order: { timestamp: 'DESC' },
       });
       if (lastMoving) {
