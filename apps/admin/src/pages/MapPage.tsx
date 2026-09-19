@@ -594,11 +594,13 @@ function TrailLayer({ trails, visibleImeis }: { trails: Map<string, [number,numb
 
 const GF_COLOR = '#dc2626';
 
-function GeofenceLayer({ geofences }: { geofences: Geofence[] }) {
+function GeofenceLayer({ geofences, editingId, visible }: { geofences: Geofence[]; editingId: string | null; visible: boolean }) {
   const map = useMap();
   useEffect(() => {
+    if (!visible) return;
     const layers: L.Layer[] = [];
     geofences.forEach(gf => {
+      if (gf.id === editingId) return; // draw layer handles this one
       const opts = { color: GF_COLOR, weight: 2, fillOpacity: 0.08 };
       let layer: L.Layer;
       if (gf.type === 'circle') {
@@ -612,7 +614,7 @@ function GeofenceLayer({ geofences }: { geofences: Geofence[] }) {
       layers.push(layer);
     });
     return () => { layers.forEach(l => map.removeLayer(l)); };
-  }, [map, geofences]);
+  }, [map, geofences, editingId, visible]);
   return null;
 }
 
@@ -1661,6 +1663,7 @@ export default function MapPage() {
   const [alertsByImei, setAlertsByImei] = useState<Map<string, AlertRecord[]>>(new Map());
   const [showGeofencesPanel, setShowGeofencesPanel] = useState(false);
   const [geofences, setGeofences] = useState<Geofence[]>([]);
+  const [gfVisible, setGfVisible] = useState(true);
   const [gfLoading, setGfLoading] = useState(false);
   const [gfView, setGfView] = useState<'list' | 'form'>('list');
   const [gfEditing, setGfEditing] = useState<Geofence | null>(null);
@@ -1882,9 +1885,10 @@ export default function MapPage() {
           <button
             onClick={() => showGeofencesPanel ? closeGfPanel() : openGfPanel()}
             title="Manage geofences"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: showGeofencesPanel ? '1px solid #fca5a5' : `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: showGeofencesPanel ? (dark ? '#2a0a0a' : '#fff5f5') : (dark ? '#222' : '#f9fafb'), color: showGeofencesPanel ? '#dc2626' : (dark ? '#aaa' : '#555'), cursor: 'pointer', fontSize: 12, fontWeight: showGeofencesPanel ? 600 : 500 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: showGeofencesPanel ? '1px solid #fca5a5' : `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: showGeofencesPanel ? (dark ? '#2a0a0a' : '#fff5f5') : (dark ? '#222' : '#f9fafb'), color: showGeofencesPanel ? '#dc2626' : (dark ? '#aaa' : '#555'), cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {geofences.length > 0 && <span style={{ background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 3 }}>{geofences.length}</span>}
             {!isMobile && <span>Geofences</span>}
           </button>
           {/* Panel toggle */}
@@ -2010,6 +2014,18 @@ export default function MapPage() {
             )}
             {loading && <div style={{ position: 'absolute', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#555' : '#aaa', fontSize: 13, background: dark ? '#1a1a1a' : '#f8f9fa', borderRadius: 12 }}>Loading map…</div>}
             <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} dark={dark}/>
+            {geofences.length > 0 && (
+              <button
+                onClick={() => setGfVisible(v => !v)}
+                title={gfVisible ? 'Hide geofence zones' : 'Show geofence zones'}
+                style={{ position: 'absolute', top: 10, right: 126, zIndex: 1000, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 9px', borderRadius: 6, border: `1px solid ${gfVisible ? '#fca5a5' : (dark ? '#333' : '#e5e7eb')}`, background: gfVisible ? (dark ? '#2a0a0a' : '#fff5f5') : (dark ? '#1e1e1e' : '#fff'), color: gfVisible ? '#dc2626' : (dark ? '#888' : '#555'), cursor: 'pointer', fontSize: 11, fontWeight: 600, boxShadow: '0 1px 5px rgba(0,0,0,0.2)' }}
+              >
+                {gfVisible
+                  ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>}
+                {gfVisible ? 'Zones' : 'Zones'}
+              </button>
+            )}
             <MapContainer center={[30.3753, 69.3451]} zoom={5} style={{ height: '100%', width: '100%' }} zoomControl>
               <TileLayer key={mapStyle} url={TILE_CONFIG[mapStyle].url} attribution={TILE_CONFIG[mapStyle].attribution}
                 className={TILE_CONFIG[mapStyle].darkFilter || (mapStyle === 'street' && dark) ? 'map-tiles-dark' : ''}/>
@@ -2023,9 +2039,9 @@ export default function MapPage() {
                     <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef}/>
                   </>}
               <DistanceTool active={distanceMode} distanceModeRef={distanceModeRef}/>
-              <GeofenceLayer geofences={geofences}/>
+              <GeofenceLayer geofences={geofences} editingId={gfEditing?.id ?? null} visible={gfVisible}/>
               <GeofenceDrawLayer
-                drawActive={gfDrawActive}
+                drawActive={gfDrawActive || (gfType === 'polygon' && gfView === 'form')}
                 drawType={gfType}
                 center={gfCenter}
                 radius={gfRadius}

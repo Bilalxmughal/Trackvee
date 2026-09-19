@@ -127,11 +127,18 @@ function GfForm({ dark, editing, name, onName, type, onType, center, radius, onR
         <span style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>{editing ? 'Edit Geofence' : 'New Geofence'}</span>
       </div>
 
-      {/* Draw mode hint */}
-      {drawActive && (
+      {/* Draw mode hint — circle only */}
+      {drawActive && type === 'circle' && (
         <div style={{ padding: '8px 14px', background: '#fef2f2', borderBottom: '1px solid #fca5a5', fontSize: 11, color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="1"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="3" y1="12" x2="1" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
-          {type === 'circle' ? 'Click on map to set center' : 'Click on map to add points'}
+          Click on map to set center
+        </div>
+      )}
+      {/* Polygon always-draw hint */}
+      {type === 'polygon' && (
+        <div style={{ padding: '7px 14px', background: '#fef2f2', borderBottom: '1px solid #fca5a5', fontSize: 11, color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Click on map to add points
         </div>
       )}
 
@@ -165,10 +172,10 @@ function GfForm({ dark, editing, name, onName, type, onType, center, radius, onR
             <div style={{ marginBottom: 16 }}>
               <span style={lbl}>Center Point</span>
               {center ? (
-                <div style={{ padding: '8px 10px', border, borderRadius: 6, background: dark ? '#111' : '#f9fafb', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/></svg>
-                  <span style={{ flex: 1, fontSize: 11, fontFamily: 'monospace', color: dark ? '#e5e5e5' : '#111' }}>{fmtCoord(center[0])}, {fmtCoord(center[1])}</span>
-                  <button onClick={onToggleDraw} style={{ fontSize: 10.5, padding: '2px 7px', border, borderRadius: 4, background: 'transparent', color: dark ? '#aaa' : '#555', cursor: 'pointer' }}>Move</button>
+                  <span style={{ fontSize: 11.5, fontFamily: 'monospace', color: dark ? '#e5e5e5' : '#111' }}>{fmtCoord(center[0])}, {fmtCoord(center[1])}</span>
+                  <span style={{ fontSize: 10, color: dark ? '#555' : '#aaa' }}>· drag marker on map</span>
                 </div>
               ) : (
                 <button onClick={onToggleDraw} style={{ width: '100%', padding: '10px', border: `2px dashed ${drawActive ? '#dc2626' : (dark ? '#333' : '#d1d5db')}`, borderRadius: 6, background: drawActive ? '#fef2f2' : 'transparent', color: drawActive ? '#dc2626' : (dark ? '#666' : '#9ca3af'), fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -220,10 +227,9 @@ function GfForm({ dark, editing, name, onName, type, onType, center, radius, onR
               </div>
             )}
 
-            <button onClick={onToggleDraw} style={{ width: '100%', padding: '9px', border: `2px dashed ${drawActive ? '#dc2626' : (dark ? '#333' : '#d1d5db')}`, borderRadius: 6, background: drawActive ? '#fef2f2' : 'transparent', color: drawActive ? '#dc2626' : (dark ? '#666' : '#9ca3af'), fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              {drawActive ? 'Click on map to add points…' : 'Add points on map'}
-            </button>
+            {points.length === 0 && (
+              <div style={{ fontSize: 11.5, color: dark ? '#666' : '#aaa', textAlign: 'center', padding: '10px 0' }}>Click on map to start adding points</div>
+            )}
           </>
         )}
       </div>
