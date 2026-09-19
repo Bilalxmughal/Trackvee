@@ -1903,6 +1903,33 @@ export default function MapPage() {
         {/* Mobile backdrop */}
         {isMobile && panelOpen && <div onClick={() => setPanelOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 8998, background: 'rgba(0,0,0,0.45)' }}/>}
 
+        {/* Floating panel toggle — desktop only, absolute on panel's right edge */}
+        {!isMobile && (
+          <button
+            onClick={() => setPanelOpen(o => !o)}
+            title={panelOpen ? 'Collapse panel' : 'Expand panel'}
+            style={{
+              position: 'absolute',
+              left: panelOpen ? 360 - 11 : -11,
+              top: '50%', transform: 'translateY(-50%)',
+              zIndex: 1002, width: 22, height: 52,
+              background: dark ? '#1e1e1e' : '#fff',
+              border: `1px solid ${dark ? '#333' : '#e0e0e0'}`,
+              borderRadius: '0 10px 10px 0',
+              boxShadow: '3px 0 10px rgba(0,0,0,0.14)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: dark ? '#888' : '#666', padding: 0,
+              transition: 'left 0.25s cubic-bezier(0.4,0,0.2,1), color 0.15s, background 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = dark ? '#2a0a0a' : '#fff5f5'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = dark ? '#888' : '#666'; e.currentTarget.style.background = dark ? '#1e1e1e' : '#fff'; }}
+          >
+            {panelOpen
+              ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+              : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>}
+          </button>
+        )}
+
         {/* Left panel */}
         <div style={isMobile ? {
           position: 'fixed', top: 0, left: panelOpen ? 0 : -370, bottom: 0,
@@ -1970,31 +1997,7 @@ export default function MapPage() {
           }
         </div>
 
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingLeft: isMobile ? 0 : 8, position: 'relative' }}>
-          {/* Floating panel toggle button — desktop only, floats on left edge of map */}
-          {!isMobile && (
-            <button
-              onClick={() => setPanelOpen(o => !o)}
-              title={panelOpen ? 'Collapse panel' : 'Expand panel'}
-              style={{
-                position: 'absolute', left: panelOpen ? 0 : -4, top: '50%', transform: 'translateY(-50%)',
-                zIndex: 1001, width: 22, height: 48,
-                background: dark ? '#1e1e1e' : '#fff',
-                border: `1px solid ${dark ? '#333' : '#e0e0e0'}`,
-                borderRadius: '0 8px 8px 0',
-                boxShadow: '2px 0 8px rgba(0,0,0,0.12)',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: dark ? '#888' : '#666', padding: 0, transition: 'color 0.15s, background 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = dark ? '#2a0a0a' : '#fff5f5'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = dark ? '#888' : '#666'; e.currentTarget.style.background = dark ? '#1e1e1e' : '#fff'; }}
-            >
-              {panelOpen
-                ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-                : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>}
-            </button>
-          )}
-
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingLeft: isMobile ? 0 : 8 }}>
           {/* Status chips + tools */}
           <div style={{ display: 'flex', gap: 8, paddingBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             {(['moving', 'idle', 'parked', 'offline'] as const).map(s => (
