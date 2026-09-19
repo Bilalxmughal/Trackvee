@@ -6,6 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
+import ConfirmDialog from '../components/ConfirmDialog';
 import AlertsModal, { AlertRecord, AlertsPanel as AlertsLeftPanel } from '../components/AlertsModal';
 import GeofencesPanel, { Geofence, CircleCoords, PolygonCoords } from '../components/GeofencesModal';
 import { useTheme } from '../contexts/ThemeContext';
@@ -1676,6 +1677,7 @@ export default function MapPage() {
   const [gfDrawActive, setGfDrawActive] = useState(false);
   const [gfColor, setGfColor] = useState('#dc2626');
   const [gfSaving, setGfSaving] = useState(false);
+  const [gfDeleteId, setGfDeleteId] = useState<string | null>(null);
 
   // Distance tool
   const [distanceMode, setDistanceMode] = useState(false);
@@ -1843,11 +1845,10 @@ export default function MapPage() {
     setGfDrawActive(false); setGfView('form');
   };
   const gfDelete = async (id: string) => {
-    if (!confirm('Delete this geofence?')) return;
     try {
       await api.delete(`/geofences/${id}`);
       setGeofences(g => { const next = g.filter(x => x.id !== id); setGfCount(next.length); return next; });
-    } catch {}
+    } catch {} finally { setGfDeleteId(null); }
   };
   const gfSave = async () => {
     if (!gfName.trim()) return;
@@ -1942,7 +1943,7 @@ export default function MapPage() {
                 saving={gfSaving}
                 onNew={gfOpenNew}
                 onEdit={gfOpenEdit}
-                onDelete={gfDelete}
+                onDelete={id => setGfDeleteId(id)}
                 onSave={gfSave}
                 onBack={resetGfForm}
                 onClose={closeGfPanel}
@@ -2100,6 +2101,13 @@ export default function MapPage() {
         vehicles={allVehicles}
         preSelectedImei={alertCreateImei}
         editAlertRecord={alertEditRecord}
+      />
+      <ConfirmDialog
+        open={gfDeleteId !== null}
+        title="Delete Geofence"
+        message="Are you sure you want to delete this geofence zone? This action cannot be undone."
+        onConfirm={() => gfDeleteId && gfDelete(gfDeleteId)}
+        onClose={() => setGfDeleteId(null)}
       />
     </div>
   );

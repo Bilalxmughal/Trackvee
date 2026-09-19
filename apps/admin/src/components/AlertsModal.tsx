@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../api/client';
+import ConfirmDialog from './ConfirmDialog';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -566,6 +567,7 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Partial<AlertRecord> | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -599,9 +601,9 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this alert?')) return;
     await api.delete(`/alerts/${id}`);
     setAlerts(a => a.filter(x => x.id !== id));
+    setDeleteId(null);
   };
 
   const handleToggleActive = async (alert: AlertRecord) => {
@@ -682,7 +684,7 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
                     </div>
                   </div>
                   <Toggle value={alert.active} onChange={() => handleToggleActive(alert)}/>
-                  <DotMenu dark={dark} onEdit={() => { setEditTarget(alert); setFormOpen(true); }} onDelete={() => handleDelete(alert.id)}/>
+                  <DotMenu dark={dark} onEdit={() => { setEditTarget(alert); setFormOpen(true); }} onDelete={() => setDeleteId(alert.id)}/>
                 </div>
               );
             })}
@@ -700,6 +702,13 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
           onClose={() => { setFormOpen(false); setEditTarget(null); }}
         />
       )}
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete Alert"
+        message="Are you sure you want to delete this alert? This action cannot be undone."
+        onConfirm={() => deleteId && handleDelete(deleteId)}
+        onClose={() => setDeleteId(null)}
+      />
     </>
   );
 }
@@ -719,6 +728,7 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Partial<AlertRecord> | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -744,9 +754,9 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this alert?')) return;
     await api.delete(`/alerts/${id}`);
     setAlerts(a => a.filter(x => x.id !== id));
+    setDeleteId(null);
   };
 
   const handleToggleActive = async (alert: AlertRecord) => {
@@ -821,7 +831,7 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
                   </div>
                 </div>
                 <Toggle value={alert.active} onChange={() => handleToggleActive(alert)}/>
-                <DotMenu dark={dark} onEdit={() => { setEditTarget(alert); setFormOpen(true); }} onDelete={() => handleDelete(alert.id)}/>
+                <DotMenu dark={dark} onEdit={() => { setEditTarget(alert); setFormOpen(true); }} onDelete={() => setDeleteId(alert.id)}/>
               </div>
             );
           })}
@@ -838,6 +848,13 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
           onClose={() => { setFormOpen(false); setEditTarget(null); }}
         />
       )}
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete Alert"
+        message="Are you sure you want to delete this alert? This action cannot be undone."
+        onConfirm={() => deleteId && handleDelete(deleteId)}
+        onClose={() => setDeleteId(null)}
+      />
     </>
   );
 }
