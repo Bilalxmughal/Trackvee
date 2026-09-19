@@ -96,6 +96,7 @@ function GfList({ geofences, loading, onNew, onEdit, onDelete, dark, onClose }: 
 
 // ── Form ──────────────────────────────────────────────────────────────────────
 
+const GF_COLORS = ['#dc2626','#2563eb','#16a34a','#f59e0b','#7c3aed','#0891b2','#ea580c','#374151'];
 
 interface FormProps {
   dark: boolean;
@@ -171,12 +172,11 @@ function GfForm({ dark, editing, name, onName, type, onType, color, onColor, cen
         {/* Color */}
         <div style={{ marginBottom: 16 }}>
           <span style={lbl}>Zone Color</span>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '9px 12px', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 8, background: dark ? '#111' : '#f9fafb', width: '100%', boxSizing: 'border-box', position: 'relative' }}>
-            <div style={{ width: 24, height: 24, borderRadius: '50%', background: color, border: `2px solid ${dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)'}`, flexShrink: 0 }}/>
-            <span style={{ fontSize: 12.5, fontFamily: 'monospace', color: dark ? '#e5e5e5' : '#111', fontWeight: 600, flex: 1, textTransform: 'uppercase' }}>{color}</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#bbb'} strokeWidth="2" strokeLinecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-            <input type="color" value={color} onChange={e => onColor(e.target.value)} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', border: 'none', padding: 0 }}/>
-          </label>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+            {GF_COLORS.map(c => (
+              <button key={c} onClick={() => onColor(c)} style={{ width: 26, height: 26, borderRadius: '50%', background: c, border: color === c ? `3px solid ${dark ? '#fff' : '#111'}` : '3px solid transparent', outline: color === c ? `2px solid ${c}` : 'none', cursor: 'pointer', padding: 0, flexShrink: 0, transition: 'outline 0.1s, border 0.1s' }}/>
+            ))}
+          </div>
         </div>
 
         {/* Circle controls */}

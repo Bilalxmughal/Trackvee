@@ -1970,42 +1970,31 @@ export default function MapPage() {
           }
         </div>
 
-        {/* Panel toggle button — desktop only, flex child sitting flush at panel's right edge */}
-        {!isMobile && (
-          <button
-            onClick={() => setPanelOpen(o => !o)}
-            title={panelOpen ? 'Collapse panel' : 'Expand panel'}
-            style={{
-              width: 20, flexShrink: 0, alignSelf: 'stretch',
-              background: dark ? '#1a1a1a' : '#fff',
-              border: 'none',
-              borderLeft: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`,
-              borderRight: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`,
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: dark ? '#555' : '#bbb', padding: 0,
-              transition: 'color 0.15s, background 0.15s',
-              position: 'relative', zIndex: 10,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = dark ? '#1f0a0a' : '#fff5f5'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = dark ? '#555' : '#bbb'; e.currentTarget.style.background = dark ? '#1a1a1a' : '#fff'; }}
-          >
-            {/* Floating pill shape centered on the strip */}
-            <div style={{
-              width: 20, height: 52, borderRadius: '0 10px 10px 0',
-              background: dark ? '#2a2a2a' : '#f0f0f0',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
-              transition: 'background 0.15s',
-            }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingLeft: isMobile ? 0 : 8, position: 'relative' }}>
+          {/* Floating panel toggle button — desktop only, floats on left edge of map */}
+          {!isMobile && (
+            <button
+              onClick={() => setPanelOpen(o => !o)}
+              title={panelOpen ? 'Collapse panel' : 'Expand panel'}
+              style={{
+                position: 'absolute', left: panelOpen ? 0 : -4, top: '50%', transform: 'translateY(-50%)',
+                zIndex: 1001, width: 22, height: 48,
+                background: dark ? '#1e1e1e' : '#fff',
+                border: `1px solid ${dark ? '#333' : '#e0e0e0'}`,
+                borderRadius: '0 8px 8px 0',
+                boxShadow: '2px 0 8px rgba(0,0,0,0.12)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: dark ? '#888' : '#666', padding: 0, transition: 'color 0.15s, background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = dark ? '#2a0a0a' : '#fff5f5'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = dark ? '#888' : '#666'; e.currentTarget.style.background = dark ? '#1e1e1e' : '#fff'; }}
+            >
               {panelOpen
-                ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-                : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>}
-            </div>
-          </button>
-        )}
+                ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>}
+            </button>
+          )}
 
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingLeft: isMobile ? 0 : 8 }}>
           {/* Status chips + tools */}
           <div style={{ display: 'flex', gap: 8, paddingBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             {(['moving', 'idle', 'parked', 'offline'] as const).map(s => (
