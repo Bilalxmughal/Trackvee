@@ -7,6 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import AlertsModal, { AlertRecord } from '../components/AlertsModal';
+import GeofencesModal, { Geofence, CircleCoords, PolygonCoords } from '../components/GeofencesModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAlert, AlertSettings } from '../contexts/AlertContext';
@@ -588,6 +589,31 @@ function TrailLayer({ trails, visibleImeis }: { trails: Map<string, [number,numb
     });
     return () => { layers.forEach(l => map.removeLayer(l)); };
   }, [map, trails, visibleImeis]);
+  return null;
+}
+
+function GeofenceLayer({ geofences }: { geofences: Geofence[] }) {
+  const map = useMap();
+  const GF_COLORS = ['#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777'];
+  useEffect(() => {
+    const layers: L.Layer[] = [];
+    geofences.forEach((gf, i) => {
+      const color = GF_COLORS[i % GF_COLORS.length];
+      let layer: L.Layer;
+      if (gf.type === 'circle') {
+        const c = gf.coordinates as CircleCoords;
+        layer = L.circle([c.center[0], c.center[1]], { radius: c.radius, color, weight: 2, fillOpacity: 0.1 })
+          .bindTooltip(gf.name, { sticky: true });
+      } else {
+        const p = gf.coordinates as PolygonCoords;
+        layer = L.polygon(p.points as L.LatLngTuple[], { color, weight: 2, fillOpacity: 0.1 })
+          .bindTooltip(gf.name, { sticky: true });
+      }
+      layer.addTo(map);
+      layers.push(layer);
+    });
+    return () => { layers.forEach(l => map.removeLayer(l)); };
+  }, [map, geofences]);
   return null;
 }
 
@@ -1561,6 +1587,8 @@ export default function MapPage() {
   const [alertEditRecord, setAlertEditRecord] = useState<AlertRecord | undefined>(undefined);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [alertsByImei, setAlertsByImei] = useState<Map<string, AlertRecord[]>>(new Map());
+  const [showGeofencesModal, setShowGeofencesModal] = useState(false);
+  const [geofences, setGeofences] = useState<Geofence[]>([]);
 
   // Distance tool
   const [distanceMode, setDistanceMode] = useState(false);
@@ -1655,6 +1683,10 @@ export default function MapPage() {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    api.get<Geofence[]>('/geofences').then(r => setGeofences(r.data)).catch(() => {});
+  }, []);
+
   const visiblePoints = selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points;
   const allVehicles = useMemo(() =>
     visiblePoints.map(p => ({ imei: p.imei, plate: deviceMap.get(p.imei)?.plate || p.imei.slice(-8) }))
@@ -1723,6 +1755,15 @@ export default function MapPage() {
               {!isMobile && <span>Alerts</span>}
             </button>
           )}
+          {/* Geofences button */}
+          <button
+            onClick={() => setShowGeofencesModal(true)}
+            title="Manage geofences"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#222' : '#f9fafb', color: dark ? '#aaa' : '#555', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {!isMobile && <span>Geofences</span>}
+          </button>
           {/* Panel toggle */}
           <button
             onClick={() => setPanelOpen(o => !o)}
@@ -1834,6 +1875,7 @@ export default function MapPage() {
                     <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef}/>
                   </>}
               <DistanceTool active={distanceMode} distanceModeRef={distanceModeRef}/>
+              <GeofenceLayer geofences={geofences}/>
             </MapContainer>
           </div>
         </div>
@@ -1853,6 +1895,11 @@ export default function MapPage() {
         vehicles={allVehicles}
         preSelectedImei={alertCreateImei}
         editAlertRecord={alertEditRecord}
+      />
+      <GeofencesModal
+        open={showGeofencesModal}
+        onClose={() => setShowGeofencesModal(false)}
+        dark={dark}
       />
     </div>
   );
