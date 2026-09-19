@@ -1572,7 +1572,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   const ungrouped = filtered.filter(p => !groupedImeis.has(p.imei));
 
   return (
-    <div style={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 12, overflow: 'hidden' }}>
       {historyMode ? (
         <HistoryPanel mode={historyMode} points={historyPoints} loading={historyLoading} dark={dark} onLoad={onLoadHistory} onClear={onClearHistory} allVehicles={allVehicles} onVehicleSelect={onVehicleSelectForHistory} onSegmentClick={onSegmentClick}/>
       ) : (
@@ -1903,31 +1903,6 @@ export default function MapPage() {
         {/* Mobile backdrop */}
         {isMobile && panelOpen && <div onClick={() => setPanelOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 8998, background: 'rgba(0,0,0,0.45)' }}/>}
 
-        {/* Floating panel toggle — desktop only, sits flush at panel right edge */}
-        {!isMobile && (
-          <button
-            onClick={() => setPanelOpen(o => !o)}
-            title={panelOpen ? 'Collapse panel' : 'Expand panel'}
-            style={{
-              position: 'absolute',
-              left: panelOpen ? 349 : -11,
-              top: '50%', transform: 'translateY(-50%)',
-              zIndex: 1002, width: 22, height: 48,
-              background: dark ? '#1e1e1e' : '#fff',
-              border: `1px solid ${dark ? '#333' : '#e0e0e0'}`,
-              borderRadius: '0 8px 8px 0',
-              boxShadow: '2px 0 8px rgba(0,0,0,0.12)',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: dark ? '#888' : '#666', padding: 0, transition: 'left 0.25s cubic-bezier(0.4,0,0.2,1), color 0.15s, background 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = dark ? '#2a0a0a' : '#fff5f5'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = dark ? '#888' : '#666'; e.currentTarget.style.background = dark ? '#1e1e1e' : '#fff'; }}
-          >
-            {panelOpen
-              ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-              : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>}
-          </button>
-        )}
 
         {/* Left panel */}
         <div style={isMobile ? {
@@ -2028,6 +2003,28 @@ export default function MapPage() {
 
           {/* Map */}
           <div style={{ flex: 1, minHeight: 0, borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, position: 'relative' }}>
+            {/* Desktop panel toggle — floats on left edge of map */}
+            {!isMobile && (
+              <button
+                onClick={() => setPanelOpen(o => !o)}
+                title={panelOpen ? 'Collapse panel' : 'Expand panel'}
+                style={{
+                  position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                  zIndex: 1001, width: 22, height: 48,
+                  background: dark ? '#1e1e1e' : '#fff',
+                  border: `1px solid ${dark ? '#333' : '#e0e0e0'}`,
+                  borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: dark ? '#888' : '#666', padding: 0, transition: 'color 0.15s, background 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = dark ? '#2a0a0a' : '#fff5f5'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = dark ? '#888' : '#666'; e.currentTarget.style.background = dark ? '#1e1e1e' : '#fff'; }}
+              >
+                {panelOpen
+                  ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>}
+              </button>
+            )}
             {isMobile && !panelOpen && (
               <button
                 onClick={() => setPanelOpen(true)}
