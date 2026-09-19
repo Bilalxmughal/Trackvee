@@ -198,7 +198,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 16, width: 'min(580px, 100%)', height: 'min(640px, 92vh)', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
+      <div style={{ background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 16, width: 'min(960px, 96vw)', height: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
 
         {/* ── Header ── */}
         <div style={{ padding: '18px 24px 14px', borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}`, flexShrink: 0 }}>
