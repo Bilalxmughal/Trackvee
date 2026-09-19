@@ -37,7 +37,7 @@ interface TripPoint {
   ignition?: boolean | null;
 }
 interface HistoryMode { imei: string; plate: string; from: string; to: string; }
-interface TimelineEvent { type: 'parked' | 'driving'; startTime: string; endTime: string; durationSec: number; lat: number; lng: number; }
+interface TimelineEvent { type: 'parked' | 'driving'; startTime: string; endTime: string; durationSec: number; lat: number; lng: number; avgSpeed?: number; }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -80,7 +80,7 @@ function formatTsFull(ts: string) {
   const d = new Date(ts);
   let h = d.getHours(); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
   const p = (n: number) => n.toString().padStart(2, '0');
-  return `${p(h)}:${p(d.getMinutes())}:${p(d.getSeconds())} ${ap} ${p(d.getDate())}-${p(d.getMonth()+1)}-${d.getFullYear()}`;
+  return `${p(d.getDate())}-${p(d.getMonth()+1)}-${d.getFullYear()} ${p(h)}:${p(d.getMinutes())}:${p(d.getSeconds())} ${ap}`;
 }
 function getPresetRange(preset: 'lastHour' | 'today' | 'yesterday'): { from: string; to: string } {
   const now = new Date();
@@ -101,19 +101,22 @@ function calcBearing(lat1: number, lng1: number, lat2: number, lng2: number): nu
 function deriveTimeline(pts: TripPoint[]): TimelineEvent[] {
   if (pts.length === 0) return [];
   const isStop = (p: TripPoint) => p.speedKmh < 2 && p.ignition !== true;
+  const makeEvent = (type: 'parked' | 'driving', si: number, ei: number): TimelineEvent => {
+    const sp = pts[si], ep = pts[ei];
+    const seg = pts.slice(si, ei + 1);
+    const avgSpeed = type === 'driving' && seg.length > 0
+      ? Math.round(seg.reduce((s, p) => s + p.speedKmh, 0) / seg.length)
+      : undefined;
+    return { type, startTime: sp.timestamp, endTime: ep.timestamp, durationSec: Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000)), lat: sp.latitude, lng: sp.longitude, avgSpeed };
+  };
   const events: TimelineEvent[] = [];
   let type: 'parked' | 'driving' = isStop(pts[0]) ? 'parked' : 'driving';
   let si = 0;
   for (let i = 1; i < pts.length; i++) {
     const next: 'parked' | 'driving' = isStop(pts[i]) ? 'parked' : 'driving';
-    if (next !== type) {
-      const sp = pts[si], ep = pts[i - 1];
-      events.push({ type, startTime: sp.timestamp, endTime: ep.timestamp, durationSec: Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000)), lat: sp.latitude, lng: sp.longitude });
-      type = next; si = i;
-    }
+    if (next !== type) { events.push(makeEvent(type, si, i - 1)); type = next; si = i; }
   }
-  const sp = pts[si], ep = pts[pts.length - 1];
-  events.push({ type, startTime: sp.timestamp, endTime: ep.timestamp, durationSec: Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000)), lat: sp.latitude, lng: sp.longitude });
+  events.push(makeEvent(type, si, pts.length - 1));
   return events;
 }
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -893,6 +896,9 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
                   <div style={{ fontSize: 11, color: dark ? '#ccc' : '#333' }}>{formatTsFull(ev.startTime)}</div>
                   <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'parked' ? '#dc2626' : '#16a34a' }}>{formatDuration(ev.durationSec)}</div>
                 </div>
+                {ev.type === 'driving' && ev.avgSpeed !== undefined && (
+                  <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#16a34a' }}>{ev.avgSpeed} km/h</div>
+                )}
               </div>
             ))}
           </>
