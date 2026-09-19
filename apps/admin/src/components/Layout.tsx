@@ -307,48 +307,47 @@ function LayoutInner() {
             <IconMenu2 size={20} />
           </button>
 
-          {/* Global alert bell */}
-          <button
-            onClick={async () => {
-              setShowAlerts(true);
-              try {
-                const r = await api.get<{ imei: string; vehicle: { licensePlate: string | null } | null }[]>('/devices');
-                setAlertVehicles(r.data.map(d => ({ imei: d.imei, plate: d.vehicle?.licensePlate ?? d.imei })));
-              } catch {}
-            }}
-            title="Alerts"
-            style={{ position: 'relative', border: 'none', background: 'none', cursor: 'pointer', color: activeAlertCount > 0 ? '#dc2626' : (dark ? '#888' : '#aaa'), padding: '5px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6, transition: 'color 0.15s, background 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.07)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = activeAlertCount > 0 ? '#dc2626' : (dark ? '#888' : '#aaa'); e.currentTarget.style.background = 'none'; }}
-          >
-            <IconBell size={16} />
-            <span style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>Alerts</span>
-            {activeAlertCount > 0 && (
-              <span style={{ background: '#dc2626', color: '#fff', fontSize: 9.5, fontWeight: 700, minWidth: 16, height: 16, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>
-                {activeAlertCount}
-              </span>
-            )}
-          </button>
-
-          {/* Geofences */}
-          <button
-            onClick={() => {
-              if (!isMap) navigate('/map');
-              gfPanelOpen ? closeGfPanel() : openGfPanel();
-            }}
-            title="Geofences"
-            style={{ position: 'relative', border: 'none', background: 'none', cursor: 'pointer', color: gfPanelOpen ? '#dc2626' : (dark ? '#888' : '#aaa'), padding: '5px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6, transition: 'color 0.15s, background 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.07)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = gfPanelOpen ? '#dc2626' : (dark ? '#888' : '#aaa'); e.currentTarget.style.background = 'none'; }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>Geofences</span>
-            {gfCount > 0 && (
-              <span style={{ background: '#dc2626', color: '#fff', fontSize: 9.5, fontWeight: 700, minWidth: 16, height: 16, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>
-                {gfCount}
-              </span>
-            )}
-          </button>
+          {/* Topbar nav: Alerts + Geofences */}
+          {[
+            {
+              key: 'alerts',
+              active: showAlerts,
+              onClick: async () => {
+                setShowAlerts(true);
+                try {
+                  const r = await api.get<{ imei: string; vehicle: { licensePlate: string | null } | null }[]>('/devices');
+                  setAlertVehicles(r.data.map(d => ({ imei: d.imei, plate: d.vehicle?.licensePlate ?? d.imei })));
+                } catch {}
+              },
+              icon: <IconBell size={15}/>,
+              label: 'Alerts',
+              badge: activeAlertCount > 0 ? activeAlertCount : null,
+            },
+            {
+              key: 'geofences',
+              active: gfPanelOpen,
+              onClick: () => { if (!isMap) navigate('/map'); gfPanelOpen ? closeGfPanel() : openGfPanel(); },
+              icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+              label: 'Geofences',
+              badge: gfCount > 0 ? gfCount : null,
+            },
+          ].map(item => (
+            <button
+              key={item.key}
+              onClick={item.onClick}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 5, color: item.active ? '#dc2626' : (dark ? '#888' : '#aaa'), fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', textDecoration: item.active ? 'underline' : 'none', textUnderlineOffset: '3px', transition: 'color 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.textDecoration = 'underline'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = item.active ? '#dc2626' : (dark ? '#888' : '#aaa'); e.currentTarget.style.textDecoration = item.active ? 'underline' : 'none'; }}
+            >
+              {item.icon}
+              {item.label}
+              {item.badge !== null && (
+                <span style={{ background: '#dc2626', color: '#fff', fontSize: 9.5, fontWeight: 700, minWidth: 15, height: 15, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1 }}>
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          ))}
 
           <div style={{ flex: 1 }} />
 
