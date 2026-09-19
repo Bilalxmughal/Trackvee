@@ -602,7 +602,7 @@ function GeofenceLayer({ geofences, editingId, visible }: { geofences: Geofence[
     const layers: L.Layer[] = [];
     geofences.forEach(gf => {
       if (gf.id === editingId) return; // draw layer handles this one
-      const opts = { color: GF_COLOR, weight: 2, fillOpacity: 0.08 };
+      const opts = { color: gf.color ?? GF_COLOR, weight: 2, fillOpacity: 0.08 };
       let layer: L.Layer;
       if (gf.type === 'circle') {
         const c = gf.coordinates as CircleCoords;
@@ -620,12 +620,12 @@ function GeofenceLayer({ geofences, editingId, visible }: { geofences: Geofence[
 }
 
 function GeofenceDrawLayer({
-  drawActive, drawType, center, radius, points,
+  drawActive, drawType, center, radius, points, color,
   onSetCenter, onAddPoint,
 }: {
   drawActive: boolean; drawType: 'circle' | 'polygon';
   center: [number, number] | null; radius: number;
-  points: [number, number][];
+  points: [number, number][]; color: string;
   onSetCenter: (lat: number, lng: number) => void;
   onAddPoint: (lat: number, lng: number) => void;
 }) {
@@ -654,10 +654,10 @@ function GeofenceDrawLayer({
     layersRef.current = [];
 
     if (drawType === 'circle' && center) {
-      const circ = L.circle(center as L.LatLngTuple, { radius: radius || 500, color: GF_COLOR, weight: 2, dashArray: '7 5', fillOpacity: 0.12 });
+      const circ = L.circle(center as L.LatLngTuple, { radius: radius || 500, color, weight: 2, dashArray: '7 5', fillOpacity: 0.12 });
       const icon = L.divIcon({
         className: '',
-        html: '<div style="width:14px;height:14px;border-radius:50%;background:#dc2626;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);cursor:move"></div>',
+        html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);cursor:move"></div>`,
         iconSize: [14, 14], iconAnchor: [7, 7],
       });
       const marker = L.marker(center as L.LatLngTuple, { icon, draggable: true });
@@ -672,17 +672,17 @@ function GeofenceDrawLayer({
 
     if (drawType === 'polygon' && points.length > 0) {
       points.forEach(pt => {
-        const m = L.circleMarker(pt as L.LatLngTuple, { radius: 5, color: GF_COLOR, fillColor: '#fff', fillOpacity: 1, weight: 2 });
+        const m = L.circleMarker(pt as L.LatLngTuple, { radius: 5, color, fillColor: '#fff', fillOpacity: 1, weight: 2 });
         m.addTo(map);
         layersRef.current.push(m);
       });
       if (points.length >= 2) {
-        const line = L.polyline(points as L.LatLngTuple[], { color: GF_COLOR, weight: 2, dashArray: '6 4' });
+        const line = L.polyline(points as L.LatLngTuple[], { color, weight: 2, dashArray: '6 4' });
         line.addTo(map);
         layersRef.current.push(line);
       }
       if (points.length >= 3) {
-        const poly = L.polygon(points as L.LatLngTuple[], { color: GF_COLOR, weight: 2, dashArray: '6 4', fillOpacity: 0.1 });
+        const poly = L.polygon(points as L.LatLngTuple[], { color, weight: 2, dashArray: '6 4', fillOpacity: 0.1 });
         poly.addTo(map);
         layersRef.current.push(poly);
       }
@@ -1674,6 +1674,7 @@ export default function MapPage() {
   const [gfRadius, setGfRadius] = useState(500);
   const [gfPoints, setGfPoints] = useState<[number, number][]>([]);
   const [gfDrawActive, setGfDrawActive] = useState(false);
+  const [gfColor, setGfColor] = useState('#dc2626');
   const [gfSaving, setGfSaving] = useState(false);
 
   // Distance tool
@@ -1824,7 +1825,7 @@ export default function MapPage() {
 
   const resetGfForm = () => {
     setGfView('list'); setGfEditing(null); setGfName(''); setGfType('circle');
-    setGfCenter(null); setGfRadius(500); setGfPoints([]); setGfDrawActive(false);
+    setGfCenter(null); setGfRadius(500); setGfPoints([]); setGfDrawActive(false); setGfColor('#dc2626');
   };
 
   const openGfPanel = () => { ctxOpenGf(); setPanelOpen(true); resetGfForm(); };
@@ -1832,7 +1833,7 @@ export default function MapPage() {
 
   const gfOpenNew = () => { resetGfForm(); setGfView('form'); };
   const gfOpenEdit = (gf: Geofence) => {
-    setGfEditing(gf); setGfName(gf.name); setGfType(gf.type);
+    setGfEditing(gf); setGfName(gf.name); setGfType(gf.type); setGfColor(gf.color ?? '#dc2626');
     if (gf.type === 'circle') { const c = gf.coordinates as CircleCoords; setGfCenter(c.center); setGfRadius(c.radius); setGfPoints([]); }
     else { const p = gf.coordinates as PolygonCoords; setGfPoints([...p.points]); setGfCenter(null); }
     setGfDrawActive(false); setGfView('form');
@@ -1849,6 +1850,7 @@ export default function MapPage() {
     const data = {
       name: gfName.trim(), type: gfType,
       coordinates: gfType === 'circle' ? { center: gfCenter!, radius: gfRadius } : { points: gfPoints },
+      color: gfColor,
     };
     setGfSaving(true);
     try {
@@ -1897,16 +1899,16 @@ export default function MapPage() {
         </div>
       }/>
 
-      <div style={{ display: 'flex', flex: 1, gap: isMobile ? 0 : 12, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
+      <div style={{ display: 'flex', flex: 1, gap: 0, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
         {/* Mobile backdrop */}
         {isMobile && panelOpen && <div onClick={() => setPanelOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 8998, background: 'rgba(0,0,0,0.45)' }}/>}
 
         {/* Left panel */}
         <div style={isMobile ? {
-          position: 'fixed', top: 0, left: panelOpen ? 0 : -300, bottom: 0,
-          zIndex: 8999, width: 290, transition: 'left 0.25s cubic-bezier(0.4,0,0.2,1)',
+          position: 'fixed', top: 0, left: panelOpen ? 0 : -330, bottom: 0,
+          zIndex: 8999, width: 320, transition: 'left 0.25s cubic-bezier(0.4,0,0.2,1)',
         } : {
-          width: panelOpen ? 290 : 0, flexShrink: 0, overflow: 'hidden',
+          width: panelOpen ? 320 : 0, flexShrink: 0, overflow: 'hidden',
           transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
         }}>
           {showGeofencesPanel
@@ -1918,6 +1920,7 @@ export default function MapPage() {
                 editing={gfEditing}
                 name={gfName} onName={setGfName}
                 type={gfType} onType={t => { setGfType(t); setGfCenter(null); setGfPoints([]); setGfDrawActive(false); }}
+                color={gfColor} onColor={setGfColor}
                 center={gfCenter}
                 radius={gfRadius} onRadius={setGfRadius}
                 points={gfPoints}
@@ -1967,7 +1970,20 @@ export default function MapPage() {
           }
         </div>
 
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        {/* Panel collapse/expand handle — desktop only */}
+        {!isMobile && (
+          <div
+            onClick={() => setPanelOpen(o => !o)}
+            title={panelOpen ? 'Collapse panel' : 'Expand panel'}
+            style={{ width: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', userSelect: 'none' }}
+            onMouseEnter={e => { const bar = e.currentTarget.firstElementChild as HTMLElement; if (bar) bar.style.background = '#dc2626'; }}
+            onMouseLeave={e => { const bar = e.currentTarget.firstElementChild as HTMLElement; if (bar) bar.style.background = dark ? '#3a3a3a' : '#d1d5db'; }}
+          >
+            <div style={{ width: 4, height: 40, borderRadius: 2, background: dark ? '#3a3a3a' : '#d1d5db', transition: 'background 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: 0 }}>|</div>
+          </div>
+        )}
+
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingLeft: isMobile ? 0 : 8 }}>
           {/* Status chips + tools */}
           <div style={{ display: 'flex', gap: 8, paddingBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             {(['moving', 'idle', 'parked', 'offline'] as const).map(s => (
@@ -2040,6 +2056,7 @@ export default function MapPage() {
                 center={gfCenter}
                 radius={gfRadius}
                 points={gfPoints}
+                color={gfColor}
                 onSetCenter={(lat, lng) => { setGfCenter([lat, lng]); setGfDrawActive(false); }}
                 onAddPoint={(lat, lng) => setGfPoints(p => [...p, [lat, lng]])}
               />

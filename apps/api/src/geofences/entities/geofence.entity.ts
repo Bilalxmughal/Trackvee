@@ -22,6 +22,9 @@ export class Geofence {
   @Column({ type: 'jsonb' })
   coordinates: CircleCoords | PolygonCoords;
 
+  @Column({ type: 'varchar', length: 7, default: '#dc2626' })
+  color: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

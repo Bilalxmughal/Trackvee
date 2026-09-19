@@ -9,6 +9,7 @@ export interface Geofence {
   name: string;
   type: 'circle' | 'polygon';
   coordinates: CircleCoords | PolygonCoords;
+  color: string;
 }
 
 const lbl: React.CSSProperties = {
@@ -71,7 +72,7 @@ function GfList({ geofences, loading, onNew, onEdit, onDelete, dark, onClose }: 
         )}
         {filtered.map(gf => (
           <div key={gf.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', flexShrink: 0 }}/>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: gf.color ?? '#dc2626', flexShrink: 0 }}/>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12.5, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gf.name}</div>
               <div style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa', marginTop: 1 }}>
@@ -95,11 +96,14 @@ function GfList({ geofences, loading, onNew, onEdit, onDelete, dark, onClose }: 
 
 // ── Form ──────────────────────────────────────────────────────────────────────
 
+const GF_COLORS = ['#dc2626','#2563eb','#16a34a','#f59e0b','#7c3aed','#0891b2','#ea580c','#374151'];
+
 interface FormProps {
   dark: boolean;
   editing: Geofence | null;
   name: string; onName: (v: string) => void;
   type: 'circle' | 'polygon'; onType: (v: 'circle' | 'polygon') => void;
+  color: string; onColor: (v: string) => void;
   center: [number, number] | null;
   radius: number; onRadius: (v: number) => void;
   points: [number, number][]; onRemovePoint: (i: number) => void; onClearPoints: () => void;
@@ -109,7 +113,7 @@ interface FormProps {
   onBack: () => void;
 }
 
-function GfForm({ dark, editing, name, onName, type, onType, center, radius, onRadius, points, onRemovePoint, onClearPoints, drawActive, onToggleDraw, saving, onSave, onBack }: FormProps) {
+function GfForm({ dark, editing, name, onName, type, onType, color, onColor, center, radius, onRadius, points, onRemovePoint, onClearPoints, drawActive, onToggleDraw, saving, onSave, onBack }: FormProps) {
   const border = `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`;
   const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', border, borderRadius: 6, background: dark ? '#111' : '#fff', color: dark ? '#e5e5e5' : '#111', fontSize: 12.5, outline: 'none', boxSizing: 'border-box' };
   const canSave = name.trim() && (
@@ -129,14 +133,14 @@ function GfForm({ dark, editing, name, onName, type, onType, center, radius, onR
 
       {/* Draw mode hint — circle only */}
       {drawActive && type === 'circle' && (
-        <div style={{ padding: '8px 14px', background: '#fef2f2', borderBottom: '1px solid #fca5a5', fontSize: 11, color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <div style={{ padding: '8px 14px', background: `${color}12`, borderBottom: `1px solid ${color}55`, fontSize: 11, color: color, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="1"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="3" y1="12" x2="1" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
           Click on map to set center
         </div>
       )}
       {/* Polygon always-draw hint */}
       {type === 'polygon' && (
-        <div style={{ padding: '7px 14px', background: '#fef2f2', borderBottom: '1px solid #fca5a5', fontSize: 11, color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <div style={{ padding: '7px 14px', background: `${color}12`, borderBottom: `1px solid ${color}55`, fontSize: 11, color: color, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           Click on map to add points
         </div>
@@ -155,12 +159,22 @@ function GfForm({ dark, editing, name, onName, type, onType, center, radius, onR
           <span style={lbl}>Shape</span>
           <div style={{ display: 'flex', gap: 6 }}>
             {(['circle', 'polygon'] as const).map(t => (
-              <button key={t} onClick={() => onType(t)} style={{ flex: 1, padding: '8px', border: `2px solid ${type === t ? '#dc2626' : (dark ? '#2a2a2a' : '#e5e7eb')}`, borderRadius: 6, background: type === t ? '#fef2f2' : 'transparent', color: type === t ? '#dc2626' : (dark ? '#888' : '#666'), fontSize: 12, fontWeight: type === t ? 700 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <button key={t} onClick={() => onType(t)} style={{ flex: 1, padding: '8px', border: `2px solid ${type === t ? color : (dark ? '#2a2a2a' : '#e5e7eb')}`, borderRadius: 6, background: type === t ? `${color}15` : 'transparent', color: type === t ? color : (dark ? '#888' : '#666'), fontSize: 12, fontWeight: type === t ? 700 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 {t === 'circle'
                   ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/></svg>
                   : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="12 2 22 20 2 20"/></svg>}
                 {t === 'circle' ? 'Circle' : 'Polygon'}
               </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Color */}
+        <div style={{ marginBottom: 16 }}>
+          <span style={lbl}>Zone Color</span>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+            {GF_COLORS.map(c => (
+              <button key={c} onClick={() => onColor(c)} style={{ width: 26, height: 26, borderRadius: '50%', background: c, border: color === c ? `3px solid ${dark ? '#fff' : '#111'}` : '3px solid transparent', outline: color === c ? `2px solid ${c}` : 'none', cursor: 'pointer', padding: 0, flexShrink: 0, transition: 'outline 0.1s, border 0.1s' }}/>
             ))}
           </div>
         </div>
@@ -189,11 +203,11 @@ function GfForm({ dark, editing, name, onName, type, onType, center, radius, onR
             <div>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ ...lbl, marginBottom: 0, flex: 1 }}>Radius</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: color }}>
                   {radius >= 1000 ? `${(radius / 1000).toFixed(2)} km` : `${radius} m`}
                 </span>
               </div>
-              <input type="range" min={100} max={50000} step={100} value={radius} onChange={e => onRadius(Number(e.target.value))} style={{ width: '100%', accentColor: '#dc2626' }}/>
+              <input type="range" min={100} max={50000} step={100} value={radius} onChange={e => onRadius(Number(e.target.value))} style={{ width: '100%', accentColor: color }}/>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: dark ? '#555' : '#aaa', marginTop: 2 }}>
                 <span>100 m</span><span>50 km</span>
               </div>
@@ -255,6 +269,7 @@ export interface GeofencesPanelProps {
   editing: Geofence | null;
   name: string; onName: (v: string) => void;
   type: 'circle' | 'polygon'; onType: (v: 'circle' | 'polygon') => void;
+  color: string; onColor: (v: string) => void;
   center: [number, number] | null;
   radius: number; onRadius: (v: number) => void;
   points: [number, number][]; onRemovePoint: (i: number) => void; onClearPoints: () => void;
@@ -273,7 +288,7 @@ export default function GeofencesPanel(p: GeofencesPanelProps) {
     <div style={{ height: '100%', background: p.dark ? '#161616' : '#fff', border: `1px solid ${p.dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {p.view === 'list'
         ? <GfList geofences={p.geofences} loading={p.loading} onNew={p.onNew} onEdit={p.onEdit} onDelete={p.onDelete} dark={p.dark} onClose={p.onClose}/>
-        : <GfForm dark={p.dark} editing={p.editing} name={p.name} onName={p.onName} type={p.type} onType={p.onType} center={p.center} radius={p.radius} onRadius={p.onRadius} points={p.points} onRemovePoint={p.onRemovePoint} onClearPoints={p.onClearPoints} drawActive={p.drawActive} onToggleDraw={p.onToggleDraw} saving={p.saving} onSave={p.onSave} onBack={p.onBack}/>
+        : <GfForm dark={p.dark} editing={p.editing} name={p.name} onName={p.onName} type={p.type} onType={p.onType} color={p.color} onColor={p.onColor} center={p.center} radius={p.radius} onRadius={p.onRadius} points={p.points} onRemovePoint={p.onRemovePoint} onClearPoints={p.onClearPoints} drawActive={p.drawActive} onToggleDraw={p.onToggleDraw} saving={p.saving} onSave={p.onSave} onBack={p.onBack}/>
       }
     </div>
   );
