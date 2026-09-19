@@ -326,7 +326,7 @@ function LayoutInner() {
             {
               key: 'geofences',
               active: gfPanelOpen,
-              onClick: () => { if (!isMap) navigate('/map'); gfPanelOpen ? closeGfPanel() : openGfPanel(); },
+              onClick: () => { if (!isMap) navigate('/map'); openGfPanel(); },
               icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
               label: 'Geofences',
               badge: gfCount > 0 ? gfCount : null,
@@ -335,9 +335,9 @@ function LayoutInner() {
             <button
               key={item.key}
               onClick={item.onClick}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 5, color: item.active ? '#dc2626' : (dark ? '#888' : '#aaa'), fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', textDecoration: item.active ? 'underline' : 'none', textUnderlineOffset: '3px', transition: 'color 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.textDecoration = 'underline'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = item.active ? '#dc2626' : (dark ? '#888' : '#aaa'); e.currentTarget.style.textDecoration = item.active ? 'underline' : 'none'; }}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 5, color: item.active ? '#dc2626' : (dark ? '#888' : '#aaa'), fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', transition: 'color 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = item.active ? '#dc2626' : (dark ? '#888' : '#aaa'); }}
             >
               {item.icon}
               {item.label}
