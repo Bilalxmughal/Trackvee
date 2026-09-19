@@ -1052,9 +1052,11 @@ function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory }: 
         <div style={{ fontSize: 12, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</div>
       </div>
       <span style={{ fontSize: 10, color: dark ? '#666' : '#9ca3af', flexShrink: 0, minWidth: 38, textAlign: 'right' }}>{Math.round(pt.speedKmh)} km/h</span>
-      <IconPower on={pt.ignition}/>
-      <IconBattery level={pt.voltageLevel}/>
-      <IconSignal level={pt.gsmSignal}/>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <IconPower on={pt.ignition}/>
+        <IconBattery level={pt.voltageLevel}/>
+        <IconSignal level={pt.gsmSignal}/>
+      </div>
       <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay} onShowHistory={onShowHistory}/>
     </div>
   );
