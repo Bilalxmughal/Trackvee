@@ -111,7 +111,16 @@ export class TelemetryController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get(':imei/history')
-  getHistory(@Param('imei') imei: string, @Query('limit') limit?: string) {
-    return this.telemetryService.getHistory(imei, limit ? parseInt(limit) : 100);
+  getHistory(
+    @Param('imei') imei: string,
+    @Query('limit') limit?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.telemetryService.getHistory(imei, {
+      limit: limit ? parseInt(limit) : 2000,
+      from,
+      to,
+    });
   }
 }

@@ -34,7 +34,10 @@ type DMap = Map<string, { plate: string | null; vehicleId: string | null; cityId
 interface TripPoint {
   id: string; imei: string; latitude: number; longitude: number;
   speedKmh: number; heading: number; timestamp: string; gpsValid: boolean;
+  ignition?: boolean | null;
 }
+interface HistoryMode { imei: string; plate: string; from: string; to: string; }
+interface TimelineEvent { type: 'parked' | 'driving'; startTime: string; endTime: string; durationSec: number; lat: number; lng: number; }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -72,6 +75,46 @@ function formatDuration(sec: number) {
   if (sec < 60) return `${sec}s`; if (sec < 3600) return `${Math.floor(sec/60)}m`;
   const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+function formatTsFull(ts: string) {
+  const d = new Date(ts);
+  let h = d.getHours(); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  const p = (n: number) => n.toString().padStart(2, '0');
+  return `${p(h)}:${p(d.getMinutes())}:${p(d.getSeconds())} ${ap} ${p(d.getDate())}-${p(d.getMonth()+1)}-${d.getFullYear()}`;
+}
+function getPresetRange(preset: 'lastHour' | 'today' | 'yesterday'): { from: string; to: string } {
+  const now = new Date();
+  const toLocal = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  if (preset === 'lastHour') return { from: toLocal(new Date(now.getTime() - 3_600_000)), to: toLocal(now) };
+  if (preset === 'today') { const f = new Date(now); f.setHours(0,0,0,0); return { from: toLocal(f), to: toLocal(now) }; }
+  const f = new Date(now); f.setDate(f.getDate()-1); f.setHours(0,0,0,0);
+  const t = new Date(now); t.setDate(t.getDate()-1); t.setHours(23,59,0,0);
+  return { from: toLocal(f), to: toLocal(t) };
+}
+function calcBearing(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const r = Math.PI / 180;
+  const dL = (lng2 - lng1) * r;
+  const y = Math.sin(dL) * Math.cos(lat2 * r);
+  const x = Math.cos(lat1 * r) * Math.sin(lat2 * r) - Math.sin(lat1 * r) * Math.cos(lat2 * r) * Math.cos(dL);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function deriveTimeline(pts: TripPoint[]): TimelineEvent[] {
+  if (pts.length === 0) return [];
+  const isStop = (p: TripPoint) => p.speedKmh < 2 && p.ignition !== true;
+  const events: TimelineEvent[] = [];
+  let type: 'parked' | 'driving' = isStop(pts[0]) ? 'parked' : 'driving';
+  let si = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const next: 'parked' | 'driving' = isStop(pts[i]) ? 'parked' : 'driving';
+    if (next !== type) {
+      const sp = pts[si], ep = pts[i - 1];
+      events.push({ type, startTime: sp.timestamp, endTime: ep.timestamp, durationSec: Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000)), lat: sp.latitude, lng: sp.longitude });
+      type = next; si = i;
+    }
+  }
+  const sp = pts[si], ep = pts[pts.length - 1];
+  events.push({ type, startTime: sp.timestamp, endTime: ep.timestamp, durationSec: Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000)), lat: sp.latitude, lng: sp.longitude });
+  return events;
 }
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371;
@@ -600,10 +643,206 @@ function IconSignal({ level }: { level?: number | null }) {
 
 // ── Vehicle Menu (3-dot dropdown) ─────────────────────────────────────────────
 
-function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay }: {
+// ── History Layer (map) ───────────────────────────────────────────────────────
+
+function HistoryLayer({ points, speedLimit }: { points: TripPoint[]; speedLimit: number }) {
+  const map = useMap();
+  const layerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
+    if (points.length < 2) return;
+
+    const layer = L.layerGroup().addTo(map);
+    layerRef.current = layer;
+
+    const coords: [number, number][] = points.map(p => [p.latitude, p.longitude]);
+    L.polyline(coords, { color: '#dc2626', weight: 3.5, opacity: 0.85 }).addTo(layer);
+
+    // Direction arrows
+    const step = Math.max(8, Math.floor(points.length / 18));
+    for (let i = step; i < points.length - 1; i += step) {
+      const bearing = calcBearing(points[i-1].latitude, points[i-1].longitude, points[i].latitude, points[i].longitude);
+      const html = `<div style="width:12px;height:12px;display:flex;align-items:center;justify-content:center;pointer-events:none;transform:translate(-50%,-50%) rotate(${bearing}deg)"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polygon points="5,0 10,10 5,7 0,10" fill="#dc2626" stroke="white" stroke-width="0.8"/></svg></div>`;
+      L.marker([points[i].latitude, points[i].longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), interactive: false }).addTo(layer);
+    }
+
+    // Segment detection for P markers
+    const isStop = (p: TripPoint) => p.speedKmh < 2 && p.ignition !== true;
+    const segments: Array<{ type: 'parked'|'driving'; start: number; end: number }> = [];
+    let segType: 'parked'|'driving' = isStop(points[0]) ? 'parked' : 'driving';
+    let si = 0;
+    for (let i = 1; i < points.length; i++) {
+      const nt: 'parked'|'driving' = isStop(points[i]) ? 'parked' : 'driving';
+      if (nt !== segType) { segments.push({ type: segType, start: si, end: i-1 }); segType = nt; si = i; }
+    }
+    segments.push({ type: segType, start: si, end: points.length - 1 });
+
+    segments.forEach((seg, idx) => {
+      if (seg.type !== 'parked') return;
+      const sp = points[seg.start], ep = points[seg.end];
+      const dur = Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000));
+      const addrId = `paddr-${idx}-${Date.now()}`;
+      const html = `<div style="width:26px;height:26px;border-radius:50%;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transform:translate(-50%,-50%)">P</div>`;
+      const popup = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:190px;line-height:1.5">
+        <div style="font-weight:700;margin-bottom:5px;color:#dc2626;font-size:13px">Parked</div>
+        <div id="${addrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
+        <div style="color:#9ca3af;font-size:10px;margin-bottom:6px">${sp.latitude.toFixed(5)}, ${sp.longitude.toFixed(5)}</div>
+        <div style="display:flex;gap:14px;font-size:11px">
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Arrived</div><div style="font-weight:600">${formatTsFull(sp.timestamp)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Left</div><div style="font-weight:600">${formatTsFull(ep.timestamp)}</div></div>
+        </div>
+        <div style="margin-top:5px;color:#6b7280;font-size:10.5px">Duration: ${formatDuration(dur)}</div>
+      </div>`;
+      const m = L.marker([sp.latitude, sp.longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 100 });
+      m.bindPopup(popup, { maxWidth: 280 }).addTo(layer);
+      m.on('popupopen', async () => { const addr = await reverseGeocode(sp.latitude, sp.longitude); const el = document.getElementById(addrId); if (el) el.textContent = addr; });
+    });
+
+    // Ignition-off (Stop) markers
+    for (let i = 1; i < points.length; i++) {
+      if (points[i-1].ignition === true && points[i].ignition === false) {
+        const p = points[i];
+        const addrId = `saddr-${i}-${Date.now()}`;
+        const html = `<div style="width:28px;height:22px;border-radius:5px;background:#f59e0b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transform:translate(-50%,-50%)">STOP</div>`;
+        const popup = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:170px;line-height:1.5">
+          <div style="font-weight:700;margin-bottom:5px;color:#f59e0b;font-size:13px">Ignition Off</div>
+          <div id="${addrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
+          <div style="color:#9ca3af;font-size:10px;margin-bottom:6px">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</div>
+          <div style="font-size:11px;font-weight:600">${formatTsFull(p.timestamp)}</div>
+        </div>`;
+        const m = L.marker([p.latitude, p.longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 200 });
+        m.bindPopup(popup, { maxWidth: 260 }).addTo(layer);
+        m.on('popupopen', async () => { const addr = await reverseGeocode(p.latitude, p.longitude); const el = document.getElementById(addrId); if (el) el.textContent = addr; });
+      }
+    }
+
+    // Speed alert labels
+    if (speedLimit > 0) {
+      let inOver = false, overStart = 0, maxSpd = 0;
+      const flush = (endIdx: number) => {
+        if (!inOver) return;
+        const mid = Math.floor((overStart + endIdx) / 2);
+        const p = points[Math.min(mid, points.length - 1)];
+        const html = `<div style="background:#dc2626;color:#fff;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;border:1.5px solid #fff;white-space:nowrap;box-shadow:0 1px 5px rgba(0,0,0,0.3);transform:translate(-50%,-50%)">${Math.round(maxSpd)} km/h</div>`;
+        L.marker([p.latitude, p.longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 50 }).addTo(layer);
+        inOver = false; maxSpd = 0;
+      };
+      for (let i = 0; i < points.length; i++) {
+        if (points[i].speedKmh > speedLimit) { if (!inOver) { inOver = true; overStart = i; } maxSpd = Math.max(maxSpd, points[i].speedKmh); }
+        else flush(i - 1);
+      }
+      flush(points.length - 1);
+    }
+
+    // Start dot (green) and end dot (black)
+    const startHtml = `<div style="width:14px;height:14px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);transform:translate(-50%,-50%)"></div>`;
+    const endHtml = `<div style="width:14px;height:14px;border-radius:50%;background:#111;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);transform:translate(-50%,-50%)"></div>`;
+    L.marker([points[0].latitude, points[0].longitude], { icon: L.divIcon({ html: startHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }) }).addTo(layer);
+    L.marker([points[points.length-1].latitude, points[points.length-1].longitude], { icon: L.divIcon({ html: endHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }) }).addTo(layer);
+
+    try { map.fitBounds(L.latLngBounds(coords), { padding: [30, 30] }); } catch {}
+
+    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+  }, [points, speedLimit, map]);
+
+  return null;
+}
+
+// ── History Panel (left panel) ────────────────────────────────────────────────
+
+function HistoryPanel({ mode, points, loading, dark, onLoad, onClear }: {
+  mode: HistoryMode; points: TripPoint[]; loading: boolean; dark: boolean;
+  onLoad: (from: string, to: string) => void; onClear: () => void;
+}) {
+  const [from, setFrom] = useState(mode.from);
+  const [to, setTo] = useState(mode.to);
+  useEffect(() => { setFrom(mode.from); setTo(mode.to); }, [mode.from, mode.to]);
+
+  const timeline = useMemo(() => deriveTimeline(points), [points]);
+  const totalKm = useMemo(() => {
+    let d = 0;
+    for (let i = 1; i < points.length; i++) d += haversineKm(points[i-1].latitude, points[i-1].longitude, points[i].latitude, points[i].longitude);
+    return d;
+  }, [points]);
+
+  const inp = (val: string, set: (v: string) => void) => (
+    <input type="datetime-local" value={val} onChange={e => set(e.target.value)}
+      style={{ width: '100%', fontSize: 11.5, padding: '5px 8px', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 6, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', outline: 'none', boxSizing: 'border-box' }}/>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '10px 12px', borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}`, flexShrink: 0 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 10, color: dark ? '#555' : '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Route History</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>{mode.plate}</div>
+        </div>
+        <button onClick={onClear} title="Exit history" style={{ border: 'none', background: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 4, borderRadius: 6, display: 'flex' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      {/* Date form */}
+      <div style={{ padding: '10px 12px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`, display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0 }}>
+        <div>
+          <div style={{ fontSize: 9.5, fontWeight: 700, color: dark ? '#555' : '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>From</div>
+          {inp(from, setFrom)}
+        </div>
+        <div>
+          <div style={{ fontSize: 9.5, fontWeight: 700, color: dark ? '#555' : '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>To</div>
+          {inp(to, setTo)}
+        </div>
+        <button onClick={() => onLoad(from, to)} disabled={loading}
+          style={{ padding: '8px', borderRadius: 7, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          {loading
+            ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>Loading…</>
+            : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.95"/></svg>Show History</>}
+        </button>
+      </div>
+      {/* Stats */}
+      {points.length > 0 && (
+        <div style={{ padding: '5px 12px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`, display: 'flex', gap: 14, fontSize: 11, color: dark ? '#666' : '#9ca3af', flexShrink: 0 }}>
+          <span>{points.length} points</span>
+          <span>{totalKm.toFixed(1)} km</span>
+        </div>
+      )}
+      {/* Timeline */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {!loading && points.length === 0 && (
+          <div style={{ padding: 20, textAlign: 'center', color: dark ? '#555' : '#bbb', fontSize: 12 }}>No GPS data for this range</div>
+        )}
+        {points.length > 0 && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
+              <div style={{ width: 24, height: 24, borderRadius: '50%', background: dark ? '#2a2a2a' : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={dark ? '#888' : '#666'} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+              </div>
+              <div style={{ fontSize: 11, color: dark ? '#888' : '#666' }}>{formatTsFull(points[0].timestamp)}</div>
+            </div>
+            {timeline.map((ev, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'parked' ? '#dc2626' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
+                  {ev.type === 'parked' ? 'P' : 'D'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, color: dark ? '#ccc' : '#333' }}>{formatTsFull(ev.startTime)}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'parked' ? '#dc2626' : '#16a34a' }}>{formatDuration(ev.durationSec)}</div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowHistory }: {
   pt: LivePoint; plate: string; dark: boolean;
   onViewOnMap: () => void;
   onTripReplay: () => void;
+  onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
 }) {
   const [open, setOpen] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, right: 0 });
@@ -626,10 +865,17 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay }: {
   };
 
   const svUrl = `https://maps.google.com/maps?layer=c&cbll=${pt.latitude},${pt.longitude}`;
-  const items = [
+  const ClockIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+  const CalIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+
+  const items: Array<{ label: string; icon: React.ReactNode; action: () => void; divider?: boolean }> = [
     { label: 'View on Map', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>, action: () => { onViewOnMap(); setOpen(false); } },
     { label: 'Trip Replay', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21"/></svg>, action: () => { onTripReplay(); setOpen(false); } },
     { label: 'Street View', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>, action: () => { window.open(svUrl, '_blank', 'noopener'); setOpen(false); } },
+    { label: '──', icon: null, action: () => {}, divider: true },
+    { label: 'History: Last Hour', icon: <ClockIcon/>, action: () => { onShowHistory('lastHour'); setOpen(false); } },
+    { label: 'History: Today', icon: <CalIcon/>, action: () => { onShowHistory('today'); setOpen(false); } },
+    { label: 'History: Yesterday', icon: <CalIcon/>, action: () => { onShowHistory('yesterday'); setOpen(false); } },
   ];
 
   return (
@@ -641,8 +887,10 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay }: {
         </svg>
       </button>
       {open && (
-        <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: dropPos.top, right: dropPos.right, zIndex: 9500, background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 9, boxShadow: '0 6px 24px rgba(0,0,0,0.22)', minWidth: 148, overflow: 'hidden' }}>
-          {items.map(it => (
+        <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: dropPos.top, right: dropPos.right, zIndex: 9500, background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 9, boxShadow: '0 6px 24px rgba(0,0,0,0.22)', minWidth: 165, overflow: 'hidden' }}>
+          {items.map((it, idx) => it.divider ? (
+            <div key={idx} style={{ height: 1, background: dark ? '#2a2a2a' : '#f0f0f0', margin: '3px 0' }}/>
+          ) : (
             <button key={it.label} onClick={(e) => { e.stopPropagation(); it.action(); }}
               style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 13px', border: 'none', background: 'transparent', color: dark ? '#e5e5e5' : '#333', fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}
               onMouseEnter={e => { e.currentTarget.style.background = dark ? '#2a1010' : '#fff5f5'; e.currentTarget.style.color = '#dc2626'; }}
@@ -658,9 +906,10 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay }: {
 
 // ── Vehicle Row ───────────────────────────────────────────────────────────────
 
-function VehicleRow({ pt, plate, onSelect, dark, onTripReplay }: {
+function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory }: {
   pt: LivePoint; plate: string; onSelect: () => void; dark: boolean;
   onTripReplay: () => void;
+  onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
 }) {
   const status = vehicleStatus(pt);
   const [hov, setHov] = useState(false);
@@ -674,18 +923,19 @@ function VehicleRow({ pt, plate, onSelect, dark, onTripReplay }: {
       <IconPower on={pt.ignition}/>
       <IconBattery level={pt.voltageLevel}/>
       <IconSignal level={pt.gsmSignal}/>
-      <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay}/>
+      <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay} onShowHistory={onShowHistory}/>
     </div>
   );
 }
 
 // ── Group Section ─────────────────────────────────────────────────────────────
 
-function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark, onTripReplay }: {
+function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark, onTripReplay, onShowHistory }: {
   group: VehicleGroup; pts: LivePoint[]; deviceMap: DMap;
   onSelect: (imei: string) => void; collapsed: boolean;
   onToggle: () => void; onEdit: () => void; dark: boolean;
   onTripReplay: (imei: string, plate: string) => void;
+  onShowHistory: (imei: string, plate: string, preset: 'lastHour' | 'today' | 'yesterday') => void;
 }) {
   const gpPts = pts.filter(p => group.imeis.includes(p.imei));
   const [hov, setHov] = useState(false);
@@ -712,7 +962,8 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
         return (
           <VehicleRow key={pt.imei} pt={pt} plate={plate}
             onSelect={() => onSelect(pt.imei)} dark={dark}
-            onTripReplay={() => onTripReplay(pt.imei, plate)}/>
+            onTripReplay={() => onTripReplay(pt.imei, plate)}
+            onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}/>
         );
       })}
     </div>
@@ -1023,10 +1274,16 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
 
 // ── Left Panel ────────────────────────────────────────────────────────────────
 
-function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay }: {
+function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   onSelectVehicle: (imei: string) => void; dark: boolean; onClose?: () => void;
   onTripReplay: (imei: string, plate: string) => void;
+  historyMode: HistoryMode | null;
+  historyPoints: TripPoint[];
+  historyLoading: boolean;
+  onShowHistory: (imei: string, plate: string, preset: 'lastHour' | 'today' | 'yesterday') => void;
+  onLoadHistory: (from: string, to: string) => void;
+  onClearHistory: () => void;
 }) {
   const [groups, setGroups] = useState<VehicleGroup[]>(loadGroups);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -1056,57 +1313,65 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
 
   return (
     <div style={{ width: 290, flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', background: dark ? '#161616' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', padding: '12px 12px 10px', borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
-        <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>
-          Vehicles <span style={{ fontSize: 11, fontWeight: 400, color: dark ? '#555' : '#aaa' }}>{points.length}</span>
-        </span>
-        <button onClick={() => setShowCreate(true)} title="Create group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', cursor: 'pointer', color: dark ? '#888' : '#666' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
-        {onClose && (
-          <button onClick={onClose} title="Close" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, marginLeft: 4, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', cursor: 'pointer', color: dark ? '#888' : '#666' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        )}
-      </div>
-      <div style={{ padding: '8px 10px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: dark ? '#111' : '#f5f5f5', borderRadius: 7, padding: '5px 9px' }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search vehicles…" style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 12, color: dark ? '#e5e5e5' : '#111', outline: 'none' }}/>
-          {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex' }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>}
-        </div>
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {groups.map(group => {
-          const gImeis = group.imeis.filter(matches);
-          const gPts = points.filter(p => gImeis.includes(p.imei));
-          if (q && gPts.length === 0) return null;
-          return (
-            <GroupSection key={group.id} group={{ ...group, imeis: gImeis }} pts={points} deviceMap={deviceMap}
-              onSelect={onSelectVehicle} collapsed={collapsed.has(group.id)} onToggle={() => toggleCollapse(group.id)}
-              onEdit={() => setEditingGroup(group)} dark={dark}
-              onTripReplay={onTripReplay}/>
-          );
-        })}
-        {ungrouped.length > 0 && (
-          <>
-            {groups.length > 0 && <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 700, color: dark ? '#444' : '#ccc', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>Ungrouped</div>}
-            {ungrouped.map(pt => {
-              const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
+      {historyMode ? (
+        <HistoryPanel mode={historyMode} points={historyPoints} loading={historyLoading} dark={dark} onLoad={onLoadHistory} onClear={onClearHistory}/>
+      ) : (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '12px 12px 10px', borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>
+              Vehicles <span style={{ fontSize: 11, fontWeight: 400, color: dark ? '#555' : '#aaa' }}>{points.length}</span>
+            </span>
+            <button onClick={() => setShowCreate(true)} title="Create group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', cursor: 'pointer', color: dark ? '#888' : '#666' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            {onClose && (
+              <button onClick={onClose} title="Close" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, marginLeft: 4, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', cursor: 'pointer', color: dark ? '#888' : '#666' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            )}
+          </div>
+          <div style={{ padding: '8px 10px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: dark ? '#111' : '#f5f5f5', borderRadius: 7, padding: '5px 9px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search vehicles…" style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 12, color: dark ? '#e5e5e5' : '#111', outline: 'none' }}/>
+              {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex' }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>}
+            </div>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {groups.map(group => {
+              const gImeis = group.imeis.filter(matches);
+              const gPts = points.filter(p => gImeis.includes(p.imei));
+              if (q && gPts.length === 0) return null;
               return (
-                <VehicleRow key={pt.imei} pt={pt} plate={plate}
-                  onSelect={() => onSelectVehicle(pt.imei)} dark={dark}
-                  onTripReplay={() => onTripReplay(pt.imei, plate)}/>
+                <GroupSection key={group.id} group={{ ...group, imeis: gImeis }} pts={points} deviceMap={deviceMap}
+                  onSelect={onSelectVehicle} collapsed={collapsed.has(group.id)} onToggle={() => toggleCollapse(group.id)}
+                  onEdit={() => setEditingGroup(group)} dark={dark}
+                  onTripReplay={onTripReplay}
+                  onShowHistory={onShowHistory}/>
               );
             })}
-          </>
-        )}
-        {filtered.length === 0 && <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: dark ? '#555' : '#aaa' }}>{search ? 'No results' : 'No vehicles online'}</div>}
-      </div>
-      {showCreate && <CreateGroupModal points={points} deviceMap={deviceMap} onClose={() => setShowCreate(false)} onCreate={createGroup} dark={dark} groups={groups}/>}
-      {editingGroup && <EditGroupModal group={editingGroup} points={points} deviceMap={deviceMap} onClose={() => setEditingGroup(null)} onSave={saveGroup} onDelete={deleteGroup} dark={dark} groups={groups}/>}
+            {ungrouped.length > 0 && (
+              <>
+                {groups.length > 0 && <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 700, color: dark ? '#444' : '#ccc', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>Ungrouped</div>}
+                {ungrouped.map(pt => {
+                  const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
+                  return (
+                    <VehicleRow key={pt.imei} pt={pt} plate={plate}
+                      onSelect={() => onSelectVehicle(pt.imei)} dark={dark}
+                      onTripReplay={() => onTripReplay(pt.imei, plate)}
+                      onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}/>
+                  );
+                })}
+              </>
+            )}
+            {filtered.length === 0 && <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: dark ? '#555' : '#aaa' }}>{search ? 'No results' : 'No vehicles online'}</div>}
+          </div>
+          {showCreate && <CreateGroupModal points={points} deviceMap={deviceMap} onClose={() => setShowCreate(false)} onCreate={createGroup} dark={dark} groups={groups}/>}
+          {editingGroup && <EditGroupModal group={editingGroup} points={points} deviceMap={deviceMap} onClose={() => setEditingGroup(null)} onSave={saveGroup} onDelete={deleteGroup} dark={dark} groups={groups}/>}
+        </>
+      )}
     </div>
   );
 }
@@ -1136,6 +1401,35 @@ export default function MapPage() {
 
   // Trip replay
   const [tripReplay, setTripReplay] = useState<{ imei: string; plate: string } | null>(null);
+
+  // Route history
+  const [historyMode, setHistoryMode] = useState<HistoryMode | null>(null);
+  const [historyPoints, setHistoryPoints] = useState<TripPoint[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const handleShowHistory = async (imei: string, plate: string, preset: 'lastHour' | 'today' | 'yesterday') => {
+    const range = getPresetRange(preset);
+    setHistoryMode({ imei, plate, from: range.from, to: range.to });
+    setHistoryPoints([]);
+    setPanelOpen(true);
+    setHistoryLoading(true);
+    try {
+      const { data } = await api.get<TripPoint[]>(`/telemetry/${imei}/history?from=${encodeURIComponent(new Date(range.from).toISOString())}&to=${encodeURIComponent(new Date(range.to).toISOString())}&limit=2000`);
+      setHistoryPoints(data.filter(p => p.gpsValid));
+    } catch {} finally { setHistoryLoading(false); }
+  };
+
+  const handleLoadHistory = async (from: string, to: string) => {
+    if (!historyMode) return;
+    setHistoryLoading(true);
+    setHistoryPoints([]);
+    try {
+      const { data } = await api.get<TripPoint[]>(`/telemetry/${historyMode.imei}/history?from=${encodeURIComponent(new Date(from).toISOString())}&to=${encodeURIComponent(new Date(to).toISOString())}&limit=2000`);
+      setHistoryPoints(data.filter(p => p.gpsValid));
+    } catch {} finally { setHistoryLoading(false); }
+  };
+
+  const handleClearHistory = () => { setHistoryMode(null); setHistoryPoints([]); };
 
   const load = async () => {
     try {
@@ -1264,6 +1558,12 @@ export default function MapPage() {
             dark={dark}
             onClose={isMobile ? () => setPanelOpen(false) : undefined}
             onTripReplay={(imei, plate) => setTripReplay({ imei, plate })}
+            historyMode={historyMode}
+            historyPoints={historyPoints}
+            historyLoading={historyLoading}
+            onShowHistory={handleShowHistory}
+            onLoadHistory={handleLoadHistory}
+            onClearHistory={handleClearHistory}
           />
         </div>
 
@@ -1314,8 +1614,12 @@ export default function MapPage() {
               <InvalidateSize/>
               <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'}/>
               <FlyToPoint target={flyTarget}/>
-              <TrailLayer trails={trails} visibleImeis={new Set(visiblePoints.map(p => p.imei))}/>
-              <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef}/>
+              {historyPoints.length > 0
+                ? <HistoryLayer points={historyPoints} speedLimit={alertSettings.speedLimit}/>
+                : <>
+                    <TrailLayer trails={trails} visibleImeis={new Set(visiblePoints.map(p => p.imei))}/>
+                    <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef}/>
+                  </>}
               <DistanceTool active={distanceMode} distanceModeRef={distanceModeRef}/>
             </MapContainer>
           </div>

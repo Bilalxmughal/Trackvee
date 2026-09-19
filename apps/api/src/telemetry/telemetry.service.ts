@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, MoreThan, Repository } from 'typeorm';
+import { Between, In, MoreThan, Repository } from 'typeorm';
 import { Telemetry } from './entities/telemetry.entity.js';
 import { DevicesService } from '../devices/devices.service.js';
 import { User } from '../users/entities/user.entity.js';
@@ -40,11 +40,17 @@ export class TelemetryService {
     });
   }
 
-  async getHistory(imei: string, limit = 100): Promise<Telemetry[]> {
+  async getHistory(imei: string, opts: { limit?: number; from?: string; to?: string } = {}): Promise<Telemetry[]> {
+    const where: Record<string, unknown> = { imei };
+    if (opts.from || opts.to) {
+      const start = opts.from ? new Date(opts.from) : new Date(0);
+      const end   = opts.to   ? new Date(opts.to)   : new Date();
+      where['timestamp'] = Between(start, end);
+    }
     return this.repo.find({
-      where: { imei },
-      order: { timestamp: 'DESC' },
-      take: limit,
+      where: where as any,
+      order: { timestamp: 'ASC' },
+      take: opts.limit ?? 2000,
     });
   }
 
