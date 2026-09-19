@@ -12,7 +12,6 @@ import { useTheme } from '../contexts/ThemeContext';
 import { CityFilterProvider, useCityFilter } from '../contexts/CityFilterContext';
 import { AlertProvider, useAlert } from '../contexts/AlertContext';
 import { GeofenceProvider, useGeofence } from '../contexts/GeofenceContext';
-import AlertsModal from './AlertsModal';
 import api from '../api/client';
 
 interface NavItemDef { to: string; icon: React.ElementType; label: string; }
@@ -113,13 +112,11 @@ function LayoutInner() {
   const { user, logout } = useAuth();
   const { dark, toggle: toggleTheme } = useTheme();
   const { cities, selectedCityId, setSelectedCityId } = useCityFilter();
-  const { activeAlertCount } = useAlert();
+  const { activeAlertCount, alertPanelOpen, openAlertPanel } = useAlert();
   const { gfPanelOpen, openGfPanel, closeGfPanel, gfCount } = useGeofence();
   const navigate = useNavigate();
   const location = useLocation();
   const isMap = location.pathname === '/map';
-  const [showAlerts, setShowAlerts] = useState(false);
-  const [alertVehicles, setAlertVehicles] = useState<{ imei: string; plate: string }[]>([]);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('yt_sidebar') === '1'; } catch { return false; }
   });
@@ -311,14 +308,8 @@ function LayoutInner() {
           {[
             {
               key: 'alerts',
-              active: showAlerts,
-              onClick: async () => {
-                setShowAlerts(true);
-                try {
-                  const r = await api.get<{ imei: string; vehicle: { licensePlate: string | null } | null }[]>('/devices');
-                  setAlertVehicles(r.data.map(d => ({ imei: d.imei, plate: d.vehicle?.licensePlate ?? d.imei })));
-                } catch {}
-              },
+              active: alertPanelOpen,
+              onClick: () => { if (!isMap) navigate('/map'); openAlertPanel(); },
               icon: <IconBell size={15}/>,
               label: 'Alerts',
               badge: activeAlertCount > 0 ? activeAlertCount : null,
@@ -469,14 +460,6 @@ function LayoutInner() {
             )}
           </div>
         </header>
-
-        {/* Alerts Modal */}
-        <AlertsModal
-          open={showAlerts}
-          onClose={() => setShowAlerts(false)}
-          dark={dark}
-          vehicles={alertVehicles}
-        />
 
         {/* Page content */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: dark ? '#111' : '#fff' }}>

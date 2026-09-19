@@ -703,3 +703,141 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
     </>
   );
 }
+
+// ── Left-Panel version ────────────────────────────────────────────────────────
+
+export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAlertRecord }: {
+  dark: boolean;
+  vehicles: Array<{ imei: string; plate: string }>;
+  onClose: () => void;
+  preSelectedImei?: string;
+  editAlertRecord?: AlertRecord;
+}) {
+  const [alerts, setAlerts] = useState<AlertRecord[]>([]);
+  const [geofences, setGeofences] = useState<Geofence[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Partial<AlertRecord> | null>(null);
+  const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [ar, gr] = await Promise.all([api.get<AlertRecord[]>('/alerts'), api.get<Geofence[]>('/geofences')]);
+      setAlerts(ar.data);
+      setGeofences(gr.data);
+    } catch {} finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    load();
+    if (editAlertRecord) { setEditTarget(editAlertRecord); setFormOpen(true); }
+    else if (preSelectedImei) { setEditTarget({ vehicleImeis: [preSelectedImei], active: true }); setFormOpen(true); }
+  }, []);
+
+  const handleSave = async (data: Partial<AlertRecord>) => {
+    try {
+      if (data.id) { const r = await api.put<AlertRecord>(`/alerts/${data.id}`, data); setAlerts(a => a.map(x => x.id === data.id ? r.data : x)); }
+      else { const r = await api.post<AlertRecord>('/alerts', data); setAlerts(a => [r.data, ...a]); }
+      setFormOpen(false); setEditTarget(null);
+    } catch {}
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this alert?')) return;
+    await api.delete(`/alerts/${id}`);
+    setAlerts(a => a.filter(x => x.id !== id));
+  };
+
+  const handleToggleActive = async (alert: AlertRecord) => {
+    try {
+      const r = await api.put<AlertRecord>(`/alerts/${alert.id}`, { active: !alert.active });
+      setAlerts(a => a.map(x => x.id === alert.id ? r.data : x));
+    } catch {}
+  };
+
+  const filtered = alerts.filter(a => filter === 'all' ? true : filter === 'active' ? a.active : !a.active);
+  const border = `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`;
+
+  return (
+    <>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%', background: dark ? '#161616' : '#fff', border, borderRadius: 12, overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '10px 12px', borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}`, flexShrink: 0 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>Alerts</div>
+            <div style={{ fontSize: 10, color: dark ? '#555' : '#9ca3af' }}>
+              {alerts.filter(a => a.active).length} active · {alerts.length} total
+            </div>
+          </div>
+          <button
+            onClick={() => { setEditTarget(null); setFormOpen(true); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', marginRight: 8 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New
+          </button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 4, display: 'flex' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        {/* Filter tabs */}
+        <div style={{ display: 'flex', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, flexShrink: 0 }}>
+          {(['all', 'active', 'inactive'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              style={{ flex: 1, padding: '6px 4px', border: 'none', borderBottom: `2px solid ${filter === f ? '#dc2626' : 'transparent'}`, background: 'transparent', color: filter === f ? '#dc2626' : (dark ? '#888' : '#999'), fontSize: 11.5, fontWeight: filter === f ? 700 : 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'color 0.15s, border-color 0.15s', marginBottom: -1 }}>
+              {f}
+            </button>
+          ))}
+        </div>
+
+        {/* List */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {loading && <div style={{ padding: 32, textAlign: 'center', fontSize: 12, color: dark ? '#555' : '#bbb' }}>Loading…</div>}
+          {!loading && filtered.length === 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 10 }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: dark ? '#1e1e1e' : '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#444' : '#ccc' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </div>
+              <div style={{ fontSize: 12, color: dark ? '#555' : '#aaa' }}>No alerts</div>
+              <button onClick={() => { setEditTarget(null); setFormOpen(true); }}
+                style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                Create Alert
+              </button>
+            </div>
+          )}
+          {!loading && filtered.map(alert => {
+            const color = ALERT_TYPE_COLOR[alert.type];
+            return (
+              <div key={alert.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`, opacity: alert.active ? 1 : 0.55 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>
+                  {ALERT_TYPE_ICONS[alert.type]}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                    <span style={{ fontSize: 10.5, color, fontWeight: 600 }}>{ALERT_TYPE_LABELS[alert.type]}</span>
+                    <span style={{ fontSize: 10, color: dark ? '#555' : '#aaa' }}>· {alert.vehicleImeis.length}v</span>
+                  </div>
+                </div>
+                <Toggle value={alert.active} onChange={() => handleToggleActive(alert)}/>
+                <DotMenu dark={dark} onEdit={() => { setEditTarget(alert); setFormOpen(true); }} onDelete={() => handleDelete(alert.id)}/>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {formOpen && (
+        <AlertFormModal
+          alert={editTarget}
+          vehicles={vehicles}
+          geofences={geofences}
+          dark={dark}
+          onSave={handleSave}
+          onClose={() => { setFormOpen(false); setEditTarget(null); }}
+        />
+      )}
+    </>
+  );
+}

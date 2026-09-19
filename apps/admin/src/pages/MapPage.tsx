@@ -6,7 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
-import AlertsModal, { AlertRecord } from '../components/AlertsModal';
+import AlertsModal, { AlertRecord, AlertsPanel as AlertsLeftPanel } from '../components/AlertsModal';
 import GeofencesPanel, { Geofence, CircleCoords, PolygonCoords } from '../components/GeofencesModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
@@ -1656,7 +1656,7 @@ export default function MapPage() {
   const [mapStyle, setMapStyle] = useState<MapStyle>('street');
 
   // Alert state — from global context
-  const { alertSettings, alertSettingsRef, setActiveAlertCount } = useAlert();
+  const { alertSettings, alertSettingsRef, setActiveAlertCount, alertPanelOpen, closeAlertPanel } = useAlert();
   const [showAlerts, setShowAlerts] = useState(false);
   const [alertCreateImei, setAlertCreateImei] = useState<string | undefined>(undefined);
   const [alertEditRecord, setAlertEditRecord] = useState<AlertRecord | undefined>(undefined);
@@ -1831,6 +1831,9 @@ export default function MapPage() {
   const openGfPanel = () => { ctxOpenGf(); setPanelOpen(true); resetGfForm(); };
   const closeGfPanel = () => { ctxCloseGf(); resetGfForm(); };
 
+  // Open panel when alerts panel activates from topbar
+  useEffect(() => { if (alertPanelOpen) setPanelOpen(true); }, [alertPanelOpen]);
+
   const gfOpenNew = () => { resetGfForm(); setGfView('form'); };
   const gfOpenEdit = (gf: Geofence) => {
     setGfEditing(gf); setGfName(gf.name); setGfType(gf.type); setGfColor(gf.color ?? '#dc2626');
@@ -1912,7 +1915,13 @@ export default function MapPage() {
           width: panelOpen ? 360 : 0, flexShrink: 0, overflow: 'hidden',
           transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
         }}>
-          {showGeofencesPanel
+          {alertPanelOpen
+            ? <AlertsLeftPanel
+                dark={dark}
+                vehicles={allVehicles}
+                onClose={() => { closeAlertPanel(); }}
+              />
+            : showGeofencesPanel
             ? <GeofencesPanel
                 dark={dark}
                 geofences={geofences}

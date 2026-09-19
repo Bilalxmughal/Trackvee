@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useRef, ReactNode, useCallback } from 'react';
 
 export interface AlertSettings {
   speedLimit: number;
@@ -23,6 +23,9 @@ interface AlertCtx {
   setAlertSettings: (s: AlertSettings) => void;
   activeAlertCount: number;
   setActiveAlertCount: (n: number) => void;
+  alertPanelOpen: boolean;
+  openAlertPanel: () => void;
+  closeAlertPanel: () => void;
 }
 
 const Ctx = createContext<AlertCtx | null>(null);
@@ -31,6 +34,7 @@ export function AlertProvider({ children }: { children: ReactNode }) {
   const [alertSettings, _setAlertSettings] = useState<AlertSettings>(loadAlertSettings);
   const alertSettingsRef = useRef<AlertSettings>(alertSettings);
   const [activeAlertCount, setActiveAlertCount] = useState(0);
+  const [alertPanelOpen, setAlertPanelOpen] = useState(false);
 
   const setAlertSettings = (s: AlertSettings) => {
     alertSettingsRef.current = s;
@@ -38,8 +42,11 @@ export function AlertProvider({ children }: { children: ReactNode }) {
     saveAlertSettings(s);
   };
 
+  const openAlertPanel = useCallback(() => setAlertPanelOpen(true), []);
+  const closeAlertPanel = useCallback(() => setAlertPanelOpen(false), []);
+
   return (
-    <Ctx.Provider value={{ alertSettings, alertSettingsRef, setAlertSettings, activeAlertCount, setActiveAlertCount }}>
+    <Ctx.Provider value={{ alertSettings, alertSettingsRef, setAlertSettings, activeAlertCount, setActiveAlertCount, alertPanelOpen, openAlertPanel, closeAlertPanel }}>
       {children}
     </Ctx.Provider>
   );
