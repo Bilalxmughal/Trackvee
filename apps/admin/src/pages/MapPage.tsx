@@ -11,6 +11,7 @@ import GeofencesPanel, { Geofence, CircleCoords, PolygonCoords } from '../compon
 import { useTheme } from '../contexts/ThemeContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAlert, AlertSettings } from '../contexts/AlertContext';
+import { useGeofence } from '../contexts/GeofenceContext';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -1661,7 +1662,7 @@ export default function MapPage() {
   const [alertEditRecord, setAlertEditRecord] = useState<AlertRecord | undefined>(undefined);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [alertsByImei, setAlertsByImei] = useState<Map<string, AlertRecord[]>>(new Map());
-  const [showGeofencesPanel, setShowGeofencesPanel] = useState(false);
+  const { gfPanelOpen: showGeofencesPanel, openGfPanel: ctxOpenGf, closeGfPanel: ctxCloseGf, setGfCount } = useGeofence();
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [gfVisible, setGfVisible] = useState(true);
   const [gfLoading, setGfLoading] = useState(false);
@@ -1770,7 +1771,7 @@ export default function MapPage() {
 
   useEffect(() => {
     setGfLoading(true);
-    api.get<Geofence[]>('/geofences').then(r => setGeofences(r.data)).catch(() => {}).finally(() => setGfLoading(false));
+    api.get<Geofence[]>('/geofences').then(r => { setGeofences(r.data); setGfCount(r.data.length); }).catch(() => {}).finally(() => setGfLoading(false));
   }, []);
 
   const visiblePoints = selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points;
@@ -1826,8 +1827,8 @@ export default function MapPage() {
     setGfCenter(null); setGfRadius(500); setGfPoints([]); setGfDrawActive(false);
   };
 
-  const openGfPanel = () => { setShowGeofencesPanel(true); setPanelOpen(true); resetGfForm(); };
-  const closeGfPanel = () => { setShowGeofencesPanel(false); resetGfForm(); };
+  const openGfPanel = () => { ctxOpenGf(); setPanelOpen(true); resetGfForm(); };
+  const closeGfPanel = () => { ctxCloseGf(); resetGfForm(); };
 
   const gfOpenNew = () => { resetGfForm(); setGfView('form'); };
   const gfOpenEdit = (gf: Geofence) => {
@@ -1838,7 +1839,10 @@ export default function MapPage() {
   };
   const gfDelete = async (id: string) => {
     if (!confirm('Delete this geofence?')) return;
-    try { await api.delete(`/geofences/${id}`); setGeofences(g => g.filter(x => x.id !== id)); } catch {}
+    try {
+      await api.delete(`/geofences/${id}`);
+      setGeofences(g => { const next = g.filter(x => x.id !== id); setGfCount(next.length); return next; });
+    } catch {}
   };
   const gfSave = async () => {
     if (!gfName.trim()) return;
@@ -1853,7 +1857,7 @@ export default function MapPage() {
         setGeofences(g => g.map(x => x.id === gfEditing.id ? r.data : x));
       } else {
         const r = await api.post<Geofence>('/geofences', data);
-        setGeofences(g => [r.data, ...g]);
+        setGeofences(g => { const next = [r.data, ...g]; setGfCount(next.length); return next; });
       }
       resetGfForm();
     } catch {} finally { setGfSaving(false); }
@@ -1881,16 +1885,6 @@ export default function MapPage() {
               {!isMobile && <span>Alerts</span>}
             </button>
           )}
-          {/* Geofences button */}
-          <button
-            onClick={() => showGeofencesPanel ? closeGfPanel() : openGfPanel()}
-            title="Manage geofences"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: showGeofencesPanel ? '1px solid #fca5a5' : `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: showGeofencesPanel ? (dark ? '#2a0a0a' : '#fff5f5') : (dark ? '#222' : '#f9fafb'), color: showGeofencesPanel ? '#dc2626' : (dark ? '#aaa' : '#555'), cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            {geofences.length > 0 && <span style={{ background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 3 }}>{geofences.length}</span>}
-            {!isMobile && <span>Geofences</span>}
-          </button>
           {/* Panel toggle */}
           <button
             onClick={() => setPanelOpen(o => !o)}

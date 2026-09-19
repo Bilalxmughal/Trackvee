@@ -11,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { CityFilterProvider, useCityFilter } from '../contexts/CityFilterContext';
 import { AlertProvider, useAlert } from '../contexts/AlertContext';
+import { GeofenceProvider, useGeofence } from '../contexts/GeofenceContext';
 import AlertsModal from './AlertsModal';
 import api from '../api/client';
 
@@ -113,6 +114,7 @@ function LayoutInner() {
   const { dark, toggle: toggleTheme } = useTheme();
   const { cities, selectedCityId, setSelectedCityId } = useCityFilter();
   const { activeAlertCount } = useAlert();
+  const { gfPanelOpen, openGfPanel, closeGfPanel, gfCount } = useGeofence();
   const navigate = useNavigate();
   const location = useLocation();
   const isMap = location.pathname === '/map';
@@ -328,6 +330,26 @@ function LayoutInner() {
             )}
           </button>
 
+          {/* Geofences */}
+          <button
+            onClick={() => {
+              if (!isMap) navigate('/map');
+              gfPanelOpen ? closeGfPanel() : openGfPanel();
+            }}
+            title="Geofences"
+            style={{ position: 'relative', border: 'none', background: 'none', cursor: 'pointer', color: gfPanelOpen ? '#dc2626' : (dark ? '#888' : '#aaa'), padding: '5px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6, transition: 'color 0.15s, background 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.07)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = gfPanelOpen ? '#dc2626' : (dark ? '#888' : '#aaa'); e.currentTarget.style.background = 'none'; }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>Geofences</span>
+            {gfCount > 0 && (
+              <span style={{ background: '#dc2626', color: '#fff', fontSize: 9.5, fontWeight: 700, minWidth: 16, height: 16, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>
+                {gfCount}
+              </span>
+            )}
+          </button>
+
           <div style={{ flex: 1 }} />
 
           {/* City filter */}
@@ -477,9 +499,11 @@ function LayoutInner() {
 export default function Layout() {
   return (
     <AlertProvider>
-      <CityFilterProvider>
-        <LayoutInner />
-      </CityFilterProvider>
+      <GeofenceProvider>
+        <CityFilterProvider>
+          <LayoutInner />
+        </CityFilterProvider>
+      </GeofenceProvider>
     </AlertProvider>
   );
 }
