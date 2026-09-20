@@ -121,9 +121,8 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
         {[
-          { icon: IconUsers, label: 'Customers', value: client.customerCount },
           { icon: IconCar, label: 'Vehicles', value: client.vehicleCount },
           { icon: IconCpu, label: 'Devices', value: client.deviceCount },
         ].map(s => (

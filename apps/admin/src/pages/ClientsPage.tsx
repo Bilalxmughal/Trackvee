@@ -121,7 +121,7 @@ export default function ClientsPage() {
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Company', 'POC', 'Contact', 'Customers', 'Vehicles', 'Devices', 'Status', 'Added', 'Actions'].map(h => (
+                {['ID', 'Company', 'POC', 'Contact', 'Vehicles', 'Devices', 'Status', 'Added', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -133,7 +133,6 @@ export default function ClientsPage() {
                   <td style={{ padding: '10px 14px', fontWeight: 500, fontSize: 13 }}>{c.name}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.pocName ?? '—'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.contactNo ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.customerCount}</td>
                   <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.vehicleCount}</td>
                   <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.deviceCount}</td>
                   <td style={{ padding: '10px 14px', color: c.isActive ? '#16a34a' : 'var(--muted)', fontSize: 12 }}>{c.isActive ? 'Active' : 'Inactive'}</td>
@@ -150,7 +149,7 @@ export default function ClientsPage() {
                   </td>
                 </tr>
               ))}
-              {!filtered.length && <tr><td colSpan={10} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No clients found</td></tr>}
+              {!filtered.length && <tr><td colSpan={9} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No clients found</td></tr>}
             </tbody>
           </table>
         </div>
