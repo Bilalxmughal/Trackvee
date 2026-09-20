@@ -1246,8 +1246,8 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
               {immoConfirm.action === 'immobilize' ? 'Engine Cut Confirm' : 'Engine Restore Confirm'}
             </div>
             <div style={{ fontSize: 12.5, color: dark ? '#aaa' : '#666', marginBottom: 16, lineHeight: 1.5 }}>
-              <strong style={{ color: dark ? '#e5e5e5' : '#111' }}>{plate}</strong> vehicle ke liye.<br/>
-              Confirm karne ke liye device IMEI ke <strong>aakhri 4 digits</strong> enter karo:
+              Vehicle: <strong style={{ color: dark ? '#e5e5e5' : '#111' }}>{plate}</strong><br/>
+              Enter the <strong>last 4 digits</strong> of the device IMEI to confirm:
             </div>
             <input
               autoFocus
@@ -1258,7 +1258,7 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
               placeholder="_ _ _ _"
               style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${immoError ? '#dc2626' : (dark ? '#333' : '#e5e7eb')}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 20, textAlign: 'center', letterSpacing: 8, outline: 'none', boxSizing: 'border-box', marginBottom: 6 }}
             />
-            {immoError && <div style={{ fontSize: 11.5, color: '#dc2626', marginBottom: 8 }}>{immoError}</div>}
+            {immoError && <div style={{ fontSize: 11.5, color: '#dc2626', marginBottom: 8 }}>Incorrect digits — please try again</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <button onClick={() => setImmoConfirm(null)} style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#666', fontSize: 13, cursor: 'pointer' }}>
                 Cancel
