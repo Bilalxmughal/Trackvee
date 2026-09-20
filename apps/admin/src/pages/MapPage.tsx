@@ -1476,6 +1476,34 @@ function AlertsPanel({ alerts, dark, onClose }: { alerts: VehicleAlert[]; dark: 
 // ── Trip Replay Modal ─────────────────────────────────────────────────────────
 
 type TripPreset = 'today' | 'yesterday' | 'last7' | 'custom';
+async function snapTripToRoad(points: TripPoint[]): Promise<TripPoint[]> {
+  if (points.length === 0) return points;
+  const BATCH = 100;
+  const out: TripPoint[] = [];
+  for (let i = 0; i < points.length; i += BATCH) {
+    const batch = points.slice(i, Math.min(i + BATCH, points.length));
+    const coords = batch.map(p => `${p.longitude.toFixed(6)},${p.latitude.toFixed(6)}`).join(';');
+    const ts = batch.map(p => Math.floor(new Date(p.timestamp).getTime() / 1000)).join(';');
+    try {
+      const resp = await fetch(
+        `https://router.project-osrm.org/match/v1/driving/${coords}?timestamps=${ts}&overview=false&tidy=true`
+      );
+      const data = await resp.json() as { code: string; tracepoints: Array<{ location: [number, number] } | null> };
+      if (data.code === 'Ok' && data.tracepoints?.length === batch.length) {
+        data.tracepoints.forEach((tp, idx) => {
+          const orig = batch[idx]!;
+          out.push(tp ? { ...orig, latitude: tp.location[1], longitude: tp.location[0] } : orig);
+        });
+      } else {
+        out.push(...batch);
+      }
+    } catch {
+      out.push(...batch);
+    }
+  }
+  return out;
+}
+
 function tripPresetRange(preset: TripPreset, customFrom: string, customTo: string): { from: string; to: string } {
   const now = new Date();
   if (preset === 'today') {
@@ -1497,6 +1525,7 @@ function tripPresetRange(preset: TripPreset, customFrom: string, customTo: strin
 function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: string; onClose: () => void; dark: boolean }) {
   const [history, setHistory] = useState<TripPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [snapping, setSnapping] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [frameIdx, setFrameIdx] = useState(0);
   const [playSpeed, setPlaySpeed] = useState(1);
@@ -1506,19 +1535,28 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
   const [fetchKey, setFetchKey] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  function doFetch(p: TripPreset, cf: string, ct: string) {
+  async function doFetch(p: TripPreset, cf: string, ct: string) {
     const { from, to } = tripPresetRange(p, cf, ct);
-    setLoading(true); setPlaying(false); setFrameIdx(0);
-    const params = new URLSearchParams({ limit: '2000' });
-    if (from) params.set('from', from);
-    if (to) params.set('to', to);
-    api.get<TripPoint[]>(`/telemetry/${imei}/history?${params}`)
-      .then(r => {
-        const sorted = r.data.filter(p => p.gpsValid && (p.latitude !== 0 || p.longitude !== 0));
-        setHistory(sorted);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    setLoading(true); setSnapping(false); setPlaying(false); setFrameIdx(0);
+    try {
+      const params = new URLSearchParams({ limit: '2000' });
+      if (from) params.set('from', from);
+      if (to) params.set('to', to);
+      const r = await api.get<TripPoint[]>(`/telemetry/${imei}/history?${params}`);
+      const filtered = r.data.filter(pt => pt.gpsValid && (pt.latitude !== 0 || pt.longitude !== 0));
+      setLoading(false);
+      if (filtered.length > 0) {
+        setSnapping(true);
+        const snapped = await snapTripToRoad(filtered);
+        setSnapping(false);
+        setHistory(snapped);
+      } else {
+        setHistory(filtered);
+      }
+    } catch {
+      setLoading(false);
+      setSnapping(false);
+    }
   }
 
   useEffect(() => { doFetch(preset, customFrom, customTo); }, [imei, fetchKey]);
@@ -1580,9 +1618,11 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
         </div>
         {/* Map area */}
         <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-          {loading && (
+          {(loading || snapping) && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dark ? '#1a1a1a' : '#f8f9fa', zIndex: 10 }}>
-              <span style={{ fontSize: 13, color: dark ? '#555' : '#aaa' }}>Loading trip data…</span>
+              <span style={{ fontSize: 13, color: dark ? '#555' : '#aaa' }}>
+                {snapping ? 'Snapping to roads…' : 'Loading trip data…'}
+              </span>
             </div>
           )}
           {!loading && history.length === 0 && (
