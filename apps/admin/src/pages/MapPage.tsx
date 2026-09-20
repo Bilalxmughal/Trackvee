@@ -1028,10 +1028,18 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
     return d;
   }, [points]);
 
-  const inp = (val: string, set: (v: string) => void) => (
-    <input type="datetime-local" value={val} onChange={e => set(e.target.value)}
-      style={{ width: '100%', fontSize: 11.5, padding: '5px 8px', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 6, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', outline: 'none', boxSizing: 'border-box' }}/>
-  );
+  const inpStyle: React.CSSProperties = { fontSize: 11.5, padding: '5px 7px', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 6, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', outline: 'none', boxSizing: 'border-box', width: '100%' };
+  const inp = (val: string, set: (v: string) => void) => {
+    const [datePart, timePart] = val ? val.split('T') : ['', ''];
+    const setDate = (d: string) => set(`${d}T${timePart || '00:00'}`);
+    const setTime = (t: string) => set(`${datePart || new Date().toISOString().slice(0, 10)}T${t}`);
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 5 }}>
+        <input type="date" value={datePart ?? ''} onChange={e => setDate(e.target.value)} style={inpStyle}/>
+        <input type="time" value={timePart ?? ''} onChange={e => setTime(e.target.value)} style={{ ...inpStyle, width: 80 }}/>
+      </div>
+    );
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
