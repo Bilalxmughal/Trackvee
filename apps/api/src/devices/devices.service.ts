@@ -13,14 +13,15 @@ export class DevicesService {
     private repo: Repository<Device>,
   ) {}
 
-  findAll(user?: User): Promise<Device[]> {
+  findAll(user?: User, cityId?: string): Promise<Device[]> {
+    const cityFilter = cityId ? { cityId } : {};
     if (!user || ADMIN_ROLES.includes(user.role)) {
-      return this.repo.find({ relations: { vehicle: true } });
+      return this.repo.find({ relations: { vehicle: true }, where: cityFilter });
     }
     if (user.organizationId) {
       return this.repo.find({
         relations: { vehicle: true },
-        where: { vehicle: { organizationId: user.organizationId } },
+        where: { vehicle: { organizationId: user.organizationId }, ...cityFilter },
       });
     }
     return Promise.resolve([]);

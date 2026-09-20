@@ -11,14 +11,15 @@ export class VehiclesService {
     private repo: Repository<Vehicle>,
   ) {}
 
-  async findForUser(user: User): Promise<Vehicle[]> {
+  async findForUser(user: User, cityId?: string): Promise<Vehicle[]> {
+    const cityFilter = cityId ? { cityId } : {};
     if (user.role === 'super_admin' || user.role === 'admin') {
-      return this.repo.find();
+      return this.repo.find({ where: cityFilter });
     }
     if (user.organizationId) {
-      return this.repo.find({ where: { organizationId: user.organizationId } });
+      return this.repo.find({ where: { organizationId: user.organizationId, ...cityFilter } });
     }
-    return this.repo.find({ where: { ownerId: user.id } });
+    return this.repo.find({ where: { ownerId: user.id, ...cityFilter } });
   }
 
   async findOne(id: string, user: User): Promise<Vehicle> {

@@ -39,8 +39,11 @@ export default function ClientsPage() {
   const [deleting, setDeleting] = useState<Client | null>(null);
   const [deletingId, setDeletingId] = useState(false);
 
-  const load = () => api.get<Client[]>('/organizations').then(r => setClients(r.data)).catch(() => {}).finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+  const load = () => {
+    const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
+    api.get<Client[]>(`/organizations${p}`).then(r => setClients(r.data)).catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [selectedCityId]);
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (c: Client) => {
@@ -80,7 +83,6 @@ export default function ClientsPage() {
   const filtered = clients.filter(c => {
     if (q && !c.name.toLowerCase().includes(q.toLowerCase()) && !(c.pocName ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (statusFilter && String(c.isActive) !== statusFilter) return false;
-    if (selectedCityId && c.cityId !== selectedCityId) return false;
     if (dateRange?.from && !isWithinInterval(parseISO(c.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });

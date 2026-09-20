@@ -19,8 +19,8 @@ export class OrganizationsService {
     private dataSource: DataSource,
   ) {}
 
-  async findAll(): Promise<OrgWithStats[]> {
-    const orgs = await this.repo.find({ order: { createdAt: 'DESC' } });
+  async findAll(cityId?: string): Promise<OrgWithStats[]> {
+    const orgs = await this.repo.find({ where: cityId ? { cityId } : {}, order: { createdAt: 'DESC' } });
     if (!orgs.length) return [];
 
     const stats: { org_id: string; customer_count: string; vehicle_count: string; device_count: string }[] =

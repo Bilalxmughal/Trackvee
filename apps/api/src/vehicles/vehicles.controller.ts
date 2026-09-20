@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { VehiclesService } from './vehicles.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -13,8 +13,8 @@ export class VehiclesController {
   constructor(private vehiclesService: VehiclesService) {}
 
   @Get()
-  findAll(@CurrentUser() user: User) {
-    return this.vehiclesService.findForUser(user);
+  findAll(@CurrentUser() user: User, @Query('cityId') cityId?: string) {
+    return this.vehiclesService.findForUser(user, cityId);
   }
 
   @Get(':id')

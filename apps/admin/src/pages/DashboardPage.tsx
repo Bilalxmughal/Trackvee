@@ -3,8 +3,6 @@ import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
 
-interface RawItem { id: string; cityId?: string | null; }
-
 interface Stats {
   users: number;
   organizations: number;
@@ -37,11 +35,8 @@ const card = (label: string, value: number | undefined) => (
   </div>
 );
 
-const filterByCity = (arr: RawItem[], cityId: string) =>
-  cityId ? arr.filter(x => x.cityId === cityId) : arr;
-
 export default function DashboardPage() {
-  const [raw, setRaw] = useState<{ users: RawItem[]; orgs: RawItem[]; vehicles: RawItem[]; devices: RawItem[] } | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const { user } = useAuth();
   const { selectedCityId } = useCityFilter();
   const { text, sub } = getGreeting();
@@ -49,22 +44,21 @@ export default function DashboardPage() {
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'there';
 
   useEffect(() => {
+    const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
     Promise.all([
-      api.get<RawItem[]>('/users'),
-      api.get<RawItem[]>('/organizations'),
-      api.get<RawItem[]>('/vehicles'),
-      api.get<RawItem[]>('/devices'),
+      api.get<{ id: string }[]>(`/users${p}`),
+      api.get<{ id: string }[]>(`/organizations${p}`),
+      api.get<{ id: string }[]>(`/vehicles${p}`),
+      api.get<{ id: string }[]>(`/devices${p}`),
     ]).then(([u, o, v, d]) => {
-      setRaw({ users: Array.isArray(u.data) ? u.data : [], orgs: Array.isArray(o.data) ? o.data : [], vehicles: Array.isArray(v.data) ? v.data : [], devices: Array.isArray(d.data) ? d.data : [] });
+      setStats({
+        users: Array.isArray(u.data) ? u.data.length : 0,
+        organizations: Array.isArray(o.data) ? o.data.length : 0,
+        vehicles: Array.isArray(v.data) ? v.data.length : 0,
+        devices: Array.isArray(d.data) ? d.data.length : 0,
+      });
     }).catch(() => {});
-  }, []);
-
-  const stats: Stats | null = raw ? {
-    users: filterByCity(raw.users, selectedCityId).length,
-    organizations: filterByCity(raw.orgs, selectedCityId).length,
-    vehicles: filterByCity(raw.vehicles, selectedCityId).length,
-    devices: filterByCity(raw.devices, selectedCityId).length,
-  } : null;
+  }, [selectedCityId]);
 
   return (
     <div>

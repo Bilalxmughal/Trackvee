@@ -35,11 +35,12 @@ export default function VehiclesPage() {
   const { cities, selectedCityId } = useCityFilter();
 
   const load = () => {
-    Promise.all([api.get<Vehicle[]>('/vehicles'), api.get<Org[]>('/organizations')])
+    const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
+    Promise.all([api.get<Vehicle[]>(`/vehicles${p}`), api.get<Org[]>('/organizations')])
       .then(([v, o]) => { setVehicles(v.data); setOrgs(o.data); })
       .catch(() => {}).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [selectedCityId]);
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (v: Vehicle) => {
@@ -74,7 +75,6 @@ export default function VehiclesPage() {
   const filtered = vehicles.filter(v => {
     if (q && !(v.licensePlate ?? '').toLowerCase().includes(q.toLowerCase()) && !(v.make ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (statusFilter && String(v.isActive) !== statusFilter) return false;
-    if (selectedCityId && v.cityId !== selectedCityId) return false;
     if (dateRange?.from && !isWithinInterval(parseISO(v.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });

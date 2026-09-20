@@ -37,11 +37,12 @@ export default function UsersPage() {
   const { cities, selectedCityId } = useCityFilter();
 
   const load = () => {
-    Promise.all([api.get<User[]>('/users'), api.get<Org[]>('/organizations')])
+    const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
+    Promise.all([api.get<User[]>(`/users${p}`), api.get<Org[]>('/organizations')])
       .then(([u, o]) => { setUsers(u.data.filter(x => x.role !== 'customer')); setOrgs(o.data); })
       .catch(() => {}).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [selectedCityId]);
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (u: User) => {
@@ -79,7 +80,6 @@ export default function UsersPage() {
     if (q && !u.email.toLowerCase().includes(q.toLowerCase()) && !(u.firstName ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (roleFilter && u.role !== roleFilter) return false;
     if (statusFilter && String(u.isActive) !== statusFilter) return false;
-    if (selectedCityId && u.cityId !== selectedCityId) return false;
     if (dateRange?.from && !isWithinInterval(parseISO(u.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });

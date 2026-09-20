@@ -94,11 +94,12 @@ export default function DevicesPage() {
   const { cities, selectedCityId } = useCityFilter();
 
   const load = () => {
-    Promise.all([api.get<Device[]>('/devices'), api.get<Vehicle[]>('/vehicles')])
+    const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
+    Promise.all([api.get<Device[]>(`/devices${p}`), api.get<Vehicle[]>('/vehicles')])
       .then(([d, v]) => { setDevices(d.data); setVehicles(v.data); })
       .catch(() => {}).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [selectedCityId]);
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (d: Device) => {
@@ -133,7 +134,6 @@ export default function DevicesPage() {
   const filtered = devices.filter(d => {
     if (q && !d.imei.includes(q) && !(d.name ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (statusFilter && String(d.isActive) !== statusFilter) return false;
-    if (selectedCityId && d.cityId !== selectedCityId) return false;
     if (dateRange?.from && !isWithinInterval(parseISO(d.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });

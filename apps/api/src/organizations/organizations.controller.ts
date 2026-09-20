@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -13,8 +13,8 @@ export class OrganizationsController {
   constructor(private orgService: OrganizationsService) {}
 
   @Get()
-  findAll() {
-    return this.orgService.findAll();
+  findAll(@Query('cityId') cityId?: string) {
+    return this.orgService.findAll(cityId);
   }
 
   @Get(':id')

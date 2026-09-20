@@ -40,9 +40,11 @@ export class UsersService {
     return this.repo.save(user);
   }
 
-  async findAll(role?: string): Promise<User[]> {
-    if (role) return this.repo.find({ where: { role: role as UserRole } });
-    return this.repo.find();
+  async findAll(role?: string, cityId?: string): Promise<User[]> {
+    const where: Record<string, unknown> = {};
+    if (role) where['role'] = role as UserRole;
+    if (cityId) where['cityId'] = cityId;
+    return this.repo.find({ where: Object.keys(where).length ? where : {} });
   }
 
   async update(id: string, data: Partial<{ email: string; password: string; firstName: string; lastName: string; role: UserRole; isActive: boolean; organizationId: string | null }>): Promise<User> {

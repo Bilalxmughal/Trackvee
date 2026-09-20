@@ -33,13 +33,14 @@ export default function CustomersPage() {
   const [deletingId, setDeletingId] = useState(false);
 
   const load = () => {
+    const p = selectedCityId ? `&cityId=${selectedCityId}` : '';
     Promise.all([
-      api.get<Customer[]>('/users?role=customer'),
+      api.get<Customer[]>(`/users?role=customer${p}`),
       api.get<Org[]>('/organizations'),
     ]).then(([u, o]) => { setCustomers(u.data); setOrgs(o.data); })
       .catch(() => {}).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [selectedCityId]);
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (c: Customer) => {
@@ -72,7 +73,6 @@ export default function CustomersPage() {
   const filtered = customers.filter(c => {
     if (q && !c.email.toLowerCase().includes(q.toLowerCase()) && !(c.firstName ?? '').toLowerCase().includes(q.toLowerCase()) && !(c.lastName ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (statusFilter && String(c.isActive) !== statusFilter) return false;
-    if (selectedCityId && c.cityId !== selectedCityId) return false;
     return true;
   });
 
