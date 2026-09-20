@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { IconArrowLeft, IconBuilding, IconUser, IconCar, IconCpu, IconMapPin, IconPhone, IconMail, IconLock, IconCalendar, IconEdit, IconEye, IconEyeOff, IconPlus, IconLink } from '@tabler/icons-react';
+import { IconArrowLeft, IconBuilding, IconUser, IconCar, IconCpu, IconMapPin, IconPhone, IconMail, IconLock, IconCalendar, IconEdit, IconEye, IconEyeOff, IconPlus, IconLink, IconPlugConnected, IconPlugConnectedX } from '@tabler/icons-react';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
@@ -22,6 +22,7 @@ interface Vehicle {
 }
 interface Device {
   id: string; imei: string; status: string;
+  lastImmobilizer: boolean | null;
   vehicle?: { id: string } | null;
 }
 
@@ -50,6 +51,17 @@ export default function ClientDetailPage() {
   const [editForm, setEditForm] = useState({ name: '', companyName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true, type: 'b2b' });
   const [showPw, setShowPw] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+
+  // Immobilize state per vehicleId
+  const [immoBusy, setImmoBusy] = useState<string | null>(null);
+
+  const handleImmobilize = async (vehicleId: string, action: 'immobilize' | 'activate') => {
+    setImmoBusy(vehicleId);
+    try {
+      await api.post(`/vehicles/${vehicleId}/command`, { action });
+      await load();
+    } catch { } finally { setImmoBusy(null); }
+  };
 
   // Add vehicle modal
   const [vModal, setVModal] = useState(false);
@@ -256,7 +268,7 @@ export default function ClientDetailPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['ID', 'License Plate', 'Make / Model', 'Year', 'Device IMEI', 'Status', ''].map(h => (
+                  {['ID', 'License Plate', 'Make / Model', 'Year', 'Device IMEI', 'Status', 'Engine', ''].map(h => (
                     <th key={h} style={{ padding: '9px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid var(--border2)' }}>{h}</th>
                   ))}
                 </tr>
@@ -272,6 +284,27 @@ export default function ClientDetailPage() {
                       <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{v.year ?? '—'}</td>
                       <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'monospace', color: dev ? 'var(--text)' : '#ccc' }}>{dev ? dev.imei : '—'}</td>
                       <td style={{ padding: '10px 14px', color: v.isActive ? '#16a34a' : 'var(--muted)', fontSize: 12 }}>{v.isActive ? 'Active' : 'Inactive'}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        {dev && (
+                          <button
+                            onClick={() => handleImmobilize(v.id, dev.lastImmobilizer ? 'activate' : 'immobilize')}
+                            disabled={immoBusy === v.id}
+                            title={dev.lastImmobilizer ? 'Engine cut — click to restore' : 'Click to cut engine'}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              padding: '4px 9px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                              border: `1px solid ${dev.lastImmobilizer ? '#dc2626' : '#e5e7eb'}`,
+                              background: dev.lastImmobilizer ? 'rgba(220,38,38,0.08)' : 'var(--bg)',
+                              color: dev.lastImmobilizer ? '#dc2626' : '#16a34a',
+                              opacity: immoBusy === v.id ? 0.5 : 1,
+                              whiteSpace: 'nowrap',
+                            }}>
+                            {dev.lastImmobilizer
+                              ? <><IconPlugConnectedX size={11} /> Cut</>
+                              : <><IconPlugConnected size={11} /> Active</>}
+                          </button>
+                        )}
+                      </td>
                       <td style={{ padding: '10px 14px' }}>
                         {!dev && (
                           <button onClick={() => openAssignDevice(v)}

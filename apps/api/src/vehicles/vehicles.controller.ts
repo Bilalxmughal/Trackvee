@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { VehiclesService } from './vehicles.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -35,5 +35,15 @@ export class VehiclesController {
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: User) {
     return this.vehiclesService.remove(id, user);
+  }
+
+  @Post(':id/command')
+  @HttpCode(200)
+  sendCommand(
+    @Param('id') id: string,
+    @Body() body: { action: 'immobilize' | 'activate' },
+    @CurrentUser() user: User,
+  ) {
+    return this.vehiclesService.sendCommand(id, body.action, user);
   }
 }
