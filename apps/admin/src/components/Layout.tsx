@@ -4,7 +4,7 @@ import {
   IconLayoutDashboard, IconBuilding, IconUsers, IconCar,
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
-  IconUserCheck, IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
+  IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
   IconBell,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,7 +27,6 @@ const NAV_SECTIONS: Section[] = [
     label: 'Corporate',
     items: [
       { to: '/clients', icon: IconBuilding, label: 'Clients' },
-      { to: '/customers', icon: IconUserCheck, label: 'Customers' },
     ],
   },
   {

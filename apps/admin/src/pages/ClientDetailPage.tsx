@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { IconArrowLeft, IconBuilding, IconUsers, IconCar, IconCpu, IconMapPin, IconPhone, IconMail, IconLock, IconCalendar, IconEdit } from '@tabler/icons-react';
+import { IconArrowLeft, IconBuilding, IconUser, IconCar, IconCpu, IconMapPin, IconPhone, IconMail, IconLock, IconCalendar, IconEdit, IconEye, IconEyeOff } from '@tabler/icons-react';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
@@ -9,10 +9,11 @@ import Modal from '../components/Modal';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
 interface Client {
-  id: string; displayId: number; name: string;
-  pocName: string | null; contactNo: string | null; email: string | null;
+  id: string; displayId: number; name: string; type: string;
+  companyName: string | null; pocName: string | null;
+  contactNo: string | null; email: string | null;
   cityId: string | null; isActive: boolean; createdAt: string;
-  customerCount: number; vehicleCount: number; deviceCount: number;
+  vehicleCount: number; deviceCount: number;
 }
 interface Vehicle {
   id: string; displayId: number; licensePlate: string | null;
@@ -21,11 +22,16 @@ interface Vehicle {
 }
 interface Device {
   id: string; imei: string; status: string;
-  vehicle?: { id: string; licensePlate: string | null } | null;
+  vehicle?: { id: string } | null;
 }
 
 const card: React.CSSProperties = { padding: 20, borderRadius: 12, background: 'var(--bg2)' };
-const emptyForm = { name: '', pocName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true };
+
+const TypeBadge = ({ type }: { type: string }) => (
+  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 5, background: type === 'b2b' ? 'rgba(59,130,246,0.1)' : 'rgba(168,85,247,0.1)', color: type === 'b2b' ? '#3b82f6' : '#a855f7', letterSpacing: 0.5 }}>
+    {type === 'b2b' ? 'B2B' : 'B2C'}
+  </span>
+);
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -36,7 +42,8 @@ export default function ClientDetailPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState({ name: '', companyName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true, type: 'b2b' });
+  const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -55,27 +62,28 @@ export default function ClientDetailPage() {
       setLoading(false);
     }
   };
-
   useEffect(() => { load(); }, [id]);
 
   const openEdit = () => {
     if (!client) return;
-    setForm({ name: client.name, pocName: client.pocName ?? '', contactNo: client.contactNo ?? '', email: client.email ?? '', password: '', cityId: client.cityId ?? '', isActive: client.isActive });
-    setEditOpen(true);
+    setForm({ name: client.name, companyName: client.companyName ?? '', contactNo: client.contactNo ?? '', email: client.email ?? '', password: '', cityId: client.cityId ?? '', isActive: client.isActive, type: client.type });
+    setShowPw(false); setEditOpen(true);
   };
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault(); setSaving(true);
     try {
       const payload: Record<string, unknown> = {
-        name: form.name, pocName: form.pocName || null, contactNo: form.contactNo || null,
-        email: form.email || null, cityId: form.cityId || null, isActive: form.isActive,
+        name: form.name,
+        companyName: form.type === 'b2b' ? (form.companyName || null) : null,
+        contactNo: form.contactNo || null,
+        email: form.email || null,
+        cityId: form.cityId || null,
+        isActive: form.isActive,
       };
       if (form.password) payload.password = form.password;
       await api.patch(`/organizations/${id}`, payload);
-      setEditOpen(false);
-      setLoading(true);
-      await load();
+      setEditOpen(false); setLoading(true); await load();
     } catch { } finally { setSaving(false); }
   };
 
@@ -87,10 +95,18 @@ export default function ClientDetailPage() {
   const cityName = cities.find(c => c.id === client.cityId)?.name ?? '—';
   const myVehicles = vehicles.filter(v => v.organizationId === client.id);
   const deviceMap = new Map(devices.filter(d => d.vehicle?.id).map(d => [d.vehicle!.id, d]));
+  const isB2B = client.type === 'b2b';
+
+  const detailRows = [
+    ...(isB2B ? [{ icon: IconBuilding, label: 'Company', value: client.companyName ?? '—' }] : []),
+    { icon: IconPhone, label: 'Contact', value: client.contactNo ?? '—' },
+    { icon: IconMail, label: 'Email', value: client.email ?? '—' },
+    { icon: IconMapPin, label: 'City', value: cityName },
+    { icon: IconCalendar, label: 'Added', value: fmtDate(client.createdAt) },
+  ];
 
   return (
     <div style={{ padding: '24px 32px' }}>
-      {/* Back */}
       <button onClick={() => navigate('/clients')}
         style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13, padding: '4px 0', marginBottom: 20 }}
         onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
@@ -98,15 +114,19 @@ export default function ClientDetailPage() {
         <IconArrowLeft size={15} /> Back to Clients
       </button>
 
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 52, height: 52, borderRadius: 12, background: 'rgba(220,38,38,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <IconBuilding size={24} color="#dc2626" />
+          <div style={{ width: 52, height: 52, borderRadius: 12, background: isB2B ? 'rgba(59,130,246,0.08)' : 'rgba(168,85,247,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {isB2B ? <IconBuilding size={24} color="#3b82f6" /> : <IconUser size={24} color="#a855f7" />}
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{client.name}</h1>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>ID {client.displayId}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{client.name}</h1>
+              <TypeBadge type={client.type} />
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+              ID {client.displayId}{isB2B && client.companyName ? ` · ${client.companyName}` : ''}
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -120,10 +140,9 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
         {[
-          { icon: IconCar, label: 'Vehicles', value: client.vehicleCount },
+          { icon: IconCar, label: 'Vehicles', value: myVehicles.length },
           { icon: IconCpu, label: 'Devices', value: client.deviceCount },
         ].map(s => (
           <div key={s.label} style={{ padding: '18px 20px', borderRadius: 12, background: 'var(--bg2)', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -138,19 +157,12 @@ export default function ClientDetailPage() {
         ))}
       </div>
 
-      {/* Main grid: left info | right fleet */}
       <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 16, alignItems: 'start' }}>
-        {/* Left */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={card}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Contact Information</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Details</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { icon: IconUsers, label: 'POC Name', value: client.pocName ?? '—' },
-                { icon: IconPhone, label: 'Contact No', value: client.contactNo ?? '—' },
-                { icon: IconMail, label: 'Email', value: client.email ?? '—' },
-                { icon: IconMapPin, label: 'City', value: cityName },
-              ].map(row => (
+              {detailRows.map(row => (
                 <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 8, background: 'var(--bg)' }}>
                   <row.icon size={13} color="var(--muted)" style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -173,25 +185,13 @@ export default function ClientDetailPage() {
                   {client.email ? 'Portal Login Enabled' : 'No Portal Access'}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                  {client.email ? client.email : 'No email or password configured.'}
+                  {client.email ?? 'No email configured.'}
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <div style={card}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Dates</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 8, background: 'var(--bg)' }}>
-              <IconCalendar size={13} color="var(--muted)" style={{ flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 1 }}>Added on</div>
-                <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{fmtDate(client.createdAt)}</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right: fleet */}
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border2)' }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -218,9 +218,7 @@ export default function ClientDetailPage() {
                       <td style={{ padding: '10px 14px', fontWeight: 500, fontSize: 13 }}>{v.licensePlate ?? '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{v.year ?? '—'}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'monospace', color: dev ? 'var(--text)' : '#ccc' }}>
-                        {dev ? dev.imei : '—'}
-                      </td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'monospace', color: dev ? 'var(--text)' : '#ccc' }}>{dev ? dev.imei : '—'}</td>
                       <td style={{ padding: '10px 14px', color: v.isActive ? '#16a34a' : 'var(--muted)', fontSize: 12 }}>{v.isActive ? 'Active' : 'Inactive'}</td>
                     </tr>
                   );
@@ -231,38 +229,48 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      {/* Edit Modal */}
       <Modal open={editOpen} title="Edit Client" onClose={() => setEditOpen(false)}>
         <form onSubmit={handleSave}>
-          <FormField label="Company Name *">
-            <input required value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Acme Logistics" style={inputStyle}
+          <FormField label="Full Name *">
+            <input required value={form.name} onChange={e => set('name', e.target.value)}
+              placeholder={form.type === 'b2b' ? 'Contact person name' : 'Client full name'}
+              style={inputStyle}
               onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
           </FormField>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-            <FormField label="POC Name">
-              <input value={form.pocName} onChange={e => set('pocName', e.target.value)} placeholder="e.g. Ali Khan" style={inputStyle}
-                onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
+          {form.type === 'b2b' && (
+            <FormField label="Company Name">
+              <input value={form.companyName} onChange={e => set('companyName', e.target.value)}
+                placeholder="e.g. Acme Logistics" style={inputStyle}
+                onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
                 onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
             </FormField>
-            <FormField label="Contact No">
-              <input value={form.contactNo} onChange={e => set('contactNo', e.target.value)} placeholder="03001234567" style={inputStyle}
-                onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
-            </FormField>
-          </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-            <FormField label="Email (Portal Login)">
+            <FormField label="Email">
               <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="client@example.com" style={inputStyle}
                 onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
                 onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
             </FormField>
-            <FormField label="New Password (leave blank to keep)">
-              <input type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="••••••••" style={inputStyle}
+            <FormField label="Contact No">
+              <input value={form.contactNo} onChange={e => set('contactNo', e.target.value)} placeholder="+92 300 0000000" style={inputStyle}
                 onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
                 onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
             </FormField>
           </div>
+          <FormField label="New Password (leave blank to keep)">
+            <div style={{ position: 'relative' }}>
+              <input type={showPw ? 'text' : 'password'} value={form.password} onChange={e => set('password', e.target.value)}
+                placeholder="••••••••"
+                style={{ ...inputStyle, paddingRight: 36, width: '100%', boxSizing: 'border-box' }}
+                onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
+              <button type="button" onClick={() => setShowPw(p => !p)}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 0, display: 'flex', alignItems: 'center' }}>
+                {showPw ? <IconEyeOff size={15} /> : <IconEye size={15} />}
+              </button>
+            </div>
+          </FormField>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
             <FormField label="City">
               <select value={form.cityId} onChange={e => set('cityId', e.target.value)} style={selectStyle}>

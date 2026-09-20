@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconEyeOff } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
@@ -14,15 +14,23 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
 interface Client {
-  id: string; displayId: number; name: string;
-  pocName: string | null; contactNo: string | null; email: string | null;
+  id: string; displayId: number; name: string; type: string;
+  companyName: string | null; pocName: string | null;
+  contactNo: string | null; email: string | null;
   cityId: string | null; isActive: boolean; createdAt: string;
-  customerCount: number; vehicleCount: number; deviceCount: number;
+  vehicleCount: number; deviceCount: number;
 }
 
 const sel: React.CSSProperties = { height: 34, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 200 };
-const empty = { name: '', pocName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true };
+
+const typeTag = (t: string) => (
+  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: t === 'b2b' ? 'rgba(59,130,246,0.1)' : 'rgba(168,85,247,0.1)', color: t === 'b2b' ? '#3b82f6' : '#a855f7', letterSpacing: 0.5 }}>
+    {t === 'b2b' ? 'B2B' : 'B2C'}
+  </span>
+);
+
+const empty = { name: '', companyName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true, type: 'b2b' };
 
 export default function ClientsPage() {
   const navigate = useNavigate();
@@ -30,27 +38,29 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [form, setForm] = useState(empty);
+  const [showPw, setShowPw] = useState(false);
   const { cities, selectedCityId } = useCityFilter();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Client | null>(null);
   const [deletingId, setDeletingId] = useState(false);
 
   const load = () => {
-    const params = new URLSearchParams({ type: 'b2b' });
+    const params = new URLSearchParams();
     if (selectedCityId) params.set('cityId', selectedCityId);
     api.get<Client[]>(`/organizations?${params}`).then(r => setClients(r.data)).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [selectedCityId]);
 
-  const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
+  const openAdd = () => { setEditing(null); setForm(empty); setShowPw(false); setModal(true); };
   const openEdit = (c: Client) => {
     setEditing(c);
-    setForm({ name: c.name, pocName: c.pocName ?? '', contactNo: c.contactNo ?? '', email: c.email ?? '', password: '', cityId: c.cityId ?? '', isActive: c.isActive });
-    setModal(true);
+    setForm({ name: c.name, companyName: c.companyName ?? '', contactNo: c.contactNo ?? '', email: c.email ?? '', password: '', cityId: c.cityId ?? '', isActive: c.isActive, type: c.type });
+    setShowPw(false); setModal(true);
   };
   const closeModal = () => { setModal(false); setEditing(null); };
   const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }));
@@ -60,15 +70,16 @@ export default function ClientsPage() {
     try {
       const payload: Record<string, unknown> = {
         name: form.name,
-        pocName: form.pocName || null,
+        companyName: form.type === 'b2b' ? (form.companyName || null) : null,
         contactNo: form.contactNo || null,
         email: form.email || null,
         cityId: form.cityId || null,
         isActive: form.isActive,
+        type: form.type,
       };
       if (form.password) payload.password = form.password;
       if (editing) await api.patch(`/organizations/${editing.id}`, payload);
-      else await api.post('/organizations', { ...payload, type: 'b2b' });
+      else await api.post('/organizations', payload);
       await load(); closeModal();
     } catch { } finally { setSaving(false); }
   };
@@ -82,8 +93,9 @@ export default function ClientsPage() {
   };
 
   const filtered = clients.filter(c => {
-    if (q && !c.name.toLowerCase().includes(q.toLowerCase()) && !(c.pocName ?? '').toLowerCase().includes(q.toLowerCase())) return false;
+    if (q && !c.name.toLowerCase().includes(q.toLowerCase()) && !(c.companyName ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (statusFilter && String(c.isActive) !== statusFilter) return false;
+    if (typeFilter && c.type !== typeFilter) return false;
     if (dateRange?.from && !isWithinInterval(parseISO(c.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });
@@ -103,12 +115,16 @@ export default function ClientsPage() {
             onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
         </div>
+        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={sel}>
+          <option value="">All Types</option><option value="b2b">B2B</option><option value="b2c">B2C</option>
+        </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
           <option value="">All Status</option><option value="true">Active</option><option value="false">Inactive</option>
         </select>
         <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Created date" />
-        {(q || statusFilter || dateRange) && (
-          <button onClick={() => { setQ(''); setStatusFilter(''); setDateRange(undefined); }} style={{ fontSize: 11.5, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6 }}
+        {(q || statusFilter || typeFilter || dateRange) && (
+          <button onClick={() => { setQ(''); setStatusFilter(''); setTypeFilter(''); setDateRange(undefined); }}
+            style={{ fontSize: 11.5, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6 }}
             onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}>
             Clear all
           </button>
@@ -121,7 +137,7 @@ export default function ClientsPage() {
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Company', 'POC', 'Contact', 'Vehicles', 'Devices', 'Status', 'Added', 'Actions'].map(h => (
+                {['ID', 'Name', 'Company', 'Contact', 'Email', 'Type', 'Vehicles', 'Devices', 'Status', 'Added', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -131,8 +147,10 @@ export default function ClientsPage() {
                 <tr key={c.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
                   <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{c.displayId}</td>
                   <td style={{ padding: '10px 14px', fontWeight: 500, fontSize: 13 }}>{c.name}</td>
-                  <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.pocName ?? '—'}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.companyName ?? '—'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.contactNo ?? '—'}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.email ?? '—'}</td>
+                  <td style={{ padding: '10px 14px' }}>{typeTag(c.type)}</td>
                   <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.vehicleCount}</td>
                   <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.deviceCount}</td>
                   <td style={{ padding: '10px 14px', color: c.isActive ? '#16a34a' : 'var(--muted)', fontSize: 12 }}>{c.isActive ? 'Active' : 'Inactive'}</td>
@@ -149,51 +167,73 @@ export default function ClientsPage() {
                   </td>
                 </tr>
               ))}
-              {!filtered.length && <tr><td colSpan={9} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No clients found</td></tr>}
+              {!filtered.length && <tr><td colSpan={11} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No clients found</td></tr>}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Add / Edit Modal */}
       <Modal open={modal} title={editing ? 'Edit Client' : 'Add Client'} onClose={closeModal}>
         <form onSubmit={handleSubmit}>
-          <FormField label="Company Name *">
+          {/* Type selector */}
+          <FormField label="Client Type">
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['b2b', 'b2c'] as const).map(t => (
+                <button key={t} type="button" onClick={() => set('type', t)}
+                  style={{ flex: 1, padding: '8px 0', border: `1.5px solid ${form.type === t ? (t === 'b2b' ? '#3b82f6' : '#a855f7') : 'var(--input-border)'}`, borderRadius: 8, background: form.type === t ? (t === 'b2b' ? 'rgba(59,130,246,0.08)' : 'rgba(168,85,247,0.08)') : 'var(--input-bg)', color: form.type === t ? (t === 'b2b' ? '#3b82f6' : '#a855f7') : 'var(--muted)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', letterSpacing: 0.5 }}>
+                  {t === 'b2b' ? 'B2B — Corporate' : 'B2C — Individual'}
+                </button>
+              ))}
+            </div>
+          </FormField>
+
+          <FormField label="Full Name *">
             <input required value={form.name} onChange={e => set('name', e.target.value)}
-              placeholder="e.g. Acme Logistics" style={inputStyle}
+              placeholder={form.type === 'b2b' ? 'Contact person name' : 'Client full name'}
+              style={inputStyle}
               onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
           </FormField>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-            <FormField label="POC Name">
-              <input value={form.pocName} onChange={e => set('pocName', e.target.value)}
-                placeholder="e.g. Ali Khan" style={inputStyle}
-                onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
+
+          {form.type === 'b2b' && (
+            <FormField label="Company Name">
+              <input value={form.companyName} onChange={e => set('companyName', e.target.value)}
+                placeholder="e.g. Acme Logistics"
+                style={inputStyle}
+                onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
                 onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
             </FormField>
-            <FormField label="Contact No">
-              <input value={form.contactNo} onChange={e => set('contactNo', e.target.value)}
-                placeholder="03001234567" style={inputStyle}
-                onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
-            </FormField>
-          </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-            <FormField label="Email (Portal Login)">
+            <FormField label="Email">
               <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
                 placeholder="client@example.com" style={inputStyle}
                 onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
                 onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
             </FormField>
-            <FormField label={editing ? 'New Password (optional)' : 'Set Password'}>
-              <input type="password" value={form.password} onChange={e => set('password', e.target.value)}
-                placeholder={editing ? 'Leave empty to keep' : 'Portal login password'}
-                required={!editing && !!form.email}
-                style={inputStyle}
+            <FormField label="Contact No">
+              <input value={form.contactNo} onChange={e => set('contactNo', e.target.value)}
+                placeholder="+92 300 0000000" style={inputStyle}
                 onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
                 onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
             </FormField>
           </div>
+
+          <FormField label={editing ? 'New Password (leave blank to keep)' : 'Set Password'}>
+            <div style={{ position: 'relative' }}>
+              <input type={showPw ? 'text' : 'password'} value={form.password} onChange={e => set('password', e.target.value)}
+                placeholder="••••••••"
+                style={{ ...inputStyle, paddingRight: 36, width: '100%', boxSizing: 'border-box' }}
+                onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
+              <button type="button" onClick={() => setShowPw(p => !p)}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 0, display: 'flex', alignItems: 'center' }}>
+                {showPw ? <IconEyeOff size={15} /> : <IconEye size={15} />}
+              </button>
+            </div>
+          </FormField>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
             <FormField label="City">
               <select value={form.cityId} onChange={e => set('cityId', e.target.value)} style={selectStyle}>
@@ -207,7 +247,8 @@ export default function ClientsPage() {
               </select>
             </FormField>
           </div>
-          <FormActions onClose={closeModal} loading={saving} submitLabel={editing ? 'Update' : 'Create Client'} />
+
+          <FormActions onClose={closeModal} loading={saving} submitLabel={editing ? 'Update' : 'Add Client'} />
         </form>
       </Modal>
 
