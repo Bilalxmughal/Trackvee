@@ -1,12 +1,14 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { IconArrowLeft, IconBuilding, IconUser, IconCar, IconCpu, IconMapPin, IconPhone, IconMail, IconLock, IconCalendar, IconEdit, IconEye, IconEyeOff, IconPlus, IconLink, IconPlugConnected, IconPlugConnectedX } from '@tabler/icons-react';
+import { IconArrowLeft, IconBuilding, IconUser, IconCar, IconCpu, IconMapPin, IconPhone, IconMail, IconLock, IconCalendar, IconEdit, IconEye, IconEyeOff, IconPlus, IconLink, IconPlugConnected, IconPlugConnectedX, IconBell } from '@tabler/icons-react';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
+import { useTheme } from '../contexts/ThemeContext';
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
+import AlertsModal from '../components/AlertsModal';
 
 interface Client {
   id: string; displayId: number; name: string; type: string;
@@ -41,6 +43,7 @@ export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { cities } = useCityFilter();
+  const { dark } = useTheme();
   const [client, setClient] = useState<Client | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
@@ -51,6 +54,9 @@ export default function ClientDetailPage() {
   const [editForm, setEditForm] = useState({ name: '', companyName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true, type: 'b2b' });
   const [showPw, setShowPw] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+
+  // Alert modal
+  const [alertImei, setAlertImei] = useState<string | null>(null);
 
   // Immobilize state per vehicleId
   const [immoBusy, setImmoBusy] = useState<string | null>(null);
@@ -268,7 +274,7 @@ export default function ClientDetailPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['ID', 'License Plate', 'Make / Model', 'Year', 'Device IMEI', 'Status', 'Engine', ''].map(h => (
+                  {['ID', 'License Plate', 'Make / Model', 'Year', 'Device IMEI', 'Status', 'Engine', 'Alert', ''].map(h => (
                     <th key={h} style={{ padding: '9px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid var(--border2)' }}>{h}</th>
                   ))}
                 </tr>
@@ -302,6 +308,16 @@ export default function ClientDetailPage() {
                             {dev.lastImmobilizer
                               ? <><IconPlugConnectedX size={11} /> Cut</>
                               : <><IconPlugConnected size={11} /> Active</>}
+                          </button>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        {dev && (
+                          <button onClick={() => setAlertImei(dev.imei)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 11, color: 'var(--text2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)'; }}>
+                            <IconBell size={11} /> Set Alert
                           </button>
                         )}
                       </td>
@@ -428,6 +444,23 @@ export default function ClientDetailPage() {
           <FormActions onClose={() => setDModal(false)} loading={dSaving} submitLabel="Assign Device" />
         </form>
       </Modal>
+
+      {/* Alert Modal */}
+      {alertImei && (
+        <AlertsModal
+          open={true}
+          onClose={() => setAlertImei(null)}
+          dark={dark}
+          vehicles={vehicles
+            .filter(v => v.organizationId === client?.id)
+            .map(v => {
+              const d = devices.find(d => d.vehicle?.id === v.id);
+              return d ? { imei: d.imei, plate: v.licensePlate ?? `Vehicle ${v.displayId}` } : null;
+            })
+            .filter(Boolean) as { imei: string; plate: string }[]}
+          preSelectedImei={alertImei}
+        />
+      )}
     </div>
   );
 }
