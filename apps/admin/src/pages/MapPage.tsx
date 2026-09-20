@@ -1991,6 +1991,7 @@ export default function MapPage() {
             ? <POIsPanel
                 dark={dark}
                 onClose={() => closePoiPanel()}
+                onPoisChange={setMapPois}
                 onRequestAlert={poi => {
                   setPoiAlertPoi(poi);
                   setAlertCreateImei(undefined);

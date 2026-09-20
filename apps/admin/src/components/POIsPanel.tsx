@@ -20,6 +20,7 @@ interface Props {
   dark: boolean;
   onClose: () => void;
   onRequestAlert?: (poi: POIRecord) => void;
+  onPoisChange?: (pois: POIRecord[]) => void;
 }
 
 const API = import.meta.env.VITE_API_URL ?? '/api/v1';
@@ -54,6 +55,7 @@ function IconPicker({ value, onChange, dark }: { value: string; onChange: (id: s
         {filtered.map(ic => (
           <button
             key={ic.id}
+            type="button"
             title={ic.label}
             onClick={() => onChange(ic.id)}
             style={{
@@ -266,7 +268,7 @@ function DotMenu({ dark, onEdit, onDelete, onAlert }: { dark: boolean; onEdit: (
 // ──────────────────────────────────────────────
 // Main POI left panel
 // ──────────────────────────────────────────────
-export function POIsPanel({ dark, onClose, onRequestAlert }: Props) {
+export function POIsPanel({ dark, onClose, onRequestAlert, onPoisChange }: Props) {
   const { setPoiCount, pickingLocation, setPickingLocation, pendingCoords, setPendingCoords } = usePOI();
   const [pois, setPois] = useState<POIRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -289,6 +291,7 @@ export function POIsPanel({ dark, onClose, onRequestAlert }: Props) {
       const data: POIRecord[] = await apiFetch('/pois');
       setPois(data);
       setPoiCount(data.length);
+      onPoisChange?.(data);
     } catch { /* ignore */ } finally { setLoading(false); }
   }
 
@@ -297,11 +300,11 @@ export function POIsPanel({ dark, onClose, onRequestAlert }: Props) {
   async function handleSave(dto: Partial<POIRecord>) {
     if (editItem) {
       const updated: POIRecord = await apiFetch(`/pois/${editItem.id}`, { method: 'PUT', body: JSON.stringify(dto) });
-      setPois(prev => prev.map(p => p.id === updated.id ? updated : p));
+      setPois(prev => { const next = prev.map(p => p.id === updated.id ? updated : p); onPoisChange?.(next); return next; });
       setPoiCount(pois.length);
     } else {
       const created: POIRecord = await apiFetch('/pois', { method: 'POST', body: JSON.stringify(dto) });
-      setPois(prev => [created, ...prev]);
+      setPois(prev => { const next = [created, ...prev]; onPoisChange?.(next); return next; });
       setPoiCount(pois.length + 1);
     }
   }
@@ -310,7 +313,7 @@ export function POIsPanel({ dark, onClose, onRequestAlert }: Props) {
     setDeleting(true);
     try {
       await apiFetch(`/pois/${id}`, { method: 'DELETE' });
-      setPois(prev => { const next = prev.filter(p => p.id !== id); setPoiCount(next.length); return next; });
+      setPois(prev => { const next = prev.filter(p => p.id !== id); setPoiCount(next.length); onPoisChange?.(next); return next; });
     } finally { setDeleting(false); setDeleteId(null); }
   }
 
