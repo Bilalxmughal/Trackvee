@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconEyeOff, IconDownload } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
@@ -28,7 +28,14 @@ const typeTag = (t: string) => (
   <span style={{ fontSize: 12, color: 'var(--text2)' }}>{t === 'b2b' ? 'B2B' : 'B2C'}</span>
 );
 
-const empty = { name: '', companyName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true, type: 'b2b' };
+const empty = { name: '', companyName: '', contactNo: '92', email: '', password: '', cityId: '', isActive: true, type: 'b2b' };
+
+function handlePhone(val: string, set: (k: string, v: unknown) => void) {
+  let d = val.replace(/\D/g, '');
+  if (!d.startsWith('92')) d = '92' + d.replace(/^9?2?/, '');
+  if (d.length > 12) d = d.slice(0, 12);
+  set('contactNo', d);
+}
 
 export default function ClientsPage() {
   const navigate = useNavigate();
@@ -46,6 +53,22 @@ export default function ClientsPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Client | null>(null);
   const [deletingId, setDeletingId] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
+
+  const exportCSV = () => {
+    const cityName = (id: string | null) => cities.find(c => c.id === id)?.name ?? '';
+    const rows = [
+      ['ID', 'Name', 'Company', 'Contact', 'Email', 'Type', 'City', 'Vehicles', 'Devices', 'Status', 'Added'],
+      ...filtered.map(c => [
+        c.displayId, c.name, c.companyName ?? '', c.contactNo ?? '',
+        c.email ?? '', c.type.toUpperCase(), cityName(c.cityId),
+        c.vehicleCount, c.deviceCount, c.isActive ? 'Active' : 'Inactive', fmtDate(c.createdAt),
+      ]),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: 'clients.csv' });
+    a.click(); URL.revokeObjectURL(a.href);
+  };
 
   const load = () => {
     const params = new URLSearchParams();
@@ -57,14 +80,17 @@ export default function ClientsPage() {
   const openAdd = () => { setEditing(null); setForm(empty); setShowPw(false); setModal(true); };
   const openEdit = (c: Client) => {
     setEditing(c);
-    setForm({ name: c.name, companyName: c.companyName ?? '', contactNo: c.contactNo ?? '', email: c.email ?? '', password: '', cityId: c.cityId ?? '', isActive: c.isActive, type: c.type });
+    const phone = c.contactNo ? c.contactNo.replace(/\D/g, '') : '92';
+    setForm({ name: c.name, companyName: c.companyName ?? '', contactNo: phone.startsWith('92') ? phone : '92' + phone, email: c.email ?? '', password: '', cityId: c.cityId ?? '', isActive: c.isActive, type: c.type });
     setShowPw(false); setModal(true);
   };
-  const closeModal = () => { setModal(false); setEditing(null); };
+  const closeModal = () => { setModal(false); setEditing(null); setPhoneError(''); };
   const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault(); setSaving(true);
+    e.preventDefault();
+    if (form.contactNo && form.contactNo.length !== 12) { setPhoneError('12 digits required (92XXXXXXXXXX)'); return; }
+    setSaving(true);
     try {
       const payload: Record<string, unknown> = {
         name: form.name,
@@ -101,9 +127,14 @@ export default function ClientsPage() {
   return (
     <div>
       <PageHeader title="Clients" count={clients.length} action={
-        <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
-          <IconPlus size={13} /> Add Client
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: 'var(--bg2)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
+            <IconDownload size={13} /> Export
+          </button>
+          <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
+            <IconPlus size={13} /> Add Client
+          </button>
+        </div>
       } />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
@@ -211,10 +242,16 @@ export default function ClientsPage() {
                 onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
             </FormField>
             <FormField label="Contact No">
-              <input value={form.contactNo} onChange={e => set('contactNo', e.target.value)}
-                placeholder="+92 300 0000000" style={inputStyle}
-                onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
+              <input
+                value={form.contactNo}
+                onChange={e => { setPhoneError(''); handlePhone(e.target.value, set); }}
+                onBlur={() => { if (form.contactNo && form.contactNo.length !== 12) setPhoneError('12 digits required (92XXXXXXXXXX)'); }}
+                placeholder="923001234567"
+                maxLength={12}
+                style={{ ...inputStyle, borderColor: phoneError ? '#dc2626' : undefined }}
+                onFocus={e => { setPhoneError(''); e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
+              />
+              {phoneError && <div style={{ fontSize: 11, color: '#dc2626', marginTop: 3 }}>{phoneError}</div>}
             </FormField>
           </div>
 
