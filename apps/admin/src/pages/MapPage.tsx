@@ -1170,7 +1170,6 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
   const CalIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
 
   const items: Array<{ label: string; icon: React.ReactNode; action: () => void; divider?: boolean }> = [
-    { label: 'View on Map', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>, action: () => { onViewOnMap(); setOpen(false); } },
     { label: 'Trip Replay', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21"/></svg>, action: () => { onTripReplay(); setOpen(false); } },
     { label: 'Street View', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>, action: () => { window.open(svUrl, '_blank', 'noopener'); setOpen(false); } },
     { label: '──', icon: null, action: () => {}, divider: true },
@@ -1476,24 +1475,53 @@ function AlertsPanel({ alerts, dark, onClose }: { alerts: VehicleAlert[]; dark: 
 
 // ── Trip Replay Modal ─────────────────────────────────────────────────────────
 
+type TripPreset = 'today' | 'yesterday' | 'last7' | 'custom';
+function tripPresetRange(preset: TripPreset, customFrom: string, customTo: string): { from: string; to: string } {
+  const now = new Date();
+  if (preset === 'today') {
+    const s = new Date(now); s.setHours(0, 0, 0, 0);
+    return { from: s.toISOString(), to: now.toISOString() };
+  }
+  if (preset === 'yesterday') {
+    const s = new Date(now); s.setDate(s.getDate() - 1); s.setHours(0, 0, 0, 0);
+    const e = new Date(s); e.setHours(23, 59, 59, 999);
+    return { from: s.toISOString(), to: e.toISOString() };
+  }
+  if (preset === 'last7') {
+    const s = new Date(now); s.setDate(s.getDate() - 7); s.setHours(0, 0, 0, 0);
+    return { from: s.toISOString(), to: now.toISOString() };
+  }
+  return { from: customFrom ? new Date(customFrom).toISOString() : '', to: customTo ? new Date(customTo).toISOString() : now.toISOString() };
+}
+
 function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: string; onClose: () => void; dark: boolean }) {
   const [history, setHistory] = useState<TripPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [frameIdx, setFrameIdx] = useState(0);
   const [playSpeed, setPlaySpeed] = useState(1);
+  const [preset, setPreset] = useState<TripPreset>('today');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [fetchKey, setFetchKey] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    api.get<TripPoint[]>(`/telemetry/${imei}/history?limit=500`)
+  function doFetch(p: TripPreset, cf: string, ct: string) {
+    const { from, to } = tripPresetRange(p, cf, ct);
+    setLoading(true); setPlaying(false); setFrameIdx(0);
+    const params = new URLSearchParams({ limit: '2000' });
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    api.get<TripPoint[]>(`/telemetry/${imei}/history?${params}`)
       .then(r => {
         const sorted = [...r.data].reverse().filter(p => p.gpsValid && (p.latitude !== 0 || p.longitude !== 0));
         setHistory(sorted);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [imei]);
+  }
+
+  useEffect(() => { doFetch(preset, customFrom, customTo); }, [imei, fetchKey]);
 
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -1524,6 +1552,31 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
           <button onClick={onClose} style={{ background: dark ? '#2a2a2a' : '#f5f5f5', border: 'none', cursor: 'pointer', color: dark ? '#888' : '#666', padding: '4px 5px', borderRadius: 5, display: 'flex' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
+        </div>
+        {/* Date range bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}`, background: dark ? '#141414' : '#fafafa', flexShrink: 0, flexWrap: 'wrap' }}>
+          {(['today', 'yesterday', 'last7', 'custom'] as TripPreset[]).map(p => {
+            const label = p === 'today' ? 'Today' : p === 'yesterday' ? 'Yesterday' : p === 'last7' ? 'Last 7 Days' : 'Custom';
+            const active = preset === p;
+            return (
+              <button key={p} type="button"
+                onClick={() => { setPreset(p); if (p !== 'custom') setFetchKey(k => k + 1); }}
+                style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${active ? '#dc2626' : (dark ? '#333' : '#e5e7eb')}`, background: active ? '#dc2626' : (dark ? '#1e1e1e' : '#fff'), color: active ? '#fff' : (dark ? '#aaa' : '#555'), fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                {label}
+              </button>
+            );
+          })}
+          {preset === 'custom' && (<>
+            <input type="datetime-local" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+              style={{ padding: '3px 7px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#1e1e1e' : '#fff', color: dark ? '#e5e5e5' : '#111', fontSize: 11, cursor: 'pointer' }}/>
+            <span style={{ fontSize: 11, color: dark ? '#666' : '#aaa' }}>to</span>
+            <input type="datetime-local" value={customTo} onChange={e => setCustomTo(e.target.value)}
+              style={{ padding: '3px 7px', borderRadius: 5, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#1e1e1e' : '#fff', color: dark ? '#e5e5e5' : '#111', fontSize: 11, cursor: 'pointer' }}/>
+            <button type="button" onClick={() => setFetchKey(k => k + 1)}
+              style={{ padding: '4px 12px', borderRadius: 5, border: 'none', background: '#dc2626', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+              Load
+            </button>
+          </>)}
         </div>
         {/* Map area */}
         <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
