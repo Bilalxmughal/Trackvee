@@ -8,7 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
-import AlertsModal from '../components/AlertsModal';
+import AlertsModal, { AlertRecord } from '../components/AlertsModal';
 
 interface Client {
   id: string; displayId: number; name: string; type: string;
@@ -55,8 +55,9 @@ export default function ClientDetailPage() {
   const [showPw, setShowPw] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
-  // Alert modal
+  // Alerts
   const [alertImei, setAlertImei] = useState<string | null>(null);
+  const [alertsByImei, setAlertsByImei] = useState<Map<string, AlertRecord[]>>(new Map());
 
   // Immobilize state per vehicleId
   const [immoBusy, setImmoBusy] = useState<string | null>(null);
@@ -82,14 +83,22 @@ export default function ClientDetailPage() {
 
   const load = async () => {
     try {
-      const [cl, vs, ds] = await Promise.all([
+      const [cl, vs, ds, al] = await Promise.all([
         api.get<Client>(`/organizations/${id}`),
         api.get<Vehicle[]>('/vehicles'),
         api.get<Device[]>('/devices'),
+        api.get<AlertRecord[]>('/alerts'),
       ]);
       setClient(cl.data);
       setVehicles(vs.data);
       setDevices(ds.data);
+      const m = new Map<string, AlertRecord[]>();
+      al.data.forEach(alert => alert.vehicleImeis.forEach(imei => {
+        const arr = m.get(imei) ?? [];
+        arr.push(alert);
+        m.set(imei, arr);
+      }));
+      setAlertsByImei(m);
     } catch {
       navigate('/clients', { replace: true });
     } finally {
@@ -312,14 +321,19 @@ export default function ClientDetailPage() {
                         )}
                       </td>
                       <td style={{ padding: '10px 14px' }}>
-                        {dev && (
-                          <button onClick={() => setAlertImei(dev.imei)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 11, color: 'var(--text2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626'; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)'; }}>
-                            <IconBell size={11} /> Set Alert
-                          </button>
-                        )}
+                        {dev && (() => {
+                          const hasAlerts = (alertsByImei.get(dev.imei) ?? []).length > 0;
+                          const count = (alertsByImei.get(dev.imei) ?? []).length;
+                          return (
+                            <button onClick={() => setAlertImei(dev.imei)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', background: hasAlerts ? 'rgba(220,38,38,0.07)' : 'var(--bg)', border: `1px solid ${hasAlerts ? '#dc2626' : 'var(--border)'}`, borderRadius: 6, fontSize: 11, color: hasAlerts ? '#dc2626' : 'var(--text2)', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: hasAlerts ? 600 : 400 }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626'; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = hasAlerts ? '#dc2626' : 'var(--border)'; e.currentTarget.style.color = hasAlerts ? '#dc2626' : 'var(--text2)'; }}>
+                              <IconBell size={11} />
+                              {hasAlerts ? `View (${count})` : 'Set Alert'}
+                            </button>
+                          );
+                        })()}
                       </td>
                       <td style={{ padding: '10px 14px' }}>
                         {!dev && (
