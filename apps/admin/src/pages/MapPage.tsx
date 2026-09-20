@@ -1033,10 +1033,17 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
     const [datePart, timePart] = val ? val.split('T') : ['', ''];
     const setDate = (d: string) => set(`${d}T${timePart || '00:00'}`);
     const setTime = (t: string) => set(`${datePart || new Date().toISOString().slice(0, 10)}T${t}`);
+    const hour = timePart ? parseInt(timePart.split(':')[0] ?? '0', 10) : -1;
+    const ampm = hour < 0 ? '' : hour < 12 ? 'AM' : 'PM';
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 5 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 5, alignItems: 'center' }}>
         <input type="date" value={datePart ?? ''} onChange={e => setDate(e.target.value)} style={inpStyle}/>
         <input type="time" value={timePart ?? ''} onChange={e => setTime(e.target.value)} style={{ ...inpStyle, width: 80 }}/>
+        {ampm && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: hour < 12 ? '#2563eb' : '#dc2626', background: hour < 12 ? (dark ? '#0f1e3a' : '#eff6ff') : (dark ? '#2a1010' : '#fef2f2'), borderRadius: 4, padding: '3px 5px', letterSpacing: 0.3, flexShrink: 0 }}>
+            {ampm}
+          </span>
+        )}
       </div>
     );
   };
