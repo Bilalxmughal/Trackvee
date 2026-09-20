@@ -20,6 +20,7 @@ interface Client {
   cityId: string | null; isActive: boolean; createdAt: string;
   vehicleCount: number; deviceCount: number;
 }
+interface Vehicle { id: string; licensePlate: string | null; organizationId: string | null; }
 
 const sel: React.CSSProperties = { height: 34, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 200 };
@@ -40,6 +41,7 @@ function handlePhone(val: string, set: (k: string, v: unknown) => void) {
 export default function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
+  const [plateMap, setPlateMap] = useState<Map<string, string[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -73,7 +75,20 @@ export default function ClientsPage() {
   const load = () => {
     const params = new URLSearchParams();
     if (selectedCityId) params.set('cityId', selectedCityId);
-    api.get<Client[]>(`/organizations?${params}`).then(r => setClients(r.data)).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      api.get<Client[]>(`/organizations?${params}`),
+      api.get<Vehicle[]>('/vehicles'),
+    ]).then(([orgs, vs]) => {
+      setClients(orgs.data);
+      const map = new Map<string, string[]>();
+      vs.data.forEach(v => {
+        if (!v.organizationId || !v.licensePlate) return;
+        const arr = map.get(v.organizationId) ?? [];
+        arr.push(v.licensePlate);
+        map.set(v.organizationId, arr);
+      });
+      setPlateMap(map);
+    }).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [selectedCityId]);
 
@@ -117,7 +132,15 @@ export default function ClientsPage() {
   };
 
   const filtered = clients.filter(c => {
-    if (q && !c.name.toLowerCase().includes(q.toLowerCase()) && !(c.companyName ?? '').toLowerCase().includes(q.toLowerCase())) return false;
+    if (q) {
+      const lq = q.toLowerCase();
+      const match = c.name.toLowerCase().includes(lq)
+        || (c.companyName ?? '').toLowerCase().includes(lq)
+        || (c.email ?? '').toLowerCase().includes(lq)
+        || (c.contactNo ?? '').includes(q)
+        || c.type.toLowerCase().includes(lq);
+      if (!match) return false;
+    }
     if (statusFilter && String(c.isActive) !== statusFilter) return false;
     if (typeFilter && c.type !== typeFilter) return false;
     if (dateRange?.from && !isWithinInterval(parseISO(c.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
@@ -166,7 +189,7 @@ export default function ClientsPage() {
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Name', 'Company', 'Contact', 'Email', 'Type', 'Vehicles', 'Devices', 'Status', 'Added', 'Actions'].map(h => (
+                {['ID', 'Name', 'Company', 'Contact', 'Email', 'Type', 'Plates', 'Vehicles', 'Devices', 'Status', 'Added', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -180,6 +203,13 @@ export default function ClientsPage() {
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.contactNo ?? '—'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.email ?? '—'}</td>
                   <td style={{ padding: '10px 14px' }}>{typeTag(c.type)}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text2)' }}>
+                    {(() => {
+                      const plates = plateMap.get(c.id) ?? [];
+                      if (!plates.length) return <span style={{ color: '#ccc' }}>—</span>;
+                      return <span>{plates[0]}{plates.length > 1 ? <span style={{ color: 'var(--muted)', fontSize: 11 }}> +{plates.length - 1} more</span> : null}</span>;
+                    })()}
+                  </td>
                   <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.vehicleCount}</td>
                   <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.deviceCount}</td>
                   <td style={{ padding: '10px 14px', color: c.isActive ? '#16a34a' : 'var(--muted)', fontSize: 12 }}>{c.isActive ? 'Active' : 'Inactive'}</td>
@@ -196,7 +226,7 @@ export default function ClientsPage() {
                   </td>
                 </tr>
               ))}
-              {!filtered.length && <tr><td colSpan={11} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No clients found</td></tr>}
+              {!filtered.length && <tr><td colSpan={12} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No clients found</td></tr>}
             </tbody>
           </table>
         </div>
