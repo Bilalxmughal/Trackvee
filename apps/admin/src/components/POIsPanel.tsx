@@ -24,7 +24,7 @@ interface Props {
 
 const API = import.meta.env.VITE_API_URL ?? '/api/v1';
 
-function getToken() { return localStorage.getItem('token') ?? ''; }
+function getToken() { return localStorage.getItem('yt_token') || sessionStorage.getItem('yt_token') || ''; }
 
 async function apiFetch(path: string, opts: RequestInit = {}) {
   const r = await fetch(`${API}${path}`, {
