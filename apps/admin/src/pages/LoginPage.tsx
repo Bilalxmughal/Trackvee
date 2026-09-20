@@ -57,8 +57,8 @@ export default function LoginPage() {
       <div style={{ width: 320 }}>
         {/* Brand */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#dc2626', letterSpacing: -1 }}>YoTrack</div>
-          <div style={{ fontSize: 12, color: '#bbb', marginTop: 2 }}>Admin Portal</div>
+          <img src="/logo.webp" alt="Trackvee" style={{ height: 36, display: 'block' }} />
+          <div style={{ fontSize: 12, color: '#bbb', marginTop: 6 }}>Admin Portal</div>
         </div>
 
         {error && (

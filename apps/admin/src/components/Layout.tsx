@@ -236,8 +236,8 @@ function LayoutInner() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: collapsed ? '14px 0' : '14px 14px 14px 18px', borderBottom: `1px solid ${dark ? '#222' : '#f5f5f5'}`, flexShrink: 0 }}>
           {!collapsed && (
             <div>
-              <span style={{ fontSize: 16, fontWeight: 800, color: '#dc2626', letterSpacing: -0.5 }}>YoTrack</span>
-              <span style={{ fontSize: 10, color: dark ? '#555' : '#ccc', display: 'block', letterSpacing: 0.3, marginTop: 1 }}>Admin Portal</span>
+              <img src="/logo.webp" alt="Trackvee" style={{ height: 24, display: 'block' }} />
+              <span style={{ fontSize: 10, color: dark ? '#555' : '#ccc', display: 'block', letterSpacing: 0.3, marginTop: 2 }}>Admin Portal</span>
             </div>
           )}
           <button
