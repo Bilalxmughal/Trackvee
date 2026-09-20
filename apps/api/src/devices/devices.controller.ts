@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Headers, UnauthorizedException, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { DevicesService } from './devices.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -69,5 +69,16 @@ export class DevicesController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.devicesService.remove(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post(':imei/command')
+  @HttpCode(200)
+  sendCommand(
+    @Param('imei') imei: string,
+    @Body() body: { action: 'immobilize' | 'activate' },
+  ) {
+    return this.devicesService.sendCommandByImei(imei, body.action);
   }
 }

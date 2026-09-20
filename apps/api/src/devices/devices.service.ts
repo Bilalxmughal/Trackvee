@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Device } from './entities/device.entity.js';
 import { User } from '../users/entities/user.entity.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin'];
+const GATEWAY_CMD_URL = process.env['GATEWAY_CMD_URL'] ?? 'http://localhost:5024';
+const INTERNAL_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 
 @Injectable()
 export class DevicesService {
@@ -80,6 +82,19 @@ export class DevicesService {
       voltageLevel: d.lastVoltageLevel,
       gsmSignal: d.lastGsmSignal,
     };
+  }
+
+  async sendCommandByImei(imei: string, action: 'immobilize' | 'activate'): Promise<{ sent: boolean; connected: boolean }> {
+    const device = await this.repo.findOne({ where: { imei } });
+    if (!device) throw new BadRequestException('Device not found');
+    const command = action === 'immobilize' ? 'DYD#' : 'HFYD#';
+    const res = await fetch(`${GATEWAY_CMD_URL}/command`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-key': INTERNAL_KEY },
+      body: JSON.stringify({ imei, command }),
+    }).catch(() => null);
+    if (!res) return { sent: false, connected: false };
+    return res.json() as Promise<{ sent: boolean; connected: boolean }>;
   }
 
   async remove(id: string): Promise<void> {

@@ -1148,6 +1148,10 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
   const [open, setOpen] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, right: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
+  const [immoConfirm, setImmoConfirm] = useState<{ action: 'immobilize' | 'activate' } | null>(null);
+  const [immoInput, setImmoInput] = useState('');
+  const [immoError, setImmoError] = useState('');
+  const [immoBusy, setImmoBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -1165,11 +1169,33 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
     setOpen(o => !o);
   };
 
+  const openImmoConfirm = (action: 'immobilize' | 'activate') => {
+    setOpen(false);
+    setImmoInput('');
+    setImmoError('');
+    setImmoConfirm({ action });
+  };
+
+  const handleImmoSubmit = async () => {
+    const last4 = pt.imei.slice(-4);
+    if (immoInput !== last4) { setImmoError(`Galat digits — dobara koshish karo`); return; }
+    setImmoBusy(true);
+    try {
+      await fetch(`/api/v1/devices/${pt.imei}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('yt_token') ?? sessionStorage.getItem('yt_token')}` },
+        body: JSON.stringify({ action: immoConfirm!.action }),
+      });
+      setImmoConfirm(null);
+    } catch { setImmoError('Server error'); } finally { setImmoBusy(false); }
+  };
+
   const svUrl = `https://maps.google.com/maps?layer=c&cbll=${pt.latitude},${pt.longitude}`;
   const ClockIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
   const CalIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+  const isImmobilized = !!pt.immobilizer;
 
-  const items: Array<{ label: string; icon: React.ReactNode; action: () => void; divider?: boolean }> = [
+  const items: Array<{ label: string; icon: React.ReactNode; action: () => void; divider?: boolean; red?: boolean }> = [
     { label: 'Trip Replay', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21"/></svg>, action: () => { onTripReplay(); setOpen(false); } },
     { label: 'Street View', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>, action: () => { window.open(svUrl, '_blank', 'noopener'); setOpen(false); } },
     { label: '──', icon: null, action: () => {}, divider: true },
@@ -1178,6 +1204,15 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
     { label: 'History: Yesterday', icon: <CalIcon/>, action: () => { onShowHistory('yesterday'); setOpen(false); } },
     { label: '──', icon: null, action: () => {}, divider: true },
     { label: hasAlert ? 'Edit Alert' : 'Create Alert', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="1" x2="12" y2="4"/></svg>, action: () => { onCreateAlert(); setOpen(false); } },
+    { label: '──', icon: null, action: () => {}, divider: true },
+    {
+      label: isImmobilized ? 'Restore Engine' : 'Cut Engine',
+      red: true,
+      icon: isImmobilized
+        ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+        : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+      action: () => openImmoConfirm(isImmobilized ? 'activate' : 'immobilize'),
+    },
   ];
 
   return (
@@ -1194,12 +1229,46 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
             <div key={idx} style={{ height: 1, background: dark ? '#2a2a2a' : '#f0f0f0', margin: '3px 0' }}/>
           ) : (
             <button key={it.label} onClick={(e) => { e.stopPropagation(); it.action(); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 13px', border: 'none', background: 'transparent', color: dark ? '#e5e5e5' : '#333', fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 13px', border: 'none', background: 'transparent', color: it.red ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), fontSize: 12.5, cursor: 'pointer', textAlign: 'left', fontWeight: it.red ? 600 : 400 }}
               onMouseEnter={e => { e.currentTarget.style.background = dark ? '#2a1010' : '#fff5f5'; e.currentTarget.style.color = '#dc2626'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = dark ? '#e5e5e5' : '#333'; }}>
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = it.red ? '#dc2626' : (dark ? '#e5e5e5' : '#333'); }}>
               <span style={{ display: 'flex', flexShrink: 0 }}>{it.icon}</span> {it.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Immobilize confirm dialog */}
+      {immoConfirm && (
+        <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)' }}>
+          <div style={{ background: dark ? '#1a1a1a' : '#fff', borderRadius: 14, padding: 24, width: 300, boxShadow: '0 12px 40px rgba(0,0,0,0.4)' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>
+              {immoConfirm.action === 'immobilize' ? 'Engine Cut Confirm' : 'Engine Restore Confirm'}
+            </div>
+            <div style={{ fontSize: 12.5, color: dark ? '#aaa' : '#666', marginBottom: 16, lineHeight: 1.5 }}>
+              <strong style={{ color: dark ? '#e5e5e5' : '#111' }}>{plate}</strong> vehicle ke liye.<br/>
+              Confirm karne ke liye device IMEI ke <strong>aakhri 4 digits</strong> enter karo:
+            </div>
+            <input
+              autoFocus
+              maxLength={4}
+              value={immoInput}
+              onChange={e => { setImmoInput(e.target.value.replace(/\D/g, '')); setImmoError(''); }}
+              onKeyDown={e => { if (e.key === 'Enter') handleImmoSubmit(); if (e.key === 'Escape') setImmoConfirm(null); }}
+              placeholder="_ _ _ _"
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${immoError ? '#dc2626' : (dark ? '#333' : '#e5e7eb')}`, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', fontSize: 20, textAlign: 'center', letterSpacing: 8, outline: 'none', boxSizing: 'border-box', marginBottom: 6 }}
+            />
+            {immoError && <div style={{ fontSize: 11.5, color: '#dc2626', marginBottom: 8 }}>{immoError}</div>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button onClick={() => setImmoConfirm(null)} style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#aaa' : '#666', fontSize: 13, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleImmoSubmit} disabled={immoBusy || immoInput.length !== 4}
+                style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: immoBusy || immoInput.length !== 4 ? 'not-allowed' : 'pointer', opacity: immoBusy || immoInput.length !== 4 ? 0.6 : 1 }}>
+                {immoBusy ? '...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>
