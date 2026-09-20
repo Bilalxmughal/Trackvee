@@ -235,7 +235,7 @@ function LayoutInner() {
         {/* Logo + toggle */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: collapsed ? '14px 0' : '14px 14px 14px 18px', borderBottom: `1px solid ${dark ? '#222' : '#f5f5f5'}`, flexShrink: 0 }}>
           {!collapsed && (
-            <img src="/logo.webp" alt="Trackvee" style={{ height: 28, width: 'auto', display: 'block' }} />
+            <img src="/logo.png" alt="Trackvee" style={{ height: 28, width: 'auto', display: 'block' }} />
           )}
           <button
             onClick={toggleCollapsed}

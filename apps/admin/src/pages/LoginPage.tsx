@@ -1,4 +1,12 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useMemo } from 'react';
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return { text: 'Good morning', sub: 'Hope your day is going well.' };
+  if (h >= 12 && h < 17) return { text: 'Good afternoon', sub: 'Stay focused, you got this.' };
+  if (h >= 17 && h < 21) return { text: 'Good evening', sub: 'Wrapping up for the day?' };
+  return { text: 'Up late?', sub: 'Take it easy, you deserve rest.' };
+}
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -37,6 +45,7 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { text, sub } = useMemo(() => getGreeting(), []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -57,8 +66,9 @@ export default function LoginPage() {
       <div style={{ width: 320 }}>
         {/* Brand */}
         <div style={{ marginBottom: 32 }}>
-          <img src="/logo.webp" alt="Trackvee" style={{ height: 36, display: 'block' }} />
-          <div style={{ fontSize: 12, color: '#bbb', marginTop: 6 }}>Admin Portal</div>
+          <img src="/logo.png" alt="Trackvee" style={{ height: 48, width: 'auto', display: 'block', marginBottom: 20 }} />
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#111', lineHeight: 1 }}>{text}</div>
+          <div style={{ fontSize: 13, color: '#bbb', marginTop: 5 }}>{sub}</div>
         </div>
 
         {error && (
