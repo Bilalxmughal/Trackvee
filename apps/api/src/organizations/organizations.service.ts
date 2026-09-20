@@ -19,8 +19,11 @@ export class OrganizationsService {
     private dataSource: DataSource,
   ) {}
 
-  async findAll(cityId?: string): Promise<OrgWithStats[]> {
-    const orgs = await this.repo.find({ where: cityId ? { cityId } : {}, order: { createdAt: 'DESC' } });
+  async findAll(cityId?: string, type?: string): Promise<OrgWithStats[]> {
+    const where: Record<string, unknown> = {};
+    if (cityId) where['cityId'] = cityId;
+    if (type) where['type'] = type;
+    const orgs = await this.repo.find({ where: Object.keys(where).length ? where : {}, order: { createdAt: 'DESC' } });
     if (!orgs.length) return [];
 
     const stats: { org_id: string; customer_count: string; vehicle_count: string; device_count: string }[] =
@@ -119,8 +122,8 @@ export class OrganizationsService {
       await this.usersService.create({
         email: saved.email,
         password,
-        firstName: saved.pocName ?? undefined,
-        role: 'org_admin',
+        firstName: saved.pocName ?? saved.name ?? undefined,
+        role: saved.type === 'b2c' ? 'customer' : 'org_admin',
         organizationId: saved.id,
       });
     }
@@ -143,7 +146,8 @@ export class OrganizationsService {
     const saved = await this.repo.save(org);
 
     if (password) {
-      const loginUser = await this.usersService.findByOrgRole(id, 'org_admin');
+      const role = saved.type === 'b2c' ? 'customer' : 'org_admin';
+      const loginUser = await this.usersService.findByOrgRole(id, role as any);
       if (loginUser) await this.usersService.update(loginUser.id, { password });
     }
 

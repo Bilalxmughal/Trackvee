@@ -40,8 +40,9 @@ export default function ClientsPage() {
   const [deletingId, setDeletingId] = useState(false);
 
   const load = () => {
-    const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
-    api.get<Client[]>(`/organizations${p}`).then(r => setClients(r.data)).catch(() => {}).finally(() => setLoading(false));
+    const params = new URLSearchParams({ type: 'b2b' });
+    if (selectedCityId) params.set('cityId', selectedCityId);
+    api.get<Client[]>(`/organizations?${params}`).then(r => setClients(r.data)).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [selectedCityId]);
 
@@ -67,7 +68,7 @@ export default function ClientsPage() {
       };
       if (form.password) payload.password = form.password;
       if (editing) await api.patch(`/organizations/${editing.id}`, payload);
-      else await api.post('/organizations', payload);
+      else await api.post('/organizations', { ...payload, type: 'b2b' });
       await load(); closeModal();
     } catch { } finally { setSaving(false); }
   };

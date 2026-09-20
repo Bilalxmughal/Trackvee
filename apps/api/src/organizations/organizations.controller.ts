@@ -13,8 +13,8 @@ export class OrganizationsController {
   constructor(private orgService: OrganizationsService) {}
 
   @Get()
-  findAll(@Query('cityId') cityId?: string) {
-    return this.orgService.findAll(cityId);
+  findAll(@Query('cityId') cityId?: string, @Query('type') type?: string) {
+    return this.orgService.findAll(cityId, type);
   }
 
   @Get(':id')

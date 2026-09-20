@@ -36,6 +36,9 @@ export class Organization {
   @Column({ name: 'city_id', type: 'uuid', nullable: true })
   cityId: string | null;
 
+  @Column({ type: 'varchar', length: 10, default: 'b2b' })
+  type: string;
+
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 

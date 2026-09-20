@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye } from '@tabler/icons-react';
 import api from '../api/client';
@@ -10,17 +10,20 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
-interface Customer { id: string; displayId: number; email: string; firstName: string | null; lastName: string | null; cityId: string | null; isActive: boolean; createdAt: string; organizationId: string | null; }
-interface Org { id: string; name: string; }
+interface Customer {
+  id: string; displayId: number; name: string;
+  pocName: string | null; contactNo: string | null; email: string | null;
+  cityId: string | null; isActive: boolean; createdAt: string;
+  vehicleCount: number;
+}
 
 const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 200 };
 const sel: React.CSSProperties = { height: 34, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
-const empty = { firstName: '', lastName: '', email: '', password: '', contactNo: '', cityId: '', isActive: true, organizationId: '' };
+const empty = { name: '', contactNo: '', email: '', password: '', cityId: '', isActive: true };
 
 export default function CustomersPage() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -33,11 +36,10 @@ export default function CustomersPage() {
   const [deletingId, setDeletingId] = useState(false);
 
   const load = () => {
-    const p = selectedCityId ? `&cityId=${selectedCityId}` : '';
-    Promise.all([
-      api.get<Customer[]>(`/users?role=customer${p}`),
-      api.get<Org[]>('/organizations'),
-    ]).then(([u, o]) => { setCustomers(u.data); setOrgs(o.data); })
+    const params = new URLSearchParams({ type: 'b2c' });
+    if (selectedCityId) params.set('cityId', selectedCityId);
+    api.get<Customer[]>(`/organizations?${params}`)
+      .then(r => setCustomers(r.data))
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [selectedCityId]);
@@ -45,7 +47,7 @@ export default function CustomersPage() {
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (c: Customer) => {
     setEditing(c);
-    setForm({ firstName: c.firstName ?? '', lastName: c.lastName ?? '', email: c.email, password: '', contactNo: '', cityId: c.cityId ?? '', isActive: c.isActive, organizationId: c.organizationId ?? '' });
+    setForm({ name: c.name, contactNo: c.contactNo ?? '', email: c.email ?? '', password: '', cityId: c.cityId ?? '', isActive: c.isActive });
     setModal(true);
   };
   const closeModal = () => { setModal(false); setEditing(null); };
@@ -54,10 +56,16 @@ export default function CustomersPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault(); setSaving(true);
     try {
-      const payload: Record<string, unknown> = { ...form, role: 'customer', organizationId: form.organizationId || null, cityId: form.cityId || null };
-      if (!payload.password) delete payload.password;
-      if (editing) await api.patch(`/users/${editing.id}`, payload);
-      else await api.post('/users', payload);
+      const payload: Record<string, unknown> = {
+        name: form.name,
+        contactNo: form.contactNo || null,
+        email: form.email || null,
+        cityId: form.cityId || null,
+        isActive: form.isActive,
+      };
+      if (form.password) payload.password = form.password;
+      if (editing) await api.patch(`/organizations/${editing.id}`, payload);
+      else await api.post('/organizations', { ...payload, type: 'b2c' });
       await load(); closeModal();
     } catch { } finally { setSaving(false); }
   };
@@ -65,18 +73,18 @@ export default function CustomersPage() {
   const handleDelete = async () => {
     if (!deleting) return; setDeletingId(true);
     try {
-      await api.delete(`/users/${deleting.id}`);
+      await api.delete(`/organizations/${deleting.id}`);
       setCustomers(c => c.filter(x => x.id !== deleting.id)); setDeleting(null);
     } catch { } finally { setDeletingId(false); }
   };
 
+  const cityName = (id: string | null) => cities.find(c => c.id === id)?.name ?? '—';
+
   const filtered = customers.filter(c => {
-    if (q && !c.email.toLowerCase().includes(q.toLowerCase()) && !(c.firstName ?? '').toLowerCase().includes(q.toLowerCase()) && !(c.lastName ?? '').toLowerCase().includes(q.toLowerCase())) return false;
+    if (q && !c.name.toLowerCase().includes(q.toLowerCase()) && !(c.email ?? '').toLowerCase().includes(q.toLowerCase())) return false;
     if (statusFilter && String(c.isActive) !== statusFilter) return false;
     return true;
   });
-
-  const orgName = (id: string | null) => orgs.find(o => o.id === id)?.name ?? '—';
 
   return (
     <div>
@@ -107,7 +115,7 @@ export default function CustomersPage() {
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Name', 'Email', 'Client', 'Status', 'Joined', 'Actions'].map(h => (
+                {['ID', 'Name', 'Contact', 'Email', 'City', 'Vehicles', 'Status', 'Joined', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
                 ))}
               </tr>
@@ -116,11 +124,11 @@ export default function CustomersPage() {
               {filtered.map(c => (
                 <tr key={c.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
                   <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{c.displayId}</td>
-                  <td style={{ padding: '11px 16px', fontWeight: 500 }}>
-                    {c.firstName || c.lastName ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() : '—'}
-                  </td>
-                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.email}</td>
-                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{orgName(c.organizationId)}</td>
+                  <td style={{ padding: '11px 16px', fontWeight: 500 }}>{c.name}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.contactNo ?? '—'}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.email ?? '—'}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{cityName(c.cityId)}</td>
+                  <td style={{ padding: '11px 16px', color: 'var(--text2)', textAlign: 'center' }}>{c.vehicleCount}</td>
                   <td style={{ padding: '11px 16px', color: c.isActive ? '#16a34a' : 'var(--muted)' }}>{c.isActive ? 'Active' : 'Inactive'}</td>
                   <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{fmtDate(c.createdAt)}</td>
                   <td style={{ padding: '11px 16px' }}>
@@ -135,7 +143,7 @@ export default function CustomersPage() {
                   </td>
                 </tr>
               ))}
-              {!filtered.length && <tr><td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No customers found</td></tr>}
+              {!filtered.length && <tr><td colSpan={9} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No customers found</td></tr>}
             </tbody>
           </table>
         </div>
@@ -143,49 +151,43 @@ export default function CustomersPage() {
 
       <Modal open={modal} title={editing ? 'Edit Customer' : 'Add Customer'} onClose={closeModal}>
         <form onSubmit={handleSubmit}>
+          <FormField label="Full Name *">
+            <input required value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ali Hassan" style={inputStyle}
+              onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
+          </FormField>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-            <FormField label="First Name">
-              <input value={form.firstName} onChange={e => set('firstName', e.target.value)} placeholder="Ali" style={inputStyle}
+            <FormField label="Email">
+              <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="customer@example.com" style={inputStyle}
                 onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
             </FormField>
-            <FormField label="Last Name">
-              <input value={form.lastName} onChange={e => set('lastName', e.target.value)} placeholder="Hassan" style={inputStyle}
+            <FormField label="Phone">
+              <input value={form.contactNo} onChange={e => set('contactNo', e.target.value)} placeholder="+92 300 0000000" style={inputStyle}
                 onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
             </FormField>
           </div>
-          <FormField label="Email *">
-            <input required type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="customer@example.com" style={inputStyle}
-              onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
-          </FormField>
-          <FormField label={editing ? 'New Password (leave blank to keep)' : 'Password *'}>
-            <input type="password" required={!editing} value={form.password} onChange={e => set('password', e.target.value)} placeholder="••••••••" style={inputStyle}
+          <FormField label={editing ? 'New Password (leave blank to keep)' : 'Password'}>
+            <input type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="••••••••" style={inputStyle}
               onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
           </FormField>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-            <FormField label="Client (Organization)">
-              <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
-                <option value="">None</option>
-                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
-            </FormField>
             <FormField label="City">
               <select value={form.cityId} onChange={e => set('cityId', e.target.value)} style={selectStyle}>
                 <option value="">— Select City —</option>
                 {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </FormField>
+            <FormField label="Status">
+              <select value={String(form.isActive)} onChange={e => set('isActive', e.target.value === 'true')} style={selectStyle}>
+                <option value="true">Active</option><option value="false">Inactive</option>
+              </select>
+            </FormField>
           </div>
-          <FormField label="Status">
-            <select value={String(form.isActive)} onChange={e => set('isActive', e.target.value === 'true')} style={selectStyle}>
-              <option value="true">Active</option><option value="false">Inactive</option>
-            </select>
-          </FormField>
           <FormActions onClose={closeModal} loading={saving} submitLabel={editing ? 'Update' : 'Add Customer'} />
         </form>
       </Modal>
 
       <ConfirmDialog open={!!deleting} title="Delete Customer"
-        message={`Delete customer "${deleting?.email}"? This cannot be undone.`}
+        message={`Delete customer "${deleting?.name}"? This cannot be undone.`}
         onConfirm={handleDelete} onClose={() => setDeleting(null)} loading={deletingId} />
     </div>
   );
