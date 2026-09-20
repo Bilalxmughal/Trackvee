@@ -1541,7 +1541,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
-      <div style={{ width: 'min(900px, 96vw)', height: 'min(600px, 90vh)', background: dark ? '#1a1a1a' : '#fff', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.55)' }}>
+      <div style={{ width: 'min(1400px, 98vw)', height: 'min(860px, 95vh)', background: dark ? '#1a1a1a' : '#fff', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.55)' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}`, gap: 8, flexShrink: 0 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><polygon points="5,3 19,12 5,21"/></svg>
