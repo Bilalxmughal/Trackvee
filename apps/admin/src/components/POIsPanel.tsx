@@ -22,7 +22,7 @@ interface Props {
   onRequestAlert?: (poi: POIRecord) => void;
 }
 
-const API = import.meta.env.VITE_API_URL ?? '';
+const API = import.meta.env.VITE_API_URL ?? '/api/v1';
 
 function getToken() { return localStorage.getItem('token') ?? ''; }
 
