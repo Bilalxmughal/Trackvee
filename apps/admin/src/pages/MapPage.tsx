@@ -13,6 +13,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAlert, AlertSettings } from '../contexts/AlertContext';
 import { useGeofence } from '../contexts/GeofenceContext';
+import { usePOI } from '../contexts/POIContext';
+import { POIsPanel, POIRecord } from '../components/POIsPanel';
+import { POI_ICONS } from '../lib/poi-icons';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -690,6 +693,58 @@ function GeofenceDrawLayer({
     }
   }, [map, drawType, center, radius, points]);
 
+  return null;
+}
+
+// ── POI Map Layer ─────────────────────────────────────────────────────────────
+
+function POIMapLayer({ pois, visible }: { pois: POIRecord[]; visible: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!visible || pois.length === 0) return;
+    const layers: L.Layer[] = [];
+    pois.forEach(poi => {
+      const ic = POI_ICONS.find(i => i.id === poi.icon);
+      const svgPath = ic?.path ?? POI_ICONS[0]!.path;
+      const svgStr = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="${svgPath}"/></svg>`;
+      const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="width:30px;height:30px;border-radius:50%;background:#dc2626;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%)">${svgStr}</div>
+        <div style="background:rgba(10,10,10,0.8);color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;white-space:nowrap;margin-top:14px;margin-left:-3px;pointer-events:none">${poi.name}</div>
+      </div>`;
+      const icon = L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0, 0], iconAnchor: [0, 0] });
+      const m = L.marker([poi.latitude, poi.longitude], { icon, zIndexOffset: 150 });
+      const popupHtml = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:180px">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">${poi.name}</div>
+        ${poi.group ? `<div style="color:#888;font-size:11px;margin-bottom:4px">${poi.group}</div>` : ''}
+        ${poi.description ? `<div style="color:#555;font-size:11px;margin-bottom:6px;line-height:1.4">${poi.description}</div>` : ''}
+        <div style="font-size:10.5px;color:#9ca3af">${poi.latitude.toFixed(5)}, ${poi.longitude.toFixed(5)}</div>
+        <div style="font-size:10.5px;color:#9ca3af">Radius: ${poi.radius}m</div>
+      </div>`;
+      m.bindPopup(popupHtml, { maxWidth: 240 });
+      // Radius circle
+      const circle = L.circle([poi.latitude, poi.longitude], { radius: poi.radius, color: '#dc2626', weight: 1.5, fillOpacity: 0.06, dashArray: '5 4' });
+      m.addTo(map); circle.addTo(map);
+      layers.push(m, circle);
+    });
+    return () => { layers.forEach(l => map.removeLayer(l)); };
+  }, [map, pois, visible]);
+  return null;
+}
+
+// ── POI Location Picker ───────────────────────────────────────────────────────
+
+function POILocationPicker({ active, onPick }: { active: boolean; onPick: (lat: number, lng: number) => void }) {
+  const map = useMap();
+  const onPickRef = useRef(onPick);
+  onPickRef.current = onPick;
+
+  useEffect(() => {
+    if (!active) { map.getContainer().style.cursor = ''; return; }
+    map.getContainer().style.cursor = 'crosshair';
+    const handler = (e: L.LeafletMouseEvent) => { onPickRef.current(e.latlng.lat, e.latlng.lng); };
+    map.on('click', handler);
+    return () => { map.off('click', handler); map.getContainer().style.cursor = ''; };
+  }, [active, map]);
   return null;
 }
 
@@ -1664,6 +1719,10 @@ export default function MapPage() {
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [alertsByImei, setAlertsByImei] = useState<Map<string, AlertRecord[]>>(new Map());
   const { gfPanelOpen: showGeofencesPanel, openGfPanel: ctxOpenGf, closeGfPanel: ctxCloseGf, setGfCount } = useGeofence();
+  const { poiPanelOpen, closePoiPanel, pickingLocation, setPickingLocation, setPendingCoords } = usePOI();
+  const [poiAlertPoi, setPoiAlertPoi] = useState<POIRecord | null>(null);
+  const [mapPois, setMapPois] = useState<POIRecord[]>([]);
+  const [poisVisible, setPoisVisible] = useState(true);
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [gfVisible, setGfVisible] = useState(true);
   const [gfLoading, setGfLoading] = useState(false);
@@ -1777,6 +1836,10 @@ export default function MapPage() {
     api.get<Geofence[]>('/geofences').then(r => { setGeofences(r.data); setGfCount(r.data.length); }).catch(() => {}).finally(() => setGfLoading(false));
   }, []);
 
+  useEffect(() => {
+    api.get<POIRecord[]>('/pois').then(r => setMapPois(r.data)).catch(() => {});
+  }, [poiPanelOpen]); // re-fetch when poi panel closes (user may have added/edited)
+
   const visiblePoints = selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points;
   const allVehicles = useMemo(() =>
     visiblePoints.map(p => ({ imei: p.imei, plate: deviceMap.get(p.imei)?.plate || p.imei.slice(-8) }))
@@ -1833,9 +1896,10 @@ export default function MapPage() {
   const openGfPanel = () => { ctxOpenGf(); setPanelOpen(true); resetGfForm(); };
   const closeGfPanel = () => { ctxCloseGf(); resetGfForm(); };
 
-  // Open panel when alerts panel activates from topbar
+  // Open panel when alerts/geofences/poi panel activates from topbar
   useEffect(() => { if (alertPanelOpen) setPanelOpen(true); }, [alertPanelOpen]);
   useEffect(() => { if (showGeofencesPanel) setPanelOpen(true); }, [showGeofencesPanel]);
+  useEffect(() => { if (poiPanelOpen) setPanelOpen(true); }, [poiPanelOpen]);
 
   const gfOpenNew = () => { resetGfForm(); setGfView('form'); };
   const gfOpenEdit = (gf: Geofence) => {
@@ -1922,6 +1986,17 @@ export default function MapPage() {
                 dark={dark}
                 vehicles={allVehicles}
                 onClose={() => { closeAlertPanel(); }}
+              />
+            : poiPanelOpen
+            ? <POIsPanel
+                dark={dark}
+                onClose={() => closePoiPanel()}
+                onRequestAlert={poi => {
+                  setPoiAlertPoi(poi);
+                  setAlertCreateImei(undefined);
+                  setAlertEditRecord(undefined);
+                  setShowAlertsModal(true);
+                }}
               />
             : showGeofencesPanel
             ? <GeofencesPanel
@@ -2046,6 +2121,18 @@ export default function MapPage() {
             )}
             {loading && <div style={{ position: 'absolute', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#555' : '#aaa', fontSize: 13, background: dark ? '#1a1a1a' : '#f8f9fa', borderRadius: 12 }}>Loading map…</div>}
             <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} dark={dark}/>
+            {mapPois.length > 0 && (
+              <button
+                onClick={() => setPoisVisible(v => !v)}
+                title={poisVisible ? 'Hide POI markers' : 'Show POI markers'}
+                style={{ position: 'absolute', top: 10, right: 218, zIndex: 1000, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 9px', borderRadius: 6, border: `1px solid ${poisVisible ? '#fca5a5' : (dark ? '#333' : '#e5e7eb')}`, background: poisVisible ? (dark ? '#2a0a0a' : '#fff5f5') : (dark ? '#1e1e1e' : '#fff'), color: poisVisible ? '#dc2626' : (dark ? '#888' : '#555'), cursor: 'pointer', fontSize: 11, fontWeight: 600, boxShadow: '0 1px 5px rgba(0,0,0,0.2)' }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0-6 0M17.657 16.657L13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/>
+                </svg>
+                POIs
+              </button>
+            )}
             {geofences.length > 0 && (
               <button
                 onClick={() => setGfVisible(v => !v)}
@@ -2072,6 +2159,8 @@ export default function MapPage() {
                   </>}
               <DistanceTool active={distanceMode} distanceModeRef={distanceModeRef}/>
               <GeofenceLayer geofences={geofences} editingId={gfEditing?.id ?? null} visible={gfVisible}/>
+              <POIMapLayer pois={mapPois} visible={poisVisible}/>
+              <POILocationPicker active={pickingLocation} onPick={(lat, lng) => { setPendingCoords([lat, lng]); setPickingLocation(false); }}/>
               <GeofenceDrawLayer
                 drawActive={gfDrawActive || (gfType === 'polygon' && gfView === 'form')}
                 drawType={gfType}
