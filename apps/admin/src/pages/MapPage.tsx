@@ -1514,7 +1514,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
     if (to) params.set('to', to);
     api.get<TripPoint[]>(`/telemetry/${imei}/history?${params}`)
       .then(r => {
-        const sorted = [...r.data].reverse().filter(p => p.gpsValid && (p.latitude !== 0 || p.longitude !== 0));
+        const sorted = r.data.filter(p => p.gpsValid && (p.latitude !== 0 || p.longitude !== 0));
         setHistory(sorted);
       })
       .catch(() => {})
