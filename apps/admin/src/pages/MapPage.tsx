@@ -1577,6 +1577,21 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
     return d;
   }, [history]);
 
+  const tripStats = useMemo(() => {
+    if (history.length < 2) return null;
+    const first = new Date(history[0]!.timestamp).getTime();
+    const last = new Date(history[history.length - 1]!.timestamp).getTime();
+    const durationMs = last - first;
+    const durationMin = Math.round(durationMs / 60000);
+    const dh = Math.floor(durationMin / 60);
+    const dm = durationMin % 60;
+    const durationStr = dh > 0 ? `${dh}h ${dm}m` : `${dm}m`;
+    const avgSpeed = durationMs > 0 ? totalKm / (durationMs / 3600000) : 0;
+    const maxSpeed = Math.max(...history.map(p => p.speedKmh));
+    const stops = deriveTimeline(history).filter(e => e.type === 'parked').length;
+    return { durationStr, avgSpeed: Math.round(avgSpeed), maxSpeed: Math.round(maxSpeed), stops };
+  }, [history, totalKm]);
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
       <div style={{ width: 'min(1400px, 98vw)', height: 'min(860px, 95vh)', background: dark ? '#1a1a1a' : '#fff', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.55)' }}>
@@ -1616,6 +1631,23 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
             </button>
           </>)}
         </div>
+        {/* Stats bar */}
+        {!loading && !snapping && tripStats && (
+          <div style={{ display: 'flex', alignItems: 'stretch', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}`, background: dark ? '#111' : '#fafafa', flexShrink: 0 }}>
+            {([
+              { label: 'Distance', value: `${totalKm.toFixed(1)} km` },
+              { label: 'Duration', value: tripStats.durationStr },
+              { label: 'Avg Speed', value: `${tripStats.avgSpeed} km/h` },
+              { label: 'Max Speed', value: `${tripStats.maxSpeed} km/h` },
+              { label: 'Stops', value: String(tripStats.stops) },
+            ] as const).map((s, i) => (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px 6px', borderRight: i < 4 ? `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}` : undefined }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', lineHeight: 1.2 }}>{s.value}</span>
+                <span style={{ fontSize: 10, color: dark ? '#666' : '#9ca3af', marginTop: 2 }}>{s.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {/* Map area */}
         <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
           {(loading || snapping) && (
