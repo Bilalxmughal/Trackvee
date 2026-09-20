@@ -142,7 +142,7 @@ export default function DashboardPage() {
   }, [alerts]);
 
   const alertBarData = Object.entries(alertTypeCounts).map(([type, value]) => ({
-    label: type, value, color: ALERT_COLORS[type] ?? '#6b7280',
+    label: type, value, color: '#dc2626',
   })).sort((a, b) => b.value - a.value);
 
   // Device health
@@ -155,11 +155,11 @@ export default function DashboardPage() {
     return { online, offline, weakSignal, lowBattery };
   }, [devices]);
 
-  const cardStyle = { padding: '18px 20px', background: 'var(--bg2)', borderRadius: 12 };
+  const cardStyle = { padding: '18px 20px', background: 'var(--bg2)', borderRadius: 10 };
   const labelStyle = { fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase' as const, letterSpacing: 0.8, marginBottom: 12 };
 
   return (
-    <div style={{ padding: '24px 28px', maxWidth: 1200 }}>
+    <div style={{ padding: '24px 28px' }}>
       {/* Greeting */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>{text}, {fullName}</div>
@@ -169,12 +169,12 @@ export default function DashboardPage() {
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
         {[
-          { label: 'Clients', value: stats?.organizations, color: '#dc2626' },
-          { label: 'Users', value: stats?.users, color: '#2563eb' },
-          { label: 'Vehicles', value: stats?.vehicles, color: '#16a34a' },
-          { label: 'Devices', value: stats?.devices, color: '#f59e0b' },
+          { label: 'Clients', value: stats?.organizations },
+          { label: 'Users', value: stats?.users },
+          { label: 'Vehicles', value: stats?.vehicles },
+          { label: 'Devices', value: stats?.devices },
         ].map(s => (
-          <div key={s.label} style={{ ...cardStyle, borderTop: `3px solid ${s.color}` }}>
+          <div key={s.label} style={cardStyle}>
             <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)', lineHeight: 1 }}>{s.value ?? '—'}</div>
             <div style={{ fontSize: 11, color: '#aaa', marginTop: 5, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
           </div>
@@ -218,14 +218,14 @@ export default function DashboardPage() {
           <div style={labelStyle}>Device Health</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
-              { label: 'Online', value: deviceHealth.online, color: '#16a34a', bg: 'rgba(22,163,74,0.08)' },
-              { label: 'Offline (>1hr)', value: deviceHealth.offline, color: '#dc2626', bg: 'rgba(220,38,38,0.08)' },
-              { label: 'Weak Signal', value: deviceHealth.weakSignal, color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
-              { label: 'Low Battery', value: deviceHealth.lowBattery, color: '#7c3aed', bg: 'rgba(124,58,237,0.08)' },
+              { label: 'Online', value: deviceHealth.online },
+              { label: 'Offline (>1hr)', value: deviceHealth.offline },
+              { label: 'Weak Signal', value: deviceHealth.weakSignal },
+              { label: 'Low Battery', value: deviceHealth.lowBattery },
             ].map(item => (
-              <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 8, background: item.bg }}>
-                <span style={{ fontSize: 12, color: dark ? '#ccc' : '#444' }}>{item.label}</span>
-                <span style={{ fontSize: 16, fontWeight: 700, color: item.color }}>{item.value}</span>
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${dark ? '#222' : '#f3f4f6'}` }}>
+                <span style={{ fontSize: 12, color: dark ? '#ccc' : '#555' }}>{item.label}</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{item.value}</span>
               </div>
             ))}
           </div>
