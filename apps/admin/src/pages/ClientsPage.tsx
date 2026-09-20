@@ -25,9 +25,7 @@ const sel: React.CSSProperties = { height: 34, padding: '0 10px', border: '1px s
 const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 200 };
 
 const typeTag = (t: string) => (
-  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: t === 'b2b' ? 'rgba(59,130,246,0.1)' : 'rgba(168,85,247,0.1)', color: t === 'b2b' ? '#3b82f6' : '#a855f7', letterSpacing: 0.5 }}>
-    {t === 'b2b' ? 'B2B' : 'B2C'}
-  </span>
+  <span style={{ fontSize: 12, color: 'var(--text2)' }}>{t === 'b2b' ? 'B2B' : 'B2C'}</span>
 );
 
 const empty = { name: '', companyName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true, type: 'b2b' };

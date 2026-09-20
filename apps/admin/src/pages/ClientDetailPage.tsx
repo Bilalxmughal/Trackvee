@@ -28,9 +28,7 @@ interface Device {
 const card: React.CSSProperties = { padding: 20, borderRadius: 12, background: 'var(--bg2)' };
 
 const TypeBadge = ({ type }: { type: string }) => (
-  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 5, background: type === 'b2b' ? 'rgba(59,130,246,0.1)' : 'rgba(168,85,247,0.1)', color: type === 'b2b' ? '#3b82f6' : '#a855f7', letterSpacing: 0.5 }}>
-    {type === 'b2b' ? 'B2B' : 'B2C'}
-  </span>
+  <span style={{ fontSize: 12, color: 'var(--muted)' }}>{type === 'b2b' ? 'B2B' : 'B2C'}</span>
 );
 
 export default function ClientDetailPage() {
@@ -116,8 +114,8 @@ export default function ClientDetailPage() {
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 52, height: 52, borderRadius: 12, background: isB2B ? 'rgba(59,130,246,0.08)' : 'rgba(168,85,247,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            {isB2B ? <IconBuilding size={24} color="#3b82f6" /> : <IconUser size={24} color="#a855f7" />}
+          <div style={{ width: 52, height: 52, borderRadius: 12, background: 'rgba(220,38,38,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {isB2B ? <IconBuilding size={24} color="#dc2626" /> : <IconUser size={24} color="#dc2626" />}
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
