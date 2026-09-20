@@ -1030,44 +1030,24 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
 
   const inpStyle: React.CSSProperties = { fontSize: 11.5, padding: '5px 7px', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 6, background: dark ? '#111' : '#f9fafb', color: dark ? '#e5e5e5' : '#111', outline: 'none', boxSizing: 'border-box', width: '100%' };
 
-  // Custom time input: HH MM AM/PM inside one box
-  const TimeInput = ({ timePart, onChange }: { timePart: string; onChange: (t: string) => void }) => {
-    const h24 = timePart ? parseInt(timePart.split(':')[0] ?? '0', 10) : 0;
-    const mm  = timePart ? (timePart.split(':')[1] ?? '00') : '00';
-    const isPm = h24 >= 12;
-    const h12  = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
-
-    const commit = (newH12: number, newMm: string, newPm: boolean) => {
-      let h = newH12 % 12;
-      if (newPm) h += 12;
-      onChange(`${String(h).padStart(2, '0')}:${newMm}`);
-    };
-
-    const bdr = `1px solid ${dark ? '#333' : '#e5e7eb'}`;
-    const bg  = dark ? '#111' : '#f9fafb';
-    const clr = dark ? '#e5e5e5' : '#111';
-    const numStyle: React.CSSProperties = { width: 28, border: 'none', background: 'transparent', color: clr, fontSize: 12, textAlign: 'center', outline: 'none', padding: '0 2px', MozAppearance: 'textfield' as React.CSSProperties['MozAppearance'] };
-
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', border: bdr, borderRadius: 6, background: bg, overflow: 'hidden', height: 29 }}>
-        <input type="number" min={1} max={12} value={h12} onChange={e => { const v = Math.min(12, Math.max(1, parseInt(e.target.value) || 1)); commit(v, mm, isPm); }} style={numStyle}/>
-        <span style={{ color: clr, fontSize: 13, lineHeight: 1, userSelect: 'none' }}>:</span>
-        <input type="number" min={0} max={59} value={parseInt(mm)} onChange={e => { const v = Math.min(59, Math.max(0, parseInt(e.target.value) || 0)); commit(h12, String(v).padStart(2, '0'), isPm); }} style={numStyle}/>
-        <button type="button" onClick={() => commit(h12, mm, !isPm)}
-          style={{ marginLeft: 4, marginRight: 4, padding: '2px 6px', borderRadius: 4, border: 'none', background: isPm ? '#dc2626' : '#2563eb', color: '#fff', fontSize: 10, fontWeight: 700, cursor: 'pointer', letterSpacing: 0.3, flexShrink: 0 }}>
-          {isPm ? 'PM' : 'AM'}
-        </button>
-      </div>
-    );
-  };
-
   const inp = (val: string, set: (v: string) => void) => {
     const [datePart, timePart] = val ? val.split('T') : ['', ''];
     const setDate = (d: string) => set(`${d}T${timePart || '00:00'}`);
+    const setTime = (t: string) => set(`${datePart || new Date().toISOString().slice(0, 10)}T${t}`);
+    const hour = timePart ? parseInt(timePart.split(':')[0] ?? '0', 10) : -1;
+    const ampm = hour < 0 ? null : hour < 12 ? 'AM' : 'PM';
     return (
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 5 }}>
         <input type="date" value={datePart ?? ''} onChange={e => setDate(e.target.value)} style={inpStyle}/>
-        <TimeInput timePart={timePart ?? '00:00'} onChange={t => set(`${datePart || new Date().toISOString().slice(0, 10)}T${t}`)}/>
+        <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 6, background: dark ? '#111' : '#f9fafb', paddingRight: ampm ? 6 : 0, overflow: 'hidden' }}>
+          <input type="time" value={timePart ?? ''} onChange={e => setTime(e.target.value)}
+            style={{ border: 'none', background: 'transparent', color: dark ? '#e5e5e5' : '#111', fontSize: 11.5, padding: '5px 6px', outline: 'none', width: 82 }}/>
+          {ampm && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: ampm === 'AM' ? '#2563eb' : '#dc2626', letterSpacing: 0.3, flexShrink: 0 }}>
+              {ampm}
+            </span>
+          )}
+        </div>
       </div>
     );
   };
