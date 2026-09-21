@@ -17,7 +17,7 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.repo.findOne({ where: { email }, select: { id: true, email: true, password: true, role: true, firstName: true, lastName: true, isActive: true, organizationId: true, createdAt: true, updatedAt: true } });
+    return this.repo.findOne({ where: { email }, select: { id: true, email: true, password: true, role: true, firstName: true, lastName: true, isActive: true, organizationId: true, tokenVersion: true, lastLoginAt: true, createdAt: true, updatedAt: true } });
   }
 
   async create(data: {
@@ -72,5 +72,21 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
     user.role = role;
     return this.repo.save(user);
+  }
+
+  async updateLastLogin(id: string): Promise<void> {
+    await this.repo.update(id, { lastLoginAt: new Date() });
+  }
+
+  async revoke(id: string): Promise<void> {
+    await this.repo.increment({ id }, 'tokenVersion', 1);
+  }
+
+  async findOrgUsers(organizationId?: string): Promise<User[]> {
+    const ORG_ROLES: UserRole[] = ['org_owner', 'org_admin', 'org_user', 'customer'];
+    if (organizationId) {
+      return this.repo.find({ where: ORG_ROLES.map(r => ({ organizationId, role: r })) });
+    }
+    return this.repo.find({ where: ORG_ROLES.map(r => ({ role: r })) });
   }
 }

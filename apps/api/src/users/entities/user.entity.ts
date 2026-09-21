@@ -44,6 +44,12 @@ export class User {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
+  @Column({ name: 'last_login_at', type: 'timestamptz', nullable: true, default: null })
+  lastLoginAt: Date | null;
+
+  @Column({ name: 'token_version', type: 'int', default: 0 })
+  tokenVersion: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

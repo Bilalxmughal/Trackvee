@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus, Param, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -28,5 +28,13 @@ export class AuthController {
   @ApiBearerAuth()
   me(@CurrentUser() user: User) {
     return this.authService.me(user.id);
+  }
+
+  @Post('impersonate/:userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  impersonate(@Param('userId') userId: string, @Req() req: any) {
+    return this.authService.impersonate(userId, req.user);
   }
 }

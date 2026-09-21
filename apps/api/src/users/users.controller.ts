@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -13,6 +13,11 @@ export class UsersController {
   @Get()
   findAll(@Query('role') role?: string, @Query('cityId') cityId?: string) {
     return this.usersService.findAll(role, cityId);
+  }
+
+  @Get('org-users')
+  findOrgUsers(@Query('organizationId') organizationId?: string) {
+    return this.usersService.findOrgUsers(organizationId);
   }
 
   @Get(':id')
@@ -33,5 +38,13 @@ export class UsersController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
+  }
+
+  @Post(':id/revoke')
+  async revoke(@Param('id') id: string, @Req() req: any) {
+    const role = req.user?.role;
+    if (role !== 'super_admin' && role !== 'admin') throw new ForbiddenException();
+    await this.usersService.revoke(id);
+    return { ok: true };
   }
 }

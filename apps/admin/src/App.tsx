@@ -16,6 +16,7 @@ import RoleAccessPage from './pages/RoleAccessPage';
 import SetupGuidePage from './pages/SetupGuidePage';
 import MapPage from './pages/MapPage';
 import SettingsPage from './pages/SettingsPage';
+import ClientUsersPage from './pages/ClientUsersPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/devices" element={<RoleRoute page="devices"><DevicesPage /></RoleRoute>} />
         <Route path="/telemetry" element={<RoleRoute page="telemetry"><TelemetryPage /></RoleRoute>} />
         <Route path="/map" element={<RoleRoute page="map"><MapPage /></RoleRoute>} />
+        <Route path="/client-users" element={<RoleRoute page="client-users"><ClientUsersPage /></RoleRoute>} />
         <Route path="/users" element={<RoleRoute page="users"><UsersPage /></RoleRoute>} />
         <Route path="/roles" element={<RoleRoute page="roles"><RoleAccessPage /></RoleRoute>} />
         <Route path="/setup" element={<RoleRoute page="setup"><SetupGuidePage /></RoleRoute>} />

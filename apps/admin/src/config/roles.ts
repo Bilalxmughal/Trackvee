@@ -19,37 +19,40 @@ export const ROLE_LABEL: Record<string, string> = {
 // Page-level CRUD permissions per internal role
 export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, PageAction[]>>>> = {
   super_admin: {
-    dashboard: ['view'],
-    map:       ['view'],
-    clients:   ['view', 'add', 'edit', 'delete'],
-    vehicles:  ['view', 'add', 'edit', 'delete'],
-    devices:   ['view', 'add', 'edit', 'delete'],
-    telemetry: ['view'],
-    users:     ['view', 'add', 'edit', 'delete'],
-    roles:     ['view'],
-    settings:  ['view', 'edit'],
-    setup:     ['view'],
+    dashboard:      ['view'],
+    map:            ['view'],
+    clients:        ['view', 'add', 'edit', 'delete'],
+    'client-users': ['view', 'add', 'edit', 'delete'],
+    vehicles:       ['view', 'add', 'edit', 'delete'],
+    devices:        ['view', 'add', 'edit', 'delete'],
+    telemetry:      ['view'],
+    users:          ['view', 'add', 'edit', 'delete'],
+    roles:          ['view'],
+    settings:       ['view', 'edit'],
+    setup:          ['view'],
   },
   admin: {
-    dashboard: ['view'],
-    map:       ['view'],
-    clients:   ['view', 'add', 'edit', 'delete'],
-    vehicles:  ['view', 'add', 'edit', 'delete'],
-    devices:   ['view', 'add', 'edit', 'delete'],
-    telemetry: ['view'],
-    users:     ['view', 'add', 'edit', 'delete'],
-    roles:     ['view'],
-    settings:  ['view', 'edit'],
-    setup:     ['view'],
+    dashboard:      ['view'],
+    map:            ['view'],
+    clients:        ['view', 'add', 'edit', 'delete'],
+    'client-users': ['view', 'add', 'edit', 'delete'],
+    vehicles:       ['view', 'add', 'edit', 'delete'],
+    devices:        ['view', 'add', 'edit', 'delete'],
+    telemetry:      ['view'],
+    users:          ['view', 'add', 'edit', 'delete'],
+    roles:          ['view'],
+    settings:       ['view', 'edit'],
+    setup:          ['view'],
   },
   ops: {
-    dashboard: ['view'],
-    map:       ['view'],
-    clients:   ['view', 'add', 'edit'],
-    vehicles:  ['view', 'add', 'edit'],
-    devices:   ['view', 'add', 'edit'],
-    telemetry: ['view'],
-    setup:     ['view'],
+    dashboard:      ['view'],
+    map:            ['view'],
+    clients:        ['view', 'add', 'edit'],
+    'client-users': ['view', 'add', 'edit'],
+    vehicles:       ['view', 'add', 'edit'],
+    devices:        ['view', 'add', 'edit'],
+    telemetry:      ['view'],
+    setup:          ['view'],
   },
   live_ops: {
     dashboard: ['view'],
@@ -148,3 +151,49 @@ export function canManageRole(currentRole: UserRole, targetRole: UserRole): bool
   if (currentRole === 'admin') return targetRole !== 'super_admin' && targetRole !== 'admin'; // admin cannot touch super_admin or admin
   return false;
 }
+
+// Client portal permissions per org role (used in RoleAccessPage org section)
+export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, PageAction[]>>>> = {
+  org_owner: {
+    dashboard: ['view'],
+    map:       ['view'],
+    vehicles:  ['view', 'add', 'edit', 'delete'],
+    alerts:    ['view', 'add', 'edit', 'delete'],
+    geofences: ['view', 'add', 'edit', 'delete'],
+    pois:      ['view', 'add', 'edit', 'delete'],
+    users:     ['view', 'add', 'edit', 'delete'],
+  },
+  org_admin: {
+    dashboard: ['view'],
+    map:       ['view'],
+    vehicles:  ['view', 'add', 'edit', 'delete'],
+    alerts:    ['view', 'add', 'edit', 'delete'],
+    geofences: ['view', 'add', 'edit', 'delete'],
+    pois:      ['view', 'add', 'edit', 'delete'],
+    users:     ['view', 'add', 'edit'],
+  },
+  org_user: {
+    // dynamic — controlled by org_user_permissions table
+    dashboard: ['view'],
+    map:       ['view'],
+    vehicles:  ['view'],
+    alerts:    ['view'],
+    geofences: ['view'],
+    pois:      ['view'],
+  },
+  customer: {
+    dashboard: ['view'],
+    map:       ['view'],
+    vehicles:  ['view'],
+    alerts:    ['view'],
+  },
+};
+
+export const ORG_ROLES: UserRole[] = ['org_owner', 'org_admin', 'org_user', 'customer'];
+
+export const ORG_ROLE_LABEL: Record<string, string> = {
+  org_owner: 'Org Owner',
+  org_admin: 'Org Admin',
+  org_user:  'Org User',
+  customer:  'Customer',
+};

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { IconShield, IconCheck, IconMinus, IconLock } from '@tabler/icons-react';
 import PageHeader from '../components/PageHeader';
-import { ROLE_PERMISSIONS, TOPBAR_PERMISSIONS, ROLE_LABEL, INTERNAL_ROLES, canManageRole, type PageAction } from '../config/roles';
+import { ROLE_PERMISSIONS, TOPBAR_PERMISSIONS, ROLE_LABEL, INTERNAL_ROLES, canManageRole, ORG_ROLE_PORTAL_PERMISSIONS, ORG_ROLES, ORG_ROLE_LABEL, type PageAction } from '../config/roles';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '@yotrack/types';
 
@@ -297,6 +297,53 @@ export default function RoleAccessPage() {
                           onClick={() => toggleTopbar(action, feat.key)}
                         />
                       ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Org Roles Portal Permissions */}
+          <div style={{ borderTop: '2px solid var(--border)', marginTop: 4 }}>
+            <div style={{ padding: '12px 20px 4px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 1 }}>Client Portal Roles</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Default portal page permissions per org role. These are system defaults — org_user permissions can be further customized per user.</div>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 4 }}>
+              <thead>
+                <tr style={{ borderBottom: '1.5px solid var(--border)', background: 'var(--bg2)' }}>
+                  <th style={{ padding: '9px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.6, width: 160 }}>Page</th>
+                  {ORG_ROLES.map(role => (
+                    <th key={role} style={{ padding: '9px 10px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 0.6, minWidth: 80 }}>
+                      {ORG_ROLE_LABEL[role]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {['dashboard', 'map', 'vehicles', 'alerts', 'geofences', 'pois', 'users'].map(pageKey => {
+                  const labels: Record<string, string> = { dashboard: 'Dashboard', map: 'Live Map', vehicles: 'Vehicles', alerts: 'Alerts', geofences: 'Geofences', pois: 'POIs', users: 'Users' };
+                  return (
+                    <tr key={pageKey} style={{ borderBottom: '1px solid var(--border2)' }}>
+                      <td style={{ padding: '9px 20px', fontWeight: 500 }}>{labels[pageKey]}</td>
+                      {ORG_ROLES.map(role => {
+                        const actions = ORG_ROLE_PORTAL_PERMISSIONS[role]?.[pageKey] ?? [];
+                        return (
+                          <td key={role} style={{ padding: '9px 10px', textAlign: 'center' }}>
+                            {actions.length === 0
+                              ? <span style={{ color: '#e5e7eb', fontSize: 11 }}>—</span>
+                              : <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                  {actions.map(a => (
+                                    <span key={a} style={{ fontSize: 9, padding: '1px 4px', borderRadius: 3, background: `${ACTION_COLOR[a as PageAction]}18`, color: ACTION_COLOR[a as PageAction], fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                                      {a}
+                                    </span>
+                                  ))}
+                                </div>
+                            }
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}

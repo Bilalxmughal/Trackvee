@@ -5,7 +5,7 @@ import {
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
   IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
-  IconBell,
+  IconBell, IconUsersGroup, IconUserScan,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -27,7 +27,8 @@ const NAV_SECTIONS: Section[] = [
   {
     label: 'Corporate',
     items: [
-      { to: '/clients', icon: IconBuilding, label: 'Clients' },
+      { to: '/clients',       icon: IconBuilding,    label: 'Clients' },
+      { to: '/client-users',  icon: IconUsersGroup,  label: 'Client Users' },
     ],
   },
   {
@@ -105,7 +106,7 @@ function NavItem({ to, icon: Icon, label, collapsed }: NavItemDef & { collapsed:
 // ── LayoutInner ───────────────────────────────────────────────────────────────
 
 function LayoutInner() {
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonating, originalUser, exitImpersonation } = useAuth();
   const { dark, toggle: toggleTheme } = useTheme();
   const { cities, selectedCityId, setSelectedCityId } = useCityFilter();
   const { activeAlertCount, alertPanelOpen, openAlertPanel, closeAlertPanel } = useAlert();
@@ -495,6 +496,20 @@ function LayoutInner() {
             )}
           </div>
         </header>
+
+        {/* Impersonation banner */}
+        {isImpersonating && (
+          <div style={{ background: '#f59e0b', color: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 16px', fontSize: 12.5, fontWeight: 600, flexShrink: 0, zIndex: 100 }}>
+            <span>
+              <IconUserScan size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+              Viewing as <strong>{user?.email}</strong> ({ROLE_LABEL[user?.role ?? ''] ?? user?.role})
+              {originalUser && <span style={{ fontWeight: 400 }}> — logged in as {originalUser.email}</span>}
+            </span>
+            <button onClick={exitImpersonation} style={{ border: '1px solid rgba(0,0,0,0.2)', background: 'rgba(0,0,0,0.1)', borderRadius: 5, padding: '3px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 12, color: '#1a1a1a' }}>
+              Exit View
+            </button>
+          </div>
+        )}
 
         {/* Page content */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: dark ? '#111' : '#fff' }}>

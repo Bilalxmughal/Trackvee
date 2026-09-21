@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconEyeOff, IconDownload } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconEyeOff, IconDownload, IconUsers } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
@@ -21,6 +21,7 @@ interface Client {
   vehicleCount: number; deviceCount: number;
 }
 interface Vehicle { id: string; licensePlate: string | null; organizationId: string | null; }
+interface OrgUserStub { id: string; organizationId: string | null; }
 
 const sel: React.CSSProperties = { height: 34, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12.5, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 200 };
@@ -42,6 +43,7 @@ export default function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [plateMap, setPlateMap] = useState<Map<string, string[]>>(new Map());
+  const [userCountMap, setUserCountMap] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -78,7 +80,8 @@ export default function ClientsPage() {
     Promise.all([
       api.get<Client[]>(`/organizations?${params}`),
       api.get<Vehicle[]>('/vehicles'),
-    ]).then(([orgs, vs]) => {
+      api.get<OrgUserStub[]>('/users/org-users'),
+    ]).then(([orgs, vs, users]) => {
       setClients(orgs.data);
       const map = new Map<string, string[]>();
       vs.data.forEach(v => {
@@ -88,6 +91,9 @@ export default function ClientsPage() {
         map.set(v.organizationId, arr);
       });
       setPlateMap(map);
+      const ucMap = new Map<string, number>();
+      users.data.forEach(u => { if (u.organizationId) ucMap.set(u.organizationId, (ucMap.get(u.organizationId) ?? 0) + 1); });
+      setUserCountMap(ucMap);
     }).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [selectedCityId]);
@@ -189,7 +195,7 @@ export default function ClientsPage() {
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Name', 'Company', 'Contact', 'Email', 'Type', 'Plates', 'Vehicles', 'Devices', 'Status', 'Added', 'Actions'].map(h => (
+                {['ID', 'Name', 'Company', 'Contact', 'Email', 'Type', 'Plates', 'Vehicles', 'Devices', 'Portal Users', 'Status', 'Added', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -212,6 +218,18 @@ export default function ClientsPage() {
                   </td>
                   <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.vehicleCount}</td>
                   <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text)' }}>{c.deviceCount}</td>
+                  <td style={{ padding: '10px 14px' }}>
+                    {(() => {
+                      const count = userCountMap.get(c.id) ?? 0;
+                      return (
+                        <button onClick={() => navigate(`/client-users?org=${c.id}`)} title="View portal users"
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, border: 'none', background: count > 0 ? 'rgba(59,130,246,0.08)' : 'var(--bg2)', borderRadius: 4, padding: '2px 7px', cursor: 'pointer', color: count > 0 ? '#3b82f6' : 'var(--muted)' }}>
+                          <IconUsers size={11} />
+                          <span style={{ fontSize: 12, fontWeight: count > 0 ? 600 : 400 }}>{count}</span>
+                        </button>
+                      );
+                    })()}
+                  </td>
                   <td style={{ padding: '10px 14px', color: c.isActive ? '#16a34a' : 'var(--muted)', fontSize: 12 }}>{c.isActive ? 'Active' : 'Inactive'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{fmtDate(c.createdAt)}</td>
                   <td style={{ padding: '10px 14px' }}>
@@ -226,7 +244,7 @@ export default function ClientsPage() {
                   </td>
                 </tr>
               ))}
-              {!filtered.length && <tr><td colSpan={12} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No clients found</td></tr>}
+              {!filtered.length && <tr><td colSpan={13} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No clients found</td></tr>}
             </tbody>
           </table>
         </div>
