@@ -9,7 +9,7 @@ import {
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { canAccessPage, canAccessTopbar, ROLE_LABEL } from '../config/roles';
+import { canAccessPage, canAccessTopbar, ROLE_LABEL, ORG_ROLES } from '../config/roles';
 import { CityFilterProvider, useCityFilter } from '../contexts/CityFilterContext';
 import { AlertProvider, useAlert } from '../contexts/AlertContext';
 import { GeofenceProvider, useGeofence } from '../contexts/GeofenceContext';
@@ -144,12 +144,16 @@ function LayoutInner() {
     : user?.email?.split('@')[0] ?? '';
 
   const role = user?.role ?? 'customer';
-  const visibleSections: Section[] = NAV_SECTIONS
-    .map(s => ({
-      ...s,
-      items: s.items.filter(i => canAccessPage(role as Parameters<typeof canAccessPage>[0], i.to.replace('/', ''))),
-    }))
-    .filter(s => s.items.length > 0);
+  const isOrgRole = ORG_ROLES.includes(role as (typeof ORG_ROLES)[number]);
+  const isPortalHost = typeof window !== 'undefined' && window.location.hostname === 'login.trackvee.com';
+  const visibleSections: Section[] = isOrgRole
+    ? [{ label: null, items: [{ to: '/client-users', icon: IconUsersGroup, label: 'My Users' }] }]
+    : NAV_SECTIONS
+        .map(s => ({
+          ...s,
+          items: s.items.filter(i => canAccessPage(role as Parameters<typeof canAccessPage>[0], i.to.replace('/', ''))),
+        }))
+        .filter(s => s.items.length > 0);
 
   // global search
   useEffect(() => {
@@ -234,7 +238,12 @@ function LayoutInner() {
         {/* Logo + toggle */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: collapsed ? '14px 0' : '14px 14px 14px 18px', borderBottom: `1px solid ${dark ? '#222' : '#f5f5f5'}`, flexShrink: 0 }}>
           {!collapsed && (
-            <img src="/logo.png" alt="Trackvee" style={{ height: 28, width: 'auto', display: 'block' }} />
+            isPortalHost
+              ? <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <img src="/logo.png" alt="Trackvee" style={{ height: 24, width: 'auto', display: 'block' }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', letterSpacing: 0.5, textTransform: 'uppercase', paddingLeft: 2, borderLeft: '1px solid #dc262640' }}>Portal</span>
+                </div>
+              : <img src="/logo.png" alt="Trackvee" style={{ height: 28, width: 'auto', display: 'block' }} />
           )}
           <button
             onClick={toggleCollapsed}
@@ -358,8 +367,8 @@ function LayoutInner() {
 
           <div style={{ flex: 1 }} />
 
-          {/* City filter */}
-          {cities.length > 0 && (
+          {/* City filter — hidden for org portal users */}
+          {!isOrgRole && cities.length > 0 && (
             <div ref={cityRef} style={{ position: 'relative' }}>
               <button
                 onClick={() => setCityDropOpen(o => !o)}
@@ -390,8 +399,8 @@ function LayoutInner() {
             </div>
           )}
 
-          {/* Global search */}
-          <div ref={searchRef} style={{ position: 'relative' }}>
+          {/* Global search — hidden for org portal users */}
+          {!isOrgRole && <div ref={searchRef} style={{ position: 'relative' }}>
             {searchOpen ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ position: 'relative' }}>
@@ -452,7 +461,7 @@ function LayoutInner() {
                 )}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Dark mode toggle */}
           <button

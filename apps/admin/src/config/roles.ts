@@ -76,6 +76,12 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     devices:   ['view'],
     setup:     ['view'],
   },
+  org_owner: {
+    'client-users': ['view', 'add', 'edit', 'delete'],
+  },
+  org_admin: {
+    'client-users': ['view', 'add', 'edit', 'delete'],
+  },
 };
 
 // Topbar feature CRUD permissions per internal role
