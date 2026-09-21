@@ -28,7 +28,7 @@ interface LivePoint {
   gsmSignal?: number | null; altitude?: number | null;
 }
 interface DeviceInfo {
-  imei: string; cityId: string | null;
+  imei: string; displayId: number; cityId: string | null;
   vehicle: { id: string; licensePlate: string | null; displayId: number } | null;
 }
 interface VehicleDetail {
@@ -37,7 +37,7 @@ interface VehicleDetail {
 }
 interface VehicleGroup { id: string; name: string; imeis: string[]; }
 interface VehicleStats { stopDuration: number | null; odometer: number; engineHours: number; }
-type DMap = Map<string, { plate: string | null; vehicleId: string | null; cityId: string | null }>;
+type DMap = Map<string, { plate: string | null; vehicleId: string | null; cityId: string | null; displayId: number | null }>;
 interface TripPoint {
   id: string; imei: string; latitude: number; longitude: number;
   speedKmh: number; heading: number; timestamp: string; gpsValid: boolean;
@@ -221,6 +221,10 @@ async function snapToRoad(lat: number, lng: number): Promise<[number, number]> {
   snapPending.delete(key);
   snapCache.set(key, [lat, lng]);
   return [lat, lng];
+}
+
+function fmtPlate(dv: { plate: string | null; displayId: number | null } | undefined, imei: string): string {
+  return dv?.plate || (dv?.displayId != null ? `#${dv.displayId}` : imei.slice(-4));
 }
 
 // ── Car Icon ──────────────────────────────────────────────────────────────────
@@ -516,7 +520,7 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
     for (const pt of points) {
       const dv = deviceMap.get(pt.imei);
       const vc = dv?.vehicleId ? vehicleDetails.get(dv.vehicleId) : undefined;
-      const plate = dv?.plate || pt.imei;
+      const plate = fmtPlate(dv, pt.imei);
       const status = vehicleStatus(pt);
       const as = alertSettingsRef.current;
       const alertType: 'speed' | 'idle' | undefined =
@@ -1345,7 +1349,7 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
         </button>
       </div>
       {!collapsed && gpPts.map(pt => {
-        const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
+        const plate = fmtPlate(deviceMap.get(pt.imei), pt.imei);
         return (
           <VehicleRow key={pt.imei} pt={pt} plate={plate}
             onSelect={() => onSelect(pt.imei)} dark={dark}
@@ -1376,7 +1380,7 @@ function ModalVehicleList({ allImeis, deviceMap, sel, toggle, dark, groups, excl
   });
   if (sections.length === 0) sections.push({ imeis: allImeis });
   const VehicleItem = ({ imei }: { imei: string }) => {
-    const plate = deviceMap.get(imei)?.plate || imei.slice(-8);
+    const plate = fmtPlate(deviceMap.get(imei), imei);
     const chk = sel.has(imei);
     return (
       <label style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', cursor: 'pointer', borderRadius: 4, background: chk ? (dark ? '#2a1010' : '#fff5f5') : 'transparent' }}>
@@ -1825,7 +1829,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   const q = search.trim().toLowerCase();
   const matches = (imei: string) => {
     if (!q) return true;
-    const plate = deviceMap.get(imei)?.plate ?? imei;
+    const plate = fmtPlate(deviceMap.get(imei), imei);
     return plate.toLowerCase().includes(q) || imei.includes(q);
   };
   const filtered = points.filter(p => matches(p.imei));
@@ -1878,7 +1882,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
               <>
                 {groups.length > 0 && <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 700, color: dark ? '#444' : '#ccc', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>Ungrouped</div>}
                 {ungrouped.map(pt => {
-                  const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
+                  const plate = fmtPlate(deviceMap.get(pt.imei), pt.imei);
                   return (
                     <VehicleRow key={pt.imei} pt={pt} plate={plate}
                       onSelect={() => onSelectVehicle(pt.imei)} dark={dark}
@@ -2015,7 +2019,7 @@ export default function MapPage() {
   useEffect(() => {
     Promise.all([api.get<DeviceInfo[]>('/devices'), api.get<VehicleDetail[]>('/vehicles')]).then(([dr, vr]) => {
       const dm: DMap = new Map();
-      dr.data.forEach(d => dm.set(d.imei, { plate: d.vehicle?.licensePlate ?? null, vehicleId: d.vehicle?.id ?? null, cityId: d.cityId }));
+      dr.data.forEach(d => dm.set(d.imei, { plate: d.vehicle?.licensePlate ?? null, vehicleId: d.vehicle?.id ?? null, cityId: d.cityId, displayId: d.displayId }));
       setDeviceMap(dm);
       const vm = new Map<string, VehicleDetail>();
       vr.data.forEach(v => vm.set(v.id, v));
@@ -2046,7 +2050,7 @@ export default function MapPage() {
 
   const visiblePoints = selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points;
   const allVehicles = useMemo(() =>
-    visiblePoints.map(p => ({ imei: p.imei, plate: deviceMap.get(p.imei)?.plate || p.imei.slice(-8) }))
+    visiblePoints.map(p => ({ imei: p.imei, plate: fmtPlate(deviceMap.get(p.imei), p.imei) }))
       .sort((a, b) => a.plate.localeCompare(b.plate)),
     [visiblePoints, deviceMap]
   );
@@ -2058,7 +2062,7 @@ export default function MapPage() {
     const as = alertSettings;
     const alerts: VehicleAlert[] = [];
     visiblePoints.forEach(pt => {
-      const plate = deviceMap.get(pt.imei)?.plate || pt.imei.slice(-8);
+      const plate = fmtPlate(deviceMap.get(pt.imei), pt.imei);
       const status = vehicleStatus(pt);
       if (as.speedLimit > 0 && pt.speedKmh > as.speedLimit) {
         alerts.push({ imei: pt.imei, plate, type: 'speed', value: Math.round(pt.speedKmh) });
