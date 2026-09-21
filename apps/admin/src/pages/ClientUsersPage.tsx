@@ -93,7 +93,6 @@ export default function ClientUsersPage() {
   const [revoking, setRevoking] = useState(false);
   const [deleting, setDeleting] = useState<OrgUser | null>(null);
   const [deletingId, setDeletingId] = useState(false);
-  const { cities } = useCityFilter();
 
   const load = () => {
     Promise.all([
@@ -440,8 +439,6 @@ export default function ClientUsersPage() {
         open={!!revokeTarget}
         title="Revoke Portal Access"
         message={`This will immediately log out "${revokeTarget?.email}" from all devices. Their account stays active but they must log in again. Continue?`}
-        confirmLabel="Revoke Access"
-        confirmStyle={{ background: '#f59e0b', color: '#1a1a1a' }}
         onConfirm={handleRevoke}
         onClose={() => setRevokeTarget(null)}
         loading={revoking}
