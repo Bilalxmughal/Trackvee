@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { canAccessPage, canAccessTopbar, ROLE_LABEL, ORG_ROLES } from '../config/roles';
+import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
 import { CityFilterProvider, useCityFilter } from '../contexts/CityFilterContext';
 import { AlertProvider, useAlert } from '../contexts/AlertContext';
 import { GeofenceProvider, useGeofence } from '../contexts/GeofenceContext';
@@ -107,6 +108,7 @@ function NavItem({ to, icon: Icon, label, collapsed }: NavItemDef & { collapsed:
 
 function LayoutInner() {
   const { user, logout, isImpersonating, originalUser, exitImpersonation } = useAuth();
+  const { canOrgDo } = useOrgRolePerms();
   const { dark, toggle: toggleTheme } = useTheme();
   const { cities, selectedCityId, setSelectedCityId } = useCityFilter();
   const { activeAlertCount, alertPanelOpen, openAlertPanel, closeAlertPanel } = useAlert();
@@ -146,11 +148,26 @@ function LayoutInner() {
   const role = user?.role ?? 'customer';
   const isOrgRole = ORG_ROLES.includes(role as (typeof ORG_ROLES)[number]);
   const isPortalHost = typeof window !== 'undefined' && window.location.hostname === 'login.trackvee.com';
+  // For org roles: map nav item path → ORG_ROLE_PORTAL_PERMISSIONS feature key
+  const ORG_PAGE_FEATURE: Record<string, string> = {
+    'dashboard':    'dashboard',
+    'map':          'map',
+    'vehicles':     'vehicles',
+    'client-users': 'users',
+  };
+
   const visibleSections: Section[] = NAV_SECTIONS
     .map(s => ({
       ...s,
       items: s.items
-        .filter(i => canAccessPage(role as Parameters<typeof canAccessPage>[0], i.to.replace('/', '')))
+        .filter(i => {
+          const pageKey = i.to.replace('/', '');
+          if (isOrgRole) {
+            const feature = ORG_PAGE_FEATURE[pageKey];
+            return feature ? canOrgDo(role, feature, 'view') : false;
+          }
+          return canAccessPage(role as Parameters<typeof canAccessPage>[0], pageKey);
+        })
         .map(i => (isOrgRole && i.to === '/client-users') ? { ...i, label: 'My Users' } : i),
     }))
     .filter(s => s.items.length > 0);
@@ -347,7 +364,10 @@ function LayoutInner() {
               label: 'POIs',
               badge: null,
             },
-          ].filter(item => canAccessTopbar(role as Parameters<typeof canAccessTopbar>[0], item.key)).map(item => (
+          ].filter(item => isOrgRole
+              ? canOrgDo(role, item.key, 'view')
+              : canAccessTopbar(role as Parameters<typeof canAccessTopbar>[0], item.key)
+            ).map(item => (
             <button
               key={item.key}
               onClick={item.onClick}

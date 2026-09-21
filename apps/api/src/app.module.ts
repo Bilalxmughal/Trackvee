@@ -12,6 +12,7 @@ import { GeofencesModule } from './geofences/geofences.module.js';
 import { AlertsModule } from './alerts/alerts.module.js';
 import { PoisModule } from './pois/poi.module.js';
 import { OrgPermissionsModule } from './org-permissions/org-permissions.module.js';
+import { RolePortalPermissionsModule } from './role-portal-permissions/role-portal-permissions.module.js';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { OrgPermissionsModule } from './org-permissions/org-permissions.module.j
     AlertsModule,
     PoisModule,
     OrgPermissionsModule,
+    RolePortalPermissionsModule,
   ],
 })
 export class AppModule {}

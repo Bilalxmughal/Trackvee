@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { IconShield, IconCheck, IconMinus, IconLock } from '@tabler/icons-react';
 import PageHeader from '../components/PageHeader';
 import { ROLE_PERMISSIONS, TOPBAR_PERMISSIONS, ROLE_LABEL, INTERNAL_ROLES, canManageRole, ORG_ROLE_PORTAL_PERMISSIONS, ORG_ROLES, ORG_ROLE_LABEL, type PageAction } from '../config/roles';
 import { useAuth } from '../contexts/AuthContext';
+import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
 import type { UserRole } from '@yotrack/types';
 
 interface PageRow  { key: string; label: string; group: string; actions: PageAction[]; }
@@ -67,6 +68,7 @@ function Cell({ on, action, na, locked, onClick }: {
 
 export default function RoleAccessPage() {
   const { user } = useAuth();
+  const { perms: loadedOrgPerms, updatePerms } = useOrgRolePerms();
   const currentRole = (user?.role ?? 'viewer') as UserRole;
   const isSuperAdmin = currentRole === 'super_admin';
 
@@ -78,11 +80,16 @@ export default function RoleAccessPage() {
   const [pagePerms, setPagePerms]         = useState<AllPerms>(() => deepClone(ROLE_PERMISSIONS));
   const [topbarPerms, setTopbarPerms]     = useState<AllPerms>(() => deepClone(TOPBAR_PERMISSIONS));
 
-  // Client portal state
+  // Client portal state — seeded from API via context
   const [activeOrgRole, setActiveOrgRole] = useState<UserRole>('org_admin');
   const [orgPerms, setOrgPerms]           = useState<AllPerms>(() => deepClone(ORG_ROLE_PORTAL_PERMISSIONS));
+  const [saveLoading, setSaveLoading]     = useState(false);
+  const [saved, setSaved]                 = useState(false);
 
-  const [saved, setSaved] = useState(false);
+  // Sync from API once loaded
+  useEffect(() => {
+    if (Object.keys(loadedOrgPerms).length > 0) setOrgPerms(deepClone(loadedOrgPerms) as AllPerms);
+  }, [JSON.stringify(loadedOrgPerms)]);
 
   // Trackvee helpers
   const canEdit       = canManageRole(currentRole, activeRole);
@@ -134,7 +141,20 @@ export default function RoleAccessPage() {
     setSaved(false);
   }
 
-  function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2000); }
+  async function handleSave() {
+    if (section === 'client') {
+      setSaveLoading(true);
+      try {
+        await updatePerms(orgPerms as Record<string, Record<string, string[]>>);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } catch { /* no-op */ }
+      finally { setSaveLoading(false); }
+    } else {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  }
 
   const activePagePerms   = pagePerms[activeRole]   ?? {};
   const activeTopbarPerms = topbarPerms[activeRole] ?? {};
@@ -153,9 +173,9 @@ export default function RoleAccessPage() {
       <PageHeader
         title="Role Access"
         action={showSave ? (
-          <button onClick={handleSave}
-            style={{ padding: '6px 16px', background: saved ? '#16a34a' : '#dc2626', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }}>
-            {saved ? 'Saved!' : 'Save Changes'}
+          <button onClick={handleSave} disabled={saveLoading}
+            style={{ padding: '6px 16px', background: saved ? '#16a34a' : '#dc2626', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: saveLoading ? 'not-allowed' : 'pointer', opacity: saveLoading ? 0.7 : 1, transition: 'background 0.2s' }}>
+            {saveLoading ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
           </button>
         ) : undefined}
       />

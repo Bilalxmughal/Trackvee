@@ -5,6 +5,9 @@ import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
+import { ORG_ROLES } from '../config/roles';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
@@ -33,6 +36,13 @@ export default function VehiclesPage() {
   const [deleting, setDeleting] = useState<Vehicle | null>(null);
   const [deletingId, setDeletingId] = useState(false);
   const { cities, selectedCityId } = useCityFilter();
+  const { user } = useAuth();
+  const { canOrgDo } = useOrgRolePerms();
+  const role = user?.role ?? '';
+  const isOrgRole = ORG_ROLES.includes(role as (typeof ORG_ROLES)[number]);
+  const canAdd    = isOrgRole ? canOrgDo(role, 'vehicles', 'add')    : true;
+  const canEdit   = isOrgRole ? canOrgDo(role, 'vehicles', 'edit')   : true;
+  const canDelete = isOrgRole ? canOrgDo(role, 'vehicles', 'delete') : true;
 
   const load = () => {
     const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
@@ -82,9 +92,11 @@ export default function VehiclesPage() {
   return (
     <div>
       <PageHeader title="Vehicles" count={vehicles.length} action={
-        <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-          <IconPlus size={13} /> Add Vehicle
-        </button>
+        canAdd ? (
+          <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconPlus size={13} /> Add Vehicle
+          </button>
+        ) : undefined
       } />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
@@ -122,10 +134,10 @@ export default function VehiclesPage() {
                 <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{fmtDate(v.createdAt)}</td>
                 <td style={{ padding: '10px 16px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <button onClick={() => openEdit(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>
-                    <button onClick={() => setDeleting(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconTrash size={14} /></button>
+                    {canEdit && <button onClick={() => openEdit(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>}
+                    {canDelete && <button onClick={() => setDeleting(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconTrash size={14} /></button>}
                   </div>
                 </td>
               </tr>

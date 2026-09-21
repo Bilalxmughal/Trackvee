@@ -17,6 +17,7 @@ import SetupGuidePage from './pages/SetupGuidePage';
 import MapPage from './pages/MapPage';
 import SettingsPage from './pages/SettingsPage';
 import ClientUsersPage from './pages/ClientUsersPage';
+import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';;
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -37,6 +38,7 @@ export default function App() {
   if (loading) return <Spinner style={{ height: '100vh' }} />;
 
   return (
+    <OrgRolePermsProvider>
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
 
@@ -60,5 +62,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
+    </OrgRolePermsProvider>
   );
 }
