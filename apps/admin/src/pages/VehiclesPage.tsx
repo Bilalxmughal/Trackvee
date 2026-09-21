@@ -12,7 +12,7 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
-interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; year: number | null; cityId: string | null; isActive: boolean; createdAt: string; }
+interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; year: number | null; cityId: string | null; organizationId: string | null; isActive: boolean; createdAt: string; }
 interface Org { id: string; name: string; }
 
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
@@ -45,7 +45,7 @@ export default function VehiclesPage() {
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (v: Vehicle) => {
     setEditing(v);
-    setForm({ licensePlate: v.licensePlate ?? '', make: v.make ?? '', model: v.model ?? '', year: v.year ? String(v.year) : '', cityId: v.cityId ?? '', isActive: v.isActive, organizationId: '' });
+    setForm({ licensePlate: v.licensePlate ?? '', make: v.make ?? '', model: v.model ?? '', year: v.year ? String(v.year) : '', cityId: v.cityId ?? '', isActive: v.isActive, organizationId: v.organizationId ?? '' });
     setModal(true);
   };
   const closeModal = () => { setModal(false); setEditing(null); };

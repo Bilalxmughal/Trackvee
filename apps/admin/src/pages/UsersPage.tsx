@@ -15,10 +15,13 @@ import FormField, { inputStyle, selectStyle, FormActions } from '../components/F
 interface User { id: string; displayId: number; email: string; firstName: string | null; lastName: string | null; role: string; cityId: string | null; isActive: boolean; createdAt: string; organizationId: string | null; }
 interface Org { id: string; name: string; }
 
-const roleLabel: Record<string, string> = { super_admin: 'Super Admin', org_admin: 'Org Admin', dispatcher: 'Dispatcher', viewer: 'Viewer' };
+const roleLabel: Record<string, string> = {
+  super_admin: 'Super Admin', admin: 'Admin',
+  org_owner: 'Org Owner', org_admin: 'Org Admin', org_user: 'Org User', customer: 'Customer',
+};
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
-const empty = { firstName: '', lastName: '', email: '', password: '', role: 'viewer', cityId: '', isActive: true, organizationId: '' };
+const empty = { firstName: '', lastName: '', email: '', password: '', role: 'org_admin', cityId: '', isActive: true, organizationId: '' };
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -99,7 +102,12 @@ export default function UsersPage() {
             onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
         </div>
         <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={sel}>
-          <option value="">All Roles</option><option value="super_admin">Super Admin</option><option value="org_admin">Org Admin</option><option value="dispatcher">Dispatcher</option><option value="viewer">Viewer</option>
+          <option value="">All Roles</option>
+          <option value="super_admin">Super Admin</option>
+          <option value="admin">Admin</option>
+          <option value="org_owner">Org Owner</option>
+          <option value="org_admin">Org Admin</option>
+          <option value="org_user">Org User</option>
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
           <option value="">All Status</option><option value="true">Active</option><option value="false">Inactive</option>
@@ -169,9 +177,10 @@ export default function UsersPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
             <FormField label="Role">
               <select value={form.role} onChange={e => set('role', e.target.value)} style={selectStyle}>
-                <option value="viewer">Viewer</option>
-                <option value="dispatcher">Dispatcher</option>
+                <option value="admin">Admin</option>
+                <option value="org_owner">Org Owner</option>
                 <option value="org_admin">Org Admin</option>
+                <option value="org_user">Org User</option>
                 <option value="super_admin">Super Admin</option>
               </select>
             </FormField>

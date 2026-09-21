@@ -23,7 +23,12 @@ export class VehiclesService {
       return this.repo.find({ where: cityFilter });
     }
     if (user.organizationId) {
-      return this.repo.find({ where: { organizationId: user.organizationId, ...cityFilter } });
+      return this.repo.find({
+        where: [
+          { organizationId: user.organizationId, ...cityFilter },
+          { ownerId: user.id, ...cityFilter },
+        ],
+      });
     }
     return this.repo.find({ where: { ownerId: user.id, ...cityFilter } });
   }

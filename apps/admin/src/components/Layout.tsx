@@ -55,8 +55,8 @@ const NAV_SECTIONS: Section[] = [
 ];
 
 const ROLE_LABEL: Record<string, string> = {
-  super_admin: 'Super Admin', org_admin: 'Org Admin',
-  dispatcher: 'Dispatcher', viewer: 'Viewer',
+  super_admin: 'Super Admin', admin: 'Admin',
+  org_owner: 'Org Owner', org_admin: 'Org Admin', org_user: 'Org User', customer: 'Customer',
 };
 
 interface SearchResult {
