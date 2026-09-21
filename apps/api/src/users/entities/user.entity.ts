@@ -5,7 +5,7 @@ import {
 import type { UserRole } from '@yotrack/types';
 import { Organization } from '../../organizations/entities/organization.entity.js';
 
-const USER_ROLES = ['super_admin', 'admin', 'org_owner', 'org_admin', 'org_user', 'customer'] as const;
+const USER_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer', 'org_owner', 'org_admin', 'org_user', 'customer'] as const;
 
 @Entity('users')
 export class User {

@@ -5,6 +5,7 @@ import { Vehicle } from './entities/vehicle.entity.js';
 import { Device } from '../devices/entities/device.entity.js';
 import { User } from '../users/entities/user.entity.js';
 
+const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 const GATEWAY_CMD_URL = process.env['GATEWAY_CMD_URL'] ?? 'http://localhost:5024';
 const INTERNAL_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 
@@ -19,7 +20,7 @@ export class VehiclesService {
 
   async findForUser(user: User, cityId?: string): Promise<Vehicle[]> {
     const cityFilter = cityId ? { cityId } : {};
-    if (user.role === 'super_admin' || user.role === 'admin') {
+    if (ADMIN_ROLES.includes(user.role)) {
       return this.repo.find({ where: cityFilter });
     }
     if (user.organizationId) {
@@ -80,7 +81,7 @@ export class VehiclesService {
   }
 
   private assertAccess(vehicle: Vehicle, user: User): void {
-    if (user.role === 'super_admin' || user.role === 'admin') return;
+    if (ADMIN_ROLES.includes(user.role)) return;
     if (user.organizationId && vehicle.organizationId === user.organizationId) return;
     if (vehicle.ownerId === user.id) return;
     throw new ForbiddenException();

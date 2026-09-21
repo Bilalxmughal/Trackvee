@@ -3,6 +3,11 @@
 export type UserRole =
   | 'super_admin'
   | 'admin'
+  | 'ops'
+  | 'live_ops'
+  | 'agent'
+  | 'chat_support'
+  | 'viewer'
   | 'org_owner'
   | 'org_admin'
   | 'org_user'

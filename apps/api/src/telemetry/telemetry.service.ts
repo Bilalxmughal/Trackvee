@@ -8,7 +8,7 @@ import { GeofencesService } from '../geofences/geofences.service.js';
 import type { CircleCoords, PolygonCoords } from '../geofences/entities/geofence.entity.js';
 import { User } from '../users/entities/user.entity.js';
 
-const ADMIN_ROLES = ['super_admin', 'admin'];
+const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
 // Geospatial helpers
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {

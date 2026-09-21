@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { Device } from './entities/device.entity.js';
 import { User } from '../users/entities/user.entity.js';
 
-const ADMIN_ROLES = ['super_admin', 'admin'];
+const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 const GATEWAY_CMD_URL = process.env['GATEWAY_CMD_URL'] ?? 'http://localhost:5024';
 const INTERNAL_KEY = process.env['INTERNAL_API_KEY'] ?? '';
 

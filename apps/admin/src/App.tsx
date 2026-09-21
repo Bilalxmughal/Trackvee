@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { canAccessPage } from './config/roles';
+import type { UserRole } from '@yotrack/types';
 import Layout from './components/Layout';
 import Spinner from './components/Spinner';
 import LoginPage from './pages/LoginPage';
@@ -22,6 +24,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RoleRoute({ page, children }: { page: string; children: React.ReactNode }) {
+  const { user } = useAuth();
+  const role = (user?.role ?? 'customer') as UserRole;
+  if (!canAccessPage(role, page)) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
   if (loading) return <Spinner style={{ height: '100vh' }} />;
@@ -32,20 +41,20 @@ export default function App() {
 
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/clients" element={<ClientsPage />} />
-        <Route path="/clients/:id" element={<ClientDetailPage />} />
+        <Route path="/dashboard" element={<RoleRoute page="dashboard"><DashboardPage /></RoleRoute>} />
+        <Route path="/clients" element={<RoleRoute page="clients"><ClientsPage /></RoleRoute>} />
+        <Route path="/clients/:id" element={<RoleRoute page="clients"><ClientDetailPage /></RoleRoute>} />
         <Route path="/customers" element={<Navigate to="/clients" replace />} />
         <Route path="/customers/:id" element={<Navigate to="/clients" replace />} />
         <Route path="/organizations" element={<Navigate to="/clients" replace />} />
-        <Route path="/vehicles" element={<VehiclesPage />} />
-        <Route path="/devices" element={<DevicesPage />} />
-        <Route path="/telemetry" element={<TelemetryPage />} />
-        <Route path="/map" element={<MapPage />} />
-        <Route path="/users" element={<UsersPage />} />
-        <Route path="/roles" element={<RoleAccessPage />} />
-        <Route path="/setup" element={<SetupGuidePage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/vehicles" element={<RoleRoute page="vehicles"><VehiclesPage /></RoleRoute>} />
+        <Route path="/devices" element={<RoleRoute page="devices"><DevicesPage /></RoleRoute>} />
+        <Route path="/telemetry" element={<RoleRoute page="telemetry"><TelemetryPage /></RoleRoute>} />
+        <Route path="/map" element={<RoleRoute page="map"><MapPage /></RoleRoute>} />
+        <Route path="/users" element={<RoleRoute page="users"><UsersPage /></RoleRoute>} />
+        <Route path="/roles" element={<RoleRoute page="roles"><RoleAccessPage /></RoleRoute>} />
+        <Route path="/setup" element={<RoleRoute page="setup"><SetupGuidePage /></RoleRoute>} />
+        <Route path="/settings" element={<RoleRoute page="settings"><SettingsPage /></RoleRoute>} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

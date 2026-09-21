@@ -17,6 +17,7 @@ interface Org { id: string; name: string; }
 
 const roleLabel: Record<string, string> = {
   super_admin: 'Super Admin', admin: 'Admin',
+  ops: 'Ops', live_ops: 'Live Ops', agent: 'Agent', chat_support: 'Chat Support', viewer: 'Viewer',
   org_owner: 'Org Owner', org_admin: 'Org Admin', org_user: 'Org User', customer: 'Customer',
 };
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
@@ -105,6 +106,11 @@ export default function UsersPage() {
           <option value="">All Roles</option>
           <option value="super_admin">Super Admin</option>
           <option value="admin">Admin</option>
+          <option value="ops">Ops</option>
+          <option value="live_ops">Live Ops</option>
+          <option value="agent">Agent</option>
+          <option value="chat_support">Chat Support</option>
+          <option value="viewer">Viewer</option>
           <option value="org_owner">Org Owner</option>
           <option value="org_admin">Org Admin</option>
           <option value="org_user">Org User</option>
@@ -177,11 +183,16 @@ export default function UsersPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
             <FormField label="Role">
               <select value={form.role} onChange={e => set('role', e.target.value)} style={selectStyle}>
+                <option value="super_admin">Super Admin</option>
                 <option value="admin">Admin</option>
+                <option value="ops">Ops</option>
+                <option value="live_ops">Live Ops</option>
+                <option value="agent">Agent</option>
+                <option value="chat_support">Chat Support</option>
+                <option value="viewer">Viewer</option>
                 <option value="org_owner">Org Owner</option>
                 <option value="org_admin">Org Admin</option>
                 <option value="org_user">Org User</option>
-                <option value="super_admin">Super Admin</option>
               </select>
             </FormField>
             <FormField label="Status">

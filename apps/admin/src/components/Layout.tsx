@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { canAccessPage, canAccessTopbar, ROLE_LABEL } from '../config/roles';
 import { CityFilterProvider, useCityFilter } from '../contexts/CityFilterContext';
 import { AlertProvider, useAlert } from '../contexts/AlertContext';
 import { GeofenceProvider, useGeofence } from '../contexts/GeofenceContext';
@@ -53,11 +54,6 @@ const NAV_SECTIONS: Section[] = [
     ],
   },
 ];
-
-const ROLE_LABEL: Record<string, string> = {
-  super_admin: 'Super Admin', admin: 'Admin',
-  org_owner: 'Org Owner', org_admin: 'Org Admin', org_user: 'Org User', customer: 'Customer',
-};
 
 interface SearchResult {
   type: string; id: string; label: string; sub: string; to: string;
@@ -146,11 +142,13 @@ function LayoutInner() {
     ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
     : user?.email?.split('@')[0] ?? '';
 
-  const isCustomer = user?.role === 'customer';
-  const CUSTOMER_ROUTES = ['/dashboard', '/vehicles', '/telemetry'];
-  const visibleSections: Section[] = isCustomer
-    ? NAV_SECTIONS.map(s => ({ ...s, items: s.items.filter(i => CUSTOMER_ROUTES.includes(i.to)) })).filter(s => s.items.length > 0)
-    : NAV_SECTIONS;
+  const role = user?.role ?? 'customer';
+  const visibleSections: Section[] = NAV_SECTIONS
+    .map(s => ({
+      ...s,
+      items: s.items.filter(i => canAccessPage(role as Parameters<typeof canAccessPage>[0], i.to.replace('/', ''))),
+    }))
+    .filter(s => s.items.length > 0);
 
   // global search
   useEffect(() => {
@@ -339,7 +337,7 @@ function LayoutInner() {
               label: 'POIs',
               badge: null,
             },
-          ].map(item => (
+          ].filter(item => canAccessTopbar(role as Parameters<typeof canAccessTopbar>[0], item.key)).map(item => (
             <button
               key={item.key}
               onClick={item.onClick}
