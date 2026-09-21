@@ -6,6 +6,7 @@ import { isWithinInterval, parseISO, startOfDay, endOfDay, differenceInDays } fr
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
 import { useAuth } from '../contexts/AuthContext';
+import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
@@ -122,9 +123,15 @@ export default function ClientUsersPage() {
   const { user: me, loginAs } = useAuth();
   const [searchParams] = useSearchParams();
 
+  const { canOrgDo } = useOrgRolePerms();
+  const meRole = me?.role ?? '';
+  const isOrgScoped = ORG_ROLES_SET.has(meRole);
+
   // If logged-in user is an org role, lock the page to their org
-  const myOrgId = ORG_ROLES_SET.has(me?.role ?? '') ? (me?.organizationId ?? null) : null;
-  const isOrgScoped = myOrgId !== null;
+  const myOrgId = isOrgScoped ? (me?.organizationId ?? null) : null;
+  const cuCanAdd    = isOrgScoped ? canOrgDo(meRole, 'users', 'add')    : true;
+  const cuCanEdit   = isOrgScoped ? canOrgDo(meRole, 'users', 'edit')   : true;
+  const cuCanDelete = isOrgScoped ? canOrgDo(meRole, 'users', 'delete') : true;
 
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [orgs, setOrgs] = useState<Org[]>([]);
@@ -282,11 +289,11 @@ export default function ClientUsersPage() {
       <PageHeader
         title={isOrgScoped ? `${myOrg?.name ?? 'My Org'} — Users` : 'Client Users'}
         count={users.length}
-        action={
+        action={cuCanAdd ? (
           <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
             <IconPlus size={13} /> Add User
           </button>
-        }
+        ) : undefined}
       />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
@@ -353,15 +360,15 @@ export default function ClientUsersPage() {
                     <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{fmtDate(u.createdAt)}</td>
                     <td style={{ padding: '10px 16px' }}>
                       <div style={{ display: 'flex', gap: 2 }}>
-                        <button onClick={() => openEdit(u)} title="Edit" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
-                          onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>
+                        {cuCanEdit && <button onClick={() => openEdit(u)} title="Edit" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                          onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>}
                         {me?.role === 'super_admin' && !isOrgScoped && (
                           <button onClick={() => handleLoginAs(u)} title="Login as this user" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                             onMouseEnter={e => (e.currentTarget.style.color = '#3b82f6')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconUserScan size={14} /></button>
                         )}
                         <button onClick={() => setRevokeTarget(u)} title="Revoke access (force logout)" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                           onMouseEnter={e => (e.currentTarget.style.color = '#f59e0b')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconBan size={14} /></button>
-                        {(!isOrgScoped || me?.role === 'org_owner') && u.id !== me?.id && (
+                        {cuCanDelete && u.id !== me?.id && (
                           <button onClick={() => setDeleting(u)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                             onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconTrash size={14} /></button>
                         )}

@@ -1,6 +1,10 @@
 // Left-panel UI for geofence management — no embedded map.
 // All drawing happens on the main MapPage map via GeofenceDrawLayer.
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
+import { ORG_ROLES } from '../config/roles';
+import type { UserRole } from '@yotrack/types';
 
 export interface CircleCoords { center: [number, number]; radius: number; }
 export interface PolygonCoords { points: [number, number][]; }
@@ -30,9 +34,12 @@ interface ListProps {
   onDelete: (id: string) => void;
   dark: boolean;
   onClose: () => void;
+  canAdd?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
-function GfList({ geofences, loading, onNew, onEdit, onDelete, dark, onClose }: ListProps) {
+function GfList({ geofences, loading, onNew, onEdit, onDelete, dark, onClose, canAdd = true, canEdit = true, canDelete = true }: ListProps) {
   const [q, setQ] = useState('');
   const border = `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`;
   const filtered = geofences.filter(g => !q || g.name.toLowerCase().includes(q.toLowerCase()));
@@ -43,10 +50,10 @@ function GfList({ geofences, loading, onNew, onEdit, onDelete, dark, onClose }: 
         <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>
           Geofences <span style={{ fontSize: 11, fontWeight: 500, color: dark ? '#555' : '#aaa', marginLeft: 4 }}>{geofences.length}</span>
         </div>
-        <button onClick={onNew} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+        {canAdd && <button onClick={onNew} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           New
-        </button>
+        </button>}
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', display: 'flex', padding: 3 }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -81,12 +88,12 @@ function GfList({ geofences, loading, onNew, onEdit, onDelete, dark, onClose }: 
                   : `Polygon · ${(gf.coordinates as PolygonCoords).points.length} pts`}
               </div>
             </div>
-            <button onClick={() => onEdit(gf)} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#bbb', display: 'flex', padding: 3 }}>
+            {canEdit && <button onClick={() => onEdit(gf)} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#bbb', display: 'flex', padding: 3 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
-            </button>
-            <button onClick={() => onDelete(gf.id)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#bbb', display: 'flex', padding: 3 }}>
+            </button>}
+            {canDelete && <button onClick={() => onDelete(gf.id)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#bbb', display: 'flex', padding: 3 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-            </button>
+            </button>}
           </div>
         ))}
       </div>
@@ -284,10 +291,18 @@ export interface GeofencesPanelProps {
 }
 
 export default function GeofencesPanel(p: GeofencesPanelProps) {
+  const { user: gfUser } = useAuth();
+  const { canOrgDo: gfCanOrgDo } = useOrgRolePerms();
+  const gfRole = gfUser?.role ?? '';
+  const gfIsOrg = ORG_ROLES.includes(gfRole as UserRole);
+  const gfCanAdd    = gfIsOrg ? gfCanOrgDo(gfRole, 'geofences', 'add')    : true;
+  const gfCanEdit   = gfIsOrg ? gfCanOrgDo(gfRole, 'geofences', 'edit')   : true;
+  const gfCanDelete = gfIsOrg ? gfCanOrgDo(gfRole, 'geofences', 'delete') : true;
+
   return (
     <div style={{ height: '100%', background: p.dark ? '#161616' : '#fff', border: `1px solid ${p.dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {p.view === 'list'
-        ? <GfList geofences={p.geofences} loading={p.loading} onNew={p.onNew} onEdit={p.onEdit} onDelete={p.onDelete} dark={p.dark} onClose={p.onClose}/>
+        ? <GfList geofences={p.geofences} loading={p.loading} onNew={p.onNew} onEdit={p.onEdit} onDelete={p.onDelete} dark={p.dark} onClose={p.onClose} canAdd={gfCanAdd} canEdit={gfCanEdit} canDelete={gfCanDelete}/>
         : <GfForm dark={p.dark} editing={p.editing} name={p.name} onName={p.onName} type={p.type} onType={p.onType} color={p.color} onColor={p.onColor} center={p.center} radius={p.radius} onRadius={p.onRadius} points={p.points} onRemovePoint={p.onRemovePoint} onClearPoints={p.onClearPoints} drawActive={p.drawActive} onToggleDraw={p.onToggleDraw} saving={p.saving} onSave={p.onSave} onBack={p.onBack}/>
       }
     </div>

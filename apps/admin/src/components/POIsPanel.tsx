@@ -3,6 +3,10 @@ import { POI_ICONS } from '../lib/poi-icons';
 import { usePOI } from '../contexts/POIContext';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
+import { useAuth } from '../contexts/AuthContext';
+import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
+import { ORG_ROLES } from '../config/roles';
+import type { UserRole } from '@yotrack/types';
 
 export interface POIRecord {
   id: string;
@@ -230,7 +234,7 @@ function POIIcon({ iconId, size = 16 }: { iconId: string; size?: number }) {
 // ──────────────────────────────────────────────
 // Dot menu
 // ──────────────────────────────────────────────
-function DotMenu({ dark, onEdit, onDelete, onAlert }: { dark: boolean; onEdit: () => void; onDelete: () => void; onAlert: () => void }) {
+function DotMenu({ dark, onEdit, onDelete, onAlert }: { dark: boolean; onEdit?: () => void; onDelete?: () => void; onAlert?: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -247,6 +251,9 @@ function DotMenu({ dark, onEdit, onDelete, onAlert }: { dark: boolean; onEdit: (
     </button>
   );
 
+  const hasItems = onAlert || onEdit || onDelete;
+  if (!hasItems) return null;
+
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#9ca3af' : '#6b7280', cursor: 'pointer' }}>
@@ -256,9 +263,9 @@ function DotMenu({ dark, onEdit, onDelete, onAlert }: { dark: boolean; onEdit: (
       </button>
       {open && (
         <div style={{ position: 'absolute', right: 0, top: 32, zIndex: 1200, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: dark ? '#1e1e1e' : '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', minWidth: 130 }}>
-          {btn('Create Alert', onAlert)}
-          {btn('Edit', onEdit)}
-          {btn('Delete', onDelete, true)}
+          {onAlert && btn('Create Alert', onAlert)}
+          {onEdit && btn('Edit', onEdit)}
+          {onDelete && btn('Delete', onDelete, true)}
         </div>
       )}
     </div>
@@ -278,6 +285,14 @@ export function POIsPanel({ dark, onClose, onRequestAlert, onPoisChange }: Props
   const [deleting, setDeleting] = useState(false);
   const [filterGroup, setFilterGroup] = useState('');
   const [searchQ, setSearchQ] = useState('');
+
+  const { user: poiUser } = useAuth();
+  const { canOrgDo: poiCanOrgDo } = useOrgRolePerms();
+  const poiRole = poiUser?.role ?? '';
+  const poiIsOrg = ORG_ROLES.includes(poiRole as UserRole);
+  const poiCanAdd    = poiIsOrg ? poiCanOrgDo(poiRole, 'pois', 'add')    : true;
+  const poiCanEdit   = poiIsOrg ? poiCanOrgDo(poiRole, 'pois', 'edit')   : true;
+  const poiCanDelete = poiIsOrg ? poiCanOrgDo(poiRole, 'pois', 'delete') : true;
 
   const groups = Array.from(new Set(pois.map(p => p.group).filter(Boolean) as string[])).sort();
   const displayed = pois.filter(p => {
@@ -349,7 +364,7 @@ export function POIsPanel({ dark, onClose, onRequestAlert, onPoisChange }: Props
           <span style={{ fontSize: 11, color: text2 }}>({pois.length})</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button onClick={openCreate} title="Add new POI" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontSize: 18, fontWeight: 300, lineHeight: 1 }}>+</button>
+          {poiCanAdd && <button onClick={openCreate} title="Add new POI" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontSize: 18, fontWeight: 300, lineHeight: 1 }}>+</button>}
           <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: `1px solid ${border}`, background: 'transparent', color: text2, cursor: 'pointer' }}>
             <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
               <path d="M18 6L6 18M6 6l12 12" />
@@ -414,8 +429,8 @@ export function POIsPanel({ dark, onClose, onRequestAlert, onPoisChange }: Props
               {/* Actions */}
               <DotMenu
                 dark={dark}
-                onEdit={() => openEdit(poi)}
-                onDelete={() => setDeleteId(poi.id)}
+                onEdit={poiCanEdit ? () => openEdit(poi) : undefined}
+                onDelete={poiCanDelete ? () => setDeleteId(poi.id) : undefined}
                 onAlert={() => onRequestAlert?.(poi)}
               />
             </div>

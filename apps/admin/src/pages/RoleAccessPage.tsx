@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { IconShield, IconCheck, IconMinus, IconLock } from '@tabler/icons-react';
 import PageHeader from '../components/PageHeader';
-import { ROLE_PERMISSIONS, TOPBAR_PERMISSIONS, ROLE_LABEL, INTERNAL_ROLES, canManageRole, ORG_ROLE_PORTAL_PERMISSIONS, ORG_ROLES, ORG_ROLE_LABEL, type PageAction } from '../config/roles';
+import { ROLE_PERMISSIONS, TOPBAR_PERMISSIONS, ROLE_LABEL, INTERNAL_ROLES, canManageRole, ORG_ROLE_PORTAL_PERMISSIONS, ORG_ROLES, ORG_ROLE_LABEL, ORG_PORTAL_PAGES, ORG_PORTAL_GROUPS, type PageAction } from '../config/roles';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
 import type { UserRole } from '@yotrack/types';
@@ -22,15 +22,8 @@ const PAGES: PageRow[] = [
   { key: 'settings',  label: 'Settings',        group: 'Administration', actions: ['view', 'edit'] },
 ];
 
-const ORG_PAGES: PageRow[] = [
-  { key: 'dashboard', label: 'Dashboard', group: 'Core',        actions: ['view'] },
-  { key: 'map',       label: 'Live Map',  group: 'Core',        actions: ['view'] },
-  { key: 'vehicles',  label: 'Vehicles',  group: 'Fleet',       actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'alerts',    label: 'Alerts',    group: 'Fleet',       actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'geofences', label: 'Geofences', group: 'Fleet',       actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'pois',      label: 'POIs',      group: 'Fleet',       actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'users',     label: 'Users',     group: 'Management',  actions: ['view', 'add', 'edit', 'delete'] },
-];
+// Imported from roles.ts — ORG_PORTAL_PAGES is the single source of truth
+const ORG_PAGES: PageRow[] = ORG_PORTAL_PAGES;
 
 const TOPBAR_ROWS: TopbarRow[] = [
   { key: 'alerts',    label: 'Alerts' },
@@ -39,7 +32,7 @@ const TOPBAR_ROWS: TopbarRow[] = [
 ];
 
 const GROUPS       = ['Core', 'Management', 'Administration'];
-const ORG_GROUPS   = ['Core', 'Fleet', 'Management'];
+const ORG_GROUPS   = ORG_PORTAL_GROUPS;
 const ALL_ACTIONS: PageAction[] = ['view', 'add', 'edit', 'delete'];
 const ACTION_LABEL: Record<PageAction, string> = { view: 'View', add: 'Add', edit: 'Edit', delete: 'Delete' };
 const ACTION_COLOR: Record<PageAction, string> = { view: '#3b82f6', add: '#16a34a', edit: '#f59e0b', delete: '#dc2626' };

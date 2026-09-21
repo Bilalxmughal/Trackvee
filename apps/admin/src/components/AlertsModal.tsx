@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../api/client';
 import ConfirmDialog from './ConfirmDialog';
+import { useAuth } from '../contexts/AuthContext';
+import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
+import { ORG_ROLES } from '../config/roles';
+import type { UserRole } from '@yotrack/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -513,7 +517,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
 
 // ── 3-dot menu ────────────────────────────────────────────────────────────────
 
-function DotMenu({ dark, onEdit, onDelete }: { dark: boolean; onEdit: () => void; onDelete: () => void }) {
+function DotMenu({ dark, onEdit, onDelete }: { dark: boolean; onEdit?: () => void; onDelete?: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -522,6 +526,11 @@ function DotMenu({ dark, onEdit, onDelete }: { dark: boolean; onEdit: () => void
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
+  const items = [
+    onEdit   && { label: 'Edit',   icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>, action: () => { setOpen(false); onEdit(); }, danger: false },
+    onDelete && { label: 'Delete', icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>, action: () => { setOpen(false); onDelete(); }, danger: true },
+  ].filter(Boolean) as { label: string; icon: React.ReactNode; action: () => void; danger: boolean }[];
+  if (!items.length) return null;
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
@@ -530,10 +539,7 @@ function DotMenu({ dark, onEdit, onDelete }: { dark: boolean; onEdit: () => void
       </button>
       {open && (
         <div style={{ position: 'absolute', right: 0, top: 30, background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.2)', minWidth: 120, zIndex: 999, overflow: 'hidden' }}>
-          {[
-            { label: 'Edit', icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>, action: () => { setOpen(false); onEdit(); }, danger: false },
-            { label: 'Delete', icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>, action: () => { setOpen(false); onDelete(); }, danger: true },
-          ].map(item => (
+          {items.map(item => (
             <button key={item.label} onClick={item.action}
               style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 13px', border: 'none', background: 'transparent', color: item.danger ? '#ef4444' : (dark ? '#e5e5e5' : '#333'), fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}
               onMouseEnter={e => { e.currentTarget.style.background = dark ? '#222' : '#f5f5f5'; }}
@@ -561,6 +567,14 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
   preSelectedImei?: string;
   editAlertRecord?: AlertRecord;
 }) {
+  const { user } = useAuth();
+  const { canOrgDo } = useOrgRolePerms();
+  const meRole = user?.role ?? '';
+  const isOrgRole = ORG_ROLES.includes(meRole as (typeof ORG_ROLES)[number]);
+  const canAlAdd    = isOrgRole ? canOrgDo(meRole, 'alerts', 'add')    : true;
+  const canAlEdit   = isOrgRole ? canOrgDo(meRole, 'alerts', 'edit')   : true;
+  const canAlDelete = isOrgRole ? canOrgDo(meRole, 'alerts', 'delete') : true;
+
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [loading, setLoading] = useState(false);
@@ -641,11 +655,11 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
               ))}
             </div>
             {/* New Alert */}
-            <button onClick={() => { setEditTarget(null); setFormOpen(true); }}
+            {canAlAdd && <button onClick={() => { setEditTarget(null); setFormOpen(true); }}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginRight: 10 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               New Alert
-            </button>
+            </button>}
             <button onClick={onClose} style={{ background: dark ? '#2a2a2a' : '#f5f5f5', border: 'none', cursor: 'pointer', color: dark ? '#888' : '#666', padding: '5px 6px', borderRadius: 6, display: 'flex' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -660,10 +674,10 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 </div>
                 <div style={{ fontSize: 13, color: dark ? '#555' : '#aaa' }}>No alerts yet</div>
-                <button onClick={() => { setEditTarget(null); setFormOpen(true); }}
+                {canAlAdd && <button onClick={() => { setEditTarget(null); setFormOpen(true); }}
                   style={{ padding: '7px 18px', borderRadius: 7, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
                   Create First Alert
-                </button>
+                </button>}
               </div>
             )}
             {!loading && filtered.map(alert => {
@@ -684,7 +698,7 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
                     </div>
                   </div>
                   <Toggle value={alert.active} onChange={() => handleToggleActive(alert)}/>
-                  <DotMenu dark={dark} onEdit={() => { setEditTarget(alert); setFormOpen(true); }} onDelete={() => setDeleteId(alert.id)}/>
+                  <DotMenu dark={dark} onEdit={canAlEdit ? () => { setEditTarget(alert); setFormOpen(true); } : undefined} onDelete={canAlDelete ? () => setDeleteId(alert.id) : undefined}/>
                 </div>
               );
             })}
@@ -766,6 +780,14 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
     } catch {}
   };
 
+  const { user: apUser } = useAuth();
+  const { canOrgDo: apCanOrgDo } = useOrgRolePerms();
+  const apRole = apUser?.role ?? '';
+  const apIsOrg = ORG_ROLES.includes(apRole as UserRole);
+  const apCanAdd    = apIsOrg ? apCanOrgDo(apRole, 'alerts', 'add')    : true;
+  const apCanEdit   = apIsOrg ? apCanOrgDo(apRole, 'alerts', 'edit')   : true;
+  const apCanDelete = apIsOrg ? apCanOrgDo(apRole, 'alerts', 'delete') : true;
+
   const filtered = alerts.filter(a => filter === 'all' ? true : filter === 'active' ? a.active : !a.active);
   const border = `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`;
 
@@ -780,12 +802,12 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
               {alerts.filter(a => a.active).length} active · {alerts.length} total
             </div>
           </div>
-          <button
+          {apCanAdd && <button
             onClick={() => { setEditTarget(null); setFormOpen(true); }}
             style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', marginRight: 8 }}>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New
-          </button>
+          </button>}
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 4, display: 'flex' }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -810,10 +832,10 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
               </div>
               <div style={{ fontSize: 12, color: dark ? '#555' : '#aaa' }}>No alerts</div>
-              <button onClick={() => { setEditTarget(null); setFormOpen(true); }}
+              {apCanAdd && <button onClick={() => { setEditTarget(null); setFormOpen(true); }}
                 style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 Create Alert
-              </button>
+              </button>}
             </div>
           )}
           {!loading && filtered.map(alert => {
@@ -831,7 +853,7 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
                   </div>
                 </div>
                 <Toggle value={alert.active} onChange={() => handleToggleActive(alert)}/>
-                <DotMenu dark={dark} onEdit={() => { setEditTarget(alert); setFormOpen(true); }} onDelete={() => setDeleteId(alert.id)}/>
+                <DotMenu dark={dark} onEdit={apCanEdit ? () => { setEditTarget(alert); setFormOpen(true); } : undefined} onDelete={apCanDelete ? () => setDeleteId(alert.id) : undefined}/>
               </div>
             );
           })}

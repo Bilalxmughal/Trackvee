@@ -9,7 +9,7 @@ import {
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { canAccessPage, canAccessTopbar, ROLE_LABEL, ORG_ROLES } from '../config/roles';
+import { canAccessPage, canAccessTopbar, ROLE_LABEL, ORG_ROLES, ORG_NAV_TO_FEATURE } from '../config/roles';
 import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
 import { CityFilterProvider, useCityFilter } from '../contexts/CityFilterContext';
 import { AlertProvider, useAlert } from '../contexts/AlertContext';
@@ -148,14 +148,6 @@ function LayoutInner() {
   const role = user?.role ?? 'customer';
   const isOrgRole = ORG_ROLES.includes(role as (typeof ORG_ROLES)[number]);
   const isPortalHost = typeof window !== 'undefined' && window.location.hostname === 'login.trackvee.com';
-  // For org roles: map nav item path → ORG_ROLE_PORTAL_PERMISSIONS feature key
-  const ORG_PAGE_FEATURE: Record<string, string> = {
-    'dashboard':    'dashboard',
-    'map':          'map',
-    'vehicles':     'vehicles',
-    'client-users': 'users',
-  };
-
   const visibleSections: Section[] = NAV_SECTIONS
     .map(s => ({
       ...s,
@@ -163,7 +155,7 @@ function LayoutInner() {
         .filter(i => {
           const pageKey = i.to.replace('/', '');
           if (isOrgRole) {
-            const feature = ORG_PAGE_FEATURE[pageKey];
+            const feature = ORG_NAV_TO_FEATURE[pageKey];
             return feature ? canOrgDo(role, feature, 'view') : false;
           }
           return canAccessPage(role as Parameters<typeof canAccessPage>[0], pageKey);

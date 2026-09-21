@@ -231,6 +231,36 @@ export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Recor
 
 export const ORG_ROLES: UserRole[] = ['org_owner', 'org_admin', 'org_user', 'customer'];
 
+// ── Portal page registry ─────────────────────────────────────────────────────
+// Single source of truth for Client Portal page permissions.
+// Add a new entry here to make it appear in Role Access matrix AND enforce it.
+export interface PortalPageDef {
+  key: string;      // DB key stored in role_portal_permissions.permissions JSON
+  label: string;    // Display name in Role Access matrix
+  group: string;    // Group header in Role Access matrix
+  actions: PageAction[];
+}
+
+export const ORG_PORTAL_PAGES: PortalPageDef[] = [
+  { key: 'dashboard', label: 'Dashboard', group: 'Core',       actions: ['view'] },
+  { key: 'map',       label: 'Live Map',  group: 'Core',       actions: ['view'] },
+  { key: 'vehicles',  label: 'Vehicles',  group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'alerts',    label: 'Alerts',    group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'geofences', label: 'Geofences', group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'pois',      label: 'POIs',      group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'users',     label: 'My Users',  group: 'Management', actions: ['view', 'add', 'edit', 'delete'] },
+];
+
+export const ORG_PORTAL_GROUPS = ['Core', 'Fleet', 'Management'];
+
+// Maps sidebar nav route key → portal feature key (used for sidebar + canOrgDo)
+export const ORG_NAV_TO_FEATURE: Record<string, string> = {
+  dashboard:      'dashboard',
+  map:            'map',
+  vehicles:       'vehicles',
+  'client-users': 'users',
+};
+
 export const ORG_ROLE_LABEL: Record<string, string> = {
   org_owner: 'Org Owner',
   org_admin: 'Org Admin',
