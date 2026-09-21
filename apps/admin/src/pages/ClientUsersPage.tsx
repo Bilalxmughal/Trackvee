@@ -69,7 +69,52 @@ function portalStatus(lastLoginAt: string | null): { label: string; color: strin
 
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
-const emptyForm = { firstName: '', lastName: '', email: '', password: '', role: 'org_admin', isActive: true, organizationId: '' };
+const emptyForm = { clientType: 'b2b' as 'b2b' | 'b2c', firstName: '', lastName: '', email: '', password: '', role: 'org_admin', isActive: true, organizationId: '' };
+
+// Searchable org selector component
+function OrgSelector({ orgs, value, onChange, placeholder }: {
+  orgs: Org[]; value: string; onChange: (id: string) => void; placeholder: string;
+}) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const selected = orgs.find(o => o.id === value);
+  const filtered = orgs.filter(o => {
+    const lq = q.toLowerCase();
+    return o.name.toLowerCase().includes(lq);
+  });
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ ...inputStyle, padding: '0 8px', display: 'flex', alignItems: 'center', gap: 6, cursor: 'text', height: 34 }}
+        onClick={() => setOpen(true)}>
+        {selected
+          ? <span style={{ fontSize: 13, color: 'var(--text)' }}>{selected.name}</span>
+          : <span style={{ fontSize: 13, color: '#bbb' }}>{placeholder}</span>}
+      </div>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--input-bg)', border: '1px solid var(--border)', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', marginTop: 2 }}>
+          <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>
+            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search…"
+              style={{ width: '100%', border: 'none', outline: 'none', fontSize: 12.5, background: 'transparent', color: 'var(--text)' }} />
+          </div>
+          <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+            {filtered.length === 0
+              ? <div style={{ padding: '10px 12px', color: '#bbb', fontSize: 12 }}>No results</div>
+              : filtered.map(o => (
+                <div key={o.id} onClick={() => { onChange(o.id); setQ(''); setOpen(false); }}
+                  style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, background: o.id === value ? 'rgba(220,38,38,0.06)' : 'transparent', color: o.id === value ? '#dc2626' : 'var(--text)', fontWeight: o.id === value ? 600 : 400 }}
+                  onMouseEnter={e => { if (o.id !== value) e.currentTarget.style.background = 'var(--bg2)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = o.id === value ? 'rgba(220,38,38,0.06)' : 'transparent'; }}>
+                  {o.name}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+      {open && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />}
+    </div>
+  );
+}
 
 export default function ClientUsersPage() {
   const { user: me, loginAs } = useAuth();
@@ -112,8 +157,8 @@ export default function ClientUsersPage() {
     }
   }, [form.role, form.organizationId]);
 
-  const selectedOrg = orgs.find(o => o.id === form.organizationId);
-  const roleOptions = selectedOrg?.type === 'b2c'
+  const filteredOrgsByType = orgs.filter(o => o.type === form.clientType);
+  const roleOptions = form.clientType === 'b2c'
     ? [{ value: 'customer', label: 'Customer' }]
     : ORG_ROLES_B2B.map(r => ({ value: r, label: ROLE_LABEL[r] }));
 
@@ -122,7 +167,8 @@ export default function ClientUsersPage() {
   };
   const openEdit = async (u: OrgUser) => {
     setEditing(u);
-    setForm({ firstName: u.firstName ?? '', lastName: u.lastName ?? '', email: u.email, password: '', role: u.role, isActive: u.isActive, organizationId: u.organizationId ?? '' });
+    const org = orgs.find(o => o.id === u.organizationId);
+    setForm({ clientType: (org?.type as 'b2b' | 'b2c') ?? 'b2b', firstName: u.firstName ?? '', lastName: u.lastName ?? '', email: u.email, password: '', role: u.role, isActive: u.isActive, organizationId: u.organizationId ?? '' });
     setActiveTab('profile');
     if (u.role === 'org_user') {
       try { const r = await api.get<OrgPerm>(`/org-permissions/${u.id}`); setPerm(r.data ?? DEFAULT_PERM); }
@@ -134,10 +180,12 @@ export default function ClientUsersPage() {
   const set = (k: string, v: unknown) => {
     setForm(f => {
       const updated = { ...f, [k]: v };
+      if (k === 'clientType') {
+        updated.organizationId = '';
+        updated.role = v === 'b2c' ? 'customer' : 'org_admin';
+      }
       if (k === 'organizationId') {
-        const org = orgs.find(o => o.id === v);
-        if (org?.type === 'b2c') updated.role = 'customer';
-        else if (updated.role === 'customer') updated.role = 'org_admin';
+        // role already driven by clientType, no change needed
       }
       return updated;
     });
@@ -317,16 +365,36 @@ export default function ClientUsersPage() {
         <form onSubmit={handleSubmit}>
           {activeTab === 'profile' && (
             <>
-              <FormField label="Organization *">
-                <select required value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
-                  <option value="">— Select Organization —</option>
-                  {orgs.map(o => <option key={o.id} value={o.id}>{o.name} ({o.type.toUpperCase()})</option>)}
-                </select>
+              {/* Client Type toggle */}
+              <FormField label="Client Type">
+                <div style={{ display: 'flex', gap: 0, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)', width: 'fit-content' }}>
+                  {(['b2b', 'b2c'] as const).map(t => (
+                    <button key={t} type="button" onClick={() => set('clientType', t)}
+                      style={{ padding: '6px 20px', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, background: form.clientType === t ? '#dc2626' : 'var(--bg2)', color: form.clientType === t ? '#fff' : 'var(--text2)', transition: 'all 0.15s' }}>
+                      {t.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
               </FormField>
+
+              {/* Company/Client search select */}
+              <FormField label={form.clientType === 'b2b' ? 'Company *' : 'Client *'}>
+                <OrgSelector
+                  orgs={filteredOrgsByType}
+                  value={form.organizationId}
+                  onChange={id => set('organizationId', id)}
+                  placeholder={form.clientType === 'b2b' ? 'Search company name…' : 'Search client name…'}
+                />
+              </FormField>
+
+              {/* Role — B2B: dropdown, B2C: read-only */}
               <FormField label="Role">
-                <select value={form.role} onChange={e => set('role', e.target.value)} style={selectStyle} disabled={selectedOrg?.type === 'b2c'}>
-                  {roleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
+                {form.clientType === 'b2c'
+                  ? <div style={{ ...inputStyle, display: 'flex', alignItems: 'center', color: 'var(--muted)', fontSize: 13, height: 34, padding: '0 8px' }}>Customer (B2C)</div>
+                  : <select value={form.role} onChange={e => set('role', e.target.value)} style={selectStyle}>
+                      {roleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                }
               </FormField>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
                 <FormField label="First Name">
