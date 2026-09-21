@@ -12,7 +12,10 @@
     "resolveJsonModule": true,
     "jsx": "react-jsx",
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@yotrack/types": ["../../packages/types/src/index.ts"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "../../packages/types/src"]
 }
