@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // decode without verifying to get user info
             try {
               const payload = JSON.parse(atob(origToken.split('.')[1]));
-              setOriginalUser({ id: payload.sub, email: payload.email, role: payload.role, displayId: 0, firstName: null, lastName: null, isActive: true });
+              setOriginalUser({ id: payload.sub, email: payload.email, role: payload.role, displayId: 0, firstName: null, lastName: null, isActive: true, organizationId: null });
             } catch { /* no-op */ }
           }
         }
