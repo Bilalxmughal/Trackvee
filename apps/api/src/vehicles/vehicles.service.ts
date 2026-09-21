@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Vehicle } from './entities/vehicle.entity.js';
 import { Device } from '../devices/entities/device.entity.js';
 import { User } from '../users/entities/user.entity.js';
+import { OrgPermissionsService } from '../org-permissions/org-permissions.service.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 const GATEWAY_CMD_URL = process.env['GATEWAY_CMD_URL'] ?? 'http://localhost:5024';
@@ -16,6 +17,7 @@ export class VehiclesService {
     private repo: Repository<Vehicle>,
     @InjectRepository(Device)
     private deviceRepo: Repository<Device>,
+    private orgPerms: OrgPermissionsService,
   ) {}
 
   async findForUser(user: User, cityId?: string): Promise<Vehicle[]> {
@@ -24,6 +26,15 @@ export class VehiclesService {
       return this.repo.find({ where: cityFilter });
     }
     if (user.organizationId) {
+      // org_user: check vehicle_ids restriction
+      if (user.role === 'org_user') {
+        const perm = await this.orgPerms.findByUser(user.id);
+        if (perm?.vehicleIds && perm.vehicleIds.length > 0) {
+          return this.repo.find({
+            where: { organizationId: user.organizationId, id: In(perm.vehicleIds), ...cityFilter },
+          });
+        }
+      }
       return this.repo.find({
         where: [
           { organizationId: user.organizationId, ...cityFilter },

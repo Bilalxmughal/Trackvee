@@ -11,6 +11,7 @@ import { CitiesModule } from './cities/cities.module.js';
 import { GeofencesModule } from './geofences/geofences.module.js';
 import { AlertsModule } from './alerts/alerts.module.js';
 import { PoisModule } from './pois/poi.module.js';
+import { OrgPermissionsModule } from './org-permissions/org-permissions.module.js';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PoisModule } from './pois/poi.module.js';
     GeofencesModule,
     AlertsModule,
     PoisModule,
+    OrgPermissionsModule,
   ],
 })
 export class AppModule {}
