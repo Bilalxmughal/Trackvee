@@ -8,6 +8,7 @@ export interface AuthUser {
   lastName: string | null;
   role: string;
   isActive: boolean;
+  organizationId: string | null;
 }
 
 export const authApi = {

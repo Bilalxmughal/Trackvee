@@ -116,9 +116,16 @@ function OrgSelector({ orgs, value, onChange, placeholder }: {
   );
 }
 
+const ORG_ROLES_SET = new Set(['org_owner', 'org_admin', 'org_user', 'customer']);
+
 export default function ClientUsersPage() {
   const { user: me, loginAs } = useAuth();
   const [searchParams] = useSearchParams();
+
+  // If logged-in user is an org role, lock the page to their org
+  const myOrgId = ORG_ROLES_SET.has(me?.role ?? '') ? (me?.organizationId ?? null) : null;
+  const isOrgScoped = myOrgId !== null;
+
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,8 +147,9 @@ export default function ClientUsersPage() {
   const [deletingId, setDeletingId] = useState(false);
 
   const load = () => {
+    const orgParam = myOrgId ? `?organizationId=${myOrgId}` : '';
     Promise.all([
-      api.get<OrgUser[]>('/users/org-users'),
+      api.get<OrgUser[]>(`/users/org-users${orgParam}`),
       api.get<Org[]>('/organizations'),
     ]).then(([u, o]) => { setUsers(u.data); setOrgs(o.data); })
       .catch(() => {}).finally(() => setLoading(false));
@@ -163,7 +171,15 @@ export default function ClientUsersPage() {
     : ORG_ROLES_B2B.map(r => ({ value: r, label: ROLE_LABEL[r] }));
 
   const openAdd = () => {
-    setEditing(null); setForm(emptyForm); setPerm(DEFAULT_PERM); setActiveTab('profile'); setModal(true);
+    const myOrg = myOrgId ? orgs.find(o => o.id === myOrgId) : null;
+    setEditing(null);
+    setForm({
+      ...emptyForm,
+      organizationId: myOrgId ?? '',
+      clientType: myOrg?.type === 'b2c' ? 'b2c' : 'b2b',
+      role: myOrg?.type === 'b2c' ? 'customer' : 'org_admin',
+    });
+    setPerm(DEFAULT_PERM); setActiveTab('profile'); setModal(true);
   };
   const openEdit = async (u: OrgUser) => {
     setEditing(u);
@@ -259,13 +275,19 @@ export default function ClientUsersPage() {
   const isOrgUser = form.role === 'org_user';
   const tabs = [{ key: 'profile' as const, label: 'Profile' }, ...(isOrgUser ? [{ key: 'permissions' as const, label: 'Permissions' }] : [])];
 
+  const myOrg = myOrgId ? orgs.find(o => o.id === myOrgId) : null;
+
   return (
     <div>
-      <PageHeader title="Client Users" count={users.length} action={
-        <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-          <IconPlus size={13} /> Add Client User
-        </button>
-      } />
+      <PageHeader
+        title={isOrgScoped ? `${myOrg?.name ?? 'My Org'} — Users` : 'Client Users'}
+        count={users.length}
+        action={
+          <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconPlus size={13} /> Add User
+          </button>
+        }
+      />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative' }}>
@@ -280,10 +302,12 @@ export default function ClientUsersPage() {
           <option value="org_user">Org User</option>
           <option value="customer">Customer</option>
         </select>
-        <select value={orgFilter} onChange={e => setOrgFilter(e.target.value)} style={{ ...sel, maxWidth: 160 }}>
-          <option value="">All Orgs</option>
-          {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-        </select>
+        {!isOrgScoped && (
+          <select value={orgFilter} onChange={e => setOrgFilter(e.target.value)} style={{ ...sel, maxWidth: 160 }}>
+            <option value="">All Orgs</option>
+            {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select>
+        )}
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
           <option value="">All Status</option><option value="true">Active</option><option value="false">Inactive</option>
         </select>
@@ -331,14 +355,16 @@ export default function ClientUsersPage() {
                       <div style={{ display: 'flex', gap: 2 }}>
                         <button onClick={() => openEdit(u)} title="Edit" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                           onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>
-                        {me?.role === 'super_admin' && (
+                        {me?.role === 'super_admin' && !isOrgScoped && (
                           <button onClick={() => handleLoginAs(u)} title="Login as this user" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                             onMouseEnter={e => (e.currentTarget.style.color = '#3b82f6')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconUserScan size={14} /></button>
                         )}
                         <button onClick={() => setRevokeTarget(u)} title="Revoke access (force logout)" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                           onMouseEnter={e => (e.currentTarget.style.color = '#f59e0b')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconBan size={14} /></button>
-                        <button onClick={() => setDeleting(u)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
-                          onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconTrash size={14} /></button>
+                        {(!isOrgScoped || me?.role === 'org_owner') && u.id !== me?.id && (
+                          <button onClick={() => setDeleting(u)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconTrash size={14} /></button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -365,27 +391,29 @@ export default function ClientUsersPage() {
         <form onSubmit={handleSubmit}>
           {activeTab === 'profile' && (
             <>
-              {/* Client Type toggle */}
-              <FormField label="Client Type">
-                <div style={{ display: 'flex', gap: 0, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)', width: 'fit-content' }}>
-                  {(['b2b', 'b2c'] as const).map(t => (
-                    <button key={t} type="button" onClick={() => set('clientType', t)}
-                      style={{ padding: '6px 20px', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, background: form.clientType === t ? '#dc2626' : 'var(--bg2)', color: form.clientType === t ? '#fff' : 'var(--text2)', transition: 'all 0.15s' }}>
-                      {t.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </FormField>
-
-              {/* Company/Client search select */}
-              <FormField label={form.clientType === 'b2b' ? 'Company *' : 'Client *'}>
-                <OrgSelector
-                  orgs={filteredOrgsByType}
-                  value={form.organizationId}
-                  onChange={id => set('organizationId', id)}
-                  placeholder={form.clientType === 'b2b' ? 'Search company name…' : 'Search client name…'}
-                />
-              </FormField>
+              {/* Client Type + Org selector — hidden when org-scoped */}
+              {!isOrgScoped && (
+                <>
+                  <FormField label="Client Type">
+                    <div style={{ display: 'flex', gap: 0, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)', width: 'fit-content' }}>
+                      {(['b2b', 'b2c'] as const).map(t => (
+                        <button key={t} type="button" onClick={() => set('clientType', t)}
+                          style={{ padding: '6px 20px', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, background: form.clientType === t ? '#dc2626' : 'var(--bg2)', color: form.clientType === t ? '#fff' : 'var(--text2)', transition: 'all 0.15s' }}>
+                          {t.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </FormField>
+                  <FormField label={form.clientType === 'b2b' ? 'Company *' : 'Client *'}>
+                    <OrgSelector
+                      orgs={filteredOrgsByType}
+                      value={form.organizationId}
+                      onChange={id => set('organizationId', id)}
+                      placeholder={form.clientType === 'b2b' ? 'Search company name…' : 'Search client name…'}
+                    />
+                  </FormField>
+                </>
+              )}
 
               {/* Role — B2B: dropdown, B2C: read-only */}
               <FormField label="Role">
