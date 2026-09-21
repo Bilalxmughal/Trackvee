@@ -297,8 +297,8 @@ export default function RoleAccessPage() {
         {section === 'client' && (
           <>
             <div style={{ width: 200, flexShrink: 0, borderRight: '1px solid var(--border)', overflowY: 'auto' }}>
-              <div style={{ padding: '10px 16px 6px', fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1 }}>Portal Roles</div>
-              {ORG_ROLES.map(role => {
+              <div style={{ padding: '10px 16px 6px', fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1 }}>B2B Roles</div>
+              {(['org_owner', 'org_admin'] as UserRole[]).map(role => {
                 const on     = activeOrgRole === role;
                 const locked = role === 'org_owner';
                 return (
@@ -318,10 +318,18 @@ export default function RoleAccessPage() {
                   </button>
                 );
               })}
-              <div style={{ padding: '14px 16px 10px', borderTop: '1px solid var(--border)', marginTop: 8 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Note</div>
+              <div style={{ padding: '10px 16px 6px', borderTop: '1px solid var(--border)', marginTop: 8, fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1 }}>B2C Individual</div>
+              <div style={{ padding: '6px 16px 10px' }}>
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <IconLock size={11} />Customer
+                </div>
+                <div style={{ fontSize: 11, color: '#bbb', marginTop: 3, lineHeight: 1.5 }}>
+                  Fixed access: Dashboard, Map, Vehicles, Alerts, Geofences, POIs (view only). Cannot add team members.
+                </div>
+              </div>
+              <div style={{ padding: '10px 16px 10px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
-                  Org Owner is always full access. Org User can have further per-user overrides from Client Users page.
+                  Org Owner always has full access. Org Admin permissions are configurable.
                 </div>
               </div>
             </div>

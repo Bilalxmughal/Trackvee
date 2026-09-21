@@ -30,7 +30,7 @@ const typeTag = (t: string) => (
   <span style={{ fontSize: 12, color: 'var(--text2)' }}>{t === 'b2b' ? 'B2B' : 'B2C'}</span>
 );
 
-const empty = { name: '', companyName: '', contactNo: '92', email: '', password: '', cityId: '', isActive: true, type: 'b2b' };
+const empty = { name: '', pocName: '', contactNo: '92', email: '', password: '', cityId: '', isActive: true, type: 'b2b' };
 
 function handlePhone(val: string, set: (k: string, v: unknown) => void) {
   let d = val.replace(/\D/g, '');
@@ -102,7 +102,7 @@ export default function ClientsPage() {
   const openEdit = (c: Client) => {
     setEditing(c);
     const phone = c.contactNo ? c.contactNo.replace(/\D/g, '') : '92';
-    setForm({ name: c.name, companyName: c.companyName ?? '', contactNo: phone.startsWith('92') ? phone : '92' + phone, email: c.email ?? '', password: '', cityId: c.cityId ?? '', isActive: c.isActive, type: c.type });
+    setForm({ name: c.name, pocName: c.pocName ?? '', contactNo: phone.startsWith('92') ? phone : '92' + phone, email: c.email ?? '', password: '', cityId: c.cityId ?? '', isActive: c.isActive, type: c.type });
     setShowPw(false); setModal(true);
   };
   const closeModal = () => { setModal(false); setEditing(null); setPhoneError(''); };
@@ -115,7 +115,8 @@ export default function ClientsPage() {
     try {
       const payload: Record<string, unknown> = {
         name: form.name,
-        companyName: form.type === 'b2b' ? (form.companyName || null) : null,
+        pocName: form.type === 'b2b' ? (form.pocName || null) : null,
+        companyName: null,
         contactNo: form.contactNo || null,
         email: form.email || null,
         cityId: form.cityId || null,
@@ -195,7 +196,7 @@ export default function ClientsPage() {
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Name', 'Company', 'Contact', 'Email', 'Type', 'Plates', 'Vehicles', 'Devices', 'Portal Users', 'Status', 'Added', 'Actions'].map(h => (
+                {['ID', 'Name', 'POC', 'Contact', 'Email', 'Type', 'Plates', 'Vehicles', 'Devices', 'Portal Users', 'Status', 'Added', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -205,7 +206,7 @@ export default function ClientsPage() {
                 <tr key={c.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
                   <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{c.displayId}</td>
                   <td style={{ padding: '10px 14px', fontWeight: 500, fontSize: 13 }}>{c.name}</td>
-                  <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.companyName ?? '—'}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.pocName ?? '—'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.contactNo ?? '—'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{c.email ?? '—'}</td>
                   <td style={{ padding: '10px 14px' }}>{typeTag(c.type)}</td>
@@ -264,22 +265,27 @@ export default function ClientsPage() {
             </div>
           </FormField>
 
-          <FormField label="Full Name *">
+          <FormField label={form.type === 'b2b' ? 'Company Name *' : 'Full Name *'}>
             <input required value={form.name} onChange={e => set('name', e.target.value)}
-              placeholder={form.type === 'b2b' ? 'Contact person name' : 'Client full name'}
+              placeholder={form.type === 'b2b' ? 'e.g. Acme Logistics' : 'Client full name'}
               style={inputStyle}
               onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
           </FormField>
 
           {form.type === 'b2b' && (
-            <FormField label="Company Name">
-              <input value={form.companyName} onChange={e => set('companyName', e.target.value)}
-                placeholder="e.g. Acme Logistics"
-                style={inputStyle}
-                onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
-            </FormField>
+            <>
+              <FormField label="POC Name *">
+                <input required={form.type === 'b2b'} value={form.pocName} onChange={e => set('pocName', e.target.value)}
+                  placeholder="Contact person name"
+                  style={inputStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
+              </FormField>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: -10, marginBottom: 8, padding: '0 2px' }}>
+                POC will receive portal login access at login.trackvee.com
+              </div>
+            </>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>

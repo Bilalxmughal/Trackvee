@@ -52,7 +52,7 @@ export class AuthService {
   }
 
   async me(userId: string) {
-    return this.usersService.findById(userId);
+    return this.usersService.findByIdWithOrg(userId);
   }
 
   async impersonate(targetUserId: string, requestingUser: { role: string }) {

@@ -1,19 +1,33 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity.js';
 import type { UserRole } from '@yotrack/types';
+
+export type UserWithOrg = User & { organizationName?: string; organizationType?: string };
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private repo: Repository<User>,
+    private dataSource: DataSource,
   ) {}
 
   async findById(id: string): Promise<User | null> {
     return this.repo.findOne({ where: { id } });
+  }
+
+  async findByIdWithOrg(id: string): Promise<UserWithOrg | null> {
+    const user = await this.findById(id);
+    if (!user || !user.organizationId) return user;
+    const [org] = await this.dataSource.query(
+      'SELECT name, type FROM organizations WHERE id = $1',
+      [user.organizationId],
+    );
+    if (!org) return user;
+    return { ...user, organizationName: org.name as string, organizationType: org.type as string };
   }
 
   async findByEmail(email: string): Promise<User | null> {

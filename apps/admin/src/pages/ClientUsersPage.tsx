@@ -283,16 +283,21 @@ export default function ClientUsersPage() {
   const tabs = [{ key: 'profile' as const, label: 'Profile' }, ...(isOrgUser ? [{ key: 'permissions' as const, label: 'Permissions' }] : [])];
 
   const myOrg = myOrgId ? orgs.find(o => o.id === myOrgId) : null;
+  const selectedOrg = !isOrgScoped && orgFilter ? orgs.find(o => o.id === orgFilter) : null;
+  const selectedOrgIsB2C = selectedOrg?.type === 'b2c' || (isOrgScoped && me?.organizationType === 'b2c');
+  const canShowAddUser = cuCanAdd && !selectedOrgIsB2C;
 
   return (
     <div>
       <PageHeader
         title={isOrgScoped ? `${myOrg?.name ?? 'My Org'} — Users` : 'Client Users'}
         count={users.length}
-        action={cuCanAdd ? (
+        action={canShowAddUser ? (
           <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
             <IconPlus size={13} /> Add User
           </button>
+        ) : selectedOrgIsB2C ? (
+          <span style={{ fontSize: 12, color: 'var(--muted)', padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 3 }}>Individual account</span>
         ) : undefined}
       />
 

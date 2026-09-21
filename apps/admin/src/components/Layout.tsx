@@ -147,6 +147,7 @@ function LayoutInner() {
 
   const role = user?.role ?? 'customer';
   const isOrgRole = ORG_ROLES.includes(role as (typeof ORG_ROLES)[number]);
+  const orgDisplayName = isOrgRole && user?.organizationType === 'b2b' ? (user.organizationName ?? null) : null;
   const isPortalHost = typeof window !== 'undefined' && window.location.hostname === 'login.trackvee.com';
   const visibleSections: Section[] = NAV_SECTIONS
     .map(s => ({
@@ -303,8 +304,10 @@ function LayoutInner() {
                 {displayName.charAt(0).toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: dark ? '#e5e5e5' : '#1a1a1a', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
-                <div style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa', lineHeight: 1.3 }}>{ROLE_LABEL[user?.role ?? ''] ?? user?.role}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: dark ? '#e5e5e5' : '#1a1a1a', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{orgDisplayName ?? displayName}</div>
+                <div style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa', lineHeight: 1.3 }}>
+                  {orgDisplayName ? displayName : (ROLE_LABEL[user?.role ?? ''] ?? user?.role)}
+                </div>
               </div>
               <button onClick={() => { logout(); navigate('/login'); }} title="Sign out"
                 style={{ border: 'none', background: 'none', cursor: 'pointer', color: dark ? '#555' : '#ccc', padding: 4, borderRadius: 6, display: 'flex', flexShrink: 0 }}
@@ -498,8 +501,8 @@ function LayoutInner() {
                 {displayName.charAt(0).toUpperCase()}
               </div>
               <div className="yt-topbar-name" style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{displayName}</div>
-                <div style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa', lineHeight: 1.2 }}>{ROLE_LABEL[user?.role ?? ''] ?? user?.role}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{orgDisplayName ?? displayName}</div>
+                <div style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa', lineHeight: 1.2 }}>{orgDisplayName ? displayName : (ROLE_LABEL[user?.role ?? ''] ?? user?.role)}</div>
               </div>
               <IconChevronDown size={12} className="yt-topbar-name" style={{ color: dark ? '#444' : '#ccc' }} />
             </button>
