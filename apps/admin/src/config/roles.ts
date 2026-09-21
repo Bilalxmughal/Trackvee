@@ -77,10 +77,26 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     setup:     ['view'],
   },
   org_owner: {
+    dashboard:      ['view'],
+    map:            ['view'],
+    vehicles:       ['view', 'add', 'edit', 'delete'],
     'client-users': ['view', 'add', 'edit', 'delete'],
   },
   org_admin: {
+    dashboard:      ['view'],
+    map:            ['view'],
+    vehicles:       ['view', 'add', 'edit', 'delete'],
     'client-users': ['view', 'add', 'edit', 'delete'],
+  },
+  org_user: {
+    dashboard: ['view'],
+    map:       ['view'],
+    vehicles:  ['view'],
+  },
+  customer: {
+    dashboard: ['view'],
+    map:       ['view'],
+    vehicles:  ['view'],
   },
 };
 
@@ -116,6 +132,24 @@ export const TOPBAR_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string,
     alerts:    ['view'],
     geofences: ['view'],
     pois:      ['view'],
+  },
+  org_owner: {
+    alerts:    ['view', 'add', 'edit', 'delete'],
+    geofences: ['view', 'add', 'edit', 'delete'],
+    pois:      ['view', 'add', 'edit', 'delete'],
+  },
+  org_admin: {
+    alerts:    ['view', 'add', 'edit', 'delete'],
+    geofences: ['view', 'add', 'edit', 'delete'],
+    pois:      ['view', 'add', 'edit', 'delete'],
+  },
+  org_user: {
+    alerts:    ['view'],
+    geofences: ['view'],
+    pois:      ['view'],
+  },
+  customer: {
+    alerts:    ['view'],
   },
 };
 

@@ -146,14 +146,14 @@ function LayoutInner() {
   const role = user?.role ?? 'customer';
   const isOrgRole = ORG_ROLES.includes(role as (typeof ORG_ROLES)[number]);
   const isPortalHost = typeof window !== 'undefined' && window.location.hostname === 'login.trackvee.com';
-  const visibleSections: Section[] = isOrgRole
-    ? [{ label: null, items: [{ to: '/client-users', icon: IconUsersGroup, label: 'My Users' }] }]
-    : NAV_SECTIONS
-        .map(s => ({
-          ...s,
-          items: s.items.filter(i => canAccessPage(role as Parameters<typeof canAccessPage>[0], i.to.replace('/', ''))),
-        }))
-        .filter(s => s.items.length > 0);
+  const visibleSections: Section[] = NAV_SECTIONS
+    .map(s => ({
+      ...s,
+      items: s.items
+        .filter(i => canAccessPage(role as Parameters<typeof canAccessPage>[0], i.to.replace('/', '')))
+        .map(i => (isOrgRole && i.to === '/client-users') ? { ...i, label: 'My Users' } : i),
+    }))
+    .filter(s => s.items.length > 0);
 
   // global search
   useEffect(() => {
