@@ -1,68 +1,149 @@
 import { useState } from 'react';
-import { IconShield, IconCheck, IconMinus } from '@tabler/icons-react';
+import { IconShield, IconCheck, IconMinus, IconLock } from '@tabler/icons-react';
 import PageHeader from '../components/PageHeader';
-import { ROLE_PERMISSIONS, ROLE_TOPBAR, ROLE_LABEL, INTERNAL_ROLES, type PageAction } from '../config/roles';
+import { ROLE_PERMISSIONS, TOPBAR_PERMISSIONS, ROLE_LABEL, INTERNAL_ROLES, canManageRole, type PageAction } from '../config/roles';
+import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '@yotrack/types';
 
-interface PageRow { key: string; label: string; group: string; actions: PageAction[]; }
+interface PageRow  { key: string; label: string; group: string; actions: PageAction[]; }
+interface TopbarRow { key: string; label: string; }
 
 const PAGES: PageRow[] = [
-  { key: 'dashboard', label: 'Dashboard',       group: 'Core',           actions: ['view'] },
-  { key: 'map',       label: 'Live Map',         group: 'Core',           actions: ['view'] },
-  { key: 'telemetry', label: 'Telemetry',        group: 'Core',           actions: ['view'] },
-  { key: 'clients',   label: 'Clients',          group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'vehicles',  label: 'Vehicles',         group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'devices',   label: 'Devices',          group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'setup',     label: 'Setup Guide',      group: 'Management',     actions: ['view'] },
-  { key: 'users',     label: 'User Management',  group: 'Administration', actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'roles',     label: 'Role Access',      group: 'Administration', actions: ['view'] },
-  { key: 'settings',  label: 'Settings',         group: 'Administration', actions: ['view', 'edit'] },
+  { key: 'dashboard', label: 'Dashboard',      group: 'Core',           actions: ['view'] },
+  { key: 'map',       label: 'Live Map',        group: 'Core',           actions: ['view'] },
+  { key: 'telemetry', label: 'Telemetry',       group: 'Core',           actions: ['view'] },
+  { key: 'clients',   label: 'Clients',         group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'vehicles',  label: 'Vehicles',        group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'devices',   label: 'Devices',         group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'setup',     label: 'Setup Guide',     group: 'Management',     actions: ['view'] },
+  { key: 'users',     label: 'User Management', group: 'Administration', actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'roles',     label: 'Role Access',     group: 'Administration', actions: ['view'] },
+  { key: 'settings',  label: 'Settings',        group: 'Administration', actions: ['view', 'edit'] },
 ];
 
-const TOPBAR_FEATURES = [
+const TOPBAR_ROWS: TopbarRow[] = [
   { key: 'alerts',    label: 'Alerts' },
   { key: 'geofences', label: 'Geofences' },
   { key: 'pois',      label: 'POIs' },
 ];
 
 const GROUPS = ['Core', 'Management', 'Administration'];
+const ALL_ACTIONS: PageAction[] = ['view', 'add', 'edit', 'delete'];
 const ACTION_LABEL: Record<PageAction, string> = { view: 'View', add: 'Add', edit: 'Edit', delete: 'Delete' };
 const ACTION_COLOR: Record<PageAction, string> = {
   view: '#3b82f6', add: '#16a34a', edit: '#f59e0b', delete: '#dc2626',
 };
 
-function ActionCell({ on, action, na }: { on: boolean; action: PageAction; na?: boolean }) {
+type PermMap = Partial<Record<string, PageAction[]>>;
+type AllPerms = Partial<Record<UserRole, PermMap>>;
+
+function deepClone<T>(v: T): T { return JSON.parse(JSON.stringify(v)); }
+
+function Cell({ on, action, na, locked, onClick }: {
+  on: boolean; action: PageAction; na?: boolean; locked?: boolean; onClick?: () => void;
+}) {
   if (na) {
-    return (
-      <td style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--border)' }}>
-        <div style={{ width: 26, height: 26, margin: '0 auto', display: 'grid', placeItems: 'center', color: 'var(--border)' }}>
-          <IconMinus size={11} />
-        </div>
-      </td>
-    );
+    return <td style={{ padding: '8px 10px', textAlign: 'center' }}><div style={{ width: 26, height: 26, margin: '0 auto', display: 'grid', placeItems: 'center', color: 'var(--border)' }}><IconMinus size={10} /></div></td>;
   }
   return (
     <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-      <div style={{
-        width: 26, height: 26, borderRadius: 5, margin: '0 auto',
-        display: 'grid', placeItems: 'center',
-        background: on ? `${ACTION_COLOR[action]}18` : 'var(--bg3)',
-        color: on ? ACTION_COLOR[action] : '#ccc',
-      }}>
-        {on ? <IconCheck size={12} strokeWidth={2.5} /> : <IconMinus size={12} />}
-      </div>
+      <button
+        type="button"
+        disabled={locked}
+        onClick={onClick}
+        title={locked ? 'Cannot modify' : (on ? 'Click to revoke' : 'Click to grant')}
+        style={{
+          width: 26, height: 26, borderRadius: 5, margin: '0 auto', border: 0,
+          display: 'grid', placeItems: 'center', cursor: locked ? 'not-allowed' : 'pointer',
+          background: locked ? 'var(--bg3)' : on ? `${ACTION_COLOR[action]}18` : 'var(--bg3)',
+          color: locked ? '#ccc' : on ? ACTION_COLOR[action] : '#ccc',
+          transition: 'background 0.15s, color 0.15s',
+          opacity: locked ? 0.5 : 1,
+        }}
+      >
+        {locked ? <IconLock size={10} /> : on ? <IconCheck size={12} strokeWidth={2.5} /> : <IconMinus size={12} />}
+      </button>
     </td>
   );
 }
 
 export default function RoleAccessPage() {
+  const { user } = useAuth();
+  const currentRole = (user?.role ?? 'viewer') as UserRole;
+  const isSuperAdmin = currentRole === 'super_admin';
+
   const [activeRole, setActiveRole] = useState<UserRole>('admin');
-  const perms = ROLE_PERMISSIONS[activeRole] ?? {};
-  const topbar = ROLE_TOPBAR[activeRole] ?? [];
+  const [pagePerms, setPagePerms]     = useState<AllPerms>(() => deepClone(ROLE_PERMISSIONS));
+  const [topbarPerms, setTopbarPerms] = useState<AllPerms>(() => deepClone(TOPBAR_PERMISSIONS));
+  const [saved, setSaved] = useState(false);
+
+  const canEdit = canManageRole(currentRole, activeRole);
+  const isLockedRole = activeRole === 'super_admin';
+
+  function togglePage(action: PageAction, pageKey: string) {
+    if (!canEdit) return;
+    setPagePerms(prev => {
+      const next = deepClone(prev);
+      const rolePerms = next[activeRole] ?? {};
+      const cur = rolePerms[pageKey] ?? [];
+      if (cur.includes(action)) {
+        rolePerms[pageKey] = cur.filter(a => a !== action);
+      } else {
+        rolePerms[pageKey] = [...cur, action];
+        // granting add/edit/delete auto-grants view
+        if (action !== 'view' && !rolePerms[pageKey].includes('view')) {
+          rolePerms[pageKey].push('view');
+        }
+      }
+      next[activeRole] = rolePerms;
+      return next;
+    });
+    setSaved(false);
+  }
+
+  function toggleTopbar(action: PageAction, featureKey: string) {
+    if (!canEdit) return;
+    setTopbarPerms(prev => {
+      const next = deepClone(prev);
+      const rolePerms = next[activeRole] ?? {};
+      const cur = rolePerms[featureKey] ?? [];
+      if (cur.includes(action)) {
+        rolePerms[featureKey] = cur.filter(a => a !== action);
+      } else {
+        rolePerms[featureKey] = [...cur, action];
+        if (action !== 'view' && !rolePerms[featureKey].includes('view')) {
+          rolePerms[featureKey].push('view');
+        }
+      }
+      next[activeRole] = rolePerms;
+      return next;
+    });
+    setSaved(false);
+  }
+
+  function handleSave() {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  const activePagePerms   = pagePerms[activeRole]   ?? {};
+  const activeTopbarPerms = topbarPerms[activeRole] ?? {};
 
   return (
     <div>
-      <PageHeader title="Role Access" />
+      <PageHeader
+        title="Role Access"
+        action={
+          canEdit ? (
+            <button
+              onClick={handleSave}
+              style={{ padding: '6px 16px', background: saved ? '#16a34a' : '#dc2626', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }}
+            >
+              {saved ? 'Saved!' : 'Save Changes'}
+            </button>
+          ) : undefined
+        }
+      />
 
       <div style={{ display: 'flex', height: 'calc(100vh - 110px)' }}>
         {/* Role sidebar */}
@@ -72,7 +153,8 @@ export default function RoleAccessPage() {
           </div>
           {INTERNAL_ROLES.map(role => {
             const on = activeRole === role;
-            const pageCount = Object.keys(ROLE_PERMISSIONS[role] ?? {}).length;
+            const locked = role === 'super_admin';
+            const editable = canManageRole(currentRole, role);
             return (
               <button
                 key={role}
@@ -88,38 +170,58 @@ export default function RoleAccessPage() {
                 onMouseLeave={e => { e.currentTarget.style.background = on ? 'rgba(220,38,38,0.06)' : 'transparent'; }}
               >
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: on ? 600 : 400, color: on ? '#dc2626' : 'var(--text)' }}>
+                  <div style={{ fontSize: 13, fontWeight: on ? 600 : 400, color: locked ? '#aaa' : on ? '#dc2626' : 'var(--text)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    {locked && <IconLock size={11} />}
                     {ROLE_LABEL[role]}
                   </div>
                   <div style={{ fontSize: 11, color: '#bbb', marginTop: 1 }}>
-                    {role === 'super_admin' ? 'Full access' : `${pageCount} pages`}
+                    {locked ? 'System — Full Access' : editable ? 'Editable' : 'Read-only'}
                   </div>
                 </div>
-                {on && <IconShield size={13} color="#dc2626" />}
+                {on && <IconShield size={13} color={locked ? '#aaa' : '#dc2626'} />}
               </button>
             );
           })}
+
+          {/* Legend */}
+          <div style={{ padding: '14px 16px 10px', borderTop: '1px solid var(--border)', marginTop: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Your access</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
+              {isSuperAdmin
+                ? 'You can edit all roles except Super Admin (system role).'
+                : currentRole === 'admin'
+                  ? 'You can edit Ops, Live Ops, Agent, Chat Support, Viewer. Super Admin and Admin are locked.'
+                  : 'Read-only view.'}
+            </div>
+          </div>
         </div>
 
         {/* Permission matrix */}
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
           {/* Header */}
-          <div style={{ padding: '12px 20px 10px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
-              {ROLE_LABEL[activeRole]} — Page Permissions
-            </div>
-            <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
-              Read-only. Edit via code in <code style={{ fontSize: 11, background: 'var(--bg3)', padding: '1px 5px', borderRadius: 3 }}>src/config/roles.ts</code>
+          <div style={{ padding: '12px 20px 10px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {isLockedRole && <IconLock size={14} color="#aaa" />}
+                {ROLE_LABEL[activeRole]}
+                {isLockedRole && <span style={{ fontSize: 11, color: '#aaa', fontWeight: 400, marginLeft: 4 }}>System Role — Always Full Access</span>}
+              </div>
+              <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
+                {canEdit
+                  ? 'Click cells to toggle permissions. Save when done.'
+                  : isLockedRole
+                    ? 'Super Admin permissions are fixed and cannot be modified by anyone.'
+                    : 'You do not have permission to edit this role.'}
+              </div>
             </div>
           </div>
 
+          {/* Pages table */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ borderBottom: '1.5px solid var(--border)', background: 'var(--bg2)' }}>
-                <th style={{ padding: '9px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.6, width: 160 }}>
-                  Page
-                </th>
-                {(['view', 'add', 'edit', 'delete'] as PageAction[]).map(a => (
+                <th style={{ padding: '9px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.6, width: 160 }}>Page</th>
+                {ALL_ACTIONS.map(a => (
                   <th key={a} style={{ padding: '9px 10px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: ACTION_COLOR[a], textTransform: 'uppercase', letterSpacing: 0.6, minWidth: 64 }}>
                     {ACTION_LABEL[a]}
                   </th>
@@ -137,18 +239,20 @@ export default function RoleAccessPage() {
                       </td>
                     </tr>
                     {groupPages.map(page => {
-                      const allowed = perms[page.key] ?? [];
+                      const allowed = activePagePerms[page.key] ?? [];
                       return (
                         <tr key={page.key} style={{ borderBottom: '1px solid var(--border2)' }}>
                           <td style={{ padding: '9px 20px', color: allowed.length ? 'var(--text)' : 'var(--muted)', fontWeight: allowed.length ? 500 : 400 }}>
                             {page.label}
                           </td>
-                          {(['view', 'add', 'edit', 'delete'] as PageAction[]).map(action => (
-                            <ActionCell
+                          {ALL_ACTIONS.map(action => (
+                            <Cell
                               key={action}
                               action={action}
                               on={allowed.includes(action)}
                               na={!page.actions.includes(action)}
+                              locked={!canEdit}
+                              onClick={() => togglePage(action, page.key)}
                             />
                           ))}
                         </tr>
@@ -160,29 +264,49 @@ export default function RoleAccessPage() {
             </tbody>
           </table>
 
-          {/* Topbar features */}
-          <div style={{ padding: '14px 20px 0', borderTop: '2px solid var(--border)', marginTop: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-              Topbar Features
+          {/* Topbar CRUD */}
+          <div style={{ borderTop: '2px solid var(--border)', marginTop: 4 }}>
+            <div style={{ padding: '12px 20px 0', marginBottom: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 1 }}>Topbar Features</div>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingBottom: 16 }}>
-              {TOPBAR_FEATURES.map(f => {
-                const on = topbar.includes(f.key);
-                return (
-                  <div key={f.key} style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '5px 12px', borderRadius: 6, fontSize: 12.5,
-                    border: `1px solid ${on ? '#22c55e' : 'var(--border)'}`,
-                    background: on ? 'rgba(34,197,94,0.07)' : 'var(--bg3)',
-                    color: on ? '#16a34a' : 'var(--muted)',
-                    fontWeight: on ? 600 : 400,
-                  }}>
-                    {on ? <IconCheck size={12} strokeWidth={2.5} /> : <IconMinus size={12} />}
-                    {f.label}
-                  </div>
-                );
-              })}
-            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: '1.5px solid var(--border)', background: 'var(--bg2)' }}>
+                  <th style={{ padding: '9px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.6, width: 160 }}>Feature</th>
+                  {ALL_ACTIONS.map(a => (
+                    <th key={a} style={{ padding: '9px 10px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: ACTION_COLOR[a], textTransform: 'uppercase', letterSpacing: 0.6, minWidth: 64 }}>
+                      {ACTION_LABEL[a]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {TOPBAR_ROWS.map(feat => {
+                  const allowed = activeTopbarPerms[feat.key] ?? [];
+                  return (
+                    <tr key={feat.key} style={{ borderBottom: '1px solid var(--border2)' }}>
+                      <td style={{ padding: '9px 20px', color: allowed.length ? 'var(--text)' : 'var(--muted)', fontWeight: allowed.length ? 500 : 400 }}>
+                        {feat.label}
+                      </td>
+                      {ALL_ACTIONS.map(action => (
+                        <Cell
+                          key={action}
+                          action={action}
+                          on={allowed.includes(action)}
+                          locked={!canEdit}
+                          onClick={() => toggleTopbar(action, feat.key)}
+                        />
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}>
+            <IconShield size={12} color="#dc2626" />
+            All internal roles have no organization — they see all data globally. Granting Add/Edit/Delete auto-grants View.
           </div>
         </div>
       </div>
