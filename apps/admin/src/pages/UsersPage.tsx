@@ -378,7 +378,7 @@ export default function UsersPage() {
                   {orgVehicles.length === 0
                     ? <div style={{ padding: '12px 8px', color: '#bbb', fontSize: 12 }}>No vehicles found for this organization</div>
                     : orgVehicles.map(v => {
-                        const label = v.licensePlate ?? `${v.make ?? ''} ${v.model ?? ''}`.trim() || `#${v.displayId}`;
+                        const label = v.licensePlate ?? (`${v.make ?? ''} ${v.model ?? ''}`.trim() || `#${v.displayId}`);
                         const checked = (perm.vehicleIds ?? []).includes(v.id);
                         return (
                           <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', cursor: 'pointer', borderRadius: 4, background: checked ? 'rgba(220,38,38,0.05)' : 'transparent' }}
