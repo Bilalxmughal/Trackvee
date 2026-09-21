@@ -1,5 +1,7 @@
 import type { UserRole } from '@yotrack/types';
 
+export type PageAction = 'view' | 'add' | 'edit' | 'delete';
+
 export const ROLE_LABEL: Record<string, string> = {
   super_admin: 'Super Admin',
   admin: 'Admin',
@@ -14,41 +16,93 @@ export const ROLE_LABEL: Record<string, string> = {
   customer: 'Customer',
 };
 
-// Pages each internal role can access (route paths without leading slash)
-export const ROLE_PAGES: Partial<Record<UserRole, string[]>> = {
-  super_admin: ['dashboard', 'map', 'clients', 'vehicles', 'devices', 'telemetry', 'users', 'roles', 'settings', 'setup'],
-  admin:       ['dashboard', 'map', 'clients', 'vehicles', 'devices', 'telemetry', 'users', 'roles', 'settings', 'setup'],
-  ops:         ['dashboard', 'map', 'clients', 'vehicles', 'devices', 'telemetry', 'setup'],
-  live_ops:    ['dashboard', 'map', 'telemetry'],
-  agent:       ['dashboard', 'map', 'clients'],
-  chat_support:['dashboard', 'clients'],
-  viewer:      ['dashboard', 'map', 'clients', 'vehicles', 'devices', 'setup'],
+// Granular CRUD permissions per internal role per page
+export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, PageAction[]>>>> = {
+  super_admin: {
+    dashboard: ['view'],
+    map:       ['view'],
+    clients:   ['view', 'add', 'edit', 'delete'],
+    vehicles:  ['view', 'add', 'edit', 'delete'],
+    devices:   ['view', 'add', 'edit', 'delete'],
+    telemetry: ['view'],
+    users:     ['view', 'add', 'edit', 'delete'],
+    roles:     ['view'],
+    settings:  ['view', 'edit'],
+    setup:     ['view'],
+  },
+  admin: {
+    dashboard: ['view'],
+    map:       ['view'],
+    clients:   ['view', 'add', 'edit', 'delete'],
+    vehicles:  ['view', 'add', 'edit', 'delete'],
+    devices:   ['view', 'add', 'edit', 'delete'],
+    telemetry: ['view'],
+    users:     ['view', 'add', 'edit', 'delete'],
+    roles:     ['view'],
+    settings:  ['view', 'edit'],
+    setup:     ['view'],
+  },
+  ops: {
+    dashboard: ['view'],
+    map:       ['view'],
+    clients:   ['view', 'add', 'edit'],
+    vehicles:  ['view', 'add', 'edit'],
+    devices:   ['view', 'add', 'edit'],
+    telemetry: ['view'],
+    setup:     ['view'],
+  },
+  live_ops: {
+    dashboard: ['view'],
+    map:       ['view'],
+    telemetry: ['view'],
+  },
+  agent: {
+    dashboard: ['view'],
+    map:       ['view'],
+    clients:   ['view'],
+  },
+  chat_support: {
+    dashboard: ['view'],
+    clients:   ['view'],
+  },
+  viewer: {
+    dashboard: ['view'],
+    map:       ['view'],
+    clients:   ['view'],
+    vehicles:  ['view'],
+    devices:   ['view'],
+    setup:     ['view'],
+  },
 };
 
-// Topbar features accessible per role
+// Derived: which pages each role can access (for sidebar filtering + route protection)
+export const ROLE_PAGES: Partial<Record<UserRole, string[]>> = Object.fromEntries(
+  Object.entries(ROLE_PERMISSIONS).map(([role, perms]) => [role, Object.keys(perms ?? {})])
+) as Partial<Record<UserRole, string[]>>;
+
+// Topbar features per role
 export const ROLE_TOPBAR: Partial<Record<UserRole, string[]>> = {
-  super_admin: ['alerts', 'geofences', 'pois'],
-  admin:       ['alerts', 'geofences', 'pois'],
-  ops:         ['alerts', 'geofences', 'pois'],
-  live_ops:    ['alerts', 'geofences', 'pois'],
-  agent:       ['alerts'],
-  chat_support:['alerts'],
-  viewer:      ['alerts', 'geofences', 'pois'],
+  super_admin:  ['alerts', 'geofences', 'pois'],
+  admin:        ['alerts', 'geofences', 'pois'],
+  ops:          ['alerts', 'geofences', 'pois'],
+  live_ops:     ['alerts', 'geofences', 'pois'],
+  agent:        ['alerts'],
+  chat_support: ['alerts'],
+  viewer:       ['alerts', 'geofences', 'pois'],
 };
 
-// Internal Trackvee staff roles (no organizationId — see all data)
 export const INTERNAL_ROLES: UserRole[] = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
 export function canAccessPage(role: UserRole, page: string): boolean {
-  const pages = ROLE_PAGES[role];
-  if (!pages) return false;
-  return pages.includes(page);
+  return !!(ROLE_PERMISSIONS[role]?.[page]);
+}
+
+export function canPerformAction(role: UserRole, page: string, action: PageAction): boolean {
+  return !!(ROLE_PERMISSIONS[role]?.[page]?.includes(action));
 }
 
 export function canAccessTopbar(role: UserRole, feature: string): boolean {
-  const features = ROLE_TOPBAR[role];
-  if (!features) return false;
-  return features.includes(feature);
+  return !!(ROLE_TOPBAR[role]?.includes(feature));
 }
 
 export function isInternalRole(role: UserRole): boolean {
