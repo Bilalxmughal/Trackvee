@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   IconActivity, IconX, IconEye, IconTrash,
   IconAlertTriangle, IconGauge, IconArrowNarrowRight, IconRotateClockwise,
-  IconChevronDown, IconChevronRight, IconMapPin,
+  IconChevronDown, IconChevronRight, IconMapPin, IconArrowLeft,
 } from '@tabler/icons-react';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,6 +58,19 @@ const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_s
 function scoreColor(s: number) { return s >= 80 ? '#16a34a' : s >= 60 ? '#f59e0b' : '#dc2626'; }
 function scoreBg(s: number) { return s >= 80 ? 'rgba(22,163,74,0.1)' : s >= 60 ? 'rgba(245,158,11,0.1)' : 'rgba(220,38,38,0.1)'; }
 
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDateTime(ts: string): string {
+  const d = new Date(ts);
+  const day   = String(d.getDate()).padStart(2, '0');
+  const mon   = MONTHS[d.getMonth()];
+  const year  = d.getFullYear();
+  let   h     = d.getHours();
+  const min   = String(d.getMinutes()).padStart(2, '0');
+  const ampm  = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${day}-${mon}-${year} ${h}:${min} ${ampm}`;
+}
+
 const EVENT_LABELS: Record<string, string> = {
   harsh_brake: 'Harsh Brake', rapid_accel: 'Rapid Accel',
   sharp_turn: 'Sharp Turn', overspeed: 'Overspeeding',
@@ -96,58 +109,62 @@ function ScoreChart({ history }: { history: ScoreHistory[] }) {
   );
 }
 
-function LocationBadge({ lat, lng }: { lat: number; lng: number }) {
-  const [show, setShow] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!show) return;
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setShow(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [show]);
+function LocationMapView({ lat, lng, onBack }: { lat: number; lng: number; onBack: () => void }) {
+  const delta = 0.008;
+  const bbox = `${(lng - delta).toFixed(6)},${(lat - delta).toFixed(6)},${(lng + delta).toFixed(6)},${(lat + delta).toFixed(6)}`;
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat.toFixed(6)},${lng.toFixed(6)}`;
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
-      <button
-        onClick={() => setShow(v => !v)}
-        title="View location"
-        style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '2px 4px', color: '#6b7280', display: 'flex', alignItems: 'center', borderRadius: 3 }}
-        onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; }}
-        onMouseLeave={e => { e.currentTarget.style.color = '#6b7280'; e.currentTarget.style.background = 'none'; }}
-      >
-        <IconMapPin size={13}/>
-      </button>
-      {show && (
-        <div style={{
-          position: 'absolute', bottom: 'calc(100% + 4px)', left: '50%', transform: 'translateX(-50%)',
-          background: '#1a1a1a', color: '#fff', fontSize: 11, borderRadius: 5, padding: '6px 10px',
-          whiteSpace: 'nowrap', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-          minWidth: 160,
-        }}>
-          <div style={{ marginBottom: 4, fontWeight: 500 }}>Location</div>
-          <div style={{ color: '#ccc' }}>Lat: {lat.toFixed(6)}</div>
-          <div style={{ color: '#ccc' }}>Lng: {lng.toFixed(6)}</div>
-          <a
-            href={`https://www.google.com/maps?q=${lat},${lng}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ display: 'inline-block', marginTop: 5, color: '#dc2626', fontSize: 10, fontWeight: 600, textDecoration: 'none' }}
-            onClick={e => e.stopPropagation()}
-          >
-            Open in Maps →
-          </a>
-        </div>
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Map header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0 10px', flexShrink: 0 }}>
+        <button
+          onClick={onBack}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, fontWeight: 500, padding: '4px 0' }}
+        >
+          <IconArrowLeft size={14}/> Back to Events
+        </button>
+      </div>
+      {/* Coordinates bar — Google Maps style */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+        background: 'var(--table-header-bg)', border: '1px solid var(--border)',
+        borderRadius: '4px 4px 0 0', fontSize: 12,
+      }}>
+        <IconMapPin size={14} color="#dc2626" style={{ flexShrink: 0 }}/>
+        <span style={{ fontWeight: 600, letterSpacing: 0.3 }}>
+          {lat.toFixed(6)}, {lng.toFixed(6)}
+        </span>
+        <a
+          href={`https://www.google.com/maps?q=${lat},${lng}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ marginLeft: 'auto', fontSize: 11, color: '#dc2626', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}
+        >
+          Open in Google Maps →
+        </a>
+      </div>
+      {/* Map iframe */}
+      <div style={{ flex: 1, minHeight: 280, border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 4px 4px', overflow: 'hidden' }}>
+        <iframe
+          src={src}
+          style={{ width: '100%', height: '100%', border: 'none', minHeight: 280 }}
+          title="Event location"
+          loading="lazy"
+        />
+      </div>
     </div>
   );
 }
 
-function VehicleDetailModal({ row, onClose, orgId }: { row: LeaderboardRow; onClose: () => void; orgId: string | null }) {
+function VehicleDetailModal({ row, onClose }: { row: LeaderboardRow; onClose: () => void; orgId: string | null }) {
   const [scoreHistory, setScoreHistory] = useState<ScoreHistory[]>([]);
   const [events, setEvents] = useState<DriverEventRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [locationView, setLocationView] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setLocationView(null);
     Promise.all([
       api.get<ScoreHistory[]>(`/driver-behavior/vehicle/${row.vehicleId}/scores?days=30`).then(r => r.data).catch(() => [] as ScoreHistory[]),
       api.get<DriverEventRow[]>(`/driver-behavior/vehicle/${row.vehicleId}/events`).then(r => r.data).catch(() => [] as DriverEventRow[]),
@@ -162,14 +179,12 @@ function VehicleDetailModal({ row, onClose, orgId }: { row: LeaderboardRow; onCl
 
   return (
     <div
-      onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 1000,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
       }}
     >
       <div
-        onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--card-bg, #fff)', borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
           width: '100%', maxWidth: 700, maxHeight: '88vh', display: 'flex', flexDirection: 'column',
@@ -184,11 +199,7 @@ function VehicleDetailModal({ row, onClose, orgId }: { row: LeaderboardRow; onCl
               <div style={{ fontWeight: 700, fontSize: 14 }}>{vehicleLabel}</div>
               {vehicleSub && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{vehicleSub}{row.orgName ? ` · ${row.orgName}` : ''}</div>}
             </div>
-            <span style={{
-              marginLeft: 8, display: 'inline-block', minWidth: 42, padding: '3px 8px',
-              borderRadius: 4, fontWeight: 700, fontSize: 14,
-              color: scoreColor(row.score), background: scoreBg(row.score),
-            }}>
+            <span style={{ marginLeft: 8, display: 'inline-block', minWidth: 42, padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 14, color: scoreColor(row.score), background: scoreBg(row.score) }}>
               {row.score.toFixed(0)}
             </span>
           </div>
@@ -199,15 +210,17 @@ function VehicleDetailModal({ row, onClose, orgId }: { row: LeaderboardRow; onCl
 
         {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
-          {loading ? <Spinner style={{ height: 200 }}/> : (
+          {loading ? <Spinner style={{ height: 200 }}/> : locationView ? (
+            <LocationMapView lat={locationView.lat} lng={locationView.lng} onBack={() => setLocationView(null)}/>
+          ) : (
             <>
-              {/* Summary row */}
+              {/* Summary tiles */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
                 {[
                   { label: 'Harsh Brake', val: row.harshBrakeCount, color: '#f59e0b' },
                   { label: 'Rapid Accel', val: row.rapidAccelCount, color: '#f59e0b' },
-                  { label: 'Sharp Turn', val: row.sharpTurnCount, color: '#f59e0b' },
-                  { label: 'Overspeed', val: row.overspeedCount, color: '#dc2626' },
+                  { label: 'Sharp Turn',  val: row.sharpTurnCount,  color: '#f59e0b' },
+                  { label: 'Overspeed',   val: row.overspeedCount,  color: '#dc2626' },
                 ].map(item => (
                   <div key={item.label} style={{ border: '1px solid var(--border)', borderRadius: 4, padding: '8px 14px', textAlign: 'center', minWidth: 80 }}>
                     <div style={{ fontSize: 18, fontWeight: 700, color: item.val > 0 ? item.color : 'var(--text-muted)' }}>{item.val}</div>
@@ -256,12 +269,21 @@ function VehicleDetailModal({ row, onClose, orgId }: { row: LeaderboardRow; onCl
                                 <span style={{ fontSize: 10, fontWeight: 600, color: SEVERITY_COLOR[ev.severity], textTransform: 'uppercase' }}>{ev.severity}</span>
                               </td>
                               <td style={{ ...tStyle, textAlign: 'right', color: 'var(--text-muted)' }}>{ev.speedKmh.toFixed(0)} km/h</td>
-                              <td style={{ ...tStyle, color: 'var(--text-muted)', fontSize: 11 }}>{new Date(ev.timestamp).toLocaleString()}</td>
+                              <td style={{ ...tStyle, color: 'var(--text-muted)', fontSize: 11 }}>{fmtDateTime(ev.timestamp)}</td>
                               <td style={{ ...tStyle, textAlign: 'center' }}>
-                                {ev.latitude != null && ev.longitude != null
-                                  ? <LocationBadge lat={ev.latitude} lng={ev.longitude}/>
-                                  : <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>
-                                }
+                                {ev.latitude != null && ev.longitude != null ? (
+                                  <button
+                                    onClick={() => setLocationView({ lat: ev.latitude!, lng: ev.longitude! })}
+                                    title="View on map"
+                                    style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '2px 4px', color: '#6b7280', display: 'inline-flex', alignItems: 'center', borderRadius: 3 }}
+                                    onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.color = '#6b7280'; e.currentTarget.style.background = 'none'; }}
+                                  >
+                                    <IconMapPin size={14}/>
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>
+                                )}
                               </td>
                             </tr>
                           );
@@ -593,10 +615,10 @@ export default function DriverBehaviorPage() {
                       <th style={thStyle}>Vehicle Name</th>
                       {isAdmin && <th style={thStyle}>Client</th>}
                       <th style={{ ...thStyle, textAlign: 'center' }}>Score</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>HB</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>RA</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>ST</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>OS</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Harsh Brake</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Rapid Accel</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Sharp Turn</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Overspeed</th>
                       <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
                     </tr>
                   </thead>
@@ -613,12 +635,7 @@ export default function DriverBehaviorPage() {
                           {row.vehicleLicensePlate ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}
                         </td>
                         <td style={tStyle}>
-                          <div>{row.vehicleName ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}</div>
-                          {(row.vehicleMake || row.vehicleModel) && (
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                              {[row.vehicleMake, row.vehicleModel].filter(Boolean).join(' ')}
-                            </div>
-                          )}
+                          {row.vehicleName ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}
                         </td>
                         {isAdmin && <td style={{ ...tStyle, color: 'var(--text-muted)' }}>{row.orgName ?? '—'}</td>}
                         <td style={{ ...tStyle, textAlign: 'center' }}>
@@ -635,11 +652,11 @@ export default function DriverBehaviorPage() {
                             <button
                               onClick={() => setViewRow(row)}
                               title="View details"
-                              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', border: '1px solid var(--border)', borderRadius: 3, background: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}
-                              onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626'; }}
-                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              style={{ display: 'flex', alignItems: 'center', padding: '3px 6px', border: '1px solid var(--border)', borderRadius: 3, background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.05)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'none'; }}
                             >
-                              <IconEye size={12}/>View
+                              <IconEye size={13}/>
                             </button>
                             <button
                               onClick={() => setDeleteConfirm(row)}
@@ -656,9 +673,6 @@ export default function DriverBehaviorPage() {
                     ))}
                   </tbody>
                 </table>
-                <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-                  HB = Harsh Brake &nbsp;·&nbsp; RA = Rapid Accel &nbsp;·&nbsp; ST = Sharp Turn &nbsp;·&nbsp; OS = Overspeed &nbsp;·&nbsp; Showing latest score per vehicle (last 7 days)
-                </div>
               </div>
             )}
           </>
@@ -676,8 +690,8 @@ export default function DriverBehaviorPage() {
 
       {/* Delete confirm modal */}
       {deleteConfirm && (
-        <div onClick={() => setDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card-bg, #fff)', borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.15)', width: '100%', maxWidth: 380, padding: 24, border: '1px solid var(--border)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'var(--card-bg, #fff)', borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.15)', width: '100%', maxWidth: 380, padding: 24, border: '1px solid var(--border)' }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Delete Score Record</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
               Delete the score record for <strong>{deleteConfirm.vehicleLicensePlate ?? deleteConfirm.vehicleName ?? 'this vehicle'}</strong>? This cannot be undone.
