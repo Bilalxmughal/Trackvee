@@ -15,6 +15,7 @@ import { CityFilterProvider, useCityFilter } from '../contexts/CityFilterContext
 import { AlertProvider, useAlert } from '../contexts/AlertContext';
 import { GeofenceProvider, useGeofence } from '../contexts/GeofenceContext';
 import { POIProvider, usePOI } from '../contexts/POIContext';
+import { DriverBehaviorPanelProvider, useDriverBehaviorPanel } from '../contexts/DriverBehaviorContext';
 import api from '../api/client';
 
 interface NavItemDef { to: string; icon: React.ElementType; label: string; }
@@ -115,6 +116,7 @@ function LayoutInner() {
   const { activeAlertCount, alertPanelOpen, openAlertPanel, closeAlertPanel } = useAlert();
   const { gfPanelOpen, openGfPanel, closeGfPanel, gfCount } = useGeofence();
   const { poiPanelOpen, openPoiPanel, closePoiPanel, poiCount } = usePOI();
+  const { dbPanelOpen, openDbPanel, closeDbPanel } = useDriverBehaviorPanel();
   const navigate = useNavigate();
   const location = useLocation();
   const isMap = location.pathname === '/map';
@@ -339,7 +341,7 @@ function LayoutInner() {
             {
               key: 'alerts',
               active: alertPanelOpen,
-              onClick: () => { if (!isMap) navigate('/map'); closeGfPanel(); closePoiPanel(); openAlertPanel(); },
+              onClick: () => { if (!isMap) navigate('/map'); closeGfPanel(); closePoiPanel(); closeDbPanel(); openAlertPanel(); },
               icon: <IconBell size={15}/>,
               label: 'Alerts',
               badge: activeAlertCount > 0 ? activeAlertCount : null,
@@ -347,7 +349,7 @@ function LayoutInner() {
             {
               key: 'geofences',
               active: gfPanelOpen && !alertPanelOpen,
-              onClick: () => { if (!isMap) navigate('/map'); closeAlertPanel(); closePoiPanel(); openGfPanel(); },
+              onClick: () => { if (!isMap) navigate('/map'); closeAlertPanel(); closePoiPanel(); closeDbPanel(); openGfPanel(); },
               icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
               label: 'Geofences',
               badge: null,
@@ -355,15 +357,15 @@ function LayoutInner() {
             {
               key: 'pois',
               active: poiPanelOpen && !alertPanelOpen && !gfPanelOpen,
-              onClick: () => { if (!isMap) navigate('/map'); closeAlertPanel(); closeGfPanel(); openPoiPanel(); },
+              onClick: () => { if (!isMap) navigate('/map'); closeAlertPanel(); closeGfPanel(); closeDbPanel(); openPoiPanel(); },
               icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0-6 0M17.657 16.657L13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/></svg>,
               label: 'POIs',
               badge: null,
             },
             {
               key: 'driver-behavior',
-              active: location.pathname === '/driver-behavior',
-              onClick: () => navigate('/driver-behavior'),
+              active: dbPanelOpen && !alertPanelOpen && !gfPanelOpen && !poiPanelOpen,
+              onClick: () => { if (!isMap) navigate('/map'); closeAlertPanel(); closeGfPanel(); closePoiPanel(); openDbPanel(); },
               icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
               label: 'Behavior',
               badge: null,
@@ -566,9 +568,11 @@ export default function Layout() {
     <AlertProvider>
       <GeofenceProvider>
         <POIProvider>
-          <CityFilterProvider>
-            <LayoutInner />
-          </CityFilterProvider>
+          <DriverBehaviorPanelProvider>
+            <CityFilterProvider>
+              <LayoutInner />
+            </CityFilterProvider>
+          </DriverBehaviorPanelProvider>
         </POIProvider>
       </GeofenceProvider>
     </AlertProvider>
