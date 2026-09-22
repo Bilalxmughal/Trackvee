@@ -114,11 +114,21 @@ function ScoreChart({ history }: { history: ScoreHistory[] }) {
 
 function SettingsForm({ orgId }: { orgId: string }) {
   const [form, setForm] = useState<Settings | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    api.get<Settings>('/driver-behavior/settings').then(r => setForm(r.data)).catch(() => {});
+    if (!orgId) return;
+    setForm(null);
+    setLoadError(false);
+    const qs = orgId ? `?orgId=${orgId}` : '';
+    api.get<Settings>(`/driver-behavior/settings${qs}`)
+      .then(r => {
+        if (r.data) setForm(r.data);
+        else setLoadError(true);
+      })
+      .catch(() => setLoadError(true));
   }, [orgId]);
 
   const update = (k: keyof Settings, v: string) => {
@@ -130,13 +140,16 @@ function SettingsForm({ orgId }: { orgId: string }) {
     if (!form) return;
     setSaving(true);
     try {
-      await api.put('/driver-behavior/settings', form);
+      const qs = orgId ? `?orgId=${orgId}` : '';
+      await api.put(`/driver-behavior/settings${qs}`, form);
       setSaved(true);
     } finally {
       setSaving(false);
     }
   };
 
+  if (!orgId) return <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select an organization to view settings.</div>;
+  if (loadError) return <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Failed to load settings.</div>;
   if (!form) return <Spinner style={{ height: 120 }}/>;
 
   const inp: React.CSSProperties = {

@@ -16,17 +16,17 @@ export class DriverBehaviorController {
   constructor(private svc: DriverBehaviorService) {}
 
   @Get('settings')
-  getSettings(@CurrentUser() user: User) {
-    const orgId = this.resolveOrgId(user);
-    if (!orgId) return null;
-    return this.svc.getSettings(orgId);
+  getSettings(@CurrentUser() user: User, @Query('orgId') orgId?: string) {
+    const resolvedOrgId = ADMIN_ROLES.includes(user.role) ? (orgId ?? null) : (user.organizationId ?? null);
+    if (!resolvedOrgId) return null;
+    return this.svc.getSettings(resolvedOrgId);
   }
 
   @Put('settings')
-  updateSettings(@CurrentUser() user: User, @Body() dto: Partial<DriverBehaviorSettings>) {
-    const orgId = this.resolveOrgId(user);
-    if (!orgId) return null;
-    return this.svc.updateSettings(orgId, dto);
+  updateSettings(@CurrentUser() user: User, @Query('orgId') orgId?: string, @Body() dto: Partial<DriverBehaviorSettings>) {
+    const resolvedOrgId = ADMIN_ROLES.includes(user.role) ? (orgId ?? null) : (user.organizationId ?? null);
+    if (!resolvedOrgId) return null;
+    return this.svc.updateSettings(resolvedOrgId, dto);
   }
 
   @Get('leaderboard')
