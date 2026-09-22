@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconActivity, IconTrash, IconX } from '@tabler/icons-react';
+import { IconActivity, IconX } from '@tabler/icons-react';
 import api from '../api/client';
 import Spinner from './Spinner';
 
@@ -79,7 +79,6 @@ export default function DriverBehaviorPanel({ dark, onClose, orgId }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: bd }}>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 10px', borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <IconActivity size={16} color="#dc2626" strokeWidth={1.5}/>
@@ -90,12 +89,9 @@ export default function DriverBehaviorPanel({ dark, onClose, orgId }: Props) {
         </button>
       </div>
 
-      {/* Body */}
       <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
         {loadError ? (
-          <div style={{ padding: '32px 0', textAlign: 'center', color: '#dc2626', fontSize: 13 }}>
-            Failed to load settings.
-          </div>
+          <div style={{ padding: '32px 0', textAlign: 'center', color: '#dc2626', fontSize: 13 }}>Failed to load settings.</div>
         ) : !form ? (
           <Spinner style={{ height: 120 }}/>
         ) : (
@@ -134,9 +130,7 @@ export default function DriverBehaviorPanel({ dark, onClose, orgId }: Props) {
               >
                 {saving ? 'Saving...' : saved ? 'Saved' : 'Save Settings'}
               </button>
-              {saved && (
-                <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 500 }}>Changes saved</span>
-              )}
+              {saved && <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 500 }}>Changes saved</span>}
             </div>
           </>
         )}
