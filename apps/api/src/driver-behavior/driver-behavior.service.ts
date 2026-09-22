@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { DriverEvent, DriverEventType } from './entities/driver-event.entity.js';
 import { DriverScore } from './entities/driver-score.entity.js';
 import { DriverBehaviorSettings } from './entities/driver-behavior-settings.entity.js';
@@ -50,7 +50,7 @@ export class DriverBehaviorService {
 
   // Org-level default settings (create on first access)
   async getSettings(organizationId: string): Promise<DriverBehaviorSettings> {
-    const existing = await this.settingsRepo.findOne({ where: { organizationId, groupId: null as any, vehicleId: null as any } });
+    const existing = await this.settingsRepo.findOne({ where: { organizationId, groupId: IsNull(), vehicleId: IsNull() } });
     if (existing) return existing;
     const created = this.settingsRepo.create({ organizationId, groupId: null, vehicleId: null, ...DEFAULT_SETTINGS });
     return this.settingsRepo.save(created);
