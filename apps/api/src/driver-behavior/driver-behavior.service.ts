@@ -55,21 +55,21 @@ export class DriverBehaviorService {
   }
 
   async getLeaderboard(organizationId: string): Promise<{ vehicleId: string; score: number; date: string; harshBrakeCount: number; rapidAccelCount: number; sharpTurnCount: number; overspeedCount: number }[]> {
-    const today = new Date().toISOString().slice(0, 10);
-    const rows = await this.scoreRepo
-      .createQueryBuilder('s')
-      .select('DISTINCT ON (s.vehicle_id) s.vehicle_id', 'vehicleId')
-      .addSelect('s.score', 'score')
-      .addSelect('s.date', 'date')
-      .addSelect('s.harsh_brake_count', 'harshBrakeCount')
-      .addSelect('s.rapid_accel_count', 'rapidAccelCount')
-      .addSelect('s.sharp_turn_count', 'sharpTurnCount')
-      .addSelect('s.overspeed_count', 'overspeedCount')
-      .where('s.organization_id = :orgId', { orgId: organizationId })
-      .andWhere('s.date >= :cutoff', { cutoff: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10) })
-      .orderBy('s.vehicle_id')
-      .addOrderBy('s.date', 'DESC')
-      .getRawMany();
+    const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const rows = await this.scoreRepo.query(`
+      SELECT DISTINCT ON (vehicle_id)
+        vehicle_id        AS "vehicleId",
+        score,
+        date,
+        harsh_brake_count AS "harshBrakeCount",
+        rapid_accel_count AS "rapidAccelCount",
+        sharp_turn_count  AS "sharpTurnCount",
+        overspeed_count   AS "overspeedCount"
+      FROM driver_scores
+      WHERE organization_id = $1
+        AND date >= $2
+      ORDER BY vehicle_id, date DESC
+    `, [organizationId, cutoff]);
     return rows;
   }
 
