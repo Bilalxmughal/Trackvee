@@ -119,20 +119,20 @@ export default function VehiclesPage() {
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
               {['ID', 'Plate', 'Make / Model', 'Year', 'Status', 'Added', ''].map(h => (
-                <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
+                <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map(v => (
               <tr key={v.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${v.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{v.displayId}</td>
-                <td style={{ padding: '10px 16px', fontWeight: 500 }}>{v.licensePlate ?? '—'}</td>
-                <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
-                <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{v.year ?? '—'}</td>
-                <td style={{ padding: '10px 16px', color: v.isActive ? '#16a34a' : '#aaa' }}>{v.isActive ? 'Active' : 'Inactive'}</td>
-                <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{fmtDate(v.createdAt)}</td>
-                <td style={{ padding: '10px 16px' }}>
+                <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{v.displayId}</td>
+                <td style={{ padding: '10px 14px', fontWeight: 500 }}>{v.licensePlate ?? '—'}</td>
+                <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
+                <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{v.year ?? '—'}</td>
+                <td style={{ padding: '10px 14px', color: v.isActive ? '#16a34a' : '#aaa' }}>{v.isActive ? 'Active' : 'Inactive'}</td>
+                <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{fmtDate(v.createdAt)}</td>
+                <td style={{ padding: '10px 14px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     {canEdit && <button onClick={() => openEdit(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                       onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>}

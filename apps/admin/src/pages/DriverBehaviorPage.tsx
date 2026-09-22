@@ -462,9 +462,6 @@ export default function DriverBehaviorPage() {
 
   const sortedRows = [...rows].sort((a, b) => b.score - a.score);
 
-  const tStyle: React.CSSProperties = { padding: '8px 12px', textAlign: 'left', fontSize: 12, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' };
-  const thStyle: React.CSSProperties = { ...tStyle, fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, background: 'var(--table-header-bg)' };
-
   const tabs: { key: 'scores' | 'settings'; label: string }[] = [
     { key: 'scores', label: 'Driver Scores' },
     ...(showSettings ? [{ key: 'settings' as const, label: 'Settings' }] : []),
@@ -601,53 +598,39 @@ export default function DriverBehaviorPage() {
               </div>
             )}
 
-            {loading ? <Spinner style={{ height: 200 }}/> : sortedRows.length === 0 ? (
-              <div style={{ color: 'var(--text-muted)', fontSize: 13, padding: '48px 0', textAlign: 'center' }}>
-                No driver behavior data yet. Data will appear as vehicles drive.
-              </div>
-            ) : (
-              <div style={{ border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            {loading ? <Spinner style={{ height: 200 }}/> : (
+              <div className="tbl-wrap">
+                <table>
                   <thead>
-                    <tr>
-                      <th style={{ ...thStyle, width: 32 }}>#</th>
-                      <th style={thStyle}>Vehicle No</th>
-                      <th style={thStyle}>Vehicle Name</th>
-                      {isAdmin && <th style={thStyle}>Client</th>}
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Score</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Harsh Brake</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Rapid Accel</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Sharp Turn</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Overspeed</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      {['#', 'Vehicle No', 'Vehicle Name', ...(isAdmin ? ['Client'] : []), 'Score', 'Harsh Brake', 'Rapid Accel', 'Sharp Turn', 'Overspeed', 'Actions'].map((h, idx) => (
+                        <th key={idx} style={{ padding: '10px 14px', textAlign: ['Score','Harsh Brake','Rapid Accel','Sharp Turn','Overspeed','Actions'].includes(h) ? 'center' : 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedRows.map((row, i) => (
-                      <tr
-                        key={row.scoreId}
-                        style={{ background: i % 2 === 1 ? 'var(--row-alt-bg, transparent)' : 'transparent' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--hover-bg, rgba(0,0,0,0.03))'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = i % 2 === 1 ? 'var(--row-alt-bg, transparent)' : 'transparent'; }}
-                      >
-                        <td style={{ ...tStyle, color: 'var(--text-muted)' }}>{i + 1}</td>
-                        <td style={{ ...tStyle, fontWeight: 500 }}>
-                          {row.vehicleLicensePlate ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    {sortedRows.length === 0 ? (
+                      <tr><td colSpan={isAdmin ? 10 : 9} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No driver behavior data yet. Data will appear as vehicles drive.</td></tr>
+                    ) : sortedRows.map((row, i) => (
+                      <tr key={row.scoreId} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${scoreColor(row.score)}` }}>
+                        <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{i + 1}</td>
+                        <td style={{ padding: '10px 14px', fontWeight: 500, fontSize: 13 }}>
+                          {row.vehicleLicensePlate ?? <span style={{ color: 'var(--muted)' }}>—</span>}
                         </td>
-                        <td style={tStyle}>
-                          {row.vehicleName ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                        <td style={{ padding: '10px 14px', fontSize: 13 }}>
+                          {row.vehicleName ?? <span style={{ color: 'var(--muted)' }}>—</span>}
                         </td>
-                        {isAdmin && <td style={{ ...tStyle, color: 'var(--text-muted)' }}>{row.orgName ?? '—'}</td>}
-                        <td style={{ ...tStyle, textAlign: 'center' }}>
+                        {isAdmin && <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{row.orgName ?? '—'}</td>}
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                           <span style={{ display: 'inline-block', minWidth: 38, padding: '2px 6px', borderRadius: 4, fontWeight: 700, fontSize: 12, color: scoreColor(row.score), background: scoreBg(row.score) }}>
                             {row.score.toFixed(0)}
                           </span>
                         </td>
-                        <td style={{ ...tStyle, textAlign: 'center', color: row.harshBrakeCount > 0 ? '#f59e0b' : 'var(--text-muted)' }}>{row.harshBrakeCount}</td>
-                        <td style={{ ...tStyle, textAlign: 'center', color: row.rapidAccelCount > 0 ? '#f59e0b' : 'var(--text-muted)' }}>{row.rapidAccelCount}</td>
-                        <td style={{ ...tStyle, textAlign: 'center', color: row.sharpTurnCount > 0 ? '#f59e0b' : 'var(--text-muted)' }}>{row.sharpTurnCount}</td>
-                        <td style={{ ...tStyle, textAlign: 'center', color: row.overspeedCount > 0 ? '#dc2626' : 'var(--text-muted)' }}>{row.overspeedCount}</td>
-                        <td style={{ ...tStyle, textAlign: 'center' }}>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: row.harshBrakeCount > 0 ? '#f59e0b' : 'var(--muted)' }}>{row.harshBrakeCount}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: row.rapidAccelCount > 0 ? '#f59e0b' : 'var(--muted)' }}>{row.rapidAccelCount}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: row.sharpTurnCount > 0 ? '#f59e0b' : 'var(--muted)' }}>{row.sharpTurnCount}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: row.overspeedCount > 0 ? '#dc2626' : 'var(--muted)' }}>{row.overspeedCount}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                           <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
                             <button onClick={() => setViewRow(row)} title="View details"
                               style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}

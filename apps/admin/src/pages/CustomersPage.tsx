@@ -116,22 +116,22 @@ export default function CustomersPage() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 {['ID', 'Name', 'Contact', 'Email', 'City', 'Vehicles', 'Status', 'Joined', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map(c => (
                 <tr key={c.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{c.displayId}</td>
-                  <td style={{ padding: '11px 16px', fontWeight: 500 }}>{c.name}</td>
-                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.contactNo ?? '—'}</td>
-                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{c.email ?? '—'}</td>
-                  <td style={{ padding: '11px 16px', color: 'var(--text2)' }}>{cityName(c.cityId)}</td>
-                  <td style={{ padding: '11px 16px', color: 'var(--text2)', textAlign: 'center' }}>{c.vehicleCount}</td>
-                  <td style={{ padding: '11px 16px', color: c.isActive ? '#16a34a' : 'var(--muted)' }}>{c.isActive ? 'Active' : 'Inactive'}</td>
-                  <td style={{ padding: '11px 16px', color: 'var(--muted)' }}>{fmtDate(c.createdAt)}</td>
-                  <td style={{ padding: '11px 16px' }}>
+                  <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{c.displayId}</td>
+                  <td style={{ padding: '10px 14px', fontWeight: 500 }}>{c.name}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{c.contactNo ?? '—'}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{c.email ?? '—'}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{cityName(c.cityId)}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--text2)', textAlign: 'center' }}>{c.vehicleCount}</td>
+                  <td style={{ padding: '10px 14px', color: c.isActive ? '#16a34a' : 'var(--muted)' }}>{c.isActive ? 'Active' : 'Inactive'}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{fmtDate(c.createdAt)}</td>
+                  <td style={{ padding: '10px 14px' }}>
                     <div style={{ display: 'flex', gap: 2 }}>
                       <button onClick={() => navigate(`/customers/${c.id}`)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}
                         onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEye size={14} /></button>

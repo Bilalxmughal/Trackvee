@@ -336,7 +336,7 @@ export default function ClientUsersPage() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 {['ID', 'Name', 'Email', 'Role', 'Organization', 'Portal Status', 'Status', 'Joined', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#aaa', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -346,24 +346,24 @@ export default function ClientUsersPage() {
                 const org = orgs.find(o => o.id === u.organizationId);
                 return (
                   <tr key={u.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${u.isActive ? '#22c55e' : '#e5e7eb'}` }}>
-                    <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{u.displayId}</td>
-                    <td style={{ padding: '10px 16px', fontWeight: 500 }}>{u.firstName || u.lastName ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() : '—'}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{u.email}</td>
-                    <td style={{ padding: '10px 16px' }}>
+                    <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{u.displayId}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 500 }}>{u.firstName || u.lastName ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() : '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{u.email}</td>
+                    <td style={{ padding: '10px 14px' }}>
                       <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 4, background: u.role === 'client_owner' ? 'rgba(139,92,246,0.1)' : u.role === 'client_super_admin' ? 'rgba(59,130,246,0.1)' : u.role === 'client_admin' ? 'rgba(22,163,74,0.1)' : 'rgba(156,163,175,0.15)', color: u.role === 'client_owner' ? '#7c3aed' : u.role === 'client_super_admin' ? '#2563eb' : u.role === 'client_admin' ? '#16a34a' : '#6b7280', fontWeight: 600 }}>
                         {ROLE_LABEL[u.role] ?? u.role}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text2)', fontSize: 12 }}>{org?.name ?? '—'}</td>
-                    <td style={{ padding: '10px 16px' }}>
+                    <td style={{ padding: '10px 14px', color: 'var(--text2)', fontSize: 12 }}>{org?.name ?? '—'}</td>
+                    <td style={{ padding: '10px 14px' }}>
                       <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 4, background: `${ps.color}18`, color: ps.color, fontWeight: 600 }}>
                         {ps.label}
                       </span>
                       {u.lastLoginAt && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{fmtDate(u.lastLoginAt)}</div>}
                     </td>
-                    <td style={{ padding: '10px 16px', color: u.isActive ? '#16a34a' : 'var(--muted)' }}>{u.isActive ? 'Active' : 'Inactive'}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--muted)' }}>{fmtDate(u.createdAt)}</td>
-                    <td style={{ padding: '10px 16px' }}>
+                    <td style={{ padding: '10px 14px', color: u.isActive ? '#16a34a' : 'var(--muted)' }}>{u.isActive ? 'Active' : 'Inactive'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{fmtDate(u.createdAt)}</td>
+                    <td style={{ padding: '10px 14px' }}>
                       <div style={{ display: 'flex', gap: 2 }}>
                         {cuCanEdit && <button onClick={() => openEdit(u)} title="Edit" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                           onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>}
