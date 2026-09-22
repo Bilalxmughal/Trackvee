@@ -1793,6 +1793,86 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
   );
 }
 
+// ── Org Filter Dropdown ───────────────────────────────────────────────────────
+
+function OrgFilterDropdown({ orgs, value, onChange, dark }: {
+  orgs: { id: string; name: string }[];
+  value: string;
+  onChange: (id: string) => void;
+  dark: boolean;
+}) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false); setQ('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const selectedName = value ? (orgs.find(o => o.id === value)?.name ?? '') : '';
+  const filtered = orgs.filter(o => o.name.toLowerCase().includes(q.toLowerCase()));
+
+  const select = (id: string) => { onChange(id); setOpen(false); setQ(''); };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', height: 28, padding: '0 24px 0 8px', fontSize: 11,
+    border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 4,
+    background: dark ? '#1a1a1a' : '#fff', color: dark ? '#ccc' : '#333',
+    outline: 'none', boxSizing: 'border-box',
+  };
+
+  return (
+    <div ref={ref} style={{ padding: '6px 10px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`, position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <input
+          value={open ? q : selectedName}
+          placeholder="All Clients"
+          onChange={e => { setQ(e.target.value); setOpen(true); }}
+          onFocus={() => { setOpen(true); setQ(''); }}
+          style={inputStyle}
+        />
+        {value && !open && (
+          <button
+            onClick={() => select('')}
+            style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#aaa', padding: 0, display: 'flex', lineHeight: 1 }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        )}
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', left: 10, right: 10, top: '100%', zIndex: 100,
+          background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`,
+          borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: 180, overflowY: 'auto',
+        }}>
+          <div
+            onMouseDown={() => select('')}
+            style={{ padding: '6px 10px', fontSize: 11, cursor: 'pointer', color: !value ? '#dc2626' : (dark ? '#aaa' : '#555'), fontWeight: !value ? 600 : 400 }}
+          >All Clients</div>
+          {filtered.length === 0
+            ? <div style={{ padding: '6px 10px', fontSize: 11, color: dark ? '#555' : '#aaa' }}>No results</div>
+            : filtered.map(o => (
+              <div
+                key={o.id}
+                onMouseDown={() => select(o.id)}
+                style={{ padding: '6px 10px', fontSize: 11, cursor: 'pointer', color: value === o.id ? '#dc2626' : (dark ? '#ccc' : '#111'), fontWeight: value === o.id ? 600 : 400, background: value === o.id ? (dark ? '#2a1a1a' : '#fff5f5') : 'transparent' }}
+              >{o.name}</div>
+            ))
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Left Panel ────────────────────────────────────────────────────────────────
 
 function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis, orgId, isAdmin, orgs, onOrgChange, orgFilter, onOrgFilterChange }: {
@@ -1912,16 +1992,12 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
             )}
           </div>
           {isAdmin && orgs.length > 0 && (
-            <div style={{ padding: '6px 10px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
-              <select
-                value={orgFilter}
-                onChange={e => onOrgFilterChange(e.target.value)}
-                style={{ width: '100%', height: 28, fontSize: 11, padding: '0 6px', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 4, background: dark ? '#1a1a1a' : '#fff', color: dark ? '#ccc' : '#333', outline: 'none' }}
-              >
-                <option value="">All Clients</option>
-                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
-            </div>
+            <OrgFilterDropdown
+              orgs={orgs}
+              value={orgFilter}
+              onChange={onOrgFilterChange}
+              dark={dark}
+            />
           )}
           <div style={{ padding: '8px 10px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: dark ? '#111' : '#f5f5f5', borderRadius: 7, padding: '5px 9px' }}>
