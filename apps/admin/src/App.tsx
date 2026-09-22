@@ -38,11 +38,10 @@ export default function App() {
   if (loading) return <Spinner style={{ height: '100vh' }} />;
 
   return (
-    <OrgRolePermsProvider>
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
 
-      <Route element={<RequireAuth><Layout /></RequireAuth>}>
+      <Route element={<RequireAuth><OrgRolePermsProvider><Layout /></OrgRolePermsProvider></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<RoleRoute page="dashboard"><DashboardPage /></RoleRoute>} />
         <Route path="/clients" element={<RoleRoute page="clients"><ClientsPage /></RoleRoute>} />
@@ -62,6 +61,5 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
-    </OrgRolePermsProvider>
   );
 }
