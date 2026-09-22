@@ -648,24 +648,18 @@ export default function DriverBehaviorPage() {
                         <td style={{ ...tStyle, textAlign: 'center', color: row.sharpTurnCount > 0 ? '#f59e0b' : 'var(--text-muted)' }}>{row.sharpTurnCount}</td>
                         <td style={{ ...tStyle, textAlign: 'center', color: row.overspeedCount > 0 ? '#dc2626' : 'var(--text-muted)' }}>{row.overspeedCount}</td>
                         <td style={{ ...tStyle, textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-                            <button
-                              onClick={() => setViewRow(row)}
-                              title="View details"
-                              style={{ display: 'flex', alignItems: 'center', padding: '3px 6px', border: '1px solid var(--border)', borderRadius: 3, background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                              onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.05)'; }}
-                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'none'; }}
-                            >
-                              <IconEye size={13}/>
+                          <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                            <button onClick={() => setViewRow(row)} title="View details"
+                              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}
+                              onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
+                              onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}>
+                              <IconEye size={14}/>
                             </button>
-                            <button
-                              onClick={() => setDeleteConfirm(row)}
-                              title="Delete score"
-                              style={{ display: 'flex', alignItems: 'center', padding: '3px 6px', border: '1px solid var(--border)', borderRadius: 3, background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                              onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.05)'; }}
-                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'none'; }}
-                            >
-                              <IconTrash size={12}/>
+                            <button onClick={() => setDeleteConfirm(row)} title="Delete score"
+                              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 5, borderRadius: 6 }}
+                              onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
+                              onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}>
+                              <IconTrash size={14}/>
                             </button>
                           </div>
                         </td>
