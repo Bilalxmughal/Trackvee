@@ -117,8 +117,8 @@ export default function RoleAccessPage() {
   }
 
   // Client portal helpers
-  const isOrgOwner    = activeOrgRole === 'client_owner';
-  const canEditOrg    = isSuperAdmin && !isOrgOwner;
+  const isOrgOwner    = false;
+  const canEditOrg    = isSuperAdmin;
 
   function toggleOrgPage(action: PageAction, pageKey: string) {
     if (!canEditOrg) return;
@@ -299,22 +299,21 @@ export default function RoleAccessPage() {
             <div style={{ width: 200, flexShrink: 0, borderRight: '1px solid var(--border)', overflowY: 'auto' }}>
               <div style={{ padding: '10px 16px 6px', fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1 }}>B2B Roles</div>
               {(['client_owner', 'client_super_admin', 'client_admin', 'client_user'] as UserRole[]).map(role => {
-                const on     = activeOrgRole === role;
-                const locked = role === 'client_owner';
+                const on = activeOrgRole === role;
                 return (
                   <button key={role} onClick={() => setActiveOrgRole(role)}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', border: 0, textAlign: 'left', cursor: 'pointer', background: on ? 'rgba(220,38,38,0.06)' : 'transparent', borderLeft: `3px solid ${on ? '#dc2626' : 'transparent'}`, transition: 'background 0.15s' }}
                     onMouseEnter={e => { if (!on) e.currentTarget.style.background = 'var(--bg2)'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = on ? 'rgba(220,38,38,0.06)' : 'transparent'; }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: on ? 600 : 400, color: locked ? '#aaa' : on ? '#dc2626' : 'var(--text)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        {locked && <IconLock size={11} />}{ORG_ROLE_LABEL[role]}
+                      <div style={{ fontSize: 13, fontWeight: on ? 600 : 400, color: on ? '#dc2626' : 'var(--text)' }}>
+                        {ORG_ROLE_LABEL[role]}
                       </div>
                       <div style={{ fontSize: 11, color: '#bbb', marginTop: 1 }}>
-                        {locked ? 'Full access (system)' : isSuperAdmin ? 'Editable' : 'Read-only'}
+                        {isSuperAdmin ? 'Editable' : 'Read-only'}
                       </div>
                     </div>
-                    {on && <IconShield size={13} color={locked ? '#aaa' : '#dc2626'} />}
+                    {on && <IconShield size={13} color="#dc2626" />}
                   </button>
                 );
               })}
@@ -329,20 +328,18 @@ export default function RoleAccessPage() {
               </div>
               <div style={{ padding: '10px 16px 10px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
-                  Client Owner always has full access. Other role permissions are configurable.
+                  All client role permissions are configurable by Super Admin.
                 </div>
               </div>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
               <div style={{ padding: '12px 20px 10px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {isOrgOwner && <IconLock size={14} color="#aaa" />}
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
                   {ORG_ROLE_LABEL[activeOrgRole]}
-                  {isOrgOwner && <span style={{ fontSize: 11, color: '#aaa', fontWeight: 400, marginLeft: 4 }}>Always Full Access</span>}
                 </div>
                 <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
-                  {canEditOrg ? 'Click cells to toggle portal permissions. Save when done.' : isOrgOwner ? 'Client Owner has full portal access and cannot be restricted.' : 'Only Super Admin can edit client portal permissions.'}
+                  {canEditOrg ? 'Click cells to toggle portal permissions. Save when done.' : 'Only Super Admin can edit client portal permissions.'}
                 </div>
               </div>
 
@@ -362,12 +359,12 @@ export default function RoleAccessPage() {
                           <td colSpan={5} style={{ padding: '6px 20px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid var(--border)' }}>{group}</td>
                         </tr>
                         {groupPages.map(page => {
-                          const allowed = isOrgOwner ? page.actions : (activeOrgPerms[page.key] ?? []);
+                          const allowed = activeOrgPerms[page.key] ?? [];
                           return (
                             <tr key={page.key} style={{ borderBottom: '1px solid var(--border2)' }}>
                               <td style={{ padding: '9px 20px', color: allowed.length ? 'var(--text)' : 'var(--muted)', fontWeight: allowed.length ? 500 : 400 }}>{page.label}</td>
                               {ALL_ACTIONS.map(action => (
-                                <Cell key={action} action={action} on={isOrgOwner ? page.actions.includes(action) : allowed.includes(action)} na={!page.actions.includes(action)} locked={!canEditOrg} onClick={() => toggleOrgPage(action, page.key)} />
+                                <Cell key={action} action={action} on={allowed.includes(action)} na={!page.actions.includes(action)} locked={!canEditOrg} onClick={() => toggleOrgPage(action, page.key)} />
                               ))}
                             </tr>
                           );
