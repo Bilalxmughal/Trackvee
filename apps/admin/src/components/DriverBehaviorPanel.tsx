@@ -19,8 +19,6 @@ interface Props {
   dark: boolean;
   onClose: () => void;
   orgId?: string;
-  isAdmin?: boolean;
-  orgs?: { id: string; name: string }[];
 }
 
 const FIELDS: { key: keyof Settings; label: string; unit: string }[] = [
@@ -37,7 +35,7 @@ const DEDUCT_FIELDS: { key: keyof Settings; label: string }[] = [
   { key: 'deductionOverspeed',  label: 'Overspeed' },
 ];
 
-export default function DriverBehaviorPanel({ dark, onClose, orgId, isAdmin }: Props) {
+export default function DriverBehaviorPanel({ dark, onClose, orgId }: Props) {
   const [form, setForm] = useState<Settings | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -51,20 +49,16 @@ export default function DriverBehaviorPanel({ dark, onClose, orgId, isAdmin }: P
   const inputBg = dark ? '#2a2a2a' : '#f9fafb';
   const inputColor = dark ? '#e5e7eb' : '#111';
 
-  // Need a client selected if admin
-  const needsClient = isAdmin && !orgId;
-
   const qs = orgId ? `?orgId=${orgId}` : '';
 
   useEffect(() => {
-    if (needsClient) return;
     setForm(null);
     setLoadError(false);
     setSaved(false);
     api.get<Settings>(`/driver-behavior/settings${qs}`)
       .then(r => { if (r.data) setForm(r.data); else setLoadError(true); })
       .catch(() => setLoadError(true));
-  }, [qs, needsClient]);
+  }, [qs]);
 
   const update = (k: keyof Settings, v: string) => {
     setForm(f => f ? { ...f, [k]: parseFloat(v) || 0 } : f);
@@ -98,11 +92,7 @@ export default function DriverBehaviorPanel({ dark, onClose, orgId, isAdmin }: P
 
       {/* Body */}
       <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
-        {needsClient ? (
-          <div style={{ padding: '32px 0', textAlign: 'center', color: muted, fontSize: 13 }}>
-            Select a client from the vehicle filter to manage their Driver Behavior settings.
-          </div>
-        ) : loadError ? (
+        {loadError ? (
           <div style={{ padding: '32px 0', textAlign: 'center', color: '#dc2626', fontSize: 13 }}>
             Failed to load settings.
           </div>

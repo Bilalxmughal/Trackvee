@@ -2051,6 +2051,33 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
   );
 }
 
+// ── Client Required Panel ─────────────────────────────────────────────────────
+
+function ClientRequiredPanel({ dark, feature, onClose }: { dark: boolean; feature: string; onClose: () => void }) {
+  const bd = dark ? '#1e1e1e' : '#fff';
+  const border = dark ? '#2d2d2d' : '#f0f0f0';
+  const text = dark ? '#e5e7eb' : '#111';
+  const muted = dark ? '#9ca3af' : '#6b7280';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: bd }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 10px', borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
+        <span style={{ fontWeight: 700, fontSize: 14, color: text }}>{feature}</span>
+        <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', color: muted, padding: 4, borderRadius: 4, display: 'flex' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+        <div>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={muted} strokeWidth="1.5" strokeLinecap="round" style={{ marginBottom: 12 }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <div style={{ fontSize: 13, color: muted, lineHeight: 1.6 }}>
+            Select a client from the<br/>vehicle filter to manage<br/>their {feature}.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function MapPage() {
@@ -2361,34 +2388,41 @@ export default function MapPage() {
           transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
         }}>
           {alertPanelOpen
-            ? <AlertsLeftPanel
-                dark={dark}
-                vehicles={allVehicles}
-                onClose={() => { closeAlertPanel(); }}
-                orgId={selectedClientId ?? undefined}
-              />
+            ? mapIsAdmin && !selectedClientId
+              ? <ClientRequiredPanel dark={dark} feature="Alerts" onClose={closeAlertPanel}/>
+              : <AlertsLeftPanel
+                  dark={dark}
+                  vehicles={allVehicles}
+                  onClose={() => { closeAlertPanel(); }}
+                  orgId={selectedClientId ?? undefined}
+                />
             : dbPanelOpen
-            ? <DriverBehaviorPanel
-                dark={dark}
-                onClose={closeDbPanel}
-                orgId={selectedClientId ?? undefined}
-                isAdmin={mapIsAdmin}
-              />
+            ? mapIsAdmin && !selectedClientId
+              ? <ClientRequiredPanel dark={dark} feature="Driver Behavior" onClose={closeDbPanel}/>
+              : <DriverBehaviorPanel
+                  dark={dark}
+                  onClose={closeDbPanel}
+                  orgId={selectedClientId ?? undefined}
+                />
             : poiPanelOpen
-            ? <POIsPanel
-                dark={dark}
-                onClose={() => closePoiPanel()}
-                onPoisChange={setMapPois}
-                orgId={selectedClientId ?? undefined}
-                onRequestAlert={poi => {
-                  setPoiAlertPoi(poi);
-                  setAlertCreateImei(undefined);
-                  setAlertEditRecord(undefined);
-                  setShowAlertsModal(true);
-                }}
-              />
+            ? mapIsAdmin && !selectedClientId
+              ? <ClientRequiredPanel dark={dark} feature="Points of Interest" onClose={closePoiPanel}/>
+              : <POIsPanel
+                  dark={dark}
+                  onClose={() => closePoiPanel()}
+                  onPoisChange={setMapPois}
+                  orgId={selectedClientId ?? undefined}
+                  onRequestAlert={poi => {
+                    setPoiAlertPoi(poi);
+                    setAlertCreateImei(undefined);
+                    setAlertEditRecord(undefined);
+                    setShowAlertsModal(true);
+                  }}
+                />
             : showGeofencesPanel
-            ? <GeofencesPanel
+            ? mapIsAdmin && !selectedClientId
+              ? <ClientRequiredPanel dark={dark} feature="Geofences" onClose={closeGfPanel}/>
+              : <GeofencesPanel
                 dark={dark}
                 geofences={geofences}
                 loading={gfLoading}
