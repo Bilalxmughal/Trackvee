@@ -14,11 +14,14 @@ export class AlertsService {
     @InjectRepository(AlertLog) private logRepo: Repository<AlertLog>,
   ) {}
 
-  findAll(user: User): Promise<Alert[]> {
-    if (ADMIN_ROLES.includes(user.role)) return this.repo.find({ order: { createdAt: 'DESC' } });
-    const orgId = user.organizationId;
-    if (!orgId) return Promise.resolve([]);
-    return this.repo.find({ where: { orgId }, order: { createdAt: 'DESC' } });
+  findAll(user: User, orgId?: string): Promise<Alert[]> {
+    if (ADMIN_ROLES.includes(user.role)) {
+      if (orgId) return this.repo.find({ where: { orgId }, order: { createdAt: 'DESC' } });
+      return this.repo.find({ order: { createdAt: 'DESC' } });
+    }
+    const resolvedOrgId = user.organizationId;
+    if (!resolvedOrgId) return Promise.resolve([]);
+    return this.repo.find({ where: { orgId: resolvedOrgId }, order: { createdAt: 'DESC' } });
   }
 
   // Returns active alerts for a given IMEI (used during telemetry evaluation)
@@ -30,8 +33,9 @@ export class AlertsService {
     });
   }
 
-  async create(user: User, dto: Partial<Alert>): Promise<Alert> {
-    const a = this.repo.create({ ...dto, orgId: user.organizationId ?? null });
+  async create(user: User, dto: Partial<Alert>, orgId?: string): Promise<Alert> {
+    const resolvedOrgId = ADMIN_ROLES.includes(user.role) ? (orgId ?? null) : (user.organizationId ?? null);
+    const a = this.repo.create({ ...dto, orgId: resolvedOrgId });
     return this.repo.save(a);
   }
 

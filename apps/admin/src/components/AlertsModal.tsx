@@ -569,11 +569,12 @@ function Chip({ label, color, bg }: { label: string; color: string; bg: string }
 
 // ── Main AlertsModal ───────────────────────────────────────────────────────────
 
-export default function AlertsModal({ open, onClose, dark, vehicles, preSelectedImei, editAlertRecord }: {
+export default function AlertsModal({ open, onClose, dark, vehicles, preSelectedImei, editAlertRecord, orgId }: {
   open: boolean; onClose: () => void; dark: boolean;
   vehicles: Array<{ imei: string; plate: string }>;
   preSelectedImei?: string;
   editAlertRecord?: AlertRecord;
+  orgId?: string;
 }) {
   const { user } = useAuth();
   const { canOrgDo } = useOrgRolePerms();
@@ -591,10 +592,12 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  const orgQs = orgId ? `?orgId=${orgId}` : '';
+
   const load = async () => {
     setLoading(true);
     try {
-      const [ar, gr] = await Promise.all([api.get<AlertRecord[]>('/alerts'), api.get<Geofence[]>('/geofences')]);
+      const [ar, gr] = await Promise.all([api.get<AlertRecord[]>(`/alerts${orgQs}`), api.get<Geofence[]>(`/geofences${orgQs}`)]);
       setAlerts(ar.data);
       setGeofences(gr.data);
     } catch {} finally { setLoading(false); }
@@ -617,7 +620,7 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
   const handleSave = async (data: Partial<AlertRecord>) => {
     try {
       if (data.id) { const r = await api.put<AlertRecord>(`/alerts/${data.id}`, data); setAlerts(a => a.map(x => x.id === data.id ? r.data : x)); }
-      else { const r = await api.post<AlertRecord>('/alerts', data); setAlerts(a => [r.data, ...a]); }
+      else { const r = await api.post<AlertRecord>(`/alerts${orgQs}`, data); setAlerts(a => [r.data, ...a]); }
       setFormOpen(false); setEditTarget(null);
     } catch {}
   };
@@ -737,12 +740,13 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
 
 // ── Left-Panel version ────────────────────────────────────────────────────────
 
-export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAlertRecord }: {
+export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAlertRecord, orgId }: {
   dark: boolean;
   vehicles: Array<{ imei: string; plate: string }>;
   onClose: () => void;
   preSelectedImei?: string;
   editAlertRecord?: AlertRecord;
+  orgId?: string;
 }) {
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [geofences, setGeofences] = useState<Geofence[]>([]);
@@ -752,10 +756,12 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  const orgQs = orgId ? `?orgId=${orgId}` : '';
+
   const load = async () => {
     setLoading(true);
     try {
-      const [ar, gr] = await Promise.all([api.get<AlertRecord[]>('/alerts'), api.get<Geofence[]>('/geofences')]);
+      const [ar, gr] = await Promise.all([api.get<AlertRecord[]>(`/alerts${orgQs}`), api.get<Geofence[]>(`/geofences${orgQs}`)]);
       setAlerts(ar.data);
       setGeofences(gr.data);
     } catch {} finally { setLoading(false); }
@@ -770,7 +776,7 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
   const handleSave = async (data: Partial<AlertRecord>) => {
     try {
       if (data.id) { const r = await api.put<AlertRecord>(`/alerts/${data.id}`, data); setAlerts(a => a.map(x => x.id === data.id ? r.data : x)); }
-      else { const r = await api.post<AlertRecord>('/alerts', data); setAlerts(a => [r.data, ...a]); }
+      else { const r = await api.post<AlertRecord>(`/alerts${orgQs}`, data); setAlerts(a => [r.data, ...a]); }
       setFormOpen(false); setEditTarget(null);
     } catch {}
   };

@@ -25,6 +25,7 @@ interface Props {
   onClose: () => void;
   onRequestAlert?: (poi: POIRecord) => void;
   onPoisChange?: (pois: POIRecord[]) => void;
+  orgId?: string;
 }
 
 const API = import.meta.env.VITE_API_URL ?? '/api/v1';
@@ -275,7 +276,7 @@ function DotMenu({ dark, onEdit, onDelete, onAlert }: { dark: boolean; onEdit?: 
 // ──────────────────────────────────────────────
 // Main POI left panel
 // ──────────────────────────────────────────────
-export function POIsPanel({ dark, onClose, onRequestAlert, onPoisChange }: Props) {
+export function POIsPanel({ dark, onClose, onRequestAlert, onPoisChange, orgId }: Props) {
   const { setPoiCount, pickingLocation, setPickingLocation, pendingCoords, setPendingCoords } = usePOI();
   const [pois, setPois] = useState<POIRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -294,6 +295,8 @@ export function POIsPanel({ dark, onClose, onRequestAlert, onPoisChange }: Props
   const poiCanEdit   = poiIsOrg ? poiCanOrgDo(poiRole, 'pois', 'edit')   : true;
   const poiCanDelete = poiIsOrg ? poiCanOrgDo(poiRole, 'pois', 'delete') : true;
 
+  const orgQs = orgId ? `?orgId=${orgId}` : '';
+
   const groups = Array.from(new Set(pois.map(p => p.group).filter(Boolean) as string[])).sort();
   const displayed = pois.filter(p => {
     if (filterGroup && p.group !== filterGroup) return false;
@@ -303,14 +306,14 @@ export function POIsPanel({ dark, onClose, onRequestAlert, onPoisChange }: Props
 
   async function load() {
     try {
-      const data: POIRecord[] = await apiFetch('/pois');
+      const data: POIRecord[] = await apiFetch(`/pois${orgQs}`);
       setPois(data);
       setPoiCount(data.length);
       onPoisChange?.(data);
     } catch { /* ignore */ } finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [orgId]);
 
   async function handleSave(dto: Partial<POIRecord>) {
     if (editItem) {
@@ -318,7 +321,7 @@ export function POIsPanel({ dark, onClose, onRequestAlert, onPoisChange }: Props
       setPois(prev => { const next = prev.map(p => p.id === updated.id ? updated : p); onPoisChange?.(next); return next; });
       setPoiCount(pois.length);
     } else {
-      const created: POIRecord = await apiFetch('/pois', { method: 'POST', body: JSON.stringify(dto) });
+      const created: POIRecord = await apiFetch(`/pois${orgQs}`, { method: 'POST', body: JSON.stringify(dto) });
       setPois(prev => { const next = [created, ...prev]; onPoisChange?.(next); return next; });
       setPoiCount(pois.length + 1);
     }

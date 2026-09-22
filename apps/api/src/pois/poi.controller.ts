@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PoisService } from './poi.service.js';
 import { Poi } from './entities/poi.entity.js';
@@ -14,10 +14,10 @@ export class PoisController {
   constructor(private svc: PoisService) {}
 
   @Get()
-  findAll(@CurrentUser() user: User) { return this.svc.findAll(user); }
+  findAll(@CurrentUser() user: User, @Query('orgId') orgId?: string) { return this.svc.findAll(user, orgId); }
 
   @Post()
-  create(@CurrentUser() user: User, @Body() dto: Partial<Poi>) { return this.svc.create(user, dto); }
+  create(@CurrentUser() user: User, @Query('orgId') orgId: string | undefined, @Body() dto: Partial<Poi>) { return this.svc.create(user, dto, orgId); }
 
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: Partial<Poi>) { return this.svc.update(id, dto); }

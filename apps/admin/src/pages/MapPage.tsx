@@ -2060,7 +2060,9 @@ export default function MapPage() {
   const [mapOrgs, setMapOrgs] = useState<{ id: string; name: string }[]>([]);
   const [groupOrgId, setGroupOrgId] = useState<string>('');
   const [vehicleOrgFilter, setVehicleOrgFilter] = useState<string>('');
-  const effectiveGroupOrgId = mapOrgId ?? groupOrgId ?? null;
+  // selectedClientId: unified org context for all map operations (alerts, geofences, POIs, groups)
+  const selectedClientId = mapIsAdmin ? (vehicleOrgFilter || null) : (mapOrgId ?? null);
+  const effectiveGroupOrgId = mapOrgId ?? (vehicleOrgFilter || groupOrgId) ?? null;
   const isMobile = useIsMobile();
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 768);
   const [points, setPoints] = useState<LivePoint[]>([]);
@@ -2189,7 +2191,8 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => {
-    api.get<AlertRecord[]>('/alerts').then(r => {
+    const qs = selectedClientId ? `?orgId=${selectedClientId}` : '';
+    api.get<AlertRecord[]>(`/alerts${qs}`).then(r => {
       const m = new Map<string, AlertRecord[]>();
       r.data.forEach(alert => alert.vehicleImeis.forEach(imei => {
         const arr = m.get(imei) ?? [];
@@ -2198,16 +2201,18 @@ export default function MapPage() {
       }));
       setAlertsByImei(m);
     }).catch(() => {});
-  }, []);
+  }, [selectedClientId]);
 
   useEffect(() => {
+    const qs = selectedClientId ? `?orgId=${selectedClientId}` : '';
     setGfLoading(true);
-    api.get<Geofence[]>('/geofences').then(r => { setGeofences(r.data); setGfCount(r.data.length); }).catch(() => {}).finally(() => setGfLoading(false));
-  }, []);
+    api.get<Geofence[]>(`/geofences${qs}`).then(r => { setGeofences(r.data); setGfCount(r.data.length); }).catch(() => {}).finally(() => setGfLoading(false));
+  }, [selectedClientId]);
 
   useEffect(() => {
-    api.get<POIRecord[]>('/pois').then(r => setMapPois(r.data)).catch(() => {});
-  }, [poiPanelOpen]); // re-fetch when poi panel closes (user may have added/edited)
+    const qs = selectedClientId ? `?orgId=${selectedClientId}` : '';
+    api.get<POIRecord[]>(`/pois${qs}`).then(r => setMapPois(r.data)).catch(() => {});
+  }, [poiPanelOpen, selectedClientId]); // re-fetch when poi panel closes (user may have added/edited)
 
   const visiblePoints = selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points;
   const allVehicles = useMemo(() =>
@@ -2292,11 +2297,12 @@ export default function MapPage() {
     };
     setGfSaving(true);
     try {
+      const gfOrgQs = selectedClientId ? `?orgId=${selectedClientId}` : '';
       if (gfEditing) {
         const r = await api.put<Geofence>(`/geofences/${gfEditing.id}`, data);
         setGeofences(g => g.map(x => x.id === gfEditing.id ? r.data : x));
       } else {
-        const r = await api.post<Geofence>('/geofences', data);
+        const r = await api.post<Geofence>(`/geofences${gfOrgQs}`, data);
         setGeofences(g => { const next = [r.data, ...g]; setGfCount(next.length); return next; });
       }
       resetGfForm();
@@ -2355,12 +2361,14 @@ export default function MapPage() {
                 dark={dark}
                 vehicles={allVehicles}
                 onClose={() => { closeAlertPanel(); }}
+                orgId={selectedClientId ?? undefined}
               />
             : poiPanelOpen
             ? <POIsPanel
                 dark={dark}
                 onClose={() => closePoiPanel()}
                 onPoisChange={setMapPois}
+                orgId={selectedClientId ?? undefined}
                 onRequestAlert={poi => {
                   setPoiAlertPoi(poi);
                   setAlertCreateImei(undefined);
@@ -2566,6 +2574,7 @@ export default function MapPage() {
         vehicles={allVehicles}
         preSelectedImei={alertCreateImei}
         editAlertRecord={alertEditRecord}
+        orgId={selectedClientId ?? undefined}
       />
       <ConfirmDialog
         open={gfDeleteId !== null}

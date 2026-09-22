@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AlertsService } from './alerts.service.js';
 import { Alert } from './entities/alert.entity.js';
@@ -14,7 +14,7 @@ export class AlertsController {
   constructor(private svc: AlertsService) {}
 
   @Get()
-  findAll(@CurrentUser() user: User) { return this.svc.findAll(user); }
+  findAll(@CurrentUser() user: User, @Query('orgId') orgId?: string) { return this.svc.findAll(user, orgId); }
 
   @Get('logs')
   getLogs(@Query('alertId') alertId?: string, @Query('limit') limit?: string) {
@@ -22,7 +22,7 @@ export class AlertsController {
   }
 
   @Post()
-  create(@CurrentUser() user: User, @Body() dto: Partial<Alert>) { return this.svc.create(user, dto); }
+  create(@CurrentUser() user: User, @Query('orgId') orgId: string | undefined, @Body() dto: Partial<Alert>) { return this.svc.create(user, dto, orgId); }
 
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: Partial<Alert>) { return this.svc.update(id, dto); }
