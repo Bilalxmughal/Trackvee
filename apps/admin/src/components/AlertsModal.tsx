@@ -11,11 +11,12 @@ import type { UserRole } from '@yotrack/types';
 export type AlertType =
   | 'over_speed' | 'idle' | 'ignition_on' | 'ignition_off'
   | 'power_cut' | 'low_battery' | 'no_gps' | 'offline'
-  | 'tow' | 'over_parking' | 'geofence';
+  | 'tow' | 'over_parking' | 'geofence' | 'low_score';
 
 export interface AlertConfig {
   speedLimit?: number; minutes?: number; level?: number;
   geofenceId?: string; geofenceEvent?: 'enter' | 'exit' | 'both';
+  scoreThreshold?: number;
 }
 
 export interface AlertSchedule {
@@ -43,13 +44,13 @@ const ALERT_TYPE_LABELS: Record<AlertType, string> = {
   over_speed: 'Over Speed', idle: 'Idle Too Long', ignition_on: 'Ignition ON',
   ignition_off: 'Ignition OFF', power_cut: 'Power Cut', low_battery: 'Low Battery',
   no_gps: 'No GPS Signal', offline: 'Offline', tow: 'Tow Alert',
-  over_parking: 'Over Parking', geofence: 'Geofence',
+  over_parking: 'Over Parking', geofence: 'Geofence', low_score: 'Low Driver Score',
 };
 
 const ALERT_TYPE_COLOR: Record<AlertType, string> = {
   over_speed: '#dc2626', idle: '#f59e0b', ignition_on: '#16a34a', ignition_off: '#6b7280',
   power_cut: '#7c3aed', low_battery: '#ea580c', no_gps: '#0284c7', offline: '#9ca3af',
-  tow: '#be123c', over_parking: '#a16207', geofence: '#0891b2',
+  tow: '#be123c', over_parking: '#a16207', geofence: '#0891b2', low_score: '#e11d48',
 };
 
 const ALERT_TYPE_ICONS: Record<AlertType, JSX.Element> = {
@@ -64,6 +65,7 @@ const ALERT_TYPE_ICONS: Record<AlertType, JSX.Element> = {
   tow: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
   over_parking: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>,
   geofence: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  low_score: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
 };
 
 const DAYS = ['mon','tue','wed','thu','fri','sat','sun'] as const;
@@ -193,6 +195,12 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
               </button>
             ))}
           </div>
+        </>;
+      case 'low_score':
+        return <>
+          <span style={lbl}>Alert when daily score drops at or below</span>
+          <input type="number" min={1} max={99} value={config.scoreThreshold ?? 70} onChange={e => setConfig(c => ({ ...c, scoreThreshold: +e.target.value }))} style={inp} placeholder="e.g. 70"/>
+          <span style={{ fontSize: 11, color: dark ? '#555' : '#aaa', marginTop: 4, display: 'block' }}>Score range: 0 (worst) – 100 (perfect). Default threshold: 70.</span>
         </>;
       default:
         return <div style={{ fontSize: 12.5, color: dark ? '#555' : '#9ca3af', padding: '10px 0' }}>No additional configuration needed.</div>;

@@ -3,16 +3,17 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 export type AlertType =
   | 'over_speed' | 'idle' | 'ignition_on' | 'ignition_off'
   | 'power_cut' | 'low_battery' | 'no_gps' | 'offline'
-  | 'tow' | 'over_parking' | 'geofence' | 'poi';
+  | 'tow' | 'over_parking' | 'geofence' | 'poi' | 'low_score';
 
 export interface AlertConfig {
-  speedLimit?: number;   // over_speed
-  minutes?: number;      // idle, no_gps, offline, over_parking
-  level?: number;        // low_battery (1-5)
-  geofenceId?: string;   // geofence
+  speedLimit?: number;       // over_speed
+  minutes?: number;          // idle, no_gps, offline, over_parking
+  level?: number;            // low_battery (1-5)
+  geofenceId?: string;       // geofence
   geofenceEvent?: 'enter' | 'exit' | 'both'; // geofence
-  poiId?: string;        // poi
+  poiId?: string;            // poi
   poiEvent?: 'enter' | 'exit' | 'both'; // poi
+  scoreThreshold?: number;   // low_score
 }
 
 export interface AlertSchedule {

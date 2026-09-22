@@ -6,6 +6,7 @@ import { DriverScore } from './entities/driver-score.entity.js';
 import { DriverBehaviorSettings } from './entities/driver-behavior-settings.entity.js';
 import { Telemetry } from '../telemetry/entities/telemetry.entity.js';
 import { Device } from '../devices/entities/device.entity.js';
+import { AlertsService } from '../alerts/alerts.service.js';
 
 // Angle diff in [-180, 180]
 function angleDiff(a: number, b: number): number {
@@ -17,6 +18,9 @@ function angleDiff(a: number, b: number): number {
 // Per-vehicle cooldowns to avoid duplicate event detection (vehicleId:type → last ms)
 const eventCooldowns = new Map<string, number>();
 const EVENT_COOLDOWN_MS = 30_000;
+
+// Per-vehicle+day low_score alert cooldown (vehicleId:YYYY-MM-DD → triggered)
+const lowScoreAlertSent = new Map<string, boolean>();
 
 const DEFAULT_SETTINGS: Omit<DriverBehaviorSettings, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> = {
   overspeedThreshold: 100,
@@ -39,6 +43,7 @@ export class DriverBehaviorService {
     private scoreRepo: Repository<DriverScore>,
     @InjectRepository(DriverBehaviorSettings)
     private settingsRepo: Repository<DriverBehaviorSettings>,
+    private alertsService: AlertsService,
   ) {}
 
   async getSettings(organizationId: string): Promise<DriverBehaviorSettings> {
@@ -195,6 +200,32 @@ export class DriverBehaviorService {
         evt.type === 'sharp_turn'   ? 1 : 0,
         evt.type === 'overspeed'    ? 1 : 0,
       ]);
+    }
+
+    // Check low_score alerts once per vehicle per day
+    const lowScoreKey = `${device.vehicleId}:${today}`;
+    if (!lowScoreAlertSent.get(lowScoreKey)) {
+      const scoreRows = await this.scoreRepo.query<{ score: number }[]>(
+        `SELECT score FROM driver_scores WHERE vehicle_id = $1 AND date = $2 LIMIT 1`,
+        [device.vehicleId, today],
+      );
+      const currentScore = scoreRows[0]?.score ?? null;
+      if (currentScore !== null) {
+        const activeAlerts = await this.alertsService.findActiveForImei(curr.imei, orgId);
+        for (const alert of activeAlerts) {
+          if (alert.type !== 'low_score') continue;
+          const threshold = alert.config.scoreThreshold ?? 70;
+          if (currentScore <= threshold) {
+            lowScoreAlertSent.set(lowScoreKey, true);
+            await this.alertsService.logTrigger(alert.id, curr.imei, {
+              score: currentScore,
+              threshold,
+              vehicleId: device.vehicleId,
+              date: today,
+            });
+          }
+        }
+      }
     }
   }
 
