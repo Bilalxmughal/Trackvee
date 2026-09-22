@@ -5,7 +5,7 @@ import {
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
   IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
-  IconBell, IconUsersGroup, IconUserScan,
+  IconBell, IconUsersGroup, IconUserScan, IconChartBar,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -36,7 +36,8 @@ const NAV_SECTIONS: Section[] = [
   {
     label: 'Fleet Management',
     items: [
-      { to: '/vehicles', icon: IconCar, label: 'Vehicles' },
+      { to: '/vehicles',        icon: IconCar,      label: 'Vehicles' },
+      { to: '/driver-behavior', icon: IconChartBar, label: 'Driver Behavior' },
     ],
   },
   {
