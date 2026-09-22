@@ -237,14 +237,16 @@ export default function DriverBehaviorPage() {
   useEffect(() => {
     const orgId = isAdmin ? selectedOrgId : user?.organizationId;
     if (!orgId) { setLoading(false); return; }
+    const controller = new AbortController();
     setLoading(true);
     Promise.all([
-      api.get<Vehicle[]>('/vehicles').then(r => r.data).catch(() => [] as Vehicle[]),
-      api.get<LeaderboardRow[]>(`/driver-behavior/leaderboard${isAdmin ? `?orgId=${orgId}` : ''}`).then(r => r.data).catch(() => [] as LeaderboardRow[]),
+      api.get<Vehicle[]>('/vehicles', { signal: controller.signal }).then(r => r.data).catch(() => [] as Vehicle[]),
+      api.get<LeaderboardRow[]>(`/driver-behavior/leaderboard${isAdmin ? `?orgId=${orgId}` : ''}`, { signal: controller.signal }).then(r => r.data).catch(() => [] as LeaderboardRow[]),
     ]).then(([v, lb]) => {
       setVehicles(v);
       setRows(lb);
     }).finally(() => setLoading(false));
+    return () => controller.abort();
   }, [isAdmin, selectedOrgId, user?.organizationId]);
 
   const loadVehicleDetail = async (vehicleId: string) => {
@@ -252,8 +254,8 @@ export default function DriverBehaviorPage() {
     setDetailLoading(true);
     try {
       const [h, e] = await Promise.all([
-        api.get<ScoreHistory[]>(`/driver-behavior/vehicle/${vehicleId}/scores?days=30`).then(r => r.data),
-        api.get<DriverEventRow[]>(`/driver-behavior/vehicle/${vehicleId}/events`).then(r => r.data),
+        api.get<ScoreHistory[]>(`/driver-behavior/vehicle/${vehicleId}/scores?days=30`).then(r => r.data).catch(() => [] as ScoreHistory[]),
+        api.get<DriverEventRow[]>(`/driver-behavior/vehicle/${vehicleId}/events`).then(r => r.data).catch(() => [] as DriverEventRow[]),
       ]);
       setScoreHistory(h);
       setEvents(e);

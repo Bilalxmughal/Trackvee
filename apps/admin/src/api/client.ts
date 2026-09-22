@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api/v1';
 
-const api = axios.create({ baseURL: BASE });
+const api = axios.create({ baseURL: BASE, timeout: 20000 });
 
 function getToken() {
   return localStorage.getItem('yt_token') || sessionStorage.getItem('yt_token');
