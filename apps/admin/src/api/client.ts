@@ -24,6 +24,13 @@ api.interceptors.request.use((config) => {
 });
 
 let refreshing = false;
+type PendingResolver = (token: string | null) => void;
+let pending: PendingResolver[] = [];
+
+function drainPending(token: string | null) {
+  pending.forEach(resolve => resolve(token));
+  pending = [];
+}
 
 api.interceptors.response.use(
   (r) => r,
@@ -31,23 +38,42 @@ api.interceptors.response.use(
     const cfg = err.config as (typeof err.config & { _retry?: boolean });
     if (err.response?.status === 401 && !cfg?._retry) {
       const rt = getRefresh();
-      if (rt && !refreshing) {
-        refreshing = true;
-        cfg._retry = true;
-        try {
-          const { data } = await axios.post(`${BASE}/auth/refresh`, { refreshToken: rt });
-          const inLocal = !!localStorage.getItem('yt_refresh');
-          (inLocal ? localStorage : sessionStorage).setItem('yt_token', data.accessToken);
-          cfg.headers = cfg.headers ?? {};
-          cfg.headers.Authorization = `Bearer ${data.accessToken}`;
-          refreshing = false;
-          return api(cfg);
-        } catch {
-          refreshing = false;
-        }
+      if (!rt) {
+        clearAuth();
+        window.location.href = '/login';
+        return Promise.reject(err);
       }
-      clearAuth();
-      window.location.href = '/login';
+
+      if (refreshing) {
+        // Queue this request until refresh completes
+        return new Promise((resolve, reject) => {
+          pending.push((newToken) => {
+            if (!newToken) { reject(err); return; }
+            cfg._retry = true;
+            cfg.headers = cfg.headers ?? {};
+            cfg.headers.Authorization = `Bearer ${newToken}`;
+            resolve(api(cfg));
+          });
+        });
+      }
+
+      refreshing = true;
+      cfg._retry = true;
+      try {
+        const { data } = await axios.post(`${BASE}/auth/refresh`, { refreshToken: rt });
+        const inLocal = !!localStorage.getItem('yt_refresh');
+        (inLocal ? localStorage : sessionStorage).setItem('yt_token', data.accessToken);
+        cfg.headers = cfg.headers ?? {};
+        cfg.headers.Authorization = `Bearer ${data.accessToken}`;
+        drainPending(data.accessToken);
+        refreshing = false;
+        return api(cfg);
+      } catch {
+        refreshing = false;
+        drainPending(null);
+        clearAuth();
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   },
