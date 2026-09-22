@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Delete, Body, Param, Query, UseGuards, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { DriverBehaviorService } from './driver-behavior.service.js';
 import { DriverBehaviorSettings } from './entities/driver-behavior-settings.entity.js';
@@ -31,9 +31,17 @@ export class DriverBehaviorController {
 
   @Get('leaderboard')
   getLeaderboard(@CurrentUser() user: User, @Query('orgId') orgId?: string) {
-    const resolvedOrgId = ADMIN_ROLES.includes(user.role) ? (orgId ?? null) : user.organizationId;
-    if (!resolvedOrgId) return [];
-    return this.svc.getLeaderboard(resolvedOrgId);
+    if (ADMIN_ROLES.includes(user.role)) {
+      return this.svc.getLeaderboard(orgId ?? null);
+    }
+    if (!user.organizationId) return [];
+    return this.svc.getLeaderboard(user.organizationId);
+  }
+
+  @Delete('scores/:id')
+  @HttpCode(204)
+  deleteScore(@Param('id') id: string) {
+    return this.svc.deleteScore(id);
   }
 
   // ── Group settings ────────────────────────────────────────────────────────

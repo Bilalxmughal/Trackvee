@@ -114,23 +114,62 @@ export class DriverBehaviorService {
     return this.settingsRepo.save(settings);
   }
 
-  async getLeaderboard(organizationId: string): Promise<{ vehicleId: string; score: number; date: string; harshBrakeCount: number; rapidAccelCount: number; sharpTurnCount: number; overspeedCount: number }[]> {
+  async getLeaderboard(organizationId: string | null): Promise<{
+    scoreId: string; vehicleId: string; organizationId: string | null; orgName: string | null;
+    vehicleLicensePlate: string | null; vehicleName: string | null; vehicleMake: string | null; vehicleModel: string | null;
+    score: number; date: string; harshBrakeCount: number; rapidAccelCount: number; sharpTurnCount: number; overspeedCount: number;
+  }[]> {
     const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-    const rows = await this.scoreRepo.query(`
-      SELECT DISTINCT ON (vehicle_id)
-        vehicle_id        AS "vehicleId",
-        score,
-        date,
-        harsh_brake_count AS "harshBrakeCount",
-        rapid_accel_count AS "rapidAccelCount",
-        sharp_turn_count  AS "sharpTurnCount",
-        overspeed_count   AS "overspeedCount"
-      FROM driver_scores
-      WHERE organization_id = $1
-        AND date >= $2
-      ORDER BY vehicle_id, date DESC
-    `, [organizationId, cutoff]);
-    return rows;
+    if (organizationId) {
+      return this.scoreRepo.query(`
+        SELECT DISTINCT ON (ds.vehicle_id)
+          ds.id                AS "scoreId",
+          ds.vehicle_id        AS "vehicleId",
+          ds.organization_id   AS "organizationId",
+          o.name               AS "orgName",
+          v.license_plate      AS "vehicleLicensePlate",
+          v.name               AS "vehicleName",
+          v.make               AS "vehicleMake",
+          v.model              AS "vehicleModel",
+          ds.score,
+          ds.date,
+          ds.harsh_brake_count AS "harshBrakeCount",
+          ds.rapid_accel_count AS "rapidAccelCount",
+          ds.sharp_turn_count  AS "sharpTurnCount",
+          ds.overspeed_count   AS "overspeedCount"
+        FROM driver_scores ds
+        LEFT JOIN organizations o ON o.id = ds.organization_id
+        LEFT JOIN vehicles v ON v.id = ds.vehicle_id
+        WHERE ds.organization_id = $1 AND ds.date >= $2
+        ORDER BY ds.vehicle_id, ds.date DESC
+      `, [organizationId, cutoff]);
+    }
+    return this.scoreRepo.query(`
+      SELECT DISTINCT ON (ds.vehicle_id)
+        ds.id                AS "scoreId",
+        ds.vehicle_id        AS "vehicleId",
+        ds.organization_id   AS "organizationId",
+        o.name               AS "orgName",
+        v.license_plate      AS "vehicleLicensePlate",
+        v.name               AS "vehicleName",
+        v.make               AS "vehicleMake",
+        v.model              AS "vehicleModel",
+        ds.score,
+        ds.date,
+        ds.harsh_brake_count AS "harshBrakeCount",
+        ds.rapid_accel_count AS "rapidAccelCount",
+        ds.sharp_turn_count  AS "sharpTurnCount",
+        ds.overspeed_count   AS "overspeedCount"
+      FROM driver_scores ds
+      LEFT JOIN organizations o ON o.id = ds.organization_id
+      LEFT JOIN vehicles v ON v.id = ds.vehicle_id
+      WHERE ds.date >= $1
+      ORDER BY ds.vehicle_id, ds.date DESC
+    `, [cutoff]);
+  }
+
+  async deleteScore(id: string): Promise<void> {
+    await this.scoreRepo.delete(id);
   }
 
   async getVehicleScoreHistory(vehicleId: string, days = 30): Promise<DriverScore[]> {
