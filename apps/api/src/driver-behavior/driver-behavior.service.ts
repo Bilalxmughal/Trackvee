@@ -1,0 +1,209 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { DriverEvent, DriverEventType } from './entities/driver-event.entity.js';
+import { DriverScore } from './entities/driver-score.entity.js';
+import { DriverBehaviorSettings } from './entities/driver-behavior-settings.entity.js';
+import { Telemetry } from '../telemetry/entities/telemetry.entity.js';
+import { Device } from '../devices/entities/device.entity.js';
+
+// Angle diff in [-180, 180]
+function angleDiff(a: number, b: number): number {
+  let d = ((a - b) % 360 + 360) % 360;
+  if (d > 180) d -= 360;
+  return d;
+}
+
+// Per-vehicle cooldowns to avoid duplicate event detection (vehicleId:type → last ms)
+const eventCooldowns = new Map<string, number>();
+const EVENT_COOLDOWN_MS = 30_000;
+
+const DEFAULT_SETTINGS: Omit<DriverBehaviorSettings, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> = {
+  overspeedThreshold: 100,
+  harshBrakeDeceleration: 8,
+  rapidAccelThreshold: 6,
+  sharpTurnAngle: 45,
+  sharpTurnMinSpeed: 20,
+  deductionHarshBrake: 5,
+  deductionRapidAccel: 3,
+  deductionSharpTurn: 3,
+  deductionOverspeed: 5,
+};
+
+@Injectable()
+export class DriverBehaviorService {
+  constructor(
+    @InjectRepository(DriverEvent)
+    private eventRepo: Repository<DriverEvent>,
+    @InjectRepository(DriverScore)
+    private scoreRepo: Repository<DriverScore>,
+    @InjectRepository(DriverBehaviorSettings)
+    private settingsRepo: Repository<DriverBehaviorSettings>,
+  ) {}
+
+  async getSettings(organizationId: string): Promise<DriverBehaviorSettings> {
+    const existing = await this.settingsRepo.findOne({ where: { organizationId } });
+    if (existing) return existing;
+    const created = this.settingsRepo.create({ organizationId, ...DEFAULT_SETTINGS });
+    return this.settingsRepo.save(created);
+  }
+
+  async updateSettings(organizationId: string, dto: Partial<DriverBehaviorSettings>): Promise<DriverBehaviorSettings> {
+    const settings = await this.getSettings(organizationId);
+    Object.assign(settings, dto);
+    return this.settingsRepo.save(settings);
+  }
+
+  async getLeaderboard(organizationId: string): Promise<{ vehicleId: string; score: number; date: string; harshBrakeCount: number; rapidAccelCount: number; sharpTurnCount: number; overspeedCount: number }[]> {
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = await this.scoreRepo
+      .createQueryBuilder('s')
+      .select('DISTINCT ON (s.vehicle_id) s.vehicle_id', 'vehicleId')
+      .addSelect('s.score', 'score')
+      .addSelect('s.date', 'date')
+      .addSelect('s.harsh_brake_count', 'harshBrakeCount')
+      .addSelect('s.rapid_accel_count', 'rapidAccelCount')
+      .addSelect('s.sharp_turn_count', 'sharpTurnCount')
+      .addSelect('s.overspeed_count', 'overspeedCount')
+      .where('s.organization_id = :orgId', { orgId: organizationId })
+      .andWhere('s.date >= :cutoff', { cutoff: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10) })
+      .orderBy('s.vehicle_id')
+      .addOrderBy('s.date', 'DESC')
+      .getRawMany();
+    return rows;
+  }
+
+  async getVehicleScoreHistory(vehicleId: string, days = 30): Promise<DriverScore[]> {
+    const cutoff = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    return this.scoreRepo
+      .createQueryBuilder('s')
+      .where('s.vehicle_id = :vehicleId', { vehicleId })
+      .andWhere('s.date >= :cutoff', { cutoff })
+      .orderBy('s.date', 'ASC')
+      .getMany();
+  }
+
+  async getVehicleEvents(vehicleId: string, from?: string, to?: string): Promise<DriverEvent[]> {
+    const qb = this.eventRepo
+      .createQueryBuilder('e')
+      .where('e.vehicle_id = :vehicleId', { vehicleId })
+      .orderBy('e.timestamp', 'DESC')
+      .take(200);
+    if (from) qb.andWhere('e.timestamp >= :from', { from: new Date(from) });
+    if (to) qb.andWhere('e.timestamp <= :to', { to: new Date(to) });
+    return qb.getMany();
+  }
+
+  async processForDriverBehavior(curr: Telemetry, prev: Telemetry | null, device: Device): Promise<void> {
+    if (!device.vehicleId || !curr.gpsValid) return;
+    const orgId = device.vehicle?.organizationId ?? null;
+    if (!orgId) return;
+
+    const settings = await this.getSettings(orgId);
+    const eventsToRecord: { type: DriverEventType; severity: 'low' | 'medium' | 'high' }[] = [];
+
+    // Overspeed detection
+    if (curr.speedKmh > settings.overspeedThreshold) {
+      const key = `${device.vehicleId}:overspeed`;
+      const last = eventCooldowns.get(key) ?? 0;
+      if (Date.now() - last >= EVENT_COOLDOWN_MS) {
+        const excess = curr.speedKmh - settings.overspeedThreshold;
+        const severity = excess > 30 ? 'high' : excess > 15 ? 'medium' : 'low';
+        eventsToRecord.push({ type: 'overspeed', severity });
+        eventCooldowns.set(key, Date.now());
+      }
+    }
+
+    if (prev && curr.gpsValid && prev.gpsValid) {
+      const timeDiffSec = (new Date(curr.timestamp).getTime() - new Date(prev.timestamp).getTime()) / 1000;
+      if (timeDiffSec > 0 && timeDiffSec <= 60) {
+        // Harsh brake
+        if (prev.speedKmh >= 10 && (prev.speedKmh - curr.speedKmh) / timeDiffSec > settings.harshBrakeDeceleration) {
+          const key = `${device.vehicleId}:harsh_brake`;
+          const last = eventCooldowns.get(key) ?? 0;
+          if (Date.now() - last >= EVENT_COOLDOWN_MS) {
+            const rate = (prev.speedKmh - curr.speedKmh) / timeDiffSec;
+            const severity = rate > settings.harshBrakeDeceleration * 2 ? 'high' : rate > settings.harshBrakeDeceleration * 1.5 ? 'medium' : 'low';
+            eventsToRecord.push({ type: 'harsh_brake', severity });
+            eventCooldowns.set(key, Date.now());
+          }
+        }
+
+        // Rapid acceleration
+        if ((curr.speedKmh - prev.speedKmh) / timeDiffSec > settings.rapidAccelThreshold) {
+          const key = `${device.vehicleId}:rapid_accel`;
+          const last = eventCooldowns.get(key) ?? 0;
+          if (Date.now() - last >= EVENT_COOLDOWN_MS) {
+            const rate = (curr.speedKmh - prev.speedKmh) / timeDiffSec;
+            const severity = rate > settings.rapidAccelThreshold * 2 ? 'high' : rate > settings.rapidAccelThreshold * 1.5 ? 'medium' : 'low';
+            eventsToRecord.push({ type: 'rapid_accel', severity });
+            eventCooldowns.set(key, Date.now());
+          }
+        }
+
+        // Sharp turn
+        if (curr.speedKmh >= settings.sharpTurnMinSpeed) {
+          const turn = Math.abs(angleDiff(curr.heading, prev.heading));
+          if (turn > settings.sharpTurnAngle) {
+            const key = `${device.vehicleId}:sharp_turn`;
+            const last = eventCooldowns.get(key) ?? 0;
+            if (Date.now() - last >= EVENT_COOLDOWN_MS) {
+              const severity = turn > settings.sharpTurnAngle * 1.5 ? 'high' : turn > settings.sharpTurnAngle * 1.2 ? 'medium' : 'low';
+              eventsToRecord.push({ type: 'sharp_turn', severity });
+              eventCooldowns.set(key, Date.now());
+            }
+          }
+        }
+      }
+    }
+
+    if (!eventsToRecord.length) return;
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    for (const evt of eventsToRecord) {
+      await this.eventRepo.save(this.eventRepo.create({
+        vehicleId: device.vehicleId,
+        organizationId: orgId,
+        imei: curr.imei,
+        type: evt.type,
+        severity: evt.severity,
+        speedKmh: curr.speedKmh,
+        latitude: curr.latitude,
+        longitude: curr.longitude,
+        timestamp: new Date(curr.timestamp),
+      }));
+
+      // Deduct from today's score
+      const deduction = this.getDeduction(settings, evt.type);
+      await this.scoreRepo.query(`
+        INSERT INTO driver_scores (id, vehicle_id, organization_id, date, score,
+          harsh_brake_count, rapid_accel_count, sharp_turn_count, overspeed_count)
+        VALUES (gen_random_uuid(), $1, $2, $3, GREATEST(0, 100 - $4),
+          $5, $6, $7, $8)
+        ON CONFLICT (vehicle_id, date) DO UPDATE SET
+          score = GREATEST(0, driver_scores.score - $4),
+          harsh_brake_count  = driver_scores.harsh_brake_count  + $5,
+          rapid_accel_count  = driver_scores.rapid_accel_count  + $6,
+          sharp_turn_count   = driver_scores.sharp_turn_count   + $7,
+          overspeed_count    = driver_scores.overspeed_count    + $8,
+          updated_at = NOW()
+      `, [
+        device.vehicleId, orgId, today, deduction,
+        evt.type === 'harsh_brake'  ? 1 : 0,
+        evt.type === 'rapid_accel'  ? 1 : 0,
+        evt.type === 'sharp_turn'   ? 1 : 0,
+        evt.type === 'overspeed'    ? 1 : 0,
+      ]);
+    }
+  }
+
+  private getDeduction(settings: DriverBehaviorSettings, type: DriverEventType): number {
+    switch (type) {
+      case 'harsh_brake': return settings.deductionHarshBrake;
+      case 'rapid_accel': return settings.deductionRapidAccel;
+      case 'sharp_turn':  return settings.deductionSharpTurn;
+      case 'overspeed':   return settings.deductionOverspeed;
+    }
+  }
+}

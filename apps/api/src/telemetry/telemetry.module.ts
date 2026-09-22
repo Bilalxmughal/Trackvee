@@ -6,9 +6,10 @@ import { TelemetryController } from './telemetry.controller.js';
 import { DevicesModule } from '../devices/devices.module.js';
 import { AlertsModule } from '../alerts/alerts.module.js';
 import { GeofencesModule } from '../geofences/geofences.module.js';
+import { DriverBehaviorModule } from '../driver-behavior/driver-behavior.module.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Telemetry]), DevicesModule, AlertsModule, GeofencesModule],
+  imports: [TypeOrmModule.forFeature([Telemetry]), DevicesModule, AlertsModule, GeofencesModule, DriverBehaviorModule],
   providers: [TelemetryService],
   controllers: [TelemetryController],
   exports: [TelemetryService],

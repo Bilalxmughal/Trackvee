@@ -13,6 +13,7 @@ import { AlertsModule } from './alerts/alerts.module.js';
 import { PoisModule } from './pois/poi.module.js';
 import { OrgPermissionsModule } from './org-permissions/org-permissions.module.js';
 import { RolePortalPermissionsModule } from './role-portal-permissions/role-portal-permissions.module.js';
+import { DriverBehaviorModule } from './driver-behavior/driver-behavior.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { RolePortalPermissionsModule } from './role-portal-permissions/role-port
     PoisModule,
     OrgPermissionsModule,
     RolePortalPermissionsModule,
+    DriverBehaviorModule,
   ],
 })
 export class AppModule {}

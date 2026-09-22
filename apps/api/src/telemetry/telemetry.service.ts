@@ -5,6 +5,7 @@ import { Telemetry } from './entities/telemetry.entity.js';
 import { DevicesService } from '../devices/devices.service.js';
 import { AlertsService } from '../alerts/alerts.service.js';
 import { GeofencesService } from '../geofences/geofences.service.js';
+import { DriverBehaviorService } from '../driver-behavior/driver-behavior.service.js';
 import type { CircleCoords, PolygonCoords } from '../geofences/entities/geofence.entity.js';
 import { User } from '../users/entities/user.entity.js';
 
@@ -55,6 +56,7 @@ export class TelemetryService {
     private devicesService: DevicesService,
     private alertsService: AlertsService,
     private geofencesService: GeofencesService,
+    private driverBehaviorService: DriverBehaviorService,
   ) {}
 
   async findRecent(user: User, limit = 100): Promise<Telemetry[]> {
@@ -73,9 +75,23 @@ export class TelemetryService {
   async save(data: Partial<Telemetry>): Promise<Telemetry> {
     const record = this.repo.create(data);
     const saved = await this.repo.save(record);
-    // Fire-and-forget alert evaluation
+    // Fire-and-forget alert + driver behavior evaluation
     this.evaluateAlerts(saved).catch(() => {});
+    this.evaluateDriverBehavior(saved).catch(() => {});
     return saved;
+  }
+
+  private async evaluateDriverBehavior(pt: Telemetry): Promise<void> {
+    if (!pt.gpsValid) return;
+    const device = await this.devicesService.findByImei(pt.imei).catch(() => null);
+    if (!device?.vehicleId) return;
+    const prevRows = await this.repo.find({
+      where: { imei: pt.imei },
+      order: { timestamp: 'DESC' },
+      skip: 1,
+      take: 1,
+    });
+    await this.driverBehaviorService.processForDriverBehavior(pt, prevRows[0] ?? null, device);
   }
 
   private async evaluateAlerts(pt: Telemetry): Promise<void> {

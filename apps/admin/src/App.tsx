@@ -17,6 +17,7 @@ import SetupGuidePage from './pages/SetupGuidePage';
 import MapPage from './pages/MapPage';
 import SettingsPage from './pages/SettingsPage';
 import ClientUsersPage from './pages/ClientUsersPage';
+import DriverBehaviorPage from './pages/DriverBehaviorPage';
 import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';;
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/telemetry" element={<RoleRoute page="telemetry"><TelemetryPage /></RoleRoute>} />
         <Route path="/map" element={<RoleRoute page="map"><MapPage /></RoleRoute>} />
         <Route path="/client-users" element={<RoleRoute page="client-users"><ClientUsersPage /></RoleRoute>} />
+        <Route path="/driver-behavior" element={<RoleRoute page="driver-behavior"><DriverBehaviorPage /></RoleRoute>} />
         <Route path="/users" element={<RoleRoute page="users"><UsersPage /></RoleRoute>} />
         <Route path="/roles" element={<RoleRoute page="roles"><RoleAccessPage /></RoleRoute>} />
         <Route path="/setup" element={<RoleRoute page="setup"><SetupGuidePage /></RoleRoute>} />
