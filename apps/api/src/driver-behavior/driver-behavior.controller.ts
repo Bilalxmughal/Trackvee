@@ -23,7 +23,7 @@ export class DriverBehaviorController {
   }
 
   @Put('settings')
-  updateSettings(@CurrentUser() user: User, @Query('orgId') orgId?: string, @Body() dto: Partial<DriverBehaviorSettings>) {
+  updateSettings(@CurrentUser() user: User, @Query('orgId') orgId: string | undefined, @Body() dto: Partial<DriverBehaviorSettings>) {
     const resolvedOrgId = ADMIN_ROLES.includes(user.role) ? (orgId ?? null) : (user.organizationId ?? null);
     if (!resolvedOrgId) return null;
     return this.svc.updateSettings(resolvedOrgId, dto);
