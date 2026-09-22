@@ -7,6 +7,7 @@ import { DriverBehaviorSettings } from './entities/driver-behavior-settings.enti
 import { Telemetry } from '../telemetry/entities/telemetry.entity.js';
 import { Device } from '../devices/entities/device.entity.js';
 import { AlertsService } from '../alerts/alerts.service.js';
+import { VehicleGroupsService } from '../vehicle-groups/vehicle-groups.service.js';
 
 // Angle diff in [-180, 180]
 function angleDiff(a: number, b: number): number {
@@ -22,7 +23,7 @@ const EVENT_COOLDOWN_MS = 30_000;
 // Per-vehicle+day low_score alert cooldown (vehicleId:YYYY-MM-DD → triggered)
 const lowScoreAlertSent = new Map<string, boolean>();
 
-const DEFAULT_SETTINGS: Omit<DriverBehaviorSettings, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'> = {
+const DEFAULT_SETTINGS: Omit<DriverBehaviorSettings, 'id' | 'organizationId' | 'groupId' | 'vehicleId' | 'createdAt' | 'updatedAt'> = {
   overspeedThreshold: 100,
   harshBrakeDeceleration: 8,
   rapidAccelThreshold: 6,
@@ -44,13 +45,67 @@ export class DriverBehaviorService {
     @InjectRepository(DriverBehaviorSettings)
     private settingsRepo: Repository<DriverBehaviorSettings>,
     private alertsService: AlertsService,
+    private vehicleGroupsService: VehicleGroupsService,
   ) {}
 
+  // Org-level default settings (create on first access)
   async getSettings(organizationId: string): Promise<DriverBehaviorSettings> {
-    const existing = await this.settingsRepo.findOne({ where: { organizationId } });
+    const existing = await this.settingsRepo.findOne({ where: { organizationId, groupId: null as any, vehicleId: null as any } });
     if (existing) return existing;
-    const created = this.settingsRepo.create({ organizationId, ...DEFAULT_SETTINGS });
+    const created = this.settingsRepo.create({ organizationId, groupId: null, vehicleId: null, ...DEFAULT_SETTINGS });
     return this.settingsRepo.save(created);
+  }
+
+  // Hierarchy: vehicle → group → org
+  async resolveSettingsForVehicle(vehicleId: string, orgId: string): Promise<DriverBehaviorSettings> {
+    const vs = await this.settingsRepo.findOne({ where: { vehicleId } });
+    if (vs) return vs;
+    const groupId = await this.vehicleGroupsService.getGroupForVehicle(vehicleId);
+    if (groupId) {
+      const gs = await this.settingsRepo.findOne({ where: { groupId } });
+      if (gs) return gs;
+    }
+    return this.getSettings(orgId);
+  }
+
+  // Group settings: get override or null
+  async getGroupSettings(groupId: string): Promise<DriverBehaviorSettings | null> {
+    return this.settingsRepo.findOne({ where: { groupId } }) ?? null;
+  }
+
+  async setGroupSettings(groupId: string, orgId: string, dto: Partial<DriverBehaviorSettings>): Promise<DriverBehaviorSettings> {
+    const existing = await this.settingsRepo.findOne({ where: { groupId } });
+    if (existing) {
+      Object.assign(existing, dto);
+      return this.settingsRepo.save(existing);
+    }
+    const orgDefaults = await this.getSettings(orgId);
+    const created = this.settingsRepo.create({ ...orgDefaults, id: undefined as any, organizationId: orgId, groupId, vehicleId: null, ...dto });
+    return this.settingsRepo.save(created);
+  }
+
+  async clearGroupSettings(groupId: string): Promise<void> {
+    await this.settingsRepo.delete({ groupId });
+  }
+
+  // Vehicle settings: get override or null
+  async getVehicleSettings(vehicleId: string): Promise<DriverBehaviorSettings | null> {
+    return this.settingsRepo.findOne({ where: { vehicleId } }) ?? null;
+  }
+
+  async setVehicleSettings(vehicleId: string, orgId: string, dto: Partial<DriverBehaviorSettings>): Promise<DriverBehaviorSettings> {
+    const existing = await this.settingsRepo.findOne({ where: { vehicleId } });
+    if (existing) {
+      Object.assign(existing, dto);
+      return this.settingsRepo.save(existing);
+    }
+    const orgDefaults = await this.getSettings(orgId);
+    const created = this.settingsRepo.create({ ...orgDefaults, id: undefined as any, organizationId: orgId, groupId: null, vehicleId, ...dto });
+    return this.settingsRepo.save(created);
+  }
+
+  async clearVehicleSettings(vehicleId: string): Promise<void> {
+    await this.settingsRepo.delete({ vehicleId });
   }
 
   async updateSettings(organizationId: string, dto: Partial<DriverBehaviorSettings>): Promise<DriverBehaviorSettings> {
@@ -104,7 +159,7 @@ export class DriverBehaviorService {
     const orgId = device.vehicle?.organizationId ?? null;
     if (!orgId) return;
 
-    const settings = await this.getSettings(orgId);
+    const settings = await this.resolveSettingsForVehicle(device.vehicleId, orgId);
     const eventsToRecord: { type: DriverEventType; severity: 'low' | 'medium' | 'high' }[] = [];
 
     // Overspeed detection

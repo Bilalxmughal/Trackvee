@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { DriverBehaviorService } from './driver-behavior.service.js';
 import { DriverBehaviorSettings } from './entities/driver-behavior-settings.entity.js';
@@ -35,6 +35,56 @@ export class DriverBehaviorController {
     if (!resolvedOrgId) return [];
     return this.svc.getLeaderboard(resolvedOrgId);
   }
+
+  // ── Group settings ────────────────────────────────────────────────────────
+
+  @Get('settings/group/:groupId')
+  getGroupSettings(@Param('groupId') groupId: string) {
+    return this.svc.getGroupSettings(groupId);
+  }
+
+  @Put('settings/group/:groupId')
+  setGroupSettings(
+    @CurrentUser() user: User,
+    @Param('groupId') groupId: string,
+    @Query('orgId') orgId: string | undefined,
+    @Body() dto: Partial<import('./entities/driver-behavior-settings.entity.js').DriverBehaviorSettings>,
+  ) {
+    const resolvedOrgId = ADMIN_ROLES.includes(user.role) ? (orgId ?? null) : (user.organizationId ?? null);
+    if (!resolvedOrgId) return null;
+    return this.svc.setGroupSettings(groupId, resolvedOrgId, dto);
+  }
+
+  @Delete('settings/group/:groupId')
+  clearGroupSettings(@Param('groupId') groupId: string) {
+    return this.svc.clearGroupSettings(groupId);
+  }
+
+  // ── Vehicle settings ──────────────────────────────────────────────────────
+
+  @Get('settings/vehicle/:vehicleId')
+  getVehicleSettings(@Param('vehicleId') vehicleId: string) {
+    return this.svc.getVehicleSettings(vehicleId);
+  }
+
+  @Put('settings/vehicle/:vehicleId')
+  setVehicleSettings(
+    @CurrentUser() user: User,
+    @Param('vehicleId') vehicleId: string,
+    @Query('orgId') orgId: string | undefined,
+    @Body() dto: Partial<import('./entities/driver-behavior-settings.entity.js').DriverBehaviorSettings>,
+  ) {
+    const resolvedOrgId = ADMIN_ROLES.includes(user.role) ? (orgId ?? null) : (user.organizationId ?? null);
+    if (!resolvedOrgId) return null;
+    return this.svc.setVehicleSettings(vehicleId, resolvedOrgId, dto);
+  }
+
+  @Delete('settings/vehicle/:vehicleId')
+  clearVehicleSettings(@Param('vehicleId') vehicleId: string) {
+    return this.svc.clearVehicleSettings(vehicleId);
+  }
+
+  // ── Score history / events ────────────────────────────────────────────────
 
   @Get('vehicle/:vehicleId/scores')
   getVehicleScores(

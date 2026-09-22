@@ -1,5 +1,5 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index,
+  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('driver_behavior_settings')
@@ -7,9 +7,17 @@ export class DriverBehaviorSettings {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Index({ unique: true })
+  // Scope: org-level row has organizationId set + groupId/vehicleId null.
+  // Group-level: organizationId + groupId set. Vehicle-level: organizationId + vehicleId set.
+  // Partial unique indexes in migration enforce uniqueness per scope.
   @Column({ name: 'organization_id', type: 'uuid' })
   organizationId: string;
+
+  @Column({ name: 'group_id', type: 'uuid', nullable: true })
+  groupId: string | null;
+
+  @Column({ name: 'vehicle_id', type: 'uuid', nullable: true })
+  vehicleId: string | null;
 
   @Column({ name: 'overspeed_threshold', type: 'float', default: 100 })
   overspeedThreshold: number;

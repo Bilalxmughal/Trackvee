@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   IconActivity, IconChevronLeft, IconSettings, IconX,
   IconAlertTriangle, IconGauge, IconArrowNarrowRight, IconRotateClockwise,
+  IconChevronDown, IconChevronRight, IconTrash,
 } from '@tabler/icons-react';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,6 +41,7 @@ interface Settings {
   deductionSharpTurn: number;
   deductionOverspeed: number;
 }
+interface VehicleGroup { id: string; name: string; vehicleIds: string[]; }
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
@@ -112,24 +114,24 @@ function ScoreChart({ history }: { history: ScoreHistory[] }) {
   );
 }
 
-function SettingsForm({ orgId }: { orgId: string }) {
+// Generic settings form — used for org, group, and vehicle scopes.
+// getUrl: where to GET; putUrl: where to PUT; optional clearUrl: where to DELETE (shows "Remove override" button)
+function SettingsForm({ getUrl, putUrl, clearUrl, label, onCleared }: {
+  getUrl: string; putUrl: string; clearUrl?: string; label?: string; onCleared?: () => void;
+}) {
   const [form, setForm] = useState<Settings | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
-    if (!orgId) return;
     setForm(null);
     setLoadError(false);
-    const qs = orgId ? `?orgId=${orgId}` : '';
-    api.get<Settings>(`/driver-behavior/settings${qs}`)
-      .then(r => {
-        if (r.data) setForm(r.data);
-        else setLoadError(true);
-      })
+    api.get<Settings>(getUrl)
+      .then(r => { if (r.data) setForm(r.data); else setLoadError(true); })
       .catch(() => setLoadError(true));
-  }, [orgId]);
+  }, [getUrl]);
 
   const update = (k: keyof Settings, v: string) => {
     setForm(f => f ? { ...f, [k]: parseFloat(v) || 0 } : f);
@@ -139,16 +141,15 @@ function SettingsForm({ orgId }: { orgId: string }) {
   const save = async () => {
     if (!form) return;
     setSaving(true);
-    try {
-      const qs = orgId ? `?orgId=${orgId}` : '';
-      await api.put(`/driver-behavior/settings${qs}`, form);
-      setSaved(true);
-    } finally {
-      setSaving(false);
-    }
+    try { await api.put(putUrl, form); setSaved(true); } finally { setSaving(false); }
   };
 
-  if (!orgId) return <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select an organization to view settings.</div>;
+  const clear = async () => {
+    if (!clearUrl || !onCleared) return;
+    setClearing(true);
+    try { await api.delete(clearUrl); onCleared(); } finally { setClearing(false); }
+  };
+
   if (loadError) return <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Failed to load settings.</div>;
   if (!form) return <Spinner style={{ height: 120 }}/>;
 
@@ -157,33 +158,30 @@ function SettingsForm({ orgId }: { orgId: string }) {
     borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)',
     outline: 'none', width: 90,
   };
-  const label: React.CSSProperties = { fontSize: 12, color: 'var(--text-muted)', minWidth: 220 };
+  const labelStyle: React.CSSProperties = { fontSize: 12, color: 'var(--text-muted)', minWidth: 220 };
   const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 };
 
-  const fields: { key: keyof Settings; label: string; unit: string }[] = [
-    { key: 'overspeedThreshold',    label: 'Overspeed Threshold',        unit: 'km/h' },
-    { key: 'harshBrakeDeceleration',label: 'Harsh Brake Deceleration',   unit: 'km/h/s' },
-    { key: 'rapidAccelThreshold',   label: 'Rapid Acceleration',         unit: 'km/h/s' },
-    { key: 'sharpTurnAngle',        label: 'Sharp Turn Angle',           unit: 'degrees' },
-    { key: 'sharpTurnMinSpeed',     label: 'Sharp Turn Min Speed',       unit: 'km/h' },
+  const fields: { key: keyof Settings; title: string; unit: string }[] = [
+    { key: 'overspeedThreshold',    title: 'Overspeed Threshold',        unit: 'km/h' },
+    { key: 'harshBrakeDeceleration',title: 'Harsh Brake Deceleration',   unit: 'km/h/s' },
+    { key: 'rapidAccelThreshold',   title: 'Rapid Acceleration',         unit: 'km/h/s' },
+    { key: 'sharpTurnAngle',        title: 'Sharp Turn Angle',           unit: 'degrees' },
+    { key: 'sharpTurnMinSpeed',     title: 'Sharp Turn Min Speed',       unit: 'km/h' },
   ];
-  const deductFields: { key: keyof Settings; label: string }[] = [
-    { key: 'deductionHarshBrake', label: 'Harsh Brake Deduction' },
-    { key: 'deductionRapidAccel', label: 'Rapid Accel Deduction' },
-    { key: 'deductionSharpTurn',  label: 'Sharp Turn Deduction' },
-    { key: 'deductionOverspeed',  label: 'Overspeed Deduction' },
+  const deductFields: { key: keyof Settings; title: string }[] = [
+    { key: 'deductionHarshBrake', title: 'Harsh Brake Deduction' },
+    { key: 'deductionRapidAccel', title: 'Rapid Accel Deduction' },
+    { key: 'deductionSharpTurn',  title: 'Sharp Turn Deduction' },
+    { key: 'deductionOverspeed',  title: 'Overspeed Deduction' },
   ];
 
   return (
     <div>
-      <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 0, marginBottom: 16 }}>
-        Configure detection thresholds and score deductions for this organization.
-      </p>
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Detection Thresholds</div>
         {fields.map(f => (
           <div key={f.key} style={row}>
-            <span style={label}>{f.label}</span>
+            <span style={labelStyle}>{f.title}</span>
             <input style={inp} type="number" value={form[f.key]} onChange={e => update(f.key, e.target.value)}/>
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{f.unit}</span>
           </div>
@@ -193,23 +191,39 @@ function SettingsForm({ orgId }: { orgId: string }) {
         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Score Deductions (points per event)</div>
         {deductFields.map(f => (
           <div key={f.key} style={row}>
-            <span style={label}>{f.label}</span>
+            <span style={labelStyle}>{f.title}</span>
             <input style={inp} type="number" value={form[f.key]} onChange={e => update(f.key, e.target.value)}/>
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>pts</span>
           </div>
         ))}
       </div>
-      <button
-        onClick={save}
-        disabled={saving}
-        style={{
-          height: 32, padding: '0 16px', background: '#dc2626', color: '#fff',
-          border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600,
-          cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1,
-        }}
-      >
-        {saving ? 'Saving...' : saved ? 'Saved' : 'Save Settings'}
-      </button>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button
+          onClick={save}
+          disabled={saving}
+          style={{
+            height: 32, padding: '0 16px', background: '#dc2626', color: '#fff',
+            border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600,
+            cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1,
+          }}
+        >
+          {saving ? 'Saving...' : saved ? 'Saved' : `Save${label ? ` ${label}` : ''}`}
+        </button>
+        {clearUrl && onCleared && (
+          <button
+            onClick={clear}
+            disabled={clearing}
+            style={{
+              height: 32, padding: '0 12px', background: 'transparent', color: '#dc2626',
+              border: '1px solid #fca5a5', borderRadius: 4, fontSize: 12, fontWeight: 500,
+              cursor: clearing ? 'not-allowed' : 'pointer', opacity: clearing ? 0.6 : 1,
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}
+          >
+            <IconTrash size={13}/>{clearing ? 'Removing...' : 'Remove Override'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -279,6 +293,39 @@ export default function DriverBehaviorPage() {
 
   const vehicleMap = Object.fromEntries(vehicles.map(v => [v.id, v]));
 
+  // Groups and vehicle-override state for settings tab
+  const [groups, setGroups] = useState<VehicleGroup[]>([]);
+  const [vehicleOverrides, setVehicleOverrides] = useState<Set<string>>(new Set());
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [expandedVehicle, setExpandedVehicle] = useState<string | null>(null);
+  const [settingsSection, setSettingsSection] = useState<'org' | 'groups' | 'vehicles'>('org');
+
+  const currentOrgId = isAdmin ? selectedOrgId : (user?.organizationId ?? '');
+
+  const loadGroupsAndOverrides = useCallback(async () => {
+    if (!currentOrgId) return;
+    const qs = isAdmin ? `?orgId=${currentOrgId}` : '';
+    try {
+      const [gr, vList] = await Promise.all([
+        api.get<VehicleGroup[]>(`/vehicle-groups${qs}`).then(r => r.data).catch(() => [] as VehicleGroup[]),
+        // Fetch which vehicles have their own settings overrides
+        Promise.all(
+          vehicles.map(v =>
+            api.get(`/driver-behavior/settings/vehicle/${v.id}`)
+              .then(r => r.data ? v.id : null)
+              .catch(() => null)
+          )
+        ),
+      ]);
+      setGroups(gr);
+      setVehicleOverrides(new Set(vList.filter(Boolean) as string[]));
+    } catch {}
+  }, [currentOrgId, isAdmin, vehicles]);
+
+  useEffect(() => {
+    if (tab === 'settings') loadGroupsAndOverrides();
+  }, [tab, loadGroupsAndOverrides]);
+
   const sortedRows = [...rows].sort((a, b) => b.score - a.score);
 
   const tStyle: React.CSSProperties = { padding: '8px 12px', textAlign: 'left', fontSize: 12, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' };
@@ -307,8 +354,105 @@ export default function DriverBehaviorPage() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
         {tab === 'settings' && showSettings && (
-          <div style={{ maxWidth: 560 }}>
-            <SettingsForm orgId={isAdmin ? selectedOrgId : (user?.organizationId ?? '')} />
+          <div style={{ maxWidth: 600 }}>
+            {/* Settings sub-section nav */}
+            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
+              {(['org', 'groups', 'vehicles'] as const).map(s => (
+                <button key={s} onClick={() => setSettingsSection(s)} style={{
+                  padding: '6px 14px', fontSize: 11, fontWeight: settingsSection === s ? 600 : 400,
+                  color: settingsSection === s ? '#dc2626' : 'var(--text-muted)',
+                  background: 'none', border: 'none', borderBottom: `2px solid ${settingsSection === s ? '#dc2626' : 'transparent'}`,
+                  cursor: 'pointer', marginBottom: -1, textTransform: 'capitalize',
+                }}>{s === 'org' ? 'Organization Defaults' : s === 'groups' ? `Groups (${groups.length})` : `Vehicles`}</button>
+              ))}
+            </div>
+
+            {/* Org defaults */}
+            {settingsSection === 'org' && currentOrgId && (
+              <SettingsForm
+                getUrl={`/driver-behavior/settings${isAdmin ? `?orgId=${currentOrgId}` : ''}`}
+                putUrl={`/driver-behavior/settings${isAdmin ? `?orgId=${currentOrgId}` : ''}`}
+              />
+            )}
+
+            {/* Group overrides */}
+            {settingsSection === 'groups' && (
+              <div>
+                {!currentOrgId && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Select an organization.</div>}
+                {currentOrgId && groups.length === 0 && (
+                  <div style={{ color: 'var(--text-muted)', fontSize: 13, padding: '24px 0' }}>
+                    No groups yet. Create groups in the Map page to organize vehicles.
+                  </div>
+                )}
+                {groups.map(g => {
+                  const isOpen = expandedGroup === g.id;
+                  const groupVehicles = g.vehicleIds.map(vid => vehicleMap[vid]).filter(Boolean);
+                  const qs = isAdmin ? `?orgId=${currentOrgId}` : '';
+                  return (
+                    <div key={g.id} style={{ border: '1px solid var(--border)', borderRadius: 4, marginBottom: 8, overflow: 'hidden' }}>
+                      <div
+                        onClick={() => setExpandedGroup(isOpen ? null : g.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', cursor: 'pointer', background: 'var(--table-header-bg)' }}
+                      >
+                        {isOpen ? <IconChevronDown size={13}/> : <IconChevronRight size={13}/>}
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{g.name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{groupVehicles.length} vehicle{groupVehicles.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      {isOpen && (
+                        <div style={{ padding: '14px 16px' }}>
+                          <SettingsForm
+                            getUrl={`/driver-behavior/settings/group/${g.id}`}
+                            putUrl={`/driver-behavior/settings/group/${g.id}${qs}`}
+                            clearUrl={`/driver-behavior/settings/group/${g.id}`}
+                            label="Group"
+                            onCleared={() => setExpandedGroup(null)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Vehicle overrides */}
+            {settingsSection === 'vehicles' && (
+              <div>
+                {vehicles.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No vehicles.</div>}
+                {vehicles.map(v => {
+                  const hasOverride = vehicleOverrides.has(v.id);
+                  const isOpen = expandedVehicle === v.id;
+                  const qs = isAdmin ? `?orgId=${currentOrgId}` : '';
+                  return (
+                    <div key={v.id} style={{ border: `1px solid ${hasOverride ? '#fca5a5' : 'var(--border)'}`, borderRadius: 4, marginBottom: 6, overflow: 'hidden' }}>
+                      <div
+                        onClick={() => setExpandedVehicle(isOpen ? null : v.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', cursor: 'pointer', background: hasOverride ? 'rgba(220,38,38,0.04)' : 'var(--table-header-bg)' }}
+                      >
+                        {isOpen ? <IconChevronDown size={13}/> : <IconChevronRight size={13}/>}
+                        <span style={{ flex: 1, fontSize: 12, fontWeight: 500 }}>{v.licensePlate ?? v.name}</span>
+                        {v.make && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{v.make}{v.model ? ` ${v.model}` : ''}</span>}
+                        {hasOverride && <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 600, marginLeft: 4 }}>OVERRIDE</span>}
+                      </div>
+                      {isOpen && (
+                        <div style={{ padding: '14px 16px' }}>
+                          <SettingsForm
+                            getUrl={`/driver-behavior/settings/vehicle/${v.id}`}
+                            putUrl={`/driver-behavior/settings/vehicle/${v.id}${qs}`}
+                            clearUrl={`/driver-behavior/settings/vehicle/${v.id}`}
+                            label="Vehicle"
+                            onCleared={() => {
+                              setVehicleOverrides(s => { const n = new Set(s); n.delete(v.id); return n; });
+                              setExpandedVehicle(null);
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

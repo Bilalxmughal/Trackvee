@@ -14,6 +14,7 @@ import { PoisModule } from './pois/poi.module.js';
 import { OrgPermissionsModule } from './org-permissions/org-permissions.module.js';
 import { RolePortalPermissionsModule } from './role-portal-permissions/role-portal-permissions.module.js';
 import { DriverBehaviorModule } from './driver-behavior/driver-behavior.module.js';
+import { VehicleGroupsModule } from './vehicle-groups/vehicle-groups.module.js';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { DriverBehaviorModule } from './driver-behavior/driver-behavior.module.j
     OrgPermissionsModule,
     RolePortalPermissionsModule,
     DriverBehaviorModule,
+    VehicleGroupsModule,
   ],
 })
 export class AppModule {}

@@ -6,9 +6,10 @@ import { DriverBehaviorSettings } from './entities/driver-behavior-settings.enti
 import { DriverBehaviorService } from './driver-behavior.service.js';
 import { DriverBehaviorController } from './driver-behavior.controller.js';
 import { AlertsModule } from '../alerts/alerts.module.js';
+import { VehicleGroupsModule } from '../vehicle-groups/vehicle-groups.module.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([DriverEvent, DriverScore, DriverBehaviorSettings]), AlertsModule],
+  imports: [TypeOrmModule.forFeature([DriverEvent, DriverScore, DriverBehaviorSettings]), AlertsModule, VehicleGroupsModule],
   providers: [DriverBehaviorService],
   controllers: [DriverBehaviorController],
   exports: [DriverBehaviorService],

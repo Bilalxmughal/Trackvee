@@ -14,6 +14,7 @@ import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAlert, AlertSettings } from '../contexts/AlertContext';
 import { useGeofence } from '../contexts/GeofenceContext';
 import { usePOI } from '../contexts/POIContext';
+import { useAuth } from '../contexts/AuthContext';
 import { POIsPanel, POIRecord } from '../components/POIsPanel';
 import { POI_ICONS } from '../lib/poi-icons';
 
@@ -36,6 +37,7 @@ interface VehicleDetail {
   licensePlate: string | null; displayId: number;
 }
 interface VehicleGroup { id: string; name: string; imeis: string[]; }
+interface ApiVehicleGroup { id: string; name: string; organizationId: string; vehicleIds: string[]; }
 interface VehicleStats { stopDuration: number | null; odometer: number; engineHours: number; }
 type DMap = Map<string, { plate: string | null; vehicleId: string | null; cityId: string | null; displayId: number | null }>;
 interface TripPoint {
@@ -173,9 +175,9 @@ function useIsMobile() {
 
 // ── Groups ────────────────────────────────────────────────────────────────────
 
-const GK = 'yotrack_map_groups_v1';
-function loadGroups(): VehicleGroup[] { try { return JSON.parse(localStorage.getItem(GK) ?? '[]'); } catch { return []; } }
-function saveGroups(g: VehicleGroup[]) { try { localStorage.setItem(GK, JSON.stringify(g)); } catch {} }
+const GK_COLLAPSED = 'yotrack_map_groups_collapsed_v1';
+function loadCollapsed(): Set<string> { try { return new Set(JSON.parse(localStorage.getItem(GK_COLLAPSED) ?? '[]')); } catch { return new Set(); } }
+function saveCollapsed(s: Set<string>) { try { localStorage.setItem(GK_COLLAPSED, JSON.stringify([...s])); } catch {} }
 
 // ── Stats / Geocode ───────────────────────────────────────────────────────────
 
@@ -1793,7 +1795,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
 
 // ── Left Panel ────────────────────────────────────────────────────────────────
 
-function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis }: {
+function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis, orgId }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   onSelectVehicle: (imei: string) => void; dark: boolean; onClose?: () => void;
   onTripReplay: (imei: string, plate: string) => void;
@@ -1808,21 +1810,59 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   onSegmentClick: (ev: TimelineEvent) => void;
   onCreateAlert: (imei: string) => void;
   hasAlertImeis: Map<string, AlertRecord[]>;
+  orgId: string | null;
 }) {
-  const [groups, setGroups] = useState<VehicleGroup[]>(loadGroups);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [apiGroups, setApiGroups] = useState<ApiVehicleGroup[]>([]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editingGroup, setEditingGroup] = useState<VehicleGroup | null>(null);
 
-  useEffect(() => { saveGroups(groups); }, [groups]);
+  // Build vehicleId → imei reverse map
+  const vidToImei = useMemo(() => {
+    const m = new Map<string, string>();
+    deviceMap.forEach((info, imei) => { if (info.vehicleId) m.set(info.vehicleId, imei); });
+    return m;
+  }, [deviceMap]);
 
-  const createGroup = (name: string, imeis: string[]) => {
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-    setGroups(p => [...p, { id, name, imeis }]);
+  // Convert API groups (vehicleIds) → local groups (imeis) for display
+  const groups = useMemo<VehicleGroup[]>(() =>
+    apiGroups.map(g => ({
+      id: g.id, name: g.name,
+      imeis: g.vehicleIds.map(vid => vidToImei.get(vid) ?? '').filter(Boolean),
+    })),
+  [apiGroups, vidToImei]);
+
+  // Load groups from API when orgId is available
+  useEffect(() => {
+    if (!orgId) { setApiGroups([]); return; }
+    api.get<ApiVehicleGroup[]>('/vehicle-groups').then(r => setApiGroups(r.data)).catch(() => {});
+  }, [orgId]);
+
+  useEffect(() => { saveCollapsed(collapsed); }, [collapsed]);
+
+  const createGroup = async (name: string, imeis: string[]) => {
+    if (!orgId) return;
+    const vehicleIds = imeis.map(i => deviceMap.get(i)?.vehicleId).filter(Boolean) as string[];
+    try {
+      const r = await api.post<ApiVehicleGroup>('/vehicle-groups', { name, vehicleIds });
+      setApiGroups(p => [...p, r.data]);
+    } catch {}
   };
-  const saveGroup = (id: string, name: string, imeis: string[]) => setGroups(p => p.map(g => g.id === id ? { ...g, name, imeis } : g));
-  const deleteGroup = (id: string) => setGroups(p => p.filter(g => g.id !== id));
+  const saveGroup = async (id: string, name: string, imeis: string[]) => {
+    if (!orgId) return;
+    const vehicleIds = imeis.map(i => deviceMap.get(i)?.vehicleId).filter(Boolean) as string[];
+    try {
+      const r = await api.put<ApiVehicleGroup>(`/vehicle-groups/${id}`, { name, vehicleIds });
+      setApiGroups(p => p.map(g => g.id === id ? r.data : g));
+    } catch {}
+  };
+  const deleteGroup = async (id: string) => {
+    try {
+      await api.delete(`/vehicle-groups/${id}`);
+      setApiGroups(p => p.filter(g => g.id !== id));
+    } catch {}
+  };
   const toggleCollapse = (id: string) => setCollapsed(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const groupedImeis = new Set(groups.flatMap(g => g.imeis));
@@ -1845,9 +1885,9 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
             <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: dark ? '#e5e5e5' : '#111' }}>
               Vehicles <span style={{ fontSize: 11, fontWeight: 400, color: dark ? '#555' : '#aaa' }}>{points.length}</span>
             </span>
-            <button onClick={() => setShowCreate(true)} title="Create group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', cursor: 'pointer', color: dark ? '#888' : '#666' }}>
+            {orgId && <button onClick={() => setShowCreate(true)} title="Create group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', cursor: 'pointer', color: dark ? '#888' : '#666' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            </button>
+            </button>}
             {onClose && (
               <button onClick={onClose} title="Close" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, marginLeft: 4, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', cursor: 'pointer', color: dark ? '#888' : '#666' }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1909,6 +1949,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
 export default function MapPage() {
   const { dark } = useTheme();
   const { selectedCityId } = useCityFilter();
+  const { user } = useAuth();
+  const mapOrgId = user?.organizationId ?? null;
   const isMobile = useIsMobile();
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 768);
   const [points, setPoints] = useState<LivePoint[]>([]);
@@ -2236,6 +2278,7 @@ export default function MapPage() {
                 points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails}
                 onSelectVehicle={(imei) => { handleSelect(imei); if (isMobile) setPanelOpen(false); }}
                 dark={dark}
+                orgId={mapOrgId}
                 onClose={isMobile ? () => setPanelOpen(false) : undefined}
                 onTripReplay={(imei, plate) => setTripReplay({ imei, plate })}
                 historyMode={historyMode}
