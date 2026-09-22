@@ -161,7 +161,7 @@ function LayoutInner() {
           }
           return canAccessPage(role as Parameters<typeof canAccessPage>[0], pageKey);
         })
-        .map(i => (isOrgRole && i.to === '/client-users') ? { ...i, label: 'My Users' } : i),
+        .map(i => (isOrgRole && i.to === '/client-users') ? { ...i, label: 'Users' } : i),
     }))
     .filter(s => s.items.length > 0);
 

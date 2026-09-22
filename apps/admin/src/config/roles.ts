@@ -248,7 +248,7 @@ export const ORG_PORTAL_PAGES: PortalPageDef[] = [
   { key: 'alerts',    label: 'Alerts',    group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'geofences', label: 'Geofences', group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'pois',      label: 'POIs',      group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'users',     label: 'My Users',  group: 'Management', actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'users',     label: 'Users',     group: 'Management', actions: ['view', 'add', 'edit', 'delete'] },
 ];
 
 export const ORG_PORTAL_GROUPS = ['Core', 'Fleet', 'Management'];
