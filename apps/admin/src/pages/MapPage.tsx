@@ -34,7 +34,7 @@ interface DeviceInfo {
 }
 interface VehicleDetail {
   id: string; make: string | null; model: string | null; year: number | null;
-  licensePlate: string | null; displayId: number;
+  licensePlate: string | null; displayId: number; organizationId: string | null;
 }
 interface VehicleGroup { id: string; name: string; imeis: string[]; }
 interface ApiVehicleGroup { id: string; name: string; organizationId: string; vehicleIds: string[]; }
@@ -1795,7 +1795,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
 
 // ── Left Panel ────────────────────────────────────────────────────────────────
 
-function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis, orgId, isAdmin, orgs, onOrgChange }: {
+function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis, orgId, isAdmin, orgs, onOrgChange, orgFilter, onOrgFilterChange }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   onSelectVehicle: (imei: string) => void; dark: boolean; onClose?: () => void;
   onTripReplay: (imei: string, plate: string) => void;
@@ -1813,6 +1813,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   isAdmin: boolean;
   orgs: { id: string; name: string }[];
   onOrgChange: (orgId: string) => void;
+  orgFilter: string;
+  onOrgFilterChange: (orgId: string) => void;
   orgId: string | null;
 }) {
   const [apiGroups, setApiGroups] = useState<ApiVehicleGroup[]>([]);
@@ -1872,12 +1874,22 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
 
   const groupedImeis = new Set(groups.flatMap(g => g.imeis));
   const q = search.trim().toLowerCase();
+
+  const getVehicleOrgId = (imei: string): string | null => {
+    const vid = deviceMap.get(imei)?.vehicleId;
+    if (!vid) return null;
+    return vehicleDetails.get(vid)?.organizationId ?? null;
+  };
+
   const matches = (imei: string) => {
     if (!q) return true;
     const plate = fmtPlate(deviceMap.get(imei), imei);
     return plate.toLowerCase().includes(q) || imei.includes(q);
   };
-  const filtered = points.filter(p => matches(p.imei));
+  const filtered = points.filter(p =>
+    matches(p.imei) &&
+    (!isAdmin || !orgFilter || getVehicleOrgId(p.imei) === orgFilter)
+  );
   const ungrouped = filtered.filter(p => !groupedImeis.has(p.imei));
 
   return (
@@ -1902,10 +1914,11 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
           {isAdmin && orgs.length > 0 && (
             <div style={{ padding: '6px 10px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
               <select
-                value={orgId ?? ''}
-                onChange={e => onOrgChange(e.target.value)}
+                value={orgFilter}
+                onChange={e => onOrgFilterChange(e.target.value)}
                 style={{ width: '100%', height: 28, fontSize: 11, padding: '0 6px', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 4, background: dark ? '#1a1a1a' : '#fff', color: dark ? '#ccc' : '#333', outline: 'none' }}
               >
+                <option value="">All Clients</option>
                 {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             </div>
@@ -1970,6 +1983,7 @@ export default function MapPage() {
   const mapIsAdmin = !mapOrgId;
   const [mapOrgs, setMapOrgs] = useState<{ id: string; name: string }[]>([]);
   const [groupOrgId, setGroupOrgId] = useState<string>('');
+  const [vehicleOrgFilter, setVehicleOrgFilter] = useState<string>('');
   const effectiveGroupOrgId = mapOrgId ?? groupOrgId ?? null;
   const isMobile = useIsMobile();
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 768);
@@ -2311,6 +2325,8 @@ export default function MapPage() {
                 isAdmin={mapIsAdmin}
                 orgs={mapOrgs}
                 onOrgChange={setGroupOrgId}
+                orgFilter={vehicleOrgFilter}
+                onOrgFilterChange={setVehicleOrgFilter}
                 onClose={isMobile ? () => setPanelOpen(false) : undefined}
                 onTripReplay={(imei, plate) => setTripReplay({ imei, plate })}
                 historyMode={historyMode}
