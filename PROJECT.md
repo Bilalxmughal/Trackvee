@@ -1,220 +1,222 @@
 # YoTrack — Vehicle Tracking Platform
 
-> Master project documentation. Update this file whenever a meaningful change is implemented.
+> Master project documentation. Keep this file concise. It contains stable architecture, product rules, and permanent project context.
+>
+> **AI rule:** Do not turn this file into a history log. Record completed work in `CHANGELOG.md`, active state in `CURRENT_STATE.md`, known bugs in `KNOWN_ISSUES.md`, and architectural decisions in `DECISIONS.md`.
 
----
+## 1. Overview
 
-## Overview
+YoTrack is a professional vehicle tracking and fleet management SaaS platform for the Pakistani market. It operates as a GPS tracking service provider, offering B2B fleet tracking solutions.
 
-YoTrack is a professional vehicle tracking and fleet management SaaS platform built for the Pakistani market. It operates as a GPS tracking service provider — similar to aitrack.pk — offering B2C and B2B tracking solutions.
+### B2B Model
 
----
+`YoTrack → Organization → Users → Vehicles`
 
-## Business Model
+Organizations have multiple users/roles and strict tenant isolation. One organization must never access another organization's data.
 
-### B2C
-```
-YoTrack → Individual Customer → Vehicles (1-N)
-```
-An individual customer (e.g., Ali) registers, adds their vehicles, installs GPS devices, and tracks them via the portal and mobile app.
+## 2. Current Product Scope
 
-### B2B
-```
-YoTrack → Organization (e.g., ABC Logistics) → Users (multiple roles) → Vehicles (fleet)
-```
-A company registers, creates users with different roles, manages their fleet. Strict tenant isolation — one company never sees another's data.
+- GPS vehicle tracking (live + history)
+- Vehicle/fleet management
+- B2B multi-tenant organizations
+- Role-based access (internal staff + client org users)
+- Live vehicle state
+- Historical telemetry data and trip detection
+- Admin portal (production)
+- Client portal (org users, permission-controlled)
+- Driver behavior scoring
+- Alerts and geofences
+- POIs
+- Mobile app planned
+- Public website planned
 
----
-
-## Device
+## 3. Device
 
 | Field | Value |
-|-------|-------|
+|---|---|
 | Brand | Auto Telematics Pvt. Ltd. |
 | Model Label | ATS-GO |
 | Protocol Model | AOT06 / AT06 |
-| IMEI | 352312094973289 |
+| Test IMEI | 352312094973289 |
 | SIM Operator | Ufone (Postpaid) |
 | Voltage | 9-90V |
 | Connection | Direct hardwire (3 wires) |
 | Positioning | GPS + BDS + LBS |
-| Current Server | aitrack.pk (to be migrated to YoTrack) |
 
-### Device Protocol: AT06
+### AT06 Protocol
+
 - Transport: TCP over GPRS
 - Format: Text-based, pipe-delimited ASCII
 - Header: `$$`
 - CRC: CRC-16 Modbus
-- Frame: `$$[Len][IMEI]|[Alarm][UTCTime]|[GPSStatus]|[Lat]|[N/S]|[Lon]|[E/W]|[Speed]|[Heading]|[HDOP]|[Status]|[Voltage]|[ADC]|[LACCI]|[Temp]|[Mileage]|[Serial]|[CRC]`
+- Gateway port: `5023`
+- Frame:
+  `$$[Len][IMEI]|[Alarm][UTCTime]|[GPSStatus]|[Lat]|[N/S]|[Lon]|[E/W]|[Speed]|[Heading]|[HDOP]|[Status]|[Voltage]|[ADC]|[LACCI]|[Temp]|[Mileage]|[Serial]|[CRC]`
 
 ### Device Reconfiguration SMS
-To redirect device to YoTrack server (send to SIM in device):
-```
+
+```text
 SERVER,1,[your-domain],5023,0#
 ```
 
----
+## 4. Architecture
 
-## Architecture
-
-```
+```text
 ATS-GO Device
-    ↓ TCP (AT06 Protocol, Port 5023)
+    ↓ TCP / AT06 / Port 5023
 apps/gateway — TCP Gateway + AT06 Decoder
     ↓
 apps/api — NestJS REST API + WebSocket
-    ↓               ↓
-PostgreSQL        Redis
-(all data)    (live state/cache)
+    ↓              ↓
+PostgreSQL       Redis
+(all data)       (live state/cache)
     ↓
-apps/admin  — React Admin Portal    (port 5173)
-apps/portal — React Customer Portal (port 5174)
-apps/mobile — React Native          (later)
-apps/website— Next.js               (later)
+apps/admin  — React Admin Portal (Vercel)
+apps/portal — React Client Portal (Vercel, same build)
+apps/mobile — React Native (planned)
+apps/website — Next.js (planned)
 ```
 
----
+### Core architectural rules
 
-## Tech Stack
+- PostgreSQL is the persistent source of truth.
+- Redis is for live state/cache only.
+- Tenant isolation must be enforced at API + database level.
+- Gateway validates device IMEI before processing.
+- All API input must be validated.
+- `synchronize: false` — all schema changes via SQL migration files.
+- Do not change core architecture without recording the decision in `DECISIONS.md`.
+
+## 5. Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| TCP Gateway | Node.js 22 (built-in `net` module) |
-| API Server | NestJS 10 |
-| Database | PostgreSQL + PostGIS |
+|---|---|
+| TCP Gateway | Node.js 22 (`net`) |
+| API | NestJS 10 |
+| Database | PostgreSQL |
 | Cache / Live State | Redis |
-| Real-time | WebSocket (Socket.io via NestJS) |
-| Admin Portal | React 18 + Vite + TypeScript + Tailwind |
-| Customer Portal | React 18 + Vite + TypeScript + Tailwind |
-| Mobile App | React Native (Phase 7) |
-| Website | Next.js (Phase 8) |
-| Package Manager | pnpm (workspaces) |
-| Language | TypeScript throughout |
+| Real-time | Socket.io via NestJS |
+| Admin / Portal | React 18 + Vite + TypeScript |
+| Map | react-leaflet v4 + OpenStreetMap |
+| Mobile | React Native (planned) |
+| Website | Next.js (planned) |
+| Package Manager | pnpm workspaces |
+| Language | TypeScript |
 
----
+## 6. Project Structure
 
-## Project Structure
-
-```
+```text
 yotrack/
 ├── apps/
-│   ├── gateway/     TCP Server — receives AT06 data from devices
-│   ├── api/         NestJS REST + WebSocket API
-│   ├── admin/       React Admin Portal (port 5173)
-│   ├── portal/      React Customer Portal (port 5174)
-│   ├── mobile/      React Native (Phase 7)
-│   └── website/     Next.js (Phase 8)
+│   ├── gateway/
+│   ├── api/
+│   │   └── migrations/  ← SQL migration files (0NN_description.sql)
+│   ├── admin/
+│   └── portal/
 ├── packages/
-│   ├── types/       Shared TypeScript interfaces
-│   ├── protocol/    AT06 protocol decoder + CRC validator
-│   └── utils/       Logger and common utilities
-├── .env.example     Environment variable template
-├── package.json     pnpm workspace root
-├── pnpm-workspace.yaml
-├── tsconfig.base.json
-└── PROJECT.md       This file
+│   ├── types/           ← resolves from src/index.ts (not dist)
+│   ├── protocol/
+│   └── utils/
+├── PROJECT.md
+├── AI_RULES.md
+├── CURRENT_STATE.md
+├── CHANGELOG.md
+├── DECISIONS.md
+└── KNOWN_ISSUES.md
 ```
 
----
-
-## UI / Design System
+## 7. UI / Design System
 
 | Decision | Value |
-|----------|-------|
+|---|---|
 | Theme | Clean Light |
 | Brand Color | Red — `#dc2626` |
 | Icon Library | Tabler Icons (outline only) |
-| Status Style | Colored left border on row + colored text |
-| Pills/Badges | Never used for status |
-| Map Style | Google Maps (light road map) |
-| Sidebar | Icon-only, 56px wide |
+| Status Style | Colored left border + colored text (no pills/badges) |
+| Map | react-leaflet v4, OpenStreetMap tiles |
+| Sidebar | Icon-only, 56px |
 | Tables | Simple border, no alternating rows |
 | Mobile | Responsive |
-| Language | English only |
+| Language | English only in all UI copy |
+| Emoji | Never used as UI icons or decorations |
 
----
+## 8. Roles & Permissions
 
-## Roles & Permissions
+### Internal Staff (admin portal)
 
 | Role | Access |
-|------|--------|
-| `super_admin` | Everything — all tenants, all data |
-| `admin` | YoTrack operations — customers, devices |
-| `org_owner` | Own organization — all data |
-| `org_admin` | Own organization — most features |
-| `org_user` | Own organization — assigned features only |
-| `customer` | Own vehicles only (B2C) |
+|---|---|
+| `super_admin` | Everything — all orgs, all data |
+| `admin` | YoTrack operations — orgs, devices |
+| `ops` | Operational access |
+| `live_ops` | Live map, live state |
+| `agent` | Customer-facing support |
+| `chat_support` | Chat/support access |
+| `viewer` | Read-only |
 
----
+### Client Organization Users (client portal)
 
-## Infrastructure
+| Role | Access |
+|---|---|
+| `client_owner` | Full org access, can manage permissions |
+| `client_super_admin` | Full org access |
+| `client_admin` | Most org features |
+| `client_user` | Assigned features only (controlled via DB role_portal_permissions) |
 
-| Stage | Platform | Cost |
-|-------|----------|------|
-| Now (Development) | Oracle Cloud Free Tier | $0 |
-| Growth | Hetzner Cloud | ~€4-6/month |
-| Scale | Hetzner Dedicated / Managed | €10-20/month |
+**Rule:** Client portal page access is controlled by the `role_portal_permissions` DB table. Every new feature must add default rows for all four client roles in the migration.
 
-Oracle Free Tier:
-- VM 1: Gateway + API + Redis
-- VM 2: PostgreSQL
-- TCP Ports required: 5023 (device), 3000 (API), 80/443 (web)
+## 9. Infrastructure (Production)
 
----
+| Component | Platform |
+|---|---|
+| API | Oracle Cloud Free Tier VM, PM2, port 3000 |
+| Gateway | Oracle Cloud VM, port 5023 |
+| PostgreSQL | Oracle Cloud VM |
+| Redis | Oracle Cloud VM |
+| Nginx | Reverse proxy on Oracle Cloud VM |
+| Admin/Portal | Vercel (auto-deploy from main) |
+| DNS | Hostinger, trackvee.com |
 
-## Environment Variables
+**Deploy procedure (every API change):**
+```bash
+git pull origin main
+pnpm --filter api build
+pm2 restart yotrack-api
+```
 
-See `.env.example` for all required variables.
-Never commit `.env` to git.
-
----
-
-## Development Phases
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 0 — Discovery | ✅ Complete | Device, protocol, business model, design |
-| 1 — Architecture | ✅ Complete | System design, DB schema, tech stack approved |
-| 2 — Foundation | ✅ Complete | Monorepo, types, protocol decoder, app skeletons |
-| 3 — Device Integration | ⏳ Next | TCP gateway live, device connected to YoTrack |
-| 4 — Database + API | ⬜ Pending | Schema, auth, RBAC, core API endpoints |
-| 5 — Admin Portal | ⬜ Pending | Full admin UI |
-| 6 — Customer Portal | ⬜ Pending | B2C + B2B portal |
-| 7 — Mobile App | ⬜ Pending | React Native |
-| 8 — Website | ⬜ Pending | Next.js public site |
-| 9 — Testing | ⬜ Pending | Full test coverage |
-| 10 — Deployment | ⬜ Pending | Production infrastructure |
-
----
-
-## Security Requirements
+## 10. Security Requirements
 
 - JWT authentication (access + refresh tokens)
 - Password hashing (bcrypt)
-- Tenant isolation enforced at API + DB level
-- No secrets in source code (use .env)
+- Tenant isolation at API + DB level
+- No secrets in source code; use `.env`
 - HTTPS in production
-- TCP gateway validates IMEI before processing
-- Input validation on all API endpoints (class-validator)
-- Rate limiting (Phase 4)
-- Audit logs (Phase 4)
+- Gateway validates IMEI
+- Input validation on all API endpoints
+- INTERNAL_API_KEY for gateway→API communication (env only)
 
----
+## 11. Phase Status
 
-## Known Decisions
+| Phase | Status |
+|---|---|
+| 0 — Discovery | Complete |
+| 1 — Architecture | Complete |
+| 2 — Foundation | Complete |
+| 3 — Device Integration | Complete |
+| 4 — Core API + Auth | Complete |
+| 5 — Admin Portal | Complete |
+| 6 — Client Portal | Complete |
+| 7 — Driver Behavior | Complete |
+| Feature Backlog | Ongoing |
+| 8 — Mobile App | Planned |
+| 9 — Public Website | Planned |
 
-- Device currently on aitrack.pk — SMS command needed to migrate to YoTrack server
-- Maps: Google Maps API (key required when implementing)
-- Notifications: Push + SMS — provider TBD in Phase 4
-- Billing: TBD — not in initial phases
+## 12. Documentation System
 
----
+- `AI_RULES.md` — how AI should work in this repository.
+- `CURRENT_STATE.md` — what is working, in progress, blocked, and next.
+- `CHANGELOG.md` — concise record of completed features/fixes.
+- `DECISIONS.md` — important technical/product decisions and their reasons.
+- `KNOWN_ISSUES.md` — known bugs, limitations, and warnings.
 
-## Next Steps (Phase 3)
-
-1. Set up Oracle Cloud server
-2. Open port 5023 (TCP) in firewall
-3. Deploy gateway app to server
-4. Get server public IP / domain
-5. Send SMS to device to redirect to YoTrack server
-6. Verify device connection and data in gateway logs
+**Important:** When a change is implemented, update only the relevant documentation file. Keep entries short and factual.
