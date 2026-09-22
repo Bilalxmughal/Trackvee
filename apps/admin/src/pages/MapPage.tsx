@@ -1795,7 +1795,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
 
 // ── Left Panel ────────────────────────────────────────────────────────────────
 
-function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis, orgId }: {
+function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis, orgId, isAdmin, orgs, onOrgChange }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   onSelectVehicle: (imei: string) => void; dark: boolean; onClose?: () => void;
   onTripReplay: (imei: string, plate: string) => void;
@@ -1810,6 +1810,9 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
   onSegmentClick: (ev: TimelineEvent) => void;
   onCreateAlert: (imei: string) => void;
   hasAlertImeis: Map<string, AlertRecord[]>;
+  isAdmin: boolean;
+  orgs: { id: string; name: string }[];
+  onOrgChange: (orgId: string) => void;
   orgId: string | null;
 }) {
   const [apiGroups, setApiGroups] = useState<ApiVehicleGroup[]>([]);
@@ -1833,11 +1836,13 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
     })),
   [apiGroups, vidToImei]);
 
+  const qs = orgId ? `?orgId=${orgId}` : '';
+
   // Load groups from API when orgId is available
   useEffect(() => {
     if (!orgId) { setApiGroups([]); return; }
-    api.get<ApiVehicleGroup[]>('/vehicle-groups').then(r => setApiGroups(r.data)).catch(() => {});
-  }, [orgId]);
+    api.get<ApiVehicleGroup[]>(`/vehicle-groups${qs}`).then(r => setApiGroups(r.data)).catch(() => {});
+  }, [orgId, qs]);
 
   useEffect(() => { saveCollapsed(collapsed); }, [collapsed]);
 
@@ -1845,7 +1850,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
     if (!orgId) return;
     const vehicleIds = imeis.map(i => deviceMap.get(i)?.vehicleId).filter(Boolean) as string[];
     try {
-      const r = await api.post<ApiVehicleGroup>('/vehicle-groups', { name, vehicleIds });
+      const r = await api.post<ApiVehicleGroup>(`/vehicle-groups${qs}`, { name, vehicleIds });
       setApiGroups(p => [...p, r.data]);
     } catch {}
   };
@@ -1853,7 +1858,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
     if (!orgId) return;
     const vehicleIds = imeis.map(i => deviceMap.get(i)?.vehicleId).filter(Boolean) as string[];
     try {
-      const r = await api.put<ApiVehicleGroup>(`/vehicle-groups/${id}`, { name, vehicleIds });
+      const r = await api.put<ApiVehicleGroup>(`/vehicle-groups/${id}${qs}`, { name, vehicleIds });
       setApiGroups(p => p.map(g => g.id === id ? r.data : g));
     } catch {}
   };
@@ -1894,6 +1899,17 @@ function LeftPanel({ points, deviceMap, vehicleDetails: _vd, onSelectVehicle, da
               </button>
             )}
           </div>
+          {isAdmin && orgs.length > 0 && (
+            <div style={{ padding: '6px 10px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
+              <select
+                value={orgId ?? ''}
+                onChange={e => onOrgChange(e.target.value)}
+                style={{ width: '100%', height: 28, fontSize: 11, padding: '0 6px', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 4, background: dark ? '#1a1a1a' : '#fff', color: dark ? '#ccc' : '#333', outline: 'none' }}
+              >
+                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </div>
+          )}
           <div style={{ padding: '8px 10px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: dark ? '#111' : '#f5f5f5', borderRadius: 7, padding: '5px 9px' }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={dark ? '#555' : '#aaa'} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
@@ -1951,6 +1967,10 @@ export default function MapPage() {
   const { selectedCityId } = useCityFilter();
   const { user } = useAuth();
   const mapOrgId = user?.organizationId ?? null;
+  const mapIsAdmin = !mapOrgId;
+  const [mapOrgs, setMapOrgs] = useState<{ id: string; name: string }[]>([]);
+  const [groupOrgId, setGroupOrgId] = useState<string>('');
+  const effectiveGroupOrgId = mapOrgId ?? groupOrgId ?? null;
   const isMobile = useIsMobile();
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 768);
   const [points, setPoints] = useState<LivePoint[]>([]);
@@ -2057,6 +2077,15 @@ export default function MapPage() {
   };
 
   useEffect(() => { load(); const t = setInterval(load, POLL_MS); return () => clearInterval(t); }, []);
+
+  useEffect(() => {
+    if (mapIsAdmin) {
+      api.get<{ id: string; name: string }[]>('/organizations').then(r => {
+        setMapOrgs(r.data);
+        if (r.data.length > 0) setGroupOrgId(r.data[0].id);
+      }).catch(() => {});
+    }
+  }, [mapIsAdmin]);
 
   useEffect(() => {
     Promise.all([api.get<DeviceInfo[]>('/devices'), api.get<VehicleDetail[]>('/vehicles')]).then(([dr, vr]) => {
@@ -2278,7 +2307,10 @@ export default function MapPage() {
                 points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails}
                 onSelectVehicle={(imei) => { handleSelect(imei); if (isMobile) setPanelOpen(false); }}
                 dark={dark}
-                orgId={mapOrgId}
+                orgId={effectiveGroupOrgId}
+                isAdmin={mapIsAdmin}
+                orgs={mapOrgs}
+                onOrgChange={setGroupOrgId}
                 onClose={isMobile ? () => setPanelOpen(false) : undefined}
                 onTripReplay={(imei, plate) => setTripReplay({ imei, plate })}
                 historyMode={historyMode}
