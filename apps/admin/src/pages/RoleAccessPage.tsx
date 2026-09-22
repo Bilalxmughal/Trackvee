@@ -74,7 +74,7 @@ export default function RoleAccessPage() {
   const [topbarPerms, setTopbarPerms]     = useState<AllPerms>(() => deepClone(TOPBAR_PERMISSIONS));
 
   // Client portal state — seeded from API via context
-  const [activeOrgRole, setActiveOrgRole] = useState<UserRole>('org_admin');
+  const [activeOrgRole, setActiveOrgRole] = useState<UserRole>('client_super_admin');
   const [orgPerms, setOrgPerms]           = useState<AllPerms>(() => deepClone(ORG_ROLE_PORTAL_PERMISSIONS));
   const [saveLoading, setSaveLoading]     = useState(false);
   const [saved, setSaved]                 = useState(false);
@@ -117,7 +117,7 @@ export default function RoleAccessPage() {
   }
 
   // Client portal helpers
-  const isOrgOwner    = activeOrgRole === 'org_owner';
+  const isOrgOwner    = activeOrgRole === 'client_owner';
   const canEditOrg    = isSuperAdmin && !isOrgOwner;
 
   function toggleOrgPage(action: PageAction, pageKey: string) {
@@ -298,9 +298,9 @@ export default function RoleAccessPage() {
           <>
             <div style={{ width: 200, flexShrink: 0, borderRight: '1px solid var(--border)', overflowY: 'auto' }}>
               <div style={{ padding: '10px 16px 6px', fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1 }}>B2B Roles</div>
-              {(['org_owner', 'org_admin'] as UserRole[]).map(role => {
+              {(['client_owner', 'client_super_admin', 'client_admin', 'client_user'] as UserRole[]).map(role => {
                 const on     = activeOrgRole === role;
-                const locked = role === 'org_owner';
+                const locked = role === 'client_owner';
                 return (
                   <button key={role} onClick={() => setActiveOrgRole(role)}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', border: 0, textAlign: 'left', cursor: 'pointer', background: on ? 'rgba(220,38,38,0.06)' : 'transparent', borderLeft: `3px solid ${on ? '#dc2626' : 'transparent'}`, transition: 'background 0.15s' }}
@@ -321,15 +321,15 @@ export default function RoleAccessPage() {
               <div style={{ padding: '10px 16px 6px', borderTop: '1px solid var(--border)', marginTop: 8, fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1 }}>B2C Individual</div>
               <div style={{ padding: '6px 16px 10px' }}>
                 <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <IconLock size={11} />Customer
+                  <IconLock size={11} />Client User (B2C)
                 </div>
                 <div style={{ fontSize: 11, color: '#bbb', marginTop: 3, lineHeight: 1.5 }}>
-                  Fixed access: Dashboard, Map, Vehicles, Alerts, Geofences, POIs (view only). Cannot add team members.
+                  Fixed access: Dashboard, Map, Vehicles, Alerts (view only). Cannot add team members.
                 </div>
               </div>
               <div style={{ padding: '10px 16px 10px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
-                  Org Owner always has full access. Org Admin permissions are configurable.
+                  Client Owner always has full access. Other role permissions are configurable.
                 </div>
               </div>
             </div>
@@ -342,7 +342,7 @@ export default function RoleAccessPage() {
                   {isOrgOwner && <span style={{ fontSize: 11, color: '#aaa', fontWeight: 400, marginLeft: 4 }}>Always Full Access</span>}
                 </div>
                 <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
-                  {canEditOrg ? 'Click cells to toggle portal permissions. Save when done.' : isOrgOwner ? 'Org Owner has full portal access and cannot be restricted.' : 'Only Super Admin can edit client portal permissions.'}
+                  {canEditOrg ? 'Click cells to toggle portal permissions. Save when done.' : isOrgOwner ? 'Client Owner has full portal access and cannot be restricted.' : 'Only Super Admin can edit client portal permissions.'}
                 </div>
               </div>
 
@@ -380,7 +380,7 @@ export default function RoleAccessPage() {
 
               <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}>
                 <IconShield size={12} color="#3b82f6" />
-                These are default portal permissions per role. Org User permissions can be overridden per user on the Client Users page.
+                These are default portal permissions per role. Client Admin permissions can be overridden per user on the Client Users page.
               </div>
             </div>
           </>

@@ -49,7 +49,7 @@ export class UsersService {
     const user = this.repo.create({
       ...data,
       password: hashed,
-      role: data.role ?? 'customer',
+      role: data.role ?? 'client_user',
     });
     return this.repo.save(user);
   }
@@ -97,10 +97,10 @@ export class UsersService {
   }
 
   async findOrgUsers(organizationId?: string): Promise<User[]> {
-    const ORG_ROLES: UserRole[] = ['org_owner', 'org_admin', 'org_user', 'customer'];
+    const CLIENT_ROLES: UserRole[] = ['client_owner', 'client_super_admin', 'client_admin', 'client_user'];
     if (organizationId) {
-      return this.repo.find({ where: ORG_ROLES.map(r => ({ organizationId, role: r })) });
+      return this.repo.find({ where: CLIENT_ROLES.map(r => ({ organizationId, role: r })) });
     }
-    return this.repo.find({ where: ORG_ROLES.map(r => ({ role: r })) });
+    return this.repo.find({ where: CLIENT_ROLES.map(r => ({ role: r })) });
   }
 }

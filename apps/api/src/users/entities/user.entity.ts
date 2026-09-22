@@ -5,7 +5,7 @@ import {
 import type { UserRole } from '@yotrack/types';
 import { Organization } from '../../organizations/entities/organization.entity.js';
 
-const USER_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer', 'org_owner', 'org_admin', 'org_user', 'customer'] as const;
+const USER_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer', 'client_owner', 'client_super_admin', 'client_admin', 'client_user'] as const;
 
 @Entity('users')
 export class User {
@@ -28,7 +28,7 @@ export class User {
   @Column({ name: 'last_name', type: 'varchar', nullable: true })
   lastName: string | null;
 
-  @Column({ type: 'enum', enum: USER_ROLES, default: 'customer' })
+  @Column({ type: 'enum', enum: USER_ROLES, default: 'client_user' })
   role: UserRole;
 
   @Column({ name: 'organization_id', type: 'uuid', nullable: true })

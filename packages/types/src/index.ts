@@ -8,10 +8,10 @@ export type UserRole =
   | 'agent'
   | 'chat_support'
   | 'viewer'
-  | 'org_owner'
-  | 'org_admin'
-  | 'org_user'
-  | 'customer';
+  | 'client_owner'
+  | 'client_super_admin'
+  | 'client_admin'
+  | 'client_user';
 
 export type ResourceStatus = 'active' | 'inactive' | 'suspended';
 

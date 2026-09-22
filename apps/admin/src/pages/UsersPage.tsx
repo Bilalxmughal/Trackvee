@@ -51,11 +51,11 @@ function permKey(mod: ModuleKey, action: PermAction): keyof OrgPerm {
 const roleLabel: Record<string, string> = {
   super_admin: 'Super Admin', admin: 'Admin',
   ops: 'Ops', live_ops: 'Live Ops', agent: 'Agent', chat_support: 'Chat Support', viewer: 'Viewer',
-  org_owner: 'Org Owner', org_admin: 'Org Admin', org_user: 'Org User', customer: 'Customer',
+  client_owner: 'Client Owner', client_super_admin: 'Client Super Admin', client_admin: 'Client Admin', client_user: 'Client User',
 };
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
-const empty = { firstName: '', lastName: '', email: '', password: '', role: 'org_admin', cityId: '', isActive: true, organizationId: '' };
+const empty = { firstName: '', lastName: '', email: '', password: '', role: 'client_super_admin', cityId: '', isActive: true, organizationId: '' };
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -79,14 +79,14 @@ export default function UsersPage() {
   const load = () => {
     const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
     Promise.all([api.get<User[]>(`/users${p}`), api.get<Org[]>('/organizations')])
-      .then(([u, o]) => { setUsers(u.data.filter(x => x.role !== 'customer')); setOrgs(o.data); })
+      .then(([u, o]) => { setUsers(u.data.filter(x => x.role !== 'client_user')); setOrgs(o.data); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [selectedCityId]);
 
   // Load org vehicles when org changes and role is org_user
   useEffect(() => {
-    if (form.role === 'org_user' && form.organizationId) {
+    if (form.role === 'client_admin' && form.organizationId) {
       api.get<Vehicle[]>(`/vehicles?organizationId=${form.organizationId}`)
         .then(r => setOrgVehicles(r.data)).catch(() => setOrgVehicles([]));
     } else {
@@ -99,7 +99,7 @@ export default function UsersPage() {
     setEditing(u);
     setForm({ firstName: u.firstName ?? '', lastName: u.lastName ?? '', email: u.email, password: '', role: u.role, cityId: u.cityId ?? '', isActive: u.isActive, organizationId: u.organizationId ?? '' });
     setActiveTab('profile');
-    if (u.role === 'org_user') {
+    if (u.role === 'client_admin') {
       try {
         const r = await api.get<OrgPerm>(`/org-permissions/${u.id}`);
         setPerm(r.data ?? DEFAULT_PERM);
@@ -146,8 +146,7 @@ export default function UsersPage() {
         const r = await api.post<{ id: string }>('/users', payload);
         userId = r.data.id;
       }
-      // Save permissions if org_user
-      if (form.role === 'org_user' && userId && form.organizationId) {
+      if (form.role === 'client_admin' && userId && form.organizationId) {
         await api.put(`/org-permissions/${userId}`, { ...perm, orgId: form.organizationId });
       }
       await load(); closeModal();
@@ -172,7 +171,7 @@ export default function UsersPage() {
     return true;
   });
 
-  const isOrgUser = form.role === 'org_user';
+  const isOrgUser = form.role === 'client_admin';
   const tabs: { key: 'profile' | 'permissions'; label: string }[] = [
     { key: 'profile', label: 'Profile' },
     ...(isOrgUser ? [{ key: 'permissions' as const, label: 'Permissions' }] : []),
@@ -201,9 +200,10 @@ export default function UsersPage() {
           <option value="agent">Agent</option>
           <option value="chat_support">Chat Support</option>
           <option value="viewer">Viewer</option>
-          <option value="org_owner">Org Owner</option>
-          <option value="org_admin">Org Admin</option>
-          <option value="org_user">Org User</option>
+          <option value="client_owner">Client Owner</option>
+          <option value="client_super_admin">Client Super Admin</option>
+          <option value="client_admin">Client Admin</option>
+          <option value="client_user">Client User</option>
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
           <option value="">All Status</option><option value="true">Active</option><option value="false">Inactive</option>
@@ -295,9 +295,10 @@ export default function UsersPage() {
                     <option value="agent">Agent</option>
                     <option value="chat_support">Chat Support</option>
                     <option value="viewer">Viewer</option>
-                    <option value="org_owner">Org Owner</option>
-                    <option value="org_admin">Org Admin</option>
-                    <option value="org_user">Org User</option>
+                    <option value="client_owner">Client Owner</option>
+                    <option value="client_super_admin">Client Super Admin</option>
+                    <option value="client_admin">Client Admin</option>
+                    <option value="client_user">Client User</option>
                   </select>
                 </FormField>
                 <FormField label="Status">

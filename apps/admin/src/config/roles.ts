@@ -3,17 +3,17 @@ import type { UserRole } from '@yotrack/types';
 export type PageAction = 'view' | 'add' | 'edit' | 'delete';
 
 export const ROLE_LABEL: Record<string, string> = {
-  super_admin:  'Super Admin',
-  admin:        'Admin',
-  ops:          'Ops',
-  live_ops:     'Live Ops',
-  agent:        'Agent',
-  chat_support: 'Chat Support',
-  viewer:       'Viewer',
-  org_owner:    'Org Owner',
-  org_admin:    'Org Admin',
-  org_user:     'Org User',
-  customer:     'Customer',
+  super_admin:        'Super Admin',
+  admin:              'Admin',
+  ops:                'Ops',
+  live_ops:           'Live Ops',
+  agent:              'Agent',
+  chat_support:       'Chat Support',
+  viewer:             'Viewer',
+  client_owner:       'Client Owner',
+  client_super_admin: 'Client Super Admin',
+  client_admin:       'Client Admin',
+  client_user:        'Client User',
 };
 
 // Page-level CRUD permissions per internal role
@@ -76,24 +76,24 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     devices:   ['view'],
     setup:     ['view'],
   },
-  org_owner: {
+  client_owner: {
     dashboard:      ['view'],
     map:            ['view'],
     vehicles:       ['view', 'add', 'edit', 'delete'],
     'client-users': ['view', 'add', 'edit', 'delete'],
   },
-  org_admin: {
+  client_super_admin: {
     dashboard:      ['view'],
     map:            ['view'],
     vehicles:       ['view', 'add', 'edit', 'delete'],
     'client-users': ['view', 'add', 'edit', 'delete'],
   },
-  org_user: {
+  client_admin: {
     dashboard: ['view'],
     map:       ['view'],
     vehicles:  ['view'],
   },
-  customer: {
+  client_user: {
     dashboard: ['view'],
     map:       ['view'],
     vehicles:  ['view'],
@@ -133,22 +133,22 @@ export const TOPBAR_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string,
     geofences: ['view'],
     pois:      ['view'],
   },
-  org_owner: {
+  client_owner: {
     alerts:    ['view', 'add', 'edit', 'delete'],
     geofences: ['view', 'add', 'edit', 'delete'],
     pois:      ['view', 'add', 'edit', 'delete'],
   },
-  org_admin: {
+  client_super_admin: {
     alerts:    ['view', 'add', 'edit', 'delete'],
     geofences: ['view', 'add', 'edit', 'delete'],
     pois:      ['view', 'add', 'edit', 'delete'],
   },
-  org_user: {
+  client_admin: {
     alerts:    ['view'],
     geofences: ['view'],
     pois:      ['view'],
   },
-  customer: {
+  client_user: {
     alerts:    ['view'],
   },
 };
@@ -164,6 +164,7 @@ export const ROLE_TOPBAR: Partial<Record<UserRole, string[]>> = Object.fromEntri
 ) as Partial<Record<UserRole, string[]>>;
 
 export const INTERNAL_ROLES: UserRole[] = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
+export const CLIENT_ROLES: UserRole[] = ['client_owner', 'client_super_admin', 'client_admin', 'client_user'];
 
 export function canAccessPage(role: UserRole, page: string): boolean {
   return !!(ROLE_PERMISSIONS[role]?.[page]);
@@ -192,9 +193,9 @@ export function canManageRole(currentRole: UserRole, targetRole: UserRole): bool
   return false;
 }
 
-// Client portal permissions per org role (used in RoleAccessPage org section)
+// Client portal permissions per client role (used in RoleAccessPage client section)
 export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, PageAction[]>>>> = {
-  org_owner: {
+  client_owner: {
     dashboard: ['view'],
     map:       ['view'],
     vehicles:  ['view', 'add', 'edit', 'delete'],
@@ -203,7 +204,7 @@ export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Recor
     pois:      ['view', 'add', 'edit', 'delete'],
     users:     ['view', 'add', 'edit', 'delete'],
   },
-  org_admin: {
+  client_super_admin: {
     dashboard: ['view'],
     map:       ['view'],
     vehicles:  ['view', 'add', 'edit', 'delete'],
@@ -212,8 +213,7 @@ export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Recor
     pois:      ['view', 'add', 'edit', 'delete'],
     users:     ['view', 'add', 'edit'],
   },
-  org_user: {
-    // dynamic — controlled by org_user_permissions table
+  client_admin: {
     dashboard: ['view'],
     map:       ['view'],
     vehicles:  ['view'],
@@ -221,7 +221,7 @@ export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Recor
     geofences: ['view'],
     pois:      ['view'],
   },
-  customer: {
+  client_user: {
     dashboard: ['view'],
     map:       ['view'],
     vehicles:  ['view'],
@@ -229,7 +229,7 @@ export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Recor
   },
 };
 
-export const ORG_ROLES: UserRole[] = ['org_owner', 'org_admin', 'org_user', 'customer'];
+export const ORG_ROLES: UserRole[] = ['client_owner', 'client_super_admin', 'client_admin', 'client_user'];
 
 // ── Portal page registry ─────────────────────────────────────────────────────
 // Single source of truth for Client Portal page permissions.
@@ -262,8 +262,8 @@ export const ORG_NAV_TO_FEATURE: Record<string, string> = {
 };
 
 export const ORG_ROLE_LABEL: Record<string, string> = {
-  org_owner: 'Org Owner',
-  org_admin: 'Org Admin',
-  org_user:  'Org User',
-  customer:  'Customer',
+  client_owner:       'Client Owner',
+  client_super_admin: 'Client Super Admin',
+  client_admin:       'Client Admin',
+  client_user:        'Client User',
 };

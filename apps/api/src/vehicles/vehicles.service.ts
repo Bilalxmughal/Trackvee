@@ -27,7 +27,7 @@ export class VehiclesService {
     }
     if (user.organizationId) {
       // org_user: check vehicle_ids restriction
-      if (user.role === 'org_user') {
+      if (user.role === 'client_admin') {
         const perm = await this.orgPerms.findByUser(user.id);
         if (perm?.vehicleIds && perm.vehicleIds.length > 0) {
           return this.repo.find({

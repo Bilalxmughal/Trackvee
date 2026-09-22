@@ -28,7 +28,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function RoleRoute({ page, children }: { page: string; children: React.ReactNode }) {
   const { user } = useAuth();
-  const role = (user?.role ?? 'customer') as UserRole;
+  const role = (user?.role ?? 'client_user') as UserRole;
   if (!canAccessPage(role, page)) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }

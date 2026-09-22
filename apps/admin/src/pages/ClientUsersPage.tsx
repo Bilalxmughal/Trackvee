@@ -57,8 +57,8 @@ const ACTIONS: PermAction[] = ['View', 'Add', 'Edit', 'Delete'];
 const ACTION_COLOR: Record<PermAction, string> = { View: '#3b82f6', Add: '#16a34a', Edit: '#f59e0b', Delete: '#dc2626' };
 function permKey(mod: ModuleKey, action: PermAction): keyof OrgPerm { return `${mod}${action}` as keyof OrgPerm; }
 
-const ORG_ROLES_B2B = ['org_owner', 'org_admin', 'org_user'];
-const ROLE_LABEL: Record<string, string> = { org_owner: 'Org Owner', org_admin: 'Org Admin', org_user: 'Org User', customer: 'Customer' };
+const ORG_ROLES_B2B = ['client_owner', 'client_super_admin', 'client_admin'];
+const ROLE_LABEL: Record<string, string> = { client_owner: 'Client Owner', client_super_admin: 'Client Super Admin', client_admin: 'Client Admin', client_user: 'Client User' };
 
 function portalStatus(lastLoginAt: string | null): { label: string; color: string } {
   if (!lastLoginAt) return { label: 'Never', color: '#9ca3af' };
@@ -70,7 +70,7 @@ function portalStatus(lastLoginAt: string | null): { label: string; color: strin
 
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
-const emptyForm = { clientType: 'b2b' as 'b2b' | 'b2c', firstName: '', lastName: '', email: '', password: '', role: 'org_admin', isActive: true, organizationId: '' };
+const emptyForm = { clientType: 'b2b' as 'b2b' | 'b2c', firstName: '', lastName: '', email: '', password: '', role: 'client_super_admin', isActive: true, organizationId: '' };
 
 // Searchable org selector component
 function OrgSelector({ orgs, value, onChange, placeholder }: {
@@ -117,7 +117,7 @@ function OrgSelector({ orgs, value, onChange, placeholder }: {
   );
 }
 
-const ORG_ROLES_SET = new Set(['org_owner', 'org_admin', 'org_user', 'customer']);
+const ORG_ROLES_SET = new Set(['client_owner', 'client_super_admin', 'client_admin', 'client_user']);
 
 export default function ClientUsersPage() {
   const { user: me, loginAs } = useAuth();
@@ -164,7 +164,7 @@ export default function ClientUsersPage() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
-    if (form.role === 'org_user' && form.organizationId) {
+    if (form.role === 'client_admin' && form.organizationId) {
       api.get<Vehicle[]>(`/vehicles?organizationId=${form.organizationId}`)
         .then(r => setOrgVehicles(r.data)).catch(() => setOrgVehicles([]));
     } else {
@@ -174,7 +174,7 @@ export default function ClientUsersPage() {
 
   const filteredOrgsByType = orgs.filter(o => o.type === form.clientType);
   const roleOptions = form.clientType === 'b2c'
-    ? [{ value: 'customer', label: 'Customer' }]
+    ? [{ value: 'client_user', label: 'Client User' }]
     : ORG_ROLES_B2B.map(r => ({ value: r, label: ROLE_LABEL[r] }));
 
   const openAdd = () => {
@@ -184,7 +184,7 @@ export default function ClientUsersPage() {
       ...emptyForm,
       organizationId: myOrgId ?? '',
       clientType: myOrg?.type === 'b2c' ? 'b2c' : 'b2b',
-      role: myOrg?.type === 'b2c' ? 'customer' : 'org_admin',
+      role: myOrg?.type === 'b2c' ? 'client_user' : 'client_super_admin',
     });
     setPerm(DEFAULT_PERM); setActiveTab('profile'); setModal(true);
   };
@@ -193,7 +193,7 @@ export default function ClientUsersPage() {
     const org = orgs.find(o => o.id === u.organizationId);
     setForm({ clientType: (org?.type as 'b2b' | 'b2c') ?? 'b2b', firstName: u.firstName ?? '', lastName: u.lastName ?? '', email: u.email, password: '', role: u.role, isActive: u.isActive, organizationId: u.organizationId ?? '' });
     setActiveTab('profile');
-    if (u.role === 'org_user') {
+    if (u.role === 'client_admin') {
       try { const r = await api.get<OrgPerm>(`/org-permissions/${u.id}`); setPerm(r.data ?? DEFAULT_PERM); }
       catch { setPerm(DEFAULT_PERM); }
     } else { setPerm(DEFAULT_PERM); }
@@ -205,7 +205,7 @@ export default function ClientUsersPage() {
       const updated = { ...f, [k]: v };
       if (k === 'clientType') {
         updated.organizationId = '';
-        updated.role = v === 'b2c' ? 'customer' : 'org_admin';
+        updated.role = v === 'b2c' ? 'client_user' : 'client_super_admin';
       }
       if (k === 'organizationId') {
         // role already driven by clientType, no change needed
@@ -243,7 +243,7 @@ export default function ClientUsersPage() {
       let userId = editing?.id;
       if (editing) await api.patch(`/users/${editing.id}`, payload);
       else { const r = await api.post<{ id: string }>('/users', payload); userId = r.data.id; }
-      if (form.role === 'org_user' && userId && form.organizationId) {
+      if (form.role === 'client_admin' && userId && form.organizationId) {
         await api.put(`/org-permissions/${userId}`, { ...perm, orgId: form.organizationId });
       }
       await load(); setModal(false); setEditing(null);
@@ -279,7 +279,7 @@ export default function ClientUsersPage() {
     return true;
   });
 
-  const isOrgUser = form.role === 'org_user';
+  const isOrgUser = form.role === 'client_admin';
   const tabs = [{ key: 'profile' as const, label: 'Profile' }, ...(isOrgUser ? [{ key: 'permissions' as const, label: 'Permissions' }] : [])];
 
   const myOrg = myOrgId ? orgs.find(o => o.id === myOrgId) : null;
@@ -309,10 +309,10 @@ export default function ClientUsersPage() {
         </div>
         <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={sel}>
           <option value="">All Roles</option>
-          <option value="org_owner">Org Owner</option>
-          <option value="org_admin">Org Admin</option>
-          <option value="org_user">Org User</option>
-          <option value="customer">Customer</option>
+          <option value="client_owner">Client Owner</option>
+          <option value="client_super_admin">Client Super Admin</option>
+          <option value="client_admin">Client Admin</option>
+          <option value="client_user">Client User</option>
         </select>
         {!isOrgScoped && (
           <select value={orgFilter} onChange={e => setOrgFilter(e.target.value)} style={{ ...sel, maxWidth: 160 }}>
@@ -350,7 +350,7 @@ export default function ClientUsersPage() {
                     <td style={{ padding: '10px 16px', fontWeight: 500 }}>{u.firstName || u.lastName ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() : '—'}</td>
                     <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{u.email}</td>
                     <td style={{ padding: '10px 16px' }}>
-                      <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 4, background: u.role === 'org_owner' ? 'rgba(139,92,246,0.1)' : u.role === 'org_admin' ? 'rgba(59,130,246,0.1)' : u.role === 'org_user' ? 'rgba(22,163,74,0.1)' : 'rgba(156,163,175,0.15)', color: u.role === 'org_owner' ? '#7c3aed' : u.role === 'org_admin' ? '#2563eb' : u.role === 'org_user' ? '#16a34a' : '#6b7280', fontWeight: 600 }}>
+                      <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 4, background: u.role === 'client_owner' ? 'rgba(139,92,246,0.1)' : u.role === 'client_super_admin' ? 'rgba(59,130,246,0.1)' : u.role === 'client_admin' ? 'rgba(22,163,74,0.1)' : 'rgba(156,163,175,0.15)', color: u.role === 'client_owner' ? '#7c3aed' : u.role === 'client_super_admin' ? '#2563eb' : u.role === 'client_admin' ? '#16a34a' : '#6b7280', fontWeight: 600 }}>
                         {ROLE_LABEL[u.role] ?? u.role}
                       </span>
                     </td>
@@ -430,7 +430,7 @@ export default function ClientUsersPage() {
               {/* Role — B2B: dropdown, B2C: read-only */}
               <FormField label="Role">
                 {form.clientType === 'b2c'
-                  ? <div style={{ ...inputStyle, display: 'flex', alignItems: 'center', color: 'var(--muted)', fontSize: 13, height: 34, padding: '0 8px' }}>Customer (B2C)</div>
+                  ? <div style={{ ...inputStyle, display: 'flex', alignItems: 'center', color: 'var(--muted)', fontSize: 13, height: 34, padding: '0 8px' }}>Client User (B2C)</div>
                   : <select value={form.role} onChange={e => set('role', e.target.value)} style={selectStyle}>
                       {roleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>

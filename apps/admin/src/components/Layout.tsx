@@ -145,7 +145,7 @@ function LayoutInner() {
     ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
     : user?.email?.split('@')[0] ?? '';
 
-  const role = user?.role ?? 'customer';
+  const role = user?.role ?? 'client_user';
   const isOrgRole = ORG_ROLES.includes(role as (typeof ORG_ROLES)[number]);
   const orgDisplayName = isOrgRole && user?.organizationType === 'b2b' ? (user.organizationName ?? null) : null;
   const isPortalHost = typeof window !== 'undefined' && window.location.hostname === 'login.trackvee.com';

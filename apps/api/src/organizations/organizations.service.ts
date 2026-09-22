@@ -36,7 +36,7 @@ export class OrganizationsService {
         FROM organizations o
         LEFT JOIN (
           SELECT organization_id, COUNT(*) AS cnt
-          FROM users WHERE role = 'customer' AND is_active = true
+          FROM users WHERE role = 'client_user' AND is_active = true
           GROUP BY organization_id
         ) cu ON cu.organization_id = o.id
         LEFT JOIN (
@@ -76,7 +76,7 @@ export class OrganizationsService {
         FROM (SELECT $1::uuid AS id) o
         LEFT JOIN (
           SELECT organization_id, COUNT(*) AS cnt
-          FROM users WHERE organization_id = $1 AND role = 'customer' AND is_active = true
+          FROM users WHERE organization_id = $1 AND role = 'client_user' AND is_active = true
           GROUP BY organization_id
         ) cu ON true
         LEFT JOIN (
@@ -123,7 +123,7 @@ export class OrganizationsService {
         email: saved.email,
         password,
         firstName: saved.pocName ?? saved.name ?? undefined,
-        role: saved.type === 'b2c' ? 'customer' : 'org_admin',
+        role: 'client_owner',
         organizationId: saved.id,
       });
     }
@@ -146,8 +146,7 @@ export class OrganizationsService {
     const saved = await this.repo.save(org);
 
     if (password) {
-      const role = saved.type === 'b2c' ? 'customer' : 'org_admin';
-      const loginUser = await this.usersService.findByOrgRole(id, role as any);
+      const loginUser = await this.usersService.findByOrgRole(id, 'client_owner');
       if (loginUser) await this.usersService.update(loginUser.id, { password });
     }
 
