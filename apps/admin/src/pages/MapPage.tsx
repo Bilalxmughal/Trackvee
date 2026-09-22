@@ -14,9 +14,11 @@ import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAlert, AlertSettings } from '../contexts/AlertContext';
 import { useGeofence } from '../contexts/GeofenceContext';
 import { usePOI } from '../contexts/POIContext';
+import { useDriverBehaviorPanel } from '../contexts/DriverBehaviorContext';
 import { useAuth } from '../contexts/AuthContext';
 import { POIsPanel, POIRecord } from '../components/POIsPanel';
 import { POI_ICONS } from '../lib/poi-icons';
+import DriverBehaviorPanel from '../components/DriverBehaviorPanel';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -2082,6 +2084,7 @@ export default function MapPage() {
   const [alertsByImei, setAlertsByImei] = useState<Map<string, AlertRecord[]>>(new Map());
   const { gfPanelOpen: showGeofencesPanel, openGfPanel: ctxOpenGf, closeGfPanel: ctxCloseGf, setGfCount } = useGeofence();
   const { poiPanelOpen, closePoiPanel, pickingLocation, setPickingLocation, setPendingCoords } = usePOI();
+  const { dbPanelOpen, closeDbPanel } = useDriverBehaviorPanel();
   const [poiAlertPoi, setPoiAlertPoi] = useState<POIRecord | null>(null);
   const [mapPois, setMapPois] = useState<POIRecord[]>([]);
   const [poisVisible, setPoisVisible] = useState(true);
@@ -2270,10 +2273,11 @@ export default function MapPage() {
   const openGfPanel = () => { ctxOpenGf(); setPanelOpen(true); resetGfForm(); };
   const closeGfPanel = () => { ctxCloseGf(); resetGfForm(); };
 
-  // Open panel when alerts/geofences/poi panel activates from topbar
+  // Open panel when alerts/geofences/poi/driver-behavior panel activates from topbar
   useEffect(() => { if (alertPanelOpen) setPanelOpen(true); }, [alertPanelOpen]);
   useEffect(() => { if (showGeofencesPanel) setPanelOpen(true); }, [showGeofencesPanel]);
   useEffect(() => { if (poiPanelOpen) setPanelOpen(true); }, [poiPanelOpen]);
+  useEffect(() => { if (dbPanelOpen) setPanelOpen(true); }, [dbPanelOpen]);
 
   const gfOpenNew = () => { resetGfForm(); setGfView('form'); };
   const gfOpenEdit = (gf: Geofence) => {
@@ -2362,6 +2366,13 @@ export default function MapPage() {
                 vehicles={allVehicles}
                 onClose={() => { closeAlertPanel(); }}
                 orgId={selectedClientId ?? undefined}
+              />
+            : dbPanelOpen
+            ? <DriverBehaviorPanel
+                dark={dark}
+                onClose={closeDbPanel}
+                orgId={selectedClientId ?? undefined}
+                isAdmin={mapIsAdmin}
               />
             : poiPanelOpen
             ? <POIsPanel
