@@ -312,25 +312,24 @@ const SETTINGS_DEFAULTS: Settings = {
 function SettingsForm({ getUrl, putUrl, clearUrl, label, onCleared }: {
   getUrl: string; putUrl: string; clearUrl?: string; label?: string; onCleared?: () => void;
 }) {
-  const [form, setForm] = useState<Settings | null>(null);
+  const [form, setForm] = useState<Settings>(SETTINGS_DEFAULTS);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
-    setForm(null); setLoadError(false);
+    setForm(SETTINGS_DEFAULTS); setLoadError(false);
     api.get<Settings>(getUrl)
-      .then(r => { setForm(r.data ?? SETTINGS_DEFAULTS); })
+      .then(r => { if (r.data) setForm(r.data); })
       .catch(() => setLoadError(true));
   }, [getUrl]);
 
-  const update = (k: keyof Settings, v: string) => { setForm(f => f ? { ...f, [k]: parseFloat(v) || 0 } : f); setSaved(false); };
-  const save = async () => { if (!form) return; setSaving(true); try { await api.put(putUrl, form); setSaved(true); } finally { setSaving(false); } };
+  const update = (k: keyof Settings, v: string) => { setForm(f => ({ ...f, [k]: parseFloat(v) || 0 })); setSaved(false); };
+  const save = async () => { setSaving(true); try { await api.put(putUrl, form); setSaved(true); } finally { setSaving(false); } };
   const clear = async () => { if (!clearUrl || !onCleared) return; setClearing(true); try { await api.delete(clearUrl); onCleared(); } finally { setClearing(false); } };
 
   if (loadError) return <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Failed to load settings.</div>;
-  if (!form) return <Spinner style={{ height: 120 }}/>;
 
   const inp: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', width: 90 };
   const labelStyle: React.CSSProperties = { fontSize: 12, color: 'var(--text-muted)', minWidth: 220 };
