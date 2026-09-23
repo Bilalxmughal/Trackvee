@@ -301,6 +301,12 @@ function VehicleDetailModal({ row, onClose }: { row: LeaderboardRow; onClose: ()
   );
 }
 
+const SETTINGS_DEFAULTS: Settings = {
+  overspeedThreshold: 100, harshBrakeDeceleration: 8, rapidAccelThreshold: 6,
+  sharpTurnAngle: 45, sharpTurnMinSpeed: 20,
+  deductionHarshBrake: 5, deductionRapidAccel: 3, deductionSharpTurn: 3, deductionOverspeed: 5,
+};
+
 // Generic settings form
 function SettingsForm({ getUrl, putUrl, clearUrl, label, onCleared }: {
   getUrl: string; putUrl: string; clearUrl?: string; label?: string; onCleared?: () => void;
@@ -314,7 +320,7 @@ function SettingsForm({ getUrl, putUrl, clearUrl, label, onCleared }: {
   useEffect(() => {
     setForm(null); setLoadError(false);
     api.get<Settings>(getUrl)
-      .then(r => { if (r.data) setForm(r.data); else setLoadError(true); })
+      .then(r => { setForm(r.data ?? SETTINGS_DEFAULTS); })
       .catch(() => setLoadError(true));
   }, [getUrl]);
 
