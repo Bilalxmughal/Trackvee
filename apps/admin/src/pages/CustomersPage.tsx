@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye } from '@tabler/icons-react';
 import api from '../api/client';
+import SkeletonTable from '../components/SkeletonTable';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import PageHeader from '../components/PageHeader';
@@ -110,7 +111,7 @@ export default function CustomersPage() {
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#bbb' }}>{filtered.length} results</span>
       </div>
 
-      {loading ? <Spinner /> : (
+      {loading ? <SkeletonTable cols={9} /> : (
         <div className="tbl-wrap">
           <table>
             <thead>

@@ -3,6 +3,7 @@ import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
+import SkeletonTable from '../components/SkeletonTable';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -113,7 +114,7 @@ export default function VehiclesPage() {
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#bbb' }}>{filtered.length} results</span>
       </div>
 
-      {loading ? <Spinner /> : (
+      {loading ? <SkeletonTable cols={7} /> : (
         <div className="tbl-wrap">
         <table>
           <thead>

@@ -5,6 +5,7 @@ import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
+import SkeletonTable from '../components/SkeletonTable';
 import DateRangePicker from '../components/DateRangePicker';
 import { useCityFilter } from '../contexts/CityFilterContext';
 
@@ -178,7 +179,7 @@ export default function TelemetryPage() {
       </div>
 
       {/* ── Scrollable table ── */}
-      {loading ? <Spinner /> : (
+      {loading ? <SkeletonTable cols={9} /> : (
         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>

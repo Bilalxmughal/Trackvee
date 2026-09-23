@@ -4,6 +4,7 @@ import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconEyeOff, IconDow
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
+import SkeletonTable from '../components/SkeletonTable';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import PageHeader from '../components/PageHeader';
@@ -191,7 +192,7 @@ export default function ClientsPage() {
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#bbb' }}>{filtered.length} results</span>
       </div>
 
-      {loading ? <Spinner /> : (
+      {loading ? <SkeletonTable cols={13} /> : (
         <div className="tbl-wrap">
           <table>
             <thead>

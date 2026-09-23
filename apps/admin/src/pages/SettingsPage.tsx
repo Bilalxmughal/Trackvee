@@ -4,6 +4,7 @@ import api from '../api/client';
 import { fmtDate } from '../utils/date';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
+import SkeletonTable from '../components/SkeletonTable';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
@@ -100,7 +101,7 @@ export default function SettingsPage() {
         {/* Right panel */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {activeTab === 'cities' && (
-            loading ? <Spinner /> : (
+            loading ? <SkeletonTable cols={6} /> : (
               <div className="tbl-wrap">
                 <table>
                   <thead>

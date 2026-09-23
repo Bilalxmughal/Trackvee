@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
+import SkeletonTable from '../components/SkeletonTable';
 import DateRangePicker from '../components/DateRangePicker';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -330,7 +331,7 @@ export default function ClientUsersPage() {
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#bbb' }}>{filtered.length} results</span>
       </div>
 
-      {loading ? <Spinner /> : (
+      {loading ? <SkeletonTable cols={9} /> : (
         <div className="tbl-wrap">
           <table>
             <thead>

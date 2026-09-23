@@ -104,6 +104,23 @@ input, select, button { font-family: inherit; }
 .tbl-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .tbl-wrap table { min-width: 640px; width: 100%; border-collapse: collapse; font-size: 12px; }
 
+/* ── Skeleton shimmer ── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  display: block;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e6e6e6 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 3px;
+}
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, #252525 25%, #2d2d2d 50%, #252525 75%);
+  background-size: 200% 100%;
+}
+
 /* ── Page content container ── */
 .page-wrap { width: 100%; padding: 0 8px; box-sizing: border-box; }
 

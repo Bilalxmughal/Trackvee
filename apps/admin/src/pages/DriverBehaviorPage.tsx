@@ -11,6 +11,7 @@ import { ORG_ROLES } from '../config/roles';
 import type { UserRole } from '@yotrack/types';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
+import SkeletonTable from '../components/SkeletonTable';
 import SearchableSelect from '../components/SearchableSelect';
 
 interface Vehicle { id: string; licensePlate: string | null; make: string | null; model: string | null; name: string; }
@@ -604,7 +605,7 @@ export default function DriverBehaviorPage() {
               </div>
             )}
 
-            {loading ? <Spinner style={{ height: 200 }}/> : (
+            {loading ? <SkeletonTable cols={isAdmin ? 10 : 9} /> : (
               <div className="tbl-wrap">
                 <table>
                   <thead>

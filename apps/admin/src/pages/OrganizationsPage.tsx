@@ -5,6 +5,7 @@ import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
+import SkeletonTable from '../components/SkeletonTable';
 import DateRangePicker from '../components/DateRangePicker';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -90,7 +91,7 @@ export default function OrganizationsPage() {
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#bbb' }}>{filtered.length} results</span>
       </div>
 
-      {loading ? <Spinner /> : (
+      {loading ? <SkeletonTable cols={5} /> : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
