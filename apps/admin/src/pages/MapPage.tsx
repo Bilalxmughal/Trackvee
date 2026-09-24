@@ -2104,27 +2104,28 @@ function ClientRequiredPanel({ dark, feature, onClose }: { dark: boolean; featur
 
 // ── Follow Window ─────────────────────────────────────────────────────────────
 
-function FollowMiniMapPan({ lat, lng, markerRef }: { lat: number; lng: number; markerRef: React.MutableRefObject<L.CircleMarker | null> }) {
+function FollowMiniMapMarker({ pt, plate }: { pt: LivePoint; plate: string }) {
   const map = useMap();
-  const prev = useRef('');
-  useEffect(() => {
-    const key = `${lat.toFixed(5)},${lng.toFixed(5)}`;
-    if (key === prev.current) return;
-    prev.current = key;
-    map.panTo([lat, lng], { animate: true, duration: 0.3 });
-    markerRef.current?.setLatLng([lat, lng]);
-  }, [lat, lng, map, markerRef]);
-  return null;
-}
+  const markerRef = useRef<L.Marker | null>(null);
 
-function FollowMiniMapInit({ lat, lng, markerRef }: { lat: number; lng: number; markerRef: React.MutableRefObject<L.CircleMarker | null> }) {
-  const map = useMap();
+  // Create marker once on mount
   useEffect(() => {
-    const m = L.circleMarker([lat, lng], { radius: 7, color: '#dc2626', fillColor: '#dc2626', fillOpacity: 1, weight: 2 }).addTo(map);
+    const icon = makeCarIcon(pt.heading ?? 0, vehicleStatus(pt), plate, pt.speedKmh);
+    const m = L.marker([pt.latitude, pt.longitude], { icon, zIndexOffset: 100 }).addTo(map);
     markerRef.current = m;
     return () => { m.remove(); markerRef.current = null; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
+
+  // Update position + icon when pt changes
+  useEffect(() => {
+    const m = markerRef.current;
+    if (!m) return;
+    m.setLatLng([pt.latitude, pt.longitude]);
+    m.setIcon(makeCarIcon(pt.heading ?? 0, vehicleStatus(pt), plate, pt.speedKmh));
+    map.panTo([pt.latitude, pt.longitude], { animate: true, duration: 0.35 });
+  }, [pt, plate, map]);
+
   return null;
 }
 
@@ -2134,7 +2135,6 @@ function FollowWindow({ plate, pt, dark, onStop }: {
   const [pos, setPos] = useState({ x: 20, y: 80 });
   const winRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
-  const markerRef = useRef<L.CircleMarker | null>(null);
 
   const onHeaderMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -2142,8 +2142,8 @@ function FollowWindow({ plate, pt, dark, onStop }: {
     const onMove = (ev: MouseEvent) => {
       if (!dragRef.current) return;
       const el = winRef.current;
-      const w = el ? el.offsetWidth : 240;
-      const h = el ? el.offsetHeight : 300;
+      const w = el ? el.offsetWidth : 480;
+      const h = el ? el.offsetHeight : 380;
       setPos({
         x: Math.max(0, Math.min(window.innerWidth - w, dragRef.current.px + ev.clientX - dragRef.current.sx)),
         y: Math.max(0, Math.min(window.innerHeight - h, dragRef.current.py + ev.clientY - dragRef.current.sy)),
@@ -2163,45 +2163,44 @@ function FollowWindow({ plate, pt, dark, onStop }: {
   const lng = pt?.longitude ?? 69.3451;
 
   return (
-    <div ref={winRef} style={{ position: 'fixed', left: pos.x, top: pos.y, zIndex: 9200, width: 240, background: dark ? '#1a1a1a' : '#fff', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.3)', overflow: 'hidden', userSelect: 'none' }}>
+    <div ref={winRef} style={{ position: 'fixed', left: pos.x, top: pos.y, zIndex: 9200, width: 480, background: dark ? '#1a1a1a' : '#fff', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.3)', overflow: 'hidden', userSelect: 'none' }}>
       {/* Header — drag handle */}
-      <div onMouseDown={onHeaderMouseDown} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px 9px 12px', background: '#dc2626', cursor: 'move' }}>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <div onMouseDown={onHeaderMouseDown} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px 10px 14px', background: '#dc2626', cursor: 'move' }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
           <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" strokeDasharray="4 2"/>
           <line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/>
           <line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/>
         </svg>
-        <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Following {plate}</span>
+        <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Following {plate}</span>
         <button onClick={onStop} title="Stop following"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', padding: 2, display: 'flex', borderRadius: 3, flexShrink: 0 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', padding: 3, display: 'flex', borderRadius: 3, flexShrink: 0 }}
           onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
           onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
 
       {/* Mini map */}
-      <div style={{ height: 150, pointerEvents: 'none' }}>
-        <MapContainer center={[lat, lng]} zoom={16} style={{ height: '100%', width: '100%' }}
+      <div style={{ height: 300, pointerEvents: 'none' }}>
+        <MapContainer center={[lat, lng]} zoom={17} style={{ height: '100%', width: '100%' }}
           zoomControl={false} dragging={false} scrollWheelZoom={false}
           doubleClickZoom={false} attributionControl={false} keyboard={false}>
           <TileLayer url={TILE_CONFIG['street'].url} />
-          <FollowMiniMapInit lat={lat} lng={lng} markerRef={markerRef} />
-          {pt && <FollowMiniMapPan lat={pt.latitude} lng={pt.longitude} markerRef={markerRef} />}
+          {pt && <FollowMiniMapMarker pt={pt} plate={plate} />}
         </MapContainer>
       </div>
 
       {/* Info row */}
-      <div style={{ padding: '8px 12px', borderTop: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[status], display: 'inline-block', flexShrink: 0 }}/>
-          <span style={{ fontSize: 12, fontWeight: 600, color: STATUS_COLOR[status] }}>{STATUS_LABEL[status]}</span>
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: dark ? '#aaa' : '#555' }}>{pt ? `${Math.round(pt.speedKmh)} km/h` : '—'}</span>
+      <div style={{ padding: '9px 14px', borderTop: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[status], display: 'inline-block', flexShrink: 0 }}/>
+          <span style={{ fontSize: 13, fontWeight: 600, color: STATUS_COLOR[status] }}>{STATUS_LABEL[status]}</span>
+          <span style={{ marginLeft: 'auto', fontSize: 13, color: dark ? '#aaa' : '#555' }}>{pt ? `${Math.round(pt.speedKmh)} km/h` : '—'}</span>
         </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 5, fontSize: 11, color: dark ? '#555' : '#bbb' }}>
+        <div style={{ display: 'flex', gap: 14, marginTop: 5, fontSize: 12, color: dark ? '#555' : '#bbb' }}>
           <span style={{ color: pt?.ignition ? '#22c55e' : (dark ? '#444' : '#d1d5db') }}>IGN {pt?.ignition ? 'On' : 'Off'}</span>
           {pt?.heading != null && <span>Hdg {pt.heading}°</span>}
-          {pt && <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>{pt.latitude.toFixed(4)}, {pt.longitude.toFixed(4)}</span>}
+          {pt && <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>{pt.latitude.toFixed(5)}, {pt.longitude.toFixed(5)}</span>}
         </div>
       </div>
     </div>
