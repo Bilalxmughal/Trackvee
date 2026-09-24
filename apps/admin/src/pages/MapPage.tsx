@@ -361,6 +361,21 @@ function FlyToPoint({ target }: { target: { lat: number; lng: number; ts: number
   return null;
 }
 
+// Follow Layer — pans map to vehicle on every live update
+function FollowLayer({ imei, points }: { imei: string; points: LivePoint[] }) {
+  const map = useMap();
+  const prevKey = useRef('');
+  useEffect(() => {
+    const pt = points.find(p => p.imei === imei);
+    if (!pt) return;
+    const key = `${pt.latitude},${pt.longitude}`;
+    if (key === prevKey.current) return;
+    prevKey.current = key;
+    map.panTo([pt.latitude, pt.longitude], { animate: true, duration: 0.4 });
+  }, [imei, points, map]);
+  return null;
+}
+
 // Distance Tool — click to add points, right-click to undo, dblclick to reset
 function DistanceTool({ active, distanceModeRef }: { active: boolean; distanceModeRef: React.MutableRefObject<boolean> }) {
   const map = useMap();
@@ -1155,13 +1170,14 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
   );
 }
 
-function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowHistory, onCreateAlert, hasAlert }: {
+function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowHistory, onCreateAlert, hasAlert, onFollow }: {
   pt: LivePoint; plate: string; dark: boolean;
   onViewOnMap: () => void;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
   onCreateAlert: () => void;
   hasAlert: boolean;
+  onFollow: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, right: 0 });
@@ -1214,6 +1230,8 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
   const isImmobilized = !!pt.immobilizer;
 
   const items: Array<{ label: string; icon: React.ReactNode; action: () => void; divider?: boolean; red?: boolean }> = [
+    { label: 'Follow Vehicle', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" strokeDasharray="4 2"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg>, action: () => { onFollow(); setOpen(false); } },
+    { label: '──', icon: null, action: () => {}, divider: true },
     { label: 'Trip Replay', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21"/></svg>, action: () => { onTripReplay(); setOpen(false); } },
     { label: 'Street View', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>, action: () => { window.open(svUrl, '_blank', 'noopener'); setOpen(false); } },
     { label: '──', icon: null, action: () => {}, divider: true },
@@ -1295,12 +1313,13 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
 
 // ── Vehicle Row ───────────────────────────────────────────────────────────────
 
-function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, onCreateAlert, hasAlert }: {
+function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, onCreateAlert, hasAlert, onFollow }: {
   pt: LivePoint; plate: string; onSelect: () => void; dark: boolean;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
   onCreateAlert: () => void;
   hasAlert: boolean;
+  onFollow: () => void;
 }) {
   const status = vehicleStatus(pt);
   const [hov, setHov] = useState(false);
@@ -1316,14 +1335,14 @@ function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, on
         <IconBattery level={pt.voltageLevel}/>
         <IconSignal level={pt.gsmSignal}/>
       </div>
-      <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onCreateAlert={onCreateAlert} hasAlert={hasAlert}/>
+      <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onCreateAlert={onCreateAlert} hasAlert={hasAlert} onFollow={onFollow}/>
     </div>
   );
 }
 
 // ── Group Section ─────────────────────────────────────────────────────────────
 
-function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark, onTripReplay, onShowHistory, onCreateAlert, getHasAlert }: {
+function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark, onTripReplay, onShowHistory, onCreateAlert, getHasAlert, onFollow }: {
   group: VehicleGroup; pts: LivePoint[]; deviceMap: DMap;
   onSelect: (imei: string) => void; collapsed: boolean;
   onToggle: () => void; onEdit: () => void; dark: boolean;
@@ -1331,6 +1350,7 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
   onShowHistory: (imei: string, plate: string, preset: 'lastHour' | 'today' | 'yesterday') => void;
   onCreateAlert: (imei: string) => void;
   getHasAlert: (imei: string) => boolean;
+  onFollow: (imei: string) => void;
 }) {
   const gpPts = pts.filter(p => group.imeis.includes(p.imei));
   const [hov, setHov] = useState(false);
@@ -1360,7 +1380,8 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
             onTripReplay={() => onTripReplay(pt.imei, plate)}
             onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}
             onCreateAlert={() => onCreateAlert(pt.imei)}
-            hasAlert={getHasAlert(pt.imei)}/>
+            hasAlert={getHasAlert(pt.imei)}
+            onFollow={() => onFollow(pt.imei)}/>
         );
       })}
     </div>
@@ -1877,7 +1898,7 @@ function OrgFilterDropdown({ orgs, value, onChange, dark }: {
 
 // ── Left Panel ────────────────────────────────────────────────────────────────
 
-function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis, orgId, isAdmin, orgs, onOrgChange, orgFilter, onOrgFilterChange }: {
+function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis, orgId, isAdmin, orgs, onOrgChange, orgFilter, onOrgFilterChange, onFollow }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   onSelectVehicle: (imei: string) => void; dark: boolean; onClose?: () => void;
   onTripReplay: (imei: string, plate: string) => void;
@@ -1897,6 +1918,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
   onOrgChange: (orgId: string) => void;
   orgFilter: string;
   onOrgFilterChange: (orgId: string) => void;
+  onFollow: (imei: string) => void;
   orgId: string | null;
 }) {
   const [apiGroups, setApiGroups] = useState<ApiVehicleGroup[]>([]);
@@ -2022,7 +2044,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
                   onTripReplay={onTripReplay}
                   onShowHistory={onShowHistory}
                   onCreateAlert={onCreateAlert}
-                  getHasAlert={(imei) => (hasAlertImeis.get(imei)?.length ?? 0) > 0}/>
+                  getHasAlert={(imei) => (hasAlertImeis.get(imei)?.length ?? 0) > 0}
+                  onFollow={onFollow}/>
               );
             })}
             {ungrouped.length > 0 && (
@@ -2036,7 +2059,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
                       onTripReplay={() => onTripReplay(pt.imei, plate)}
                       onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}
                       onCreateAlert={() => onCreateAlert(pt.imei)}
-                      hasAlert={(hasAlertImeis.get(pt.imei)?.length ?? 0) > 0}/>
+                      hasAlert={(hasAlertImeis.get(pt.imei)?.length ?? 0) > 0}
+                      onFollow={() => onFollow(pt.imei)}/>
                   );
                 })}
               </>
@@ -2099,6 +2123,7 @@ export default function MapPage() {
   const [deviceMap, setDeviceMap] = useState<DMap>(new Map());
   const [vehicleDetails, setVehicleDetails] = useState<Map<string, VehicleDetail>>(new Map());
   const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; ts: number } | null>(null);
+  const [followImei, setFollowImei] = useState<string | null>(null);
   const [trails, setTrails] = useState<Map<string, [number,number][]>>(new Map());
   const [mapStyle, setMapStyle] = useState<MapStyle>('street');
 
@@ -2482,6 +2507,11 @@ export default function MapPage() {
                   setShowAlertsModal(true);
                 }}
                 hasAlertImeis={alertsByImei}
+                onFollow={(imei) => {
+                  setFollowImei(imei);
+                  const pt = points.find(p => p.imei === imei);
+                  if (pt) setFlyTarget({ lat: pt.latitude, lng: pt.longitude, ts: Date.now() });
+                }}
               />
           }
         </div>
@@ -2580,6 +2610,7 @@ export default function MapPage() {
               <InvalidateSize/>
               <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'}/>
               <FlyToPoint target={flyTarget}/>
+              {followImei && <FollowLayer imei={followImei} points={points}/>}
               {historyPoints.length > 0
                 ? <HistoryLayer points={historyPoints} speedLimit={alertSettings.speedLimit} selectedSegment={selectedSegment}/>
                 : <>
@@ -2601,6 +2632,32 @@ export default function MapPage() {
                 onAddPoint={(lat, lng) => setGfPoints(p => [...p, [lat, lng]])}
               />
             </MapContainer>
+            {/* Follow Window overlay */}
+            {followImei && (() => {
+              const followPt = points.find(p => p.imei === followImei);
+              const followPlate = followPt ? fmtPlate(deviceMap.get(followImei), followImei) : followImei;
+              const followStatus = followPt ? vehicleStatus(followPt) : 'offline';
+              return (
+                <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, pointerEvents: 'auto' }}>
+                  <div style={{ background: dark ? 'rgba(22,22,22,0.97)' : 'rgba(255,255,255,0.97)', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.25)', minWidth: 180, overflow: 'hidden', backdropFilter: 'blur(6px)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px 8px 12px', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}` }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[followStatus], display: 'inline-block', flexShrink: 0, boxShadow: `0 0 0 2px ${STATUS_COLOR[followStatus]}44` }}/>
+                      <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{followPlate}</span>
+                      <button onClick={() => setFollowImei(null)} title="Stop following"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#666' : '#bbb', padding: 2, display: 'flex', borderRadius: 4, flexShrink: 0 }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
+                        onMouseLeave={e => (e.currentTarget.style.color = dark ? '#666' : '#bbb')}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', fontSize: 11.5, color: dark ? '#888' : '#777' }}>
+                      <span>{followPt ? `${Math.round(followPt.speedKmh)} km/h` : '—'}</span>
+                      <span style={{ color: STATUS_COLOR[followStatus], fontWeight: 600 }}>{STATUS_LABEL[followStatus]}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
