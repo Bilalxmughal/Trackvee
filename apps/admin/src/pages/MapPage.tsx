@@ -2102,6 +2102,70 @@ function ClientRequiredPanel({ dark, feature, onClose }: { dark: boolean; featur
   );
 }
 
+// ── Follow Window ─────────────────────────────────────────────────────────────
+
+function FollowWindow({ plate, pt, dark, onStop }: {
+  plate: string; pt: LivePoint | undefined; dark: boolean; onStop: () => void;
+}) {
+  const [pos, setPos] = useState({ x: 20, y: 80 });
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+
+  const onHeaderMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      setPos({ x: dragRef.current.px + ev.clientX - dragRef.current.sx, y: dragRef.current.py + ev.clientY - dragRef.current.sy });
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const status = pt ? vehicleStatus(pt) : 'offline';
+
+  return (
+    <div style={{ position: 'fixed', left: pos.x, top: pos.y, zIndex: 9200, width: 220, background: dark ? '#1a1a1a' : '#fff', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.3)', overflow: 'hidden', userSelect: 'none' }}>
+      {/* Header — drag handle */}
+      <div onMouseDown={onHeaderMouseDown} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px 9px 12px', background: '#dc2626', cursor: 'move' }}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" strokeDasharray="4 2"/>
+          <line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/>
+          <line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/>
+        </svg>
+        <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Following {plate}</span>
+        <button onClick={onStop} title="Stop following"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', padding: 2, display: 'flex', borderRadius: 3, flexShrink: 0 }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      {/* Body */}
+      <div style={{ padding: '10px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[status], display: 'inline-block', flexShrink: 0, boxShadow: `0 0 0 2px ${STATUS_COLOR[status]}33` }}/>
+          <span style={{ fontSize: 12, fontWeight: 600, color: STATUS_COLOR[status] }}>{STATUS_LABEL[status]}</span>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: dark ? '#aaa' : '#666' }}>{pt ? `${Math.round(pt.speedKmh)} km/h` : '—'}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 12, fontSize: 11.5, color: dark ? '#666' : '#bbb', marginBottom: pt ? 6 : 0 }}>
+          <span style={{ color: pt?.ignition ? '#22c55e' : (dark ? '#555' : '#d1d5db') }}>IGN {pt?.ignition ? 'On' : 'Off'}</span>
+          {pt && <span>Hdg {pt.heading ?? '—'}°</span>}
+        </div>
+        {pt && (
+          <div style={{ fontSize: 10.5, color: dark ? '#444' : '#ccc', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
+            {pt.latitude.toFixed(5)}, {pt.longitude.toFixed(5)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function MapPage() {
@@ -2632,35 +2696,19 @@ export default function MapPage() {
                 onAddPoint={(lat, lng) => setGfPoints(p => [...p, [lat, lng]])}
               />
             </MapContainer>
-            {/* Follow Window overlay */}
-            {followImei && (() => {
-              const followPt = points.find(p => p.imei === followImei);
-              const followPlate = followPt ? fmtPlate(deviceMap.get(followImei), followImei) : followImei;
-              const followStatus = followPt ? vehicleStatus(followPt) : 'offline';
-              return (
-                <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, pointerEvents: 'auto' }}>
-                  <div style={{ background: dark ? 'rgba(22,22,22,0.97)' : 'rgba(255,255,255,0.97)', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.25)', minWidth: 180, overflow: 'hidden', backdropFilter: 'blur(6px)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px 8px 12px', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}` }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: STATUS_COLOR[followStatus], display: 'inline-block', flexShrink: 0, boxShadow: `0 0 0 2px ${STATUS_COLOR[followStatus]}44` }}/>
-                      <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{followPlate}</span>
-                      <button onClick={() => setFollowImei(null)} title="Stop following"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#666' : '#bbb', padding: 2, display: 'flex', borderRadius: 4, flexShrink: 0 }}
-                        onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
-                        onMouseLeave={e => (e.currentTarget.style.color = dark ? '#666' : '#bbb')}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', fontSize: 11.5, color: dark ? '#888' : '#777' }}>
-                      <span>{followPt ? `${Math.round(followPt.speedKmh)} km/h` : '—'}</span>
-                      <span style={{ color: STATUS_COLOR[followStatus], fontWeight: 600 }}>{STATUS_LABEL[followStatus]}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
           </div>
         </div>
       </div>
+
+      {/* Follow Window */}
+      {followImei && (
+        <FollowWindow
+          plate={fmtPlate(deviceMap.get(followImei), followImei)}
+          pt={points.find(p => p.imei === followImei)}
+          dark={dark}
+          onStop={() => setFollowImei(null)}
+        />
+      )}
 
       {/* Modals */}
       {showAlerts && (
