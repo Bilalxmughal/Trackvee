@@ -1,9 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 export type GeofenceType = 'circle' | 'polygon';
 
 export interface CircleCoords { center: [number, number]; radius: number; }
 export interface PolygonCoords { points: [number, number][]; }
+
+export interface GeofenceSchedule {
+  enabled: boolean;
+  days: number[];        // 0=Sun 1=Mon … 6=Sat
+  startTime: string;     // "HH:MM" 24h
+  endTime: string;       // "HH:MM" 24h
+}
 
 @Entity('geofences')
 export class Geofence {
@@ -24,6 +31,9 @@ export class Geofence {
 
   @Column({ type: 'varchar', length: 7, default: '#dc2626' })
   color: string;
+
+  @Column({ type: 'jsonb', nullable: true, default: null })
+  schedule: GeofenceSchedule | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

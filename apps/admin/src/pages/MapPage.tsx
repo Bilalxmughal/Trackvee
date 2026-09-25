@@ -8,7 +8,7 @@ import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertsModal, { AlertRecord, AlertsPanel as AlertsLeftPanel } from '../components/AlertsModal';
-import GeofencesPanel, { Geofence, CircleCoords, PolygonCoords } from '../components/GeofencesModal';
+import GeofencesPanel, { Geofence, CircleCoords, PolygonCoords, GeofenceSchedule } from '../components/GeofencesModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAlert, AlertSettings } from '../contexts/AlertContext';
@@ -2258,6 +2258,7 @@ export default function MapPage() {
   const [gfPoints, setGfPoints] = useState<[number, number][]>([]);
   const [gfDrawActive, setGfDrawActive] = useState(false);
   const [gfColor, setGfColor] = useState('#dc2626');
+  const [gfSchedule, setGfSchedule] = useState<GeofenceSchedule>({ enabled: false, days: [1,2,3,4,5], startTime: '09:00', endTime: '18:00' });
   const [gfSaving, setGfSaving] = useState(false);
   const [gfDeleteId, setGfDeleteId] = useState<string | null>(null);
 
@@ -2426,6 +2427,7 @@ export default function MapPage() {
   const resetGfForm = () => {
     setGfView('list'); setGfEditing(null); setGfName(''); setGfType('circle');
     setGfCenter(null); setGfRadius(500); setGfPoints([]); setGfDrawActive(false); setGfColor('#dc2626');
+    setGfSchedule({ enabled: false, days: [1,2,3,4,5], startTime: '09:00', endTime: '18:00' });
   };
 
   const openGfPanel = () => { ctxOpenGf(); setPanelOpen(true); resetGfForm(); };
@@ -2442,6 +2444,7 @@ export default function MapPage() {
     setGfEditing(gf); setGfName(gf.name); setGfType(gf.type); setGfColor(gf.color ?? '#dc2626');
     if (gf.type === 'circle') { const c = gf.coordinates as CircleCoords; setGfCenter(c.center); setGfRadius(c.radius); setGfPoints([]); }
     else { const p = gf.coordinates as PolygonCoords; setGfPoints([...p.points]); setGfCenter(null); }
+    setGfSchedule(gf.schedule ?? { enabled: false, days: [1,2,3,4,5], startTime: '09:00', endTime: '18:00' });
     setGfDrawActive(false); setGfView('form');
   };
   const gfDelete = async (id: string) => {
@@ -2456,6 +2459,7 @@ export default function MapPage() {
       name: gfName.trim(), type: gfType,
       coordinates: gfType === 'circle' ? { center: gfCenter!, radius: gfRadius } : { points: gfPoints },
       color: gfColor,
+      schedule: gfSchedule.enabled ? gfSchedule : null,
     };
     setGfSaving(true);
     try {
@@ -2569,6 +2573,7 @@ export default function MapPage() {
                 onClearPoints={() => setGfPoints([])}
                 drawActive={gfDrawActive}
                 onToggleDraw={() => setGfDrawActive(a => !a)}
+                schedule={gfSchedule} onSchedule={setGfSchedule}
                 saving={gfSaving}
                 onNew={gfOpenNew}
                 onEdit={gfOpenEdit}
