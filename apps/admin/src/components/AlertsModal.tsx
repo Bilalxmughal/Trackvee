@@ -11,13 +11,16 @@ import type { UserRole } from '@yotrack/types';
 export type AlertType =
   | 'over_speed' | 'idle' | 'ignition_on' | 'ignition_off'
   | 'power_cut' | 'low_battery' | 'no_gps' | 'offline'
-  | 'tow' | 'over_parking' | 'geofence' | 'low_score';
+  | 'tow' | 'over_parking' | 'geofence' | 'low_score' | 'speed_zone';
 
 export interface AlertConfig {
   speedLimit?: number; minutes?: number; level?: number;
   geofenceId?: string; geofenceEvent?: 'enter' | 'exit' | 'both';
   scoreThreshold?: number;
+  speedZoneId?: string;
 }
+
+export interface SpeedZoneRef { id: string; name: string; speedLimit: number; }
 
 export interface AlertSchedule {
   from?: string; to?: string; days?: string[]; timeFrom?: string; timeTo?: string;
@@ -45,12 +48,14 @@ const ALERT_TYPE_LABELS: Record<AlertType, string> = {
   ignition_off: 'Ignition OFF', power_cut: 'Power Cut', low_battery: 'Low Battery',
   no_gps: 'No GPS Signal', offline: 'Offline', tow: 'Tow Alert',
   over_parking: 'Over Parking', geofence: 'Geofence', low_score: 'Low Driver Score',
+  speed_zone: 'Speed Zone',
 };
 
 const ALERT_TYPE_COLOR: Record<AlertType, string> = {
   over_speed: '#dc2626', idle: '#f59e0b', ignition_on: '#16a34a', ignition_off: '#6b7280',
   power_cut: '#7c3aed', low_battery: '#ea580c', no_gps: '#0284c7', offline: '#9ca3af',
   tow: '#be123c', over_parking: '#a16207', geofence: '#0891b2', low_score: '#e11d48',
+  speed_zone: '#f59e0b',
 };
 
 const ALERT_TYPE_ICONS: Record<AlertType, JSX.Element> = {
@@ -66,6 +71,7 @@ const ALERT_TYPE_ICONS: Record<AlertType, JSX.Element> = {
   over_parking: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>,
   geofence: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
   low_score: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
+  speed_zone: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l2 2"/><path d="M4.93 4.93l4.24 4.24"/><path d="M19.07 4.93l-4.24 4.24"/></svg>,
 };
 
 const DAYS = ['mon','tue','wed','thu','fri','sat','sun'] as const;
@@ -105,10 +111,11 @@ function loadVehicleGroups(): VehicleGroup[] { try { return JSON.parse(localStor
 
 interface Vehicle { imei: string; plate: string; }
 
-function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClose }: {
+function AlertFormModal({ alert: init, vehicles, geofences, speedZones, dark, onSave, onClose }: {
   alert: Partial<AlertRecord> | null;
   vehicles: Vehicle[];
   geofences: Geofence[];
+  speedZones: SpeedZoneRef[];
   dark: boolean;
   onSave: (data: Partial<AlertRecord>) => void;
   onClose: () => void;
@@ -206,6 +213,15 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
         return <div style={{ fontSize: 12, color: dark ? '#888' : '#6b7280', padding: '10px 12px', background: dark ? '#1a0a0a' : '#fff7f7', border: '1px solid #fca5a5', borderRadius: 7, lineHeight: 1.6 }}>
           Triggers when the vehicle is <strong>moving at 15+ km/h with ignition off</strong> for 2+ consecutive readings — indicating the vehicle may be towed. Uses GPS speed, so no additional configuration needed.
         </div>;
+      case 'speed_zone':
+        return <>
+          <span style={lbl}>Select Speed Zone</span>
+          <select value={config.speedZoneId ?? ''} onChange={e => setConfig(c => ({ ...c, speedZoneId: e.target.value }))} style={inp}>
+            <option value="">— Select speed zone —</option>
+            {speedZones.map(z => <option key={z.id} value={z.id}>{z.name} — limit {z.speedLimit} km/h</option>)}
+          </select>
+          {speedZones.length === 0 && <span style={{ fontSize: 11, color: dark ? '#555' : '#aaa', marginTop: 4, display: 'block' }}>No speed zones found. Create one on the map first.</span>}
+        </>;
       default:
         return <div style={{ fontSize: 12.5, color: dark ? '#555' : '#9ca3af', padding: '10px 0' }}>No additional configuration needed.</div>;
     }
@@ -590,6 +606,7 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
 
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [geofences, setGeofences] = useState<Geofence[]>([]);
+  const [speedZones, setSpeedZones] = useState<SpeedZoneRef[]>([]);
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Partial<AlertRecord> | null>(null);
@@ -601,9 +618,10 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
   const load = async () => {
     setLoading(true);
     try {
-      const [ar, gr] = await Promise.all([api.get<AlertRecord[]>(`/alerts${orgQs}`), api.get<Geofence[]>(`/geofences${orgQs}`)]);
+      const [ar, gr, szr] = await Promise.all([api.get<AlertRecord[]>(`/alerts${orgQs}`), api.get<Geofence[]>(`/geofences${orgQs}`), api.get<SpeedZoneRef[]>(`/speed-zones${orgQs}`)]);
       setAlerts(ar.data);
       setGeofences(gr.data);
+      setSpeedZones(szr.data);
     } catch {} finally { setLoading(false); }
   };
 
@@ -726,6 +744,7 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
           alert={editTarget}
           vehicles={vehicles}
           geofences={geofences}
+          speedZones={speedZones}
           dark={dark}
           onSave={handleSave}
           onClose={() => { setFormOpen(false); setEditTarget(null); }}
@@ -754,6 +773,7 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
 }) {
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [geofences, setGeofences] = useState<Geofence[]>([]);
+  const [speedZones, setSpeedZones] = useState<SpeedZoneRef[]>([]);
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Partial<AlertRecord> | null>(null);
@@ -765,9 +785,10 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
   const load = async () => {
     setLoading(true);
     try {
-      const [ar, gr] = await Promise.all([api.get<AlertRecord[]>(`/alerts${orgQs}`), api.get<Geofence[]>(`/geofences${orgQs}`)]);
+      const [ar, gr, szr] = await Promise.all([api.get<AlertRecord[]>(`/alerts${orgQs}`), api.get<Geofence[]>(`/geofences${orgQs}`), api.get<SpeedZoneRef[]>(`/speed-zones${orgQs}`)]);
       setAlerts(ar.data);
       setGeofences(gr.data);
+      setSpeedZones(szr.data);
     } catch {} finally { setLoading(false); }
   };
 
@@ -883,6 +904,7 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
           alert={editTarget}
           vehicles={vehicles}
           geofences={geofences}
+          speedZones={speedZones}
           dark={dark}
           onSave={handleSave}
           onClose={() => { setFormOpen(false); setEditTarget(null); }}

@@ -15,6 +15,7 @@ import { OrgPermissionsModule } from './org-permissions/org-permissions.module.j
 import { RolePortalPermissionsModule } from './role-portal-permissions/role-portal-permissions.module.js';
 import { DriverBehaviorModule } from './driver-behavior/driver-behavior.module.js';
 import { VehicleGroupsModule } from './vehicle-groups/vehicle-groups.module.js';
+import { SpeedZonesModule } from './speed-zones/speed-zones.module.js';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { VehicleGroupsModule } from './vehicle-groups/vehicle-groups.module.js';
     RolePortalPermissionsModule,
     DriverBehaviorModule,
     VehicleGroupsModule,
+    SpeedZonesModule,
   ],
 })
 export class AppModule {}

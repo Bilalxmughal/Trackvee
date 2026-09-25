@@ -9,10 +9,12 @@ import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertsModal, { AlertRecord, AlertsPanel as AlertsLeftPanel } from '../components/AlertsModal';
 import GeofencesPanel, { Geofence, CircleCoords, PolygonCoords } from '../components/GeofencesModal';
+import SpeedZonesPanel, { SpeedZone, SZCircleCoords, SZPolygonCoords } from '../components/SpeedZonesPanel';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAlert, AlertSettings } from '../contexts/AlertContext';
 import { useGeofence } from '../contexts/GeofenceContext';
+import { useSpeedZone } from '../contexts/SpeedZoneContext';
 import { usePOI } from '../contexts/POIContext';
 import { useDriverBehaviorPanel } from '../contexts/DriverBehaviorContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -716,6 +718,33 @@ function GeofenceDrawLayer({
     }
   }, [map, drawType, center, radius, points]);
 
+  return null;
+}
+
+// ── Speed Zone Map Layer ──────────────────────────────────────────────────────
+
+function SpeedZoneLayer({ zones, editingId, visible }: { zones: SpeedZone[]; editingId: string | null; visible: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!visible) return;
+    const layers: L.Layer[] = [];
+    zones.forEach(sz => {
+      if (sz.id === editingId) return;
+      const opts = { color: sz.color ?? '#f59e0b', weight: 2, fillOpacity: 0.1 };
+      let layer: L.Layer;
+      const tooltip = `${sz.name} — ${sz.speedLimit} km/h`;
+      if (sz.type === 'circle') {
+        const c = sz.coordinates as SZCircleCoords;
+        layer = L.circle([c.center[0], c.center[1]], { ...opts, radius: c.radius }).bindTooltip(tooltip, { sticky: true });
+      } else {
+        const p = sz.coordinates as SZPolygonCoords;
+        layer = L.polygon(p.points as L.LatLngTuple[], opts).bindTooltip(tooltip, { sticky: true });
+      }
+      layer.addTo(map);
+      layers.push(layer);
+    });
+    return () => { layers.forEach(l => map.removeLayer(l)); };
+  }, [map, zones, editingId, visible]);
   return null;
 }
 
@@ -2241,6 +2270,7 @@ export default function MapPage() {
   const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [alertsByImei, setAlertsByImei] = useState<Map<string, AlertRecord[]>>(new Map());
   const { gfPanelOpen: showGeofencesPanel, openGfPanel: ctxOpenGf, closeGfPanel: ctxCloseGf, setGfCount } = useGeofence();
+  const { szPanelOpen, openSzPanel: ctxOpenSz, closeSzPanel: ctxCloseSz, setSzCount } = useSpeedZone();
   const { poiPanelOpen, closePoiPanel, pickingLocation, setPickingLocation, setPendingCoords } = usePOI();
   const { dbPanelOpen, closeDbPanel } = useDriverBehaviorPanel();
   const [poiAlertPoi, setPoiAlertPoi] = useState<POIRecord | null>(null);
@@ -2260,6 +2290,23 @@ export default function MapPage() {
   const [gfColor, setGfColor] = useState('#dc2626');
   const [gfSaving, setGfSaving] = useState(false);
   const [gfDeleteId, setGfDeleteId] = useState<string | null>(null);
+
+  // Speed zone state
+  const [speedZones, setSpeedZones] = useState<SpeedZone[]>([]);
+  const [szVisible, setSzVisible] = useState(true);
+  const [szLoading, setSzLoading] = useState(false);
+  const [szView, setSzView] = useState<'list' | 'form'>('list');
+  const [szEditing, setSzEditing] = useState<SpeedZone | null>(null);
+  const [szName, setSzName] = useState('');
+  const [szType, setSzType] = useState<'circle' | 'polygon'>('circle');
+  const [szCenter, setSzCenter] = useState<[number, number] | null>(null);
+  const [szRadius, setSzRadius] = useState(500);
+  const [szPoints, setSzPoints] = useState<[number, number][]>([]);
+  const [szDrawActive, setSzDrawActive] = useState(false);
+  const [szColor, setSzColor] = useState('#f59e0b');
+  const [szSpeedLimit, setSzSpeedLimit] = useState(60);
+  const [szSaving, setSzSaving] = useState(false);
+  const [szDeleteId, setSzDeleteId] = useState<string | null>(null);
 
   // Distance tool
   const [distanceMode, setDistanceMode] = useState(false);
@@ -2375,6 +2422,12 @@ export default function MapPage() {
     api.get<POIRecord[]>(`/pois${qs}`).then(r => setMapPois(r.data)).catch(() => {});
   }, [poiPanelOpen, selectedClientId]); // re-fetch when poi panel closes (user may have added/edited)
 
+  useEffect(() => {
+    const qs = selectedClientId ? `?orgId=${selectedClientId}` : '';
+    setSzLoading(true);
+    api.get<SpeedZone[]>(`/speed-zones${qs}`).then(r => { setSpeedZones(r.data); setSzCount(r.data.length); }).catch(() => {}).finally(() => setSzLoading(false));
+  }, [szPanelOpen, selectedClientId]);
+
   const visiblePoints = selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points;
   const allVehicles = useMemo(() =>
     visiblePoints.map(p => ({ imei: p.imei, plate: fmtPlate(deviceMap.get(p.imei), p.imei) }))
@@ -2436,6 +2489,7 @@ export default function MapPage() {
   useEffect(() => { if (showGeofencesPanel) setPanelOpen(true); }, [showGeofencesPanel]);
   useEffect(() => { if (poiPanelOpen) setPanelOpen(true); }, [poiPanelOpen]);
   useEffect(() => { if (dbPanelOpen) setPanelOpen(true); }, [dbPanelOpen]);
+  useEffect(() => { if (szPanelOpen) setPanelOpen(true); }, [szPanelOpen]);
 
   const gfOpenNew = () => { resetGfForm(); setGfView('form'); };
   const gfOpenEdit = (gf: Geofence) => {
@@ -2469,6 +2523,59 @@ export default function MapPage() {
       }
       resetGfForm();
     } catch {} finally { setGfSaving(false); }
+  };
+
+  const resetSzForm = () => {
+    setSzView('list'); setSzEditing(null); setSzName(''); setSzType('circle');
+    setSzCenter(null); setSzRadius(500); setSzPoints([]); setSzDrawActive(false);
+    setSzColor('#f59e0b'); setSzSpeedLimit(60);
+  };
+
+  const openSzPanel = () => { ctxOpenSz(); setPanelOpen(true); resetSzForm(); };
+  const closeSzPanel = () => { ctxCloseSz(); resetSzForm(); };
+
+  const loadSpeedZones = async () => {
+    setSzLoading(true);
+    const szOrgQs = selectedClientId ? `?orgId=${selectedClientId}` : '';
+    try {
+      const r = await api.get<SpeedZone[]>(`/speed-zones${szOrgQs}`);
+      setSpeedZones(r.data);
+      setSzCount(r.data.length);
+    } catch {} finally { setSzLoading(false); }
+  };
+
+  const szOpenNew = () => { resetSzForm(); setSzView('form'); };
+  const szOpenEdit = (sz: SpeedZone) => {
+    setSzEditing(sz); setSzName(sz.name); setSzType(sz.type); setSzColor(sz.color ?? '#f59e0b');
+    setSzSpeedLimit(sz.speedLimit);
+    if (sz.type === 'circle') { const c = sz.coordinates as SZCircleCoords; setSzCenter(c.center); setSzRadius(c.radius); setSzPoints([]); }
+    else { const p = sz.coordinates as SZPolygonCoords; setSzPoints([...p.points]); setSzCenter(null); }
+    setSzDrawActive(false); setSzView('form');
+  };
+  const szDelete = async (id: string) => {
+    try {
+      await api.delete(`/speed-zones/${id}`);
+      setSpeedZones(z => { const next = z.filter(x => x.id !== id); setSzCount(next.length); return next; });
+    } catch {} finally { setSzDeleteId(null); }
+  };
+  const szSave = async () => {
+    if (!szName.trim()) return;
+    const data = {
+      name: szName.trim(), type: szType, speedLimit: szSpeedLimit, color: szColor,
+      coordinates: szType === 'circle' ? { center: szCenter!, radius: szRadius } : { points: szPoints },
+    };
+    setSzSaving(true);
+    try {
+      const szOrgQs = selectedClientId ? `?orgId=${selectedClientId}` : '';
+      if (szEditing) {
+        const r = await api.put<SpeedZone>(`/speed-zones/${szEditing.id}`, data);
+        setSpeedZones(z => z.map(x => x.id === szEditing.id ? r.data : x));
+      } else {
+        const r = await api.post<SpeedZone>(`/speed-zones${szOrgQs}`, data);
+        setSpeedZones(z => { const next = [r.data, ...z]; setSzCount(next.length); return next; });
+      }
+      resetSzForm();
+    } catch {} finally { setSzSaving(false); }
   };
 
   const PanelToggleIcon = () => (
@@ -2576,6 +2683,34 @@ export default function MapPage() {
                 onSave={gfSave}
                 onBack={resetGfForm}
                 onClose={closeGfPanel}
+              />
+            : szPanelOpen
+            ? mapIsAdmin && !selectedClientId
+              ? <ClientRequiredPanel dark={dark} feature="Speed Zones" onClose={closeSzPanel}/>
+              : <SpeedZonesPanel
+                dark={dark}
+                zones={speedZones}
+                loading={szLoading}
+                view={szView}
+                editing={szEditing}
+                name={szName} onName={setSzName}
+                type={szType} onType={t => { setSzType(t); setSzCenter(null); setSzPoints([]); setSzDrawActive(false); }}
+                color={szColor} onColor={setSzColor}
+                speedLimit={szSpeedLimit} onSpeedLimit={setSzSpeedLimit}
+                center={szCenter}
+                radius={szRadius} onRadius={setSzRadius}
+                points={szPoints}
+                onRemovePoint={i => setSzPoints(p => p.filter((_, j) => j !== i))}
+                onClearPoints={() => setSzPoints([])}
+                drawActive={szDrawActive}
+                onToggleDraw={() => setSzDrawActive(a => !a)}
+                saving={szSaving}
+                onNew={szOpenNew}
+                onEdit={szOpenEdit}
+                onDelete={id => setSzDeleteId(id)}
+                onSave={szSave}
+                onBack={resetSzForm}
+                onClose={closeSzPanel}
               />
             : <LeftPanel
                 points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails}
@@ -2710,6 +2845,18 @@ export default function MapPage() {
                 {gfVisible ? 'Zones' : 'Zones'}
               </button>
             )}
+            {speedZones.length > 0 && (
+              <button
+                onClick={() => setSzVisible(v => !v)}
+                title={szVisible ? 'Hide speed zones' : 'Show speed zones'}
+                style={{ position: 'absolute', top: 46, right: 126, zIndex: 1000, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 9px', borderRadius: 6, border: `1px solid ${szVisible ? '#fde68a' : (dark ? '#333' : '#e5e7eb')}`, background: szVisible ? (dark ? '#2a2000' : '#fffbeb') : (dark ? '#1e1e1e' : '#fff'), color: szVisible ? '#d97706' : (dark ? '#888' : '#555'), cursor: 'pointer', fontSize: 11, fontWeight: 600, boxShadow: '0 1px 5px rgba(0,0,0,0.2)' }}
+              >
+                {szVisible
+                  ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>}
+                Sp. Zones
+              </button>
+            )}
             <MapContainer center={[30.3753, 69.3451]} zoom={5} style={{ height: '100%', width: '100%' }} zoomControl>
               <TileLayer key={mapStyle} url={TILE_CONFIG[mapStyle].url} attribution={TILE_CONFIG[mapStyle].attribution}
                 className={TILE_CONFIG[mapStyle].darkFilter || (mapStyle === 'street' && dark) ? 'map-tiles-dark' : ''}/>
@@ -2724,6 +2871,7 @@ export default function MapPage() {
                   </>}
               <DistanceTool active={distanceMode} distanceModeRef={distanceModeRef}/>
               <GeofenceLayer geofences={geofences} editingId={gfEditing?.id ?? null} visible={gfVisible}/>
+              <SpeedZoneLayer zones={speedZones} editingId={szEditing?.id ?? null} visible={szVisible}/>
               <POIMapLayer pois={mapPois} visible={poisVisible}/>
               <POILocationPicker active={pickingLocation} onPick={(lat, lng) => { setPendingCoords([lat, lng]); setPickingLocation(false); }}/>
               <GeofenceDrawLayer
@@ -2735,6 +2883,16 @@ export default function MapPage() {
                 color={gfColor}
                 onSetCenter={(lat, lng) => { setGfCenter([lat, lng]); setGfDrawActive(false); }}
                 onAddPoint={(lat, lng) => setGfPoints(p => [...p, [lat, lng]])}
+              />
+              <GeofenceDrawLayer
+                drawActive={szDrawActive || (szType === 'polygon' && szView === 'form')}
+                drawType={szType}
+                center={szCenter}
+                radius={szRadius}
+                points={szPoints}
+                color={szColor}
+                onSetCenter={(lat, lng) => { setSzCenter([lat, lng]); setSzDrawActive(false); }}
+                onAddPoint={(lat, lng) => setSzPoints(p => [...p, [lat, lng]])}
               />
             </MapContainer>
           </div>
@@ -2781,6 +2939,13 @@ export default function MapPage() {
         message="Are you sure you want to delete this geofence zone? This action cannot be undone."
         onConfirm={() => gfDeleteId && gfDelete(gfDeleteId)}
         onClose={() => setGfDeleteId(null)}
+      />
+      <ConfirmDialog
+        open={szDeleteId !== null}
+        title="Delete Speed Zone"
+        message="Are you sure you want to delete this speed zone? This action cannot be undone."
+        onConfirm={() => szDeleteId && szDelete(szDeleteId)}
+        onClose={() => setSzDeleteId(null)}
       />
     </div>
   );

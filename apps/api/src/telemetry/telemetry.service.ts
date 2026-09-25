@@ -7,6 +7,8 @@ import { AlertsService } from '../alerts/alerts.service.js';
 import { GeofencesService } from '../geofences/geofences.service.js';
 import { DriverBehaviorService } from '../driver-behavior/driver-behavior.service.js';
 import type { CircleCoords, PolygonCoords } from '../geofences/entities/geofence.entity.js';
+import { SpeedZonesService } from '../speed-zones/speed-zones.service.js';
+import type { SZCircleCoords, SZPolygonCoords } from '../speed-zones/entities/speed-zone.entity.js';
 import { User } from '../users/entities/user.entity.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
@@ -57,6 +59,7 @@ export class TelemetryService {
     private alertsService: AlertsService,
     private geofencesService: GeofencesService,
     private driverBehaviorService: DriverBehaviorService,
+    private speedZonesService: SpeedZonesService,
   ) {}
 
   async findRecent(user: User, limit = 100): Promise<Telemetry[]> {
@@ -147,6 +150,25 @@ export class TelemetryService {
             && prev !== null && prev.ignition !== true && prev.speedKmh >= TOW_SPEED
             && (prev2 === null || (prev2.ignition !== true && prev2.speedKmh >= TOW_SPEED));
           break;
+        case 'speed_zone': {
+          if (!alert.config.speedZoneId) break;
+          const zones = await this.speedZonesService.findAllForOrg(orgId).catch(() => []);
+          const sz = zones.find(z => z.id === alert.config.speedZoneId);
+          if (!sz) break;
+          let inZone = false;
+          if (sz.type === 'circle') {
+            const c = sz.coordinates as SZCircleCoords;
+            inZone = haversineKm(pt.latitude, pt.longitude, c.center[0], c.center[1]) * 1000 <= c.radius;
+          } else {
+            const p = sz.coordinates as SZPolygonCoords;
+            inZone = pointInPolygon(pt.latitude, pt.longitude, p.points);
+          }
+          triggered = inZone && pt.speedKmh > sz.speedLimit;
+          payload['speedZoneId'] = sz.id;
+          payload['speedZoneName'] = sz.name;
+          payload['speedLimit'] = sz.speedLimit;
+          break;
+        }
         case 'over_parking':
           // Simplified: trigger if parked (ignition off, speed < threshold) once per cooldown
           triggered = pt.ignition !== true && pt.speedKmh < MOVING;

@@ -3,7 +3,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 export type AlertType =
   | 'over_speed' | 'idle' | 'ignition_on' | 'ignition_off'
   | 'power_cut' | 'low_battery' | 'no_gps' | 'offline'
-  | 'tow' | 'over_parking' | 'geofence' | 'poi' | 'low_score';
+  | 'tow' | 'over_parking' | 'geofence' | 'poi' | 'low_score' | 'speed_zone';
 
 export interface AlertConfig {
   speedLimit?: number;       // over_speed
@@ -14,6 +14,7 @@ export interface AlertConfig {
   poiId?: string;            // poi
   poiEvent?: 'enter' | 'exit' | 'both'; // poi
   scoreThreshold?: number;   // low_score
+  speedZoneId?: string;      // speed_zone
 }
 
 export interface AlertSchedule {
