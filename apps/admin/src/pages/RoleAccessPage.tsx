@@ -17,9 +17,10 @@ const PAGES: PageRow[] = [
   { key: 'vehicles',  label: 'Vehicles',        group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'devices',   label: 'Devices',         group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'setup',     label: 'Setup Guide',     group: 'Management',     actions: ['view'] },
-  { key: 'users',     label: 'User Management', group: 'Administration', actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'roles',     label: 'Role Access',     group: 'Administration', actions: ['view'] },
-  { key: 'settings',  label: 'Settings',        group: 'Administration', actions: ['view', 'edit'] },
+  { key: 'users',       label: 'User Management', group: 'Administration', actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'roles',       label: 'Role Access',     group: 'Administration', actions: ['view'] },
+  { key: 'audit-logs',  label: 'Audit Logs',      group: 'Administration', actions: ['view'] },
+  { key: 'settings',    label: 'Settings',        group: 'Administration', actions: ['view', 'edit'] },
 ];
 
 // Imported from roles.ts — ORG_PORTAL_PAGES is the single source of truth
