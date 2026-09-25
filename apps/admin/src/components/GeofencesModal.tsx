@@ -8,12 +8,6 @@ import type { UserRole } from '@yotrack/types';
 
 export interface CircleCoords { center: [number, number]; radius: number; }
 export interface PolygonCoords { points: [number, number][]; }
-export interface GeofenceSchedule {
-  enabled: boolean;
-  days: number[];       // 0=Sun 1=Mon … 6=Sat
-  startTime: string;    // "HH:MM"
-  endTime: string;      // "HH:MM"
-}
 
 export interface Geofence {
   id: string;
@@ -21,16 +15,6 @@ export interface Geofence {
   type: 'circle' | 'polygon';
   coordinates: CircleCoords | PolygonCoords;
   color: string;
-  schedule?: GeofenceSchedule | null;
-}
-
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DEFAULT_SCHEDULE: GeofenceSchedule = { enabled: false, days: [1,2,3,4,5], startTime: '09:00', endTime: '18:00' };
-
-function fmtSchedule(s: GeofenceSchedule | null | undefined): string {
-  if (!s?.enabled) return 'Always active';
-  const days = s.days.slice().sort().map(d => DAY_LABELS[d]).join(', ');
-  return `${days} · ${s.startTime}–${s.endTime}`;
 }
 
 const lbl: React.CSSProperties = {
@@ -104,10 +88,6 @@ function GfList({ geofences, loading, onNew, onEdit, onDelete, dark, onClose, ca
                   ? `Circle · ${((gf.coordinates as CircleCoords).radius / 1000).toFixed(2)} km`
                   : `Polygon · ${(gf.coordinates as PolygonCoords).points.length} pts`}
               </div>
-              <div style={{ fontSize: 10, color: gf.schedule?.enabled ? '#dc2626' : (dark ? '#444' : '#ccc'), marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                {fmtSchedule(gf.schedule)}
-              </div>
             </div>
             {canEdit && <button onClick={() => onEdit(gf)} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#bbb', display: 'flex', padding: 3 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
@@ -135,13 +115,12 @@ interface FormProps {
   radius: number; onRadius: (v: number) => void;
   points: [number, number][]; onRemovePoint: (i: number) => void; onClearPoints: () => void;
   drawActive: boolean; onToggleDraw: () => void;
-  schedule: GeofenceSchedule; onSchedule: (s: GeofenceSchedule) => void;
   saving: boolean;
   onSave: () => void;
   onBack: () => void;
 }
 
-function GfForm({ dark, editing, name, onName, type, onType, color, onColor, center, radius, onRadius, points, onRemovePoint, onClearPoints, drawActive, onToggleDraw, schedule, onSchedule, saving, onSave, onBack }: FormProps) {
+function GfForm({ dark, editing, name, onName, type, onType, color, onColor, center, radius, onRadius, points, onRemovePoint, onClearPoints, drawActive, onToggleDraw, saving, onSave, onBack }: FormProps) {
   const border = `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`;
   const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', border, borderRadius: 6, background: dark ? '#111' : '#fff', color: dark ? '#e5e5e5' : '#111', fontSize: 12.5, outline: 'none', boxSizing: 'border-box' };
   const canSave = name.trim() && (
@@ -276,57 +255,6 @@ function GfForm({ dark, editing, name, onName, type, onType, color, onColor, cen
           </>
         )}
 
-        {/* Schedule */}
-        <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ ...lbl, marginBottom: 0, flex: 1 }}>Active Schedule</span>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <span style={{ fontSize: 11, color: schedule.enabled ? '#dc2626' : (dark ? '#555' : '#aaa'), fontWeight: 600 }}>
-                {schedule.enabled ? 'Custom' : 'Always'}
-              </span>
-              <div onClick={() => onSchedule({ ...schedule, enabled: !schedule.enabled })}
-                style={{ width: 32, height: 18, borderRadius: 9, background: schedule.enabled ? '#dc2626' : (dark ? '#333' : '#e5e7eb'), position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: 3, left: schedule.enabled ? 17 : 3, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}/>
-              </div>
-            </label>
-          </div>
-
-          {schedule.enabled && (
-            <>
-              {/* Days */}
-              <div style={{ marginBottom: 10 }}>
-                <span style={{ ...lbl, marginBottom: 6 }}>Days</span>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {DAY_LABELS.map((d, i) => {
-                    const on = schedule.days.includes(i);
-                    return (
-                      <button key={i} onClick={() => {
-                        const days = on ? schedule.days.filter(x => x !== i) : [...schedule.days, i];
-                        onSchedule({ ...schedule, days });
-                      }} style={{ padding: '4px 8px', borderRadius: 5, border: `1px solid ${on ? '#dc2626' : (dark ? '#333' : '#e5e7eb')}`, background: on ? '#dc2626' : 'transparent', color: on ? '#fff' : (dark ? '#888' : '#666'), fontSize: 11, fontWeight: on ? 700 : 400, cursor: 'pointer' }}>
-                        {d}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Time range */}
-              <div>
-                <span style={{ ...lbl, marginBottom: 6 }}>Time Window</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input type="time" value={schedule.startTime}
-                    onChange={e => onSchedule({ ...schedule, startTime: e.target.value })}
-                    style={{ flex: 1, padding: '7px 9px', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 6, background: dark ? '#111' : '#fff', color: dark ? '#e5e5e5' : '#111', fontSize: 12.5, outline: 'none' }}/>
-                  <span style={{ fontSize: 11, color: dark ? '#555' : '#aaa', flexShrink: 0 }}>to</span>
-                  <input type="time" value={schedule.endTime}
-                    onChange={e => onSchedule({ ...schedule, endTime: e.target.value })}
-                    style={{ flex: 1, padding: '7px 9px', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 6, background: dark ? '#111' : '#fff', color: dark ? '#e5e5e5' : '#111', fontSize: 12.5, outline: 'none' }}/>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
       {/* Footer */}
@@ -355,7 +283,6 @@ export interface GeofencesPanelProps {
   radius: number; onRadius: (v: number) => void;
   points: [number, number][]; onRemovePoint: (i: number) => void; onClearPoints: () => void;
   drawActive: boolean; onToggleDraw: () => void;
-  schedule: GeofenceSchedule; onSchedule: (s: GeofenceSchedule) => void;
   saving: boolean;
   onNew: () => void;
   onEdit: (gf: Geofence) => void;
@@ -378,7 +305,7 @@ export default function GeofencesPanel(p: GeofencesPanelProps) {
     <div style={{ height: '100%', background: p.dark ? '#161616' : '#fff', border: `1px solid ${p.dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {p.view === 'list'
         ? <GfList geofences={p.geofences} loading={p.loading} onNew={p.onNew} onEdit={p.onEdit} onDelete={p.onDelete} dark={p.dark} onClose={p.onClose} canAdd={gfCanAdd} canEdit={gfCanEdit} canDelete={gfCanDelete}/>
-        : <GfForm dark={p.dark} editing={p.editing} name={p.name} onName={p.onName} type={p.type} onType={p.onType} color={p.color} onColor={p.onColor} center={p.center} radius={p.radius} onRadius={p.onRadius} points={p.points} onRemovePoint={p.onRemovePoint} onClearPoints={p.onClearPoints} drawActive={p.drawActive} onToggleDraw={p.onToggleDraw} schedule={p.schedule} onSchedule={p.onSchedule} saving={p.saving} onSave={p.onSave} onBack={p.onBack}/>
+        : <GfForm dark={p.dark} editing={p.editing} name={p.name} onName={p.onName} type={p.type} onType={p.onType} color={p.color} onColor={p.onColor} center={p.center} radius={p.radius} onRadius={p.onRadius} points={p.points} onRemovePoint={p.onRemovePoint} onClearPoints={p.onClearPoints} drawActive={p.drawActive} onToggleDraw={p.onToggleDraw} saving={p.saving} onSave={p.onSave} onBack={p.onBack}/>
       }
     </div>
   );

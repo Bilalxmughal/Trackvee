@@ -152,21 +152,6 @@ export class TelemetryService {
           const gf = geofences.find(g => g.id === alert.config.geofenceId);
           if (!gf) break;
 
-          // Schedule check — skip alert if outside active window
-          if (gf.schedule?.enabled) {
-            const now = new Date(pt.timestamp);
-            const day = now.getDay(); // 0=Sun … 6=Sat
-            if (!gf.schedule.days.includes(day)) break;
-            const hhmm = (d: Date) => d.getHours() * 60 + d.getMinutes();
-            const cur = hhmm(now);
-            const [sh, sm] = gf.schedule.startTime.split(':').map(Number);
-            const [eh, em] = gf.schedule.endTime.split(':').map(Number);
-            const start = sh * 60 + sm;
-            const end = eh * 60 + em;
-            const inWindow = start <= end ? (cur >= start && cur <= end) : (cur >= start || cur <= end);
-            if (!inWindow) break;
-          }
-
           let inside = false;
           if (gf.type === 'circle') {
             const c = gf.coordinates as CircleCoords;
