@@ -151,22 +151,22 @@ export class TelemetryService {
             && (prev2 === null || (prev2.ignition !== true && prev2.speedKmh >= TOW_SPEED));
           break;
         case 'speed_zone': {
-          if (!alert.config.speedZoneId) break;
-          const zones = await this.speedZonesService.findAllForOrg(orgId).catch(() => []);
-          const sz = zones.find(z => z.id === alert.config.speedZoneId);
-          if (!sz) break;
+          if (!alert.config.geofenceId) break;
+          const geofences = await this.geofencesService.findAll({ organizationId: orgId } as any).catch(() => []);
+          const gf = geofences.find(g => g.id === alert.config.geofenceId);
+          if (!gf) break;
           let inZone = false;
-          if (sz.type === 'circle') {
-            const c = sz.coordinates as SZCircleCoords;
+          if (gf.type === 'circle') {
+            const c = gf.coordinates as CircleCoords;
             inZone = haversineKm(pt.latitude, pt.longitude, c.center[0], c.center[1]) * 1000 <= c.radius;
           } else {
-            const p = sz.coordinates as SZPolygonCoords;
+            const p = gf.coordinates as PolygonCoords;
             inZone = pointInPolygon(pt.latitude, pt.longitude, p.points);
           }
-          triggered = inZone && pt.speedKmh > sz.speedLimit;
-          payload['speedZoneId'] = sz.id;
-          payload['speedZoneName'] = sz.name;
-          payload['speedLimit'] = sz.speedLimit;
+          triggered = inZone && pt.speedKmh > (alert.config.speedLimit ?? 60);
+          payload['geofenceId'] = gf.id;
+          payload['geofenceName'] = gf.name;
+          payload['speedLimit'] = alert.config.speedLimit ?? 60;
           break;
         }
         case 'over_parking':

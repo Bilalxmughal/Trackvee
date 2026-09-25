@@ -215,12 +215,13 @@ function AlertFormModal({ alert: init, vehicles, geofences, speedZones, dark, on
         </div>;
       case 'speed_zone':
         return <>
-          <span style={lbl}>Select Speed Zone</span>
-          <select value={config.speedZoneId ?? ''} onChange={e => setConfig(c => ({ ...c, speedZoneId: e.target.value }))} style={inp}>
-            <option value="">— Select speed zone —</option>
-            {speedZones.map(z => <option key={z.id} value={z.id}>{z.name} — limit {z.speedLimit} km/h</option>)}
+          <span style={lbl}>Select Geofence (as Speed Zone)</span>
+          <select value={config.geofenceId ?? ''} onChange={e => setConfig(c => ({ ...c, geofenceId: e.target.value }))} style={{ ...inp, marginBottom: 12 }}>
+            <option value="">— Select geofence —</option>
+            {geofences.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
-          {speedZones.length === 0 && <span style={{ fontSize: 11, color: dark ? '#555' : '#aaa', marginTop: 4, display: 'block' }}>No speed zones found. Create one on the map first.</span>}
+          <span style={lbl}>Speed Limit inside zone (km/h)</span>
+          <input type="number" min={1} max={300} value={config.speedLimit ?? 60} onChange={e => setConfig(c => ({ ...c, speedLimit: +e.target.value }))} style={inp} placeholder="e.g. 60"/>
         </>;
       default:
         return <div style={{ fontSize: 12.5, color: dark ? '#555' : '#9ca3af', padding: '10px 0' }}>No additional configuration needed.</div>;
