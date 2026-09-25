@@ -2129,10 +2129,11 @@ function FollowMiniMapMarker({ pt, plate }: { pt: LivePoint; plate: string }) {
   return null;
 }
 
-function FollowWindow({ plate, pt, dark, onStop }: {
+function FollowWindow({ plate, pt, dark, onStop, initPos }: {
   plate: string; pt: LivePoint | undefined; dark: boolean; onStop: () => void;
+  initPos: { x: number; y: number };
 }) {
-  const [pos, setPos] = useState({ x: 20, y: 80 });
+  const [pos, setPos] = useState(initPos);
   const winRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
 
@@ -2228,7 +2229,7 @@ export default function MapPage() {
   const [deviceMap, setDeviceMap] = useState<DMap>(new Map());
   const [vehicleDetails, setVehicleDetails] = useState<Map<string, VehicleDetail>>(new Map());
   const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; ts: number } | null>(null);
-  const [followImei, setFollowImei] = useState<string | null>(null);
+  const [followImeis, setFollowImeis] = useState<string[]>([]);
   const [trails, setTrails] = useState<Map<string, [number,number][]>>(new Map());
   const [mapStyle, setMapStyle] = useState<MapStyle>('street');
 
@@ -2613,7 +2614,7 @@ export default function MapPage() {
                 }}
                 hasAlertImeis={alertsByImei}
                 onFollow={(imei) => {
-                  setFollowImei(imei);
+                  setFollowImeis(prev => prev.includes(imei) ? prev : [...prev, imei]);
                   const pt = points.find(p => p.imei === imei);
                   if (pt) setFlyTarget({ lat: pt.latitude, lng: pt.longitude, ts: Date.now() });
                 }}
@@ -2715,7 +2716,6 @@ export default function MapPage() {
               <InvalidateSize/>
               <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'}/>
               <FlyToPoint target={flyTarget}/>
-              {followImei && <FollowLayer imei={followImei} points={points}/>}
               {historyPoints.length > 0
                 ? <HistoryLayer points={historyPoints} speedLimit={alertSettings.speedLimit} selectedSegment={selectedSegment}/>
                 : <>
@@ -2741,15 +2741,23 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* Follow Window */}
-      {followImei && (
-        <FollowWindow
-          plate={fmtPlate(deviceMap.get(followImei), followImei)}
-          pt={points.find(p => p.imei === followImei)}
-          dark={dark}
-          onStop={() => setFollowImei(null)}
-        />
-      )}
+      {/* Follow Windows */}
+      {followImeis.map((imei, idx) => {
+        const WINDOW_W = 480, WINDOW_H = 390, GAP = 10, SX = 20, SY = 80;
+        const cols = Math.max(1, Math.floor((window.innerWidth - SX) / (WINDOW_W + GAP)));
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        return (
+          <FollowWindow
+            key={imei}
+            plate={fmtPlate(deviceMap.get(imei), imei)}
+            pt={points.find(p => p.imei === imei)}
+            dark={dark}
+            onStop={() => setFollowImeis(prev => prev.filter(i => i !== imei))}
+            initPos={{ x: SX + col * (WINDOW_W + GAP), y: SY + row * (WINDOW_H + GAP) }}
+          />
+        );
+      })}
 
       {/* Modals */}
       {showAlerts && (
