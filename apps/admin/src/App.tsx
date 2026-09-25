@@ -13,6 +13,7 @@ import VehiclesPage from './pages/VehiclesPage';
 import DevicesPage from './pages/DevicesPage';
 import TelemetryPage from './pages/TelemetryPage';
 import RoleAccessPage from './pages/RoleAccessPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 import SetupGuidePage from './pages/SetupGuidePage';
 import MapPage from './pages/MapPage';
 import SettingsPage from './pages/SettingsPage';
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/driver-behavior" element={<RoleRoute page="driver-behavior"><DriverBehaviorPage /></RoleRoute>} />
         <Route path="/users" element={<RoleRoute page="users"><UsersPage /></RoleRoute>} />
         <Route path="/roles" element={<RoleRoute page="roles"><RoleAccessPage /></RoleRoute>} />
+        <Route path="/audit-logs" element={<RoleRoute page="audit-logs"><AuditLogsPage /></RoleRoute>} />
         <Route path="/setup" element={<RoleRoute page="setup"><SetupGuidePage /></RoleRoute>} />
         <Route path="/settings" element={<RoleRoute page="settings"><SettingsPage /></RoleRoute>} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

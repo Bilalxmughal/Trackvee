@@ -5,7 +5,7 @@ import {
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
   IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
-  IconBell, IconUsersGroup, IconUserScan, IconChartBar,
+  IconBell, IconUsersGroup, IconUserScan, IconChartBar, IconList,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -52,10 +52,11 @@ const NAV_SECTIONS: Section[] = [
   {
     label: 'Administration',
     items: [
-      { to: '/users', icon: IconUsers, label: 'User Management' },
-      { to: '/roles', icon: IconShield, label: 'Role Access' },
-      { to: '/settings', icon: IconSettings, label: 'Settings' },
-      { to: '/setup', icon: IconBook, label: 'Setup Guide' },
+      { to: '/users',      icon: IconUsers,  label: 'User Management' },
+      { to: '/roles',      icon: IconShield, label: 'Role Access' },
+      { to: '/audit-logs', icon: IconList,   label: 'Audit Logs' },
+      { to: '/settings',   icon: IconSettings, label: 'Settings' },
+      { to: '/setup',      icon: IconBook,   label: 'Setup Guide' },
     ],
   },
 ];

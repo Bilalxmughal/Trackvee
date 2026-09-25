@@ -29,6 +29,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     'driver-behavior': ['view', 'edit'],
     users:             ['view', 'add', 'edit', 'delete'],
     roles:             ['view'],
+    'audit-logs':      ['view'],
     settings:          ['view', 'edit'],
     setup:             ['view'],
   },
@@ -43,6 +44,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     'driver-behavior': ['view', 'edit'],
     users:             ['view', 'add', 'edit', 'delete'],
     roles:             ['view'],
+    'audit-logs':      ['view'],
     settings:          ['view', 'edit'],
     setup:             ['view'],
   },
@@ -55,6 +57,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     devices:           ['view', 'add', 'edit'],
     telemetry:         ['view'],
     'driver-behavior': ['view'],
+    'audit-logs':      ['view'],
     setup:             ['view'],
   },
   live_ops: {
