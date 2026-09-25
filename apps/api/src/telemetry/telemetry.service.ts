@@ -100,9 +100,11 @@ export class TelemetryService {
     const alerts = await this.alertsService.findActiveForImei(pt.imei, orgId);
     if (!alerts.length) return;
 
-    const prevRows = await this.repo.find({ where: { imei: pt.imei }, order: { timestamp: 'DESC' }, skip: 1, take: 1 });
+    const prevRows = await this.repo.find({ where: { imei: pt.imei }, order: { timestamp: 'DESC' }, skip: 1, take: 2 });
     const prev = prevRows[0] ?? null;
+    const prev2 = prevRows[1] ?? null;
     const MOVING = 5;
+    const TOW_SPEED = 15;
 
     for (const alert of alerts) {
       if (!isScheduleActive(alert.schedule)) continue;
@@ -140,7 +142,10 @@ export class TelemetryService {
           // Offline is evaluated by absence of data — skip here (checked separately)
           break;
         case 'tow':
-          triggered = pt.ignition !== true && pt.speedKmh >= MOVING;
+          // Require 2 consecutive packets: ignition off + speed >= 15 km/h to avoid GPS noise false positives
+          triggered = pt.ignition !== true && pt.speedKmh >= TOW_SPEED
+            && prev !== null && prev.ignition !== true && prev.speedKmh >= TOW_SPEED
+            && (prev2 === null || (prev2.ignition !== true && prev2.speedKmh >= TOW_SPEED));
           break;
         case 'over_parking':
           // Simplified: trigger if parked (ignition off, speed < threshold) once per cooldown

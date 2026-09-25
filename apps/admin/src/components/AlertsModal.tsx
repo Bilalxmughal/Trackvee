@@ -202,6 +202,10 @@ function AlertFormModal({ alert: init, vehicles, geofences, dark, onSave, onClos
           <input type="number" min={1} max={99} value={config.scoreThreshold ?? 70} onChange={e => setConfig(c => ({ ...c, scoreThreshold: +e.target.value }))} style={inp} placeholder="e.g. 70"/>
           <span style={{ fontSize: 11, color: dark ? '#555' : '#aaa', marginTop: 4, display: 'block' }}>Score range: 0 (worst) – 100 (perfect). Default threshold: 70.</span>
         </>;
+      case 'tow':
+        return <div style={{ fontSize: 12, color: dark ? '#888' : '#6b7280', padding: '10px 12px', background: dark ? '#1a0a0a' : '#fff7f7', border: '1px solid #fca5a5', borderRadius: 7, lineHeight: 1.6 }}>
+          Triggers when the vehicle is <strong>moving at 15+ km/h with ignition off</strong> for 2+ consecutive readings — indicating the vehicle may be towed. Uses GPS speed, so no additional configuration needed.
+        </div>;
       default:
         return <div style={{ fontSize: 12.5, color: dark ? '#555' : '#9ca3af', padding: '10px 0' }}>No additional configuration needed.</div>;
     }
