@@ -4,7 +4,7 @@
 
 ## Last Updated
 
-2026-09-22
+2026-09-26
 
 ## Current Phase
 
@@ -30,10 +30,12 @@ Current work is ongoing feature additions on top of a stable production base.
 - Client portal permissions system (DB-backed `role_portal_permissions` table + `OrgRolePermsContext`)
 - Real device data flowing: ATS-GO / AOT06 devices connected via AT06 TCP protocol
 - Driver Behavior Scoring: event detection (harsh brake, rapid accel, sharp turn, overspeed), daily score (0–100), leaderboard, 30-day history chart, configurable settings per org
-- Alert system: 14 alert types including `low_score` (fires once per vehicle per day when daily score drops below threshold)
+- Alert system: 15 alert types including `low_score` and `speed_zone`; tow alert uses 15 km/h threshold + 2 consecutive packet check
+- Speed Zones: circle + polygon zones with speed limit, draw tool, show/hide toggle, speed_zone alert type
 - Map: live tracking, 3-state status (Moving/Idle/Parked at 5 km/h threshold), route history, direction arrows, P-markers, vehicle search
 - Geofences: circle + polygon, enter/exit/both triggers
 - POIs: point-of-interest markers on map
+- **Trackvee manages client workflow**: admin selects a client from live map dropdown → all map operations (alerts, geofences, POIs, groups) are scoped to that client; backend supports `?orgId=` on all three endpoints; AlertsModal/AlertsLeftPanel/POIsPanel/GeofencesPanel all respect selected client
 
 ## In Progress / Pending Features
 
@@ -50,9 +52,9 @@ See session memory `pending-features.md` for full list. Key upcoming items:
 
 ## Next
 
-1. Run pending server commands for latest backend (low_score alert, driver-behavior AlertsModule):
-   `git pull origin main → pnpm --filter api build → pm2 restart yotrack-api`
-2. Implement Maintenance Reminders (#2 on pending list)
+1. **Server: deploy migration 018** (`apps/api/migrations/018_speed_zones.sql`) + rebuild API
+2. Implement Maintenance Reminders
+3. Reports Module
 
 ## Important Context
 
