@@ -19,14 +19,15 @@ interface Props {
   excludeGroupId?: string;
 }
 
-export default function VehicleGroupSelect({ allImeis, deviceMap, selected, onToggle, dark = false, groups = [], excludeGroupId }: Props) {
+export default function VehicleGroupSelect({ allImeis: _allImeis, deviceMap, selected, onToggle, dark = false, groups = [], excludeGroupId }: Props) {
+  const allImeis = _allImeis ?? [];
   const activeGroups = groups.filter(g => g.id !== excludeGroupId);
-  const groupedSet = new Set(activeGroups.flatMap(g => g.imeis));
+  const groupedSet = new Set(activeGroups.flatMap(g => g.imeis ?? []));
   const ungrouped = allImeis.filter(i => !groupedSet.has(i));
 
   const sections: { title?: string; imeis: string[] }[] = [];
   activeGroups.forEach(g => {
-    const gImeis = g.imeis.filter(i => allImeis.includes(i));
+    const gImeis = (g.imeis ?? []).filter(i => allImeis.includes(i));
     if (gImeis.length > 0) sections.push({ title: g.name, imeis: gImeis });
   });
   if (ungrouped.length > 0) sections.push({ imeis: ungrouped });

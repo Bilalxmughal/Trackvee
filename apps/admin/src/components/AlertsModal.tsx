@@ -157,7 +157,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, speedZones, dark, on
     setSelectedImeis(prev => { const n = new Set(prev); available.forEach(i => allSel ? n.delete(i) : n.add(i)); return n; });
   };
 
-  const groupedImeis = new Set(groups.flatMap(g => g.imeis));
+  const groupedImeis = new Set(groups.flatMap(g => g.imeis ?? []));
   const ungrouped = vehicles.filter(v => !groupedImeis.has(v.imei) && matchesSearch(v));
   const toggleDay = (d: string) => setSchedule(s => { const days = s.days ?? []; return { ...s, days: days.includes(d) ? days.filter(x => x !== d) : [...days, d] }; });
 
@@ -314,7 +314,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, speedZones, dark, on
                     <div style={{ border, borderRadius: 9, overflow: 'hidden', flex: 1, overflowY: 'auto' }}>
                       {/* Grouped vehicles */}
                       {groups.map(group => {
-                        const gVehicles = group.imeis.map(i => vehicleMap.get(i)).filter((v): v is Vehicle => !!v && matchesSearch(v));
+                        const gVehicles = (group.imeis ?? []).map(i => vehicleMap.get(i)).filter((v): v is Vehicle => !!v && matchesSearch(v));
                         if (gVehicles.length === 0) return null;
                         const collapsed = collapsedGroups.has(group.id);
                         const allSel = gVehicles.every(v => selectedImeis.has(v.imei));
@@ -732,7 +732,7 @@ export default function AlertsModal({ open, onClose, dark, vehicles, preSelected
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
                       <Chip label={ALERT_TYPE_LABELS[alert.type]} color={color} bg={`${color}14`}/>
                       <span style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa' }}>
-                        {`${alert.vehicleImeis.length} vehicle${alert.vehicleImeis.length !== 1 ? 's' : ''}`}
+                        {`${alert.vehicleImeis?.length ?? 0} vehicle${(alert.vehicleImeis?.length ?? 0) !== 1 ? 's' : ''}`}
                       </span>
                       {alert.schedule && <Chip label="Scheduled" color="#0284c7" bg="#e0f2fe"/>}
                     </div>
@@ -895,7 +895,7 @@ export function AlertsPanel({ dark, vehicles, onClose, preSelectedImei, editAler
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                     <span style={{ fontSize: 10.5, color, fontWeight: 600 }}>{ALERT_TYPE_LABELS[alert.type]}</span>
-                    <span style={{ fontSize: 10, color: dark ? '#555' : '#aaa' }}>· {alert.vehicleImeis.length}v</span>
+                    <span style={{ fontSize: 10, color: dark ? '#555' : '#aaa' }}>· {alert.vehicleImeis?.length ?? 0}v</span>
                   </div>
                 </div>
                 <Toggle value={alert.active} onChange={() => handleToggleActive(alert)}/>
