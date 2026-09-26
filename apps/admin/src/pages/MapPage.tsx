@@ -643,7 +643,9 @@ function GeofenceLayer({ geofences, editingId, visible }: { geofences: Geofence[
         layer = L.circle([c.center[0], c.center[1]], { ...opts, radius: c.radius }).bindTooltip(gf.name, { sticky: true });
       } else {
         const p = gf.coordinates as PolygonCoords;
-        layer = L.polygon(p.points as L.LatLngTuple[], opts).bindTooltip(gf.name, { sticky: true });
+        const pts = (p.points ?? []).filter((pt): pt is [number, number] => Array.isArray(pt) && pt[0] != null && pt[1] != null);
+        if (pts.length < 3) return;
+        layer = L.polygon(pts as L.LatLngTuple[], opts).bindTooltip(gf.name, { sticky: true });
       }
       layer.addTo(map);
       layers.push(layer);
@@ -743,7 +745,9 @@ function SpeedZoneLayer({ zones, editingId, visible }: { zones: SpeedZone[]; edi
         layer = L.circle([c.center[0], c.center[1]], { ...opts, radius: c.radius }).bindTooltip(tooltip, { sticky: true });
       } else {
         const p = sz.coordinates as SZPolygonCoords;
-        layer = L.polygon(p.points as L.LatLngTuple[], opts).bindTooltip(tooltip, { sticky: true });
+        const pts = (p.points ?? []).filter((pt): pt is [number, number] => Array.isArray(pt) && pt[0] != null && pt[1] != null);
+        if (pts.length < 3) return;
+        layer = L.polygon(pts as L.LatLngTuple[], opts).bindTooltip(tooltip, { sticky: true });
       }
       layer.addTo(map);
       layers.push(layer);
