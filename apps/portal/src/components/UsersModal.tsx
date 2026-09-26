@@ -3,9 +3,17 @@ import { IconPlus, IconPencil, IconTrash, IconSearch, IconUsers } from '@tabler/
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
+interface OrgPerm {
+  vehiclesView?: boolean; vehiclesAdd?: boolean; vehiclesEdit?: boolean; vehiclesDelete?: boolean;
+  alertsView?: boolean; alertsAdd?: boolean; alertsEdit?: boolean; alertsDelete?: boolean;
+  geofencesView?: boolean; geofencesAdd?: boolean; geofencesEdit?: boolean; geofencesDelete?: boolean;
+  poisView?: boolean; poisAdd?: boolean; poisEdit?: boolean; poisDelete?: boolean;
+  vehicleIds?: string[];
+}
+
 interface OrgUser {
   id: string; displayId?: number; email: string; firstName: string | null; lastName: string | null;
-  role: string; isActive: boolean;
+  role: string; isActive: boolean; permissions?: OrgPerm | null;
 }
 
 const inpSt: React.CSSProperties = { padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', width: '100%', boxSizing: 'border-box' };
@@ -40,8 +48,28 @@ const PORTAL_ROLE_PERMS: Record<string, Record<string, string[]>> = {
 
 // ── Form Modal ─────────────────────────────────────────────────────────────────
 
-function UserFormModal({ initial, organizationId, currentUserId, onSave, onClose }: {
-  initial?: OrgUser | null; organizationId: string; currentUserId: string;
+const PERM_MODULES: { key: string; label: string; actions: string[] }[] = [
+  { key: 'vehicles',  label: 'Vehicles',  actions: ['View', 'Add', 'Edit', 'Delete'] },
+  { key: 'alerts',    label: 'Alerts',    actions: ['View', 'Add', 'Edit', 'Delete'] },
+  { key: 'geofences', label: 'Geofences', actions: ['View', 'Add', 'Edit', 'Delete'] },
+  { key: 'pois',      label: 'POIs',      actions: ['View', 'Add', 'Edit', 'Delete'] },
+];
+
+function defaultPerms(role: string): OrgPerm {
+  const base = PORTAL_ROLE_PERMS[role] ?? {};
+  const p: OrgPerm = {};
+  for (const m of PERM_MODULES) {
+    const acts = base[m.key] ?? [];
+    for (const a of m.actions) {
+      const k = `${m.key}${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()}` as keyof OrgPerm;
+      if (k !== 'vehicleIds') (p as Record<string, boolean>)[k] = acts.includes(a.toLowerCase());
+    }
+  }
+  return p;
+}
+
+function UserFormModal({ initial, organizationId, currentUserId, currentUserRole, onSave, onClose }: {
+  initial?: OrgUser | null; organizationId: string; currentUserId: string; currentUserRole: string;
   onSave: (u: OrgUser) => void; onClose: () => void;
 }) {
   const [email, setEmail] = useState(initial?.email ?? '');
@@ -49,11 +77,21 @@ function UserFormModal({ initial, organizationId, currentUserId, onSave, onClose
   const [lastName, setLastName] = useState(initial?.lastName ?? '');
   const [role, setRole] = useState(initial?.role ?? 'client_user');
   const [password, setPassword] = useState('');
+  const [perms, setPerms] = useState<OrgPerm>(() => initial?.permissions ?? defaultPerms(initial?.role ?? 'client_user'));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
   const isSelf = !!initial?.id && initial.id === currentUserId;
-  const rolePerms = PORTAL_ROLE_PERMS[role] ?? {};
+  const canEditPerms = (currentUserRole === 'client_owner' || currentUserRole === 'client_super_admin' || currentUserRole === 'client_admin') && !isSelf;
+  const showPermsEditor = canEditPerms && (role === 'client_user' || role === 'client_admin');
+
+  // Reset perms when role changes
+  const handleRoleChange = (r: string) => { setRole(r); setPerms(defaultPerms(r)); };
+
+  const togglePerm = (key: keyof OrgPerm) => {
+    if (key === 'vehicleIds') return;
+    setPerms(p => ({ ...p, [key]: !p[key as keyof OrgPerm] }));
+  };
 
   const submit = async () => {
     if (!email.trim()) { setErr('Email is required'); return; }
@@ -61,6 +99,7 @@ function UserFormModal({ initial, organizationId, currentUserId, onSave, onClose
     setSaving(true); setErr('');
     const payload: Record<string, unknown> = { email: email.trim(), firstName: firstName.trim() || null, lastName: lastName.trim() || null, role, organizationId };
     if (password.trim()) payload.password = password;
+    if (showPermsEditor) payload.permissions = perms;
     try {
       let u: OrgUser;
       if (initial?.id) { u = (await api.patch<OrgUser>(`/users/${initial.id}`, payload)).data; }
@@ -119,36 +158,50 @@ function UserFormModal({ initial, organizationId, currentUserId, onSave, onClose
             )}
           </div>
 
-          {/* Portal access preview */}
-          <div>
-            <label style={LBL}>Portal Access</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-              {PORTAL_PAGES.map(pg => {
-                const actions = rolePerms[pg.key];
-                const hasAccess = !!actions && actions.length > 0;
-                const canWrite = actions?.some(a => ['add','edit','delete'].includes(a));
-                return (
-                  <div key={pg.key} style={{
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    padding: '3px 9px', borderRadius: 5,
-                    border: `1px solid ${hasAccess ? '#fca5a5' : '#e5e7eb'}`,
-                    background: hasAccess ? '#fff5f5' : '#f9fafb',
-                    color: hasAccess ? '#dc2626' : '#ccc',
-                    fontSize: 11.5, fontWeight: hasAccess ? 600 : 400,
-                  }}>
-                    {hasAccess ? (
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
-                    ) : (
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    )}
-                    {pg.label}
-                    {hasAccess && canWrite && <span style={{ fontSize: 10, opacity: 0.7 }}>+edit</span>}
+          {/* Permissions */}
+          {showPermsEditor ? (
+            <div>
+              <label style={LBL}>Module Permissions</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {PERM_MODULES.map(m => (
+                  <div key={m.key} style={{ background: '#f9fafb', borderRadius: 7, padding: '7px 10px', border: '1px solid #f0f0f0' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 5 }}>{m.label}</div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {m.actions.map(a => {
+                        const k = `${m.key}${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()}` as keyof OrgPerm;
+                        const on = !!(perms as Record<string, boolean>)[k as string];
+                        return (
+                          <button key={a} onClick={() => togglePerm(k)}
+                            style={{ padding: '3px 9px', borderRadius: 4, border: `1px solid ${on ? '#fca5a5' : '#e5e7eb'}`, background: on ? '#fff5f5' : '#fff', color: on ? '#dc2626' : '#aaa', fontSize: 11, cursor: 'pointer', fontWeight: on ? 600 : 400 }}>
+                            {a}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-            <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 5 }}>Access is determined by role. Change the role above to update permissions.</div>
-          </div>
+          ) : (
+            <div>
+              <label style={LBL}>Portal Access</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {PORTAL_PAGES.map(pg => {
+                  const actions = PORTAL_ROLE_PERMS[role]?.[pg.key];
+                  const hasAccess = !!actions && actions.length > 0;
+                  const canWrite = actions?.some(a => ['add','edit','delete'].includes(a));
+                  return (
+                    <div key={pg.key} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 5, border: `1px solid ${hasAccess ? '#fca5a5' : '#e5e7eb'}`, background: hasAccess ? '#fff5f5' : '#f9fafb', color: hasAccess ? '#dc2626' : '#ccc', fontSize: 11.5, fontWeight: hasAccess ? 600 : 400 }}>
+                      {hasAccess ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg> : <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
+                      {pg.label}
+                      {hasAccess && canWrite && <span style={{ fontSize: 10, opacity: 0.7 }}>+edit</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 5 }}>Access is determined by role.</div>
+            </div>
+          )}
 
           <div>
             <label style={LBL}>{initial?.id ? 'New Password (leave blank to keep)' : 'Password'}</label>
@@ -182,6 +235,7 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
 
   const orgId = (user as { organizationId?: string })?.organizationId ?? '';
   const currentUserId = (user as { id?: string })?.id ?? '';
+  const currentUserRole = (user as { role?: string })?.role ?? '';
 
   useEffect(() => {
     if (!orgId) return;
@@ -298,7 +352,7 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
       </div>
 
       {formOpen && (
-        <UserFormModal initial={editing} organizationId={orgId} currentUserId={currentUserId} onSave={onSave}
+        <UserFormModal initial={editing} organizationId={orgId} currentUserId={currentUserId} currentUserRole={currentUserRole} onSave={onSave}
           onClose={() => { setFormOpen(false); setEditing(null); }} />
       )}
 

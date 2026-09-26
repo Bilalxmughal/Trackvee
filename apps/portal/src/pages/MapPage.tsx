@@ -899,35 +899,57 @@ function TripReplayModal({ imei, plate, onClose }: { imei: string; plate: string
             </MapContainer>
           )}
         </div>
-        {!loading && history.length > 0 && (
-          <div style={{ padding: '10px 14px', borderTop: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: '#fafafa', flexShrink: 0 }}>
-            <button title="Restart" onClick={() => { setFrameIdx(0); setPlaying(false); }}
-              style={{ background: '#eee', border: 'none', cursor: 'pointer', color: '#555', padding: '6px 9px', borderRadius: 6, display: 'flex', alignItems: 'center' }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="19,20 9,12 19,4"/><line x1="5" y1="4" x2="5" y2="20" stroke="currentColor" strokeWidth="3"/></svg>
-            </button>
-            <button onClick={() => setPlaying(p => !p)} style={{ background: '#dc2626', border: 'none', cursor: 'pointer', color: '#fff', padding: '6px 14px', borderRadius: 6, fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
-              {playing ? 'Pause' : 'Play'}
-            </button>
-            <input type="range" min={0} max={Math.max(0, history.length - 1)} value={frameIdx}
-              onChange={e => { setPlaying(false); setFrameIdx(+e.target.value); }}
-              style={{ flex: 1, accentColor: '#dc2626', minWidth: 60 }}/>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 110 }}>
-              {currentPt && <>
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#111' }}>{formatTs(currentPt.timestamp)}</span>
-                <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>{Math.round(currentPt.speedKmh)} km/h</span>
-              </>}
-            </div>
-            <select value={playSpeed} onChange={e => setPlaySpeed(+e.target.value)}
-              style={{ padding: '5px 7px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#333', fontSize: 12, cursor: 'pointer' }}>
-              <option value={0.5}>0.5×</option>
-              <option value={1}>1×</option>
-              <option value={2}>2×</option>
-              <option value={4}>4×</option>
-              <option value={8}>8×</option>
-            </select>
-            <span style={{ fontSize: 10, color: '#bbb' }}>{frameIdx + 1}/{history.length}</span>
-          </div>
-        )}
+        {!loading && history.length > 0 && (() => {
+          const maxSpd = Math.max(...history.map(p => p.speedKmh), 1);
+          const W = 300, H = 32;
+          const sparkPts = history.map((p, i) => `${Math.round((i / (history.length - 1)) * W)},${Math.round(H - (p.speedKmh / maxSpd) * H)}`).join(' ');
+          const curX = Math.round((frameIdx / (history.length - 1)) * W);
+          return (
+            <>
+              {/* Speed sparkline */}
+              <div style={{ padding: '6px 14px 0', background: '#fafafa', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <svg width={W} height={H} style={{ flex: 1, maxWidth: '100%', display: 'block' }} preserveAspectRatio="none" viewBox={`0 0 ${W} ${H}`}>
+                    <polyline points={sparkPts} fill="none" stroke="#dc2626" strokeWidth="1.5" opacity="0.7"/>
+                    <line x1={curX} y1="0" x2={curX} y2={H} stroke="#dc2626" strokeWidth="1.5"/>
+                  </svg>
+                  <div style={{ minWidth: 80, textAlign: 'right' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: '#dc2626', lineHeight: 1 }}>{Math.round(currentPt?.speedKmh ?? 0)}</div>
+                    <div style={{ fontSize: 9, color: '#9ca3af' }}>km/h</div>
+                  </div>
+                </div>
+              </div>
+              {/* Controls */}
+              <div style={{ padding: '6px 14px 10px', borderTop: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: '#fafafa', flexShrink: 0 }}>
+                <button title="Restart" onClick={() => { setFrameIdx(0); setPlaying(false); }}
+                  style={{ background: '#eee', border: 'none', cursor: 'pointer', color: '#555', padding: '6px 9px', borderRadius: 6, display: 'flex', alignItems: 'center' }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="19,20 9,12 19,4"/><line x1="5" y1="4" x2="5" y2="20" stroke="currentColor" strokeWidth="3"/></svg>
+                </button>
+                <button onClick={() => setPlaying(p => !p)} style={{ background: '#dc2626', border: 'none', cursor: 'pointer', color: '#fff', padding: '6px 14px', borderRadius: 6, fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {playing ? 'Pause' : 'Play'}
+                </button>
+                <input type="range" min={0} max={Math.max(0, history.length - 1)} value={frameIdx}
+                  onChange={e => { setPlaying(false); setFrameIdx(+e.target.value); }}
+                  style={{ flex: 1, accentColor: '#dc2626', minWidth: 60 }}/>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 110 }}>
+                  {currentPt && <>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#111' }}>{formatTs(currentPt.timestamp)}</span>
+                    <span style={{ fontSize: 10, color: '#555' }}>Ign: {currentPt.ignition === true ? 'ON' : currentPt.ignition === false ? 'OFF' : '—'}</span>
+                  </>}
+                </div>
+                <select value={playSpeed} onChange={e => setPlaySpeed(+e.target.value)}
+                  style={{ padding: '5px 7px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#333', fontSize: 12, cursor: 'pointer' }}>
+                  <option value={0.5}>0.5×</option>
+                  <option value={1}>1×</option>
+                  <option value={2}>2×</option>
+                  <option value={4}>4×</option>
+                  <option value={8}>8×</option>
+                </select>
+                <span style={{ fontSize: 10, color: '#bbb' }}>{frameIdx + 1}/{history.length}</span>
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
