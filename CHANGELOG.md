@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-09-26
+
+### Added (Portal)
+- [HistoryLayer] Red polyline (#dc2626), clickable blue SVG polygon arrow markers with async Nominatim address lookups, 26px P/I segment markers with popups, STOP (ignition-off) markers, green start / black end dots — all matching admin.
+- [HistoryLayer] D-mode driving segment click now opens popup at midpoint: from/to timestamps + async addresses, duration, avg speed — same as admin.
+- [DriverBehaviorModal] New full-screen popup (Behavior topbar button) with Driver Scores leaderboard tab and Settings tab — replacing the left-panel settings-only panel.
+- [DriverBehaviorPanel] Fixed layout to horizontal row (label | input | unit), corrected units (km/h/s), corrected deduction labels to match admin.
+- [VehicleMultiSelect] New portal component — search, vehicle groups with toggle, Select All / Deselect All with dash indicator, inline styles (light theme).
+- [ReportsModal] Full rewrite: VehicleMultiSelect (multi-vehicle, group-aware), `/vehicle-groups` API, Period dropdown (Today/Yesterday/This Week/Last Week/This Month/Last Month), 13 report types, conditional Speed Limit / Min Stop / Min Speed, Group By dropdown, 2D-array row rendering, CSV export, summary row — matching admin filter logic.
+
+---
+
 ## 2026-09-22
 
 ### Fixed
