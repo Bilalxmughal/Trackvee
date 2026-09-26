@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react';
 import { IconPlus, IconPencil, IconTrash, IconSearch, IconUsers, IconEye, IconEyeOff } from '@tabler/icons-react';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { usePortalPerms } from '../contexts/PortalPermsContext';
 
 interface OrgPerm {
   vehiclesView: boolean; vehiclesAdd: boolean; vehiclesEdit: boolean; vehiclesDelete: boolean;
   alertsView: boolean; alertsAdd: boolean; alertsEdit: boolean; alertsDelete: boolean;
   geofencesView: boolean; geofencesAdd: boolean; geofencesEdit: boolean; geofencesDelete: boolean;
   poisView: boolean; poisAdd: boolean; poisEdit: boolean; poisDelete: boolean;
+  driverBehaviorView: boolean; driverBehaviorEdit: boolean;
+  reportsView: boolean;
+  usersView: boolean; usersAdd: boolean; usersEdit: boolean; usersDelete: boolean;
   vehicleIds: string[] | null;
 }
 
@@ -16,7 +20,8 @@ interface OrgUser {
   role: string; isActive: boolean; permissions?: OrgPerm | null;
 }
 
-interface Vehicle { id: string; plate: string; name?: string | null; }
+interface Vehicle { id: string; plate: string; name?: string | null; make?: string | null; model?: string | null; }
+interface VehicleGroup { id: string; name: string; vehicleIds: string[]; }
 
 const inpSt: React.CSSProperties = { padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', width: '100%', boxSizing: 'border-box' };
 const LBL: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.4, display: 'block', marginBottom: 4 };
@@ -30,57 +35,19 @@ const ROLE_COLOR: Record<string, string> = {
   client_admin: '#374151', client_user: '#6b7280',
 };
 
-const PORTAL_PAGES = [
-  { key: 'map',             label: 'Live Map' },
-  { key: 'vehicles',        label: 'Vehicles' },
-  { key: 'alerts',          label: 'Alerts' },
-  { key: 'geofences',       label: 'Geofences' },
-  { key: 'pois',            label: 'POIs' },
-  { key: 'driver-behavior', label: 'Behavior' },
-  { key: 'reports',         label: 'Reports' },
-  { key: 'users',           label: 'Users' },
-];
-
-const PORTAL_ROLE_PERMS: Record<string, Record<string, string[]>> = {
-  client_owner:       { map: ['view'], vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit','delete'] },
-  client_super_admin: { map: ['view'], vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit'] },
-  client_admin:       { map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'] },
-  client_user:        { map: ['view'], vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'] },
-};
-
-const PERM_MODULES: { key: string; label: string; actions: string[] }[] = [
-  { key: 'vehicles',  label: 'Vehicles',  actions: ['View', 'Add', 'Edit', 'Delete'] },
-  { key: 'alerts',    label: 'Alerts',    actions: ['View', 'Add', 'Edit', 'Delete'] },
-  { key: 'geofences', label: 'Geofences', actions: ['View', 'Add', 'Edit', 'Delete'] },
-  { key: 'pois',      label: 'POIs',      actions: ['View', 'Add', 'Edit', 'Delete'] },
+// All possible permission modules — dynamically filtered by current user's canDo
+const ALL_MODULES: { portalKey: string; permKey: string; label: string; actions: string[] }[] = [
+  { portalKey: 'vehicles',        permKey: 'vehicles',       label: 'Vehicles',       actions: ['View', 'Add', 'Edit', 'Delete'] },
+  { portalKey: 'alerts',          permKey: 'alerts',         label: 'Alerts',         actions: ['View', 'Add', 'Edit', 'Delete'] },
+  { portalKey: 'geofences',       permKey: 'geofences',      label: 'Geofences',      actions: ['View', 'Add', 'Edit', 'Delete'] },
+  { portalKey: 'pois',            permKey: 'pois',           label: 'POIs',           actions: ['View', 'Add', 'Edit', 'Delete'] },
+  { portalKey: 'driver-behavior', permKey: 'driverBehavior', label: 'Driver Behavior',actions: ['View', 'Edit'] },
+  { portalKey: 'reports',         permKey: 'reports',        label: 'Reports',        actions: ['View'] },
+  { portalKey: 'users',           permKey: 'users',          label: 'Users',          actions: ['View', 'Add', 'Edit', 'Delete'] },
 ];
 
 const ACTION_COLOR: Record<string, string> = {
   View: '#3b82f6', Add: '#16a34a', Edit: '#f59e0b', Delete: '#dc2626',
-};
-
-const TEMPLATES: Record<string, OrgPerm> = {
-  'View Only': {
-    vehiclesView: true,  vehiclesAdd: false,  vehiclesEdit: false,  vehiclesDelete: false,
-    alertsView: true,    alertsAdd: false,    alertsEdit: false,    alertsDelete: false,
-    geofencesView: true, geofencesAdd: false, geofencesEdit: false, geofencesDelete: false,
-    poisView: true,      poisAdd: false,      poisEdit: false,      poisDelete: false,
-    vehicleIds: null,
-  },
-  'Field Staff': {
-    vehiclesView: true,  vehiclesAdd: false,  vehiclesEdit: false,  vehiclesDelete: false,
-    alertsView: true,    alertsAdd: true,     alertsEdit: true,     alertsDelete: false,
-    geofencesView: true, geofencesAdd: false, geofencesEdit: false, geofencesDelete: false,
-    poisView: true,      poisAdd: false,      poisEdit: false,      poisDelete: false,
-    vehicleIds: null,
-  },
-  'Manager': {
-    vehiclesView: true,  vehiclesAdd: true,   vehiclesEdit: true,   vehiclesDelete: false,
-    alertsView: true,    alertsAdd: true,     alertsEdit: true,     alertsDelete: true,
-    geofencesView: true, geofencesAdd: true,  geofencesEdit: true,  geofencesDelete: false,
-    poisView: true,      poisAdd: true,       poisEdit: true,       poisDelete: false,
-    vehicleIds: null,
-  },
 };
 
 function defaultPerms(): OrgPerm {
@@ -89,6 +56,9 @@ function defaultPerms(): OrgPerm {
     alertsView: false, alertsAdd: false, alertsEdit: false, alertsDelete: false,
     geofencesView: false, geofencesAdd: false, geofencesEdit: false, geofencesDelete: false,
     poisView: false, poisAdd: false, poisEdit: false, poisDelete: false,
+    driverBehaviorView: false, driverBehaviorEdit: false,
+    reportsView: false,
+    usersView: false, usersAdd: false, usersEdit: false, usersDelete: false,
     vehicleIds: null,
   };
 }
@@ -99,6 +69,8 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
   initial?: OrgUser | null; organizationId: string; currentUserId: string; currentUserRole: string;
   onSave: (u: OrgUser) => void; onClose: () => void;
 }) {
+  const { canDo } = usePortalPerms();
+
   const [email, setEmail] = useState(initial?.email ?? '');
   const [firstName, setFirstName] = useState(initial?.firstName ?? '');
   const [lastName, setLastName] = useState(initial?.lastName ?? '');
@@ -108,36 +80,40 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [perms, setPerms] = useState<OrgPerm>(defaultPerms);
   const [orgVehicles, setOrgVehicles] = useState<Vehicle[]>([]);
+  const [orgVehicleGroups, setOrgVehicleGroups] = useState<VehicleGroup[]>([]);
   const [permsLoaded, setPermsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
-  const [activeTab, setActiveTab] = useState<'profile' | 'perms'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'vehicles' | 'perms'>('profile');
 
   const isSelf = !!initial?.id && initial.id === currentUserId;
-  // client_owner has fixed full access — no custom perms needed
   const canEditPerms = (currentUserRole === 'client_owner' || currentUserRole === 'client_super_admin' || currentUserRole === 'client_admin') && !isSelf && role !== 'client_owner';
 
-  // Load existing perms and org vehicles when editing any permissioned user
+  // Modules visible to current user (dynamic — only what they have access to)
+  const visibleModules = ALL_MODULES.filter(m => canDo(m.portalKey, 'view')).map(m => ({
+    ...m,
+    actions: m.actions.filter(a => canDo(m.portalKey, a.toLowerCase())),
+  }));
+
+  // Load existing perms + vehicles + groups
   useEffect(() => {
-    if (!initial?.id || !canEditPerms) { setPermsLoaded(true); return; }
+    if (!canEditPerms) { setPermsLoaded(true); return; }
     let cancelled = false;
     Promise.all([
-      api.get<OrgPerm>(`/org-permissions/${initial.id}`).then(r => r.data).catch(() => defaultPerms()),
-      api.get<Vehicle[]>(`/vehicles?organizationId=${organizationId}`).then(r => r.data).catch(() => []),
-    ]).then(([p, vs]) => {
+      initial?.id
+        ? api.get<OrgPerm>(`/org-permissions/${initial.id}`).then(r => r.data).catch(() => defaultPerms())
+        : Promise.resolve(defaultPerms()),
+      api.get<{ id: string; plate: string; name?: string | null; make?: string | null; model?: string | null }[]>(`/vehicles?organizationId=${organizationId}`).then(r => r.data).catch(() => []),
+      api.get<VehicleGroup[]>(`/vehicle-groups?organizationId=${organizationId}`).then(r => r.data).catch(() => []),
+    ]).then(([p, vs, vgs]) => {
       if (cancelled) return;
       setPerms({ ...defaultPerms(), ...p });
       setOrgVehicles(vs);
+      setOrgVehicleGroups(vgs);
       setPermsLoaded(true);
     });
     return () => { cancelled = true; };
   }, [initial?.id, canEditPerms, organizationId]);
-
-  // Load vehicles when creating a new permissioned user
-  useEffect(() => {
-    if (initial?.id || !canEditPerms) return;
-    api.get<Vehicle[]>(`/vehicles?organizationId=${organizationId}`).then(r => setOrgVehicles(r.data)).catch(() => {});
-  }, [canEditPerms, organizationId, initial?.id]);
 
   const handleRoleChange = (r: string) => { setRole(r); setPerms(defaultPerms()); };
 
@@ -147,13 +123,28 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
       const k = key as string;
       const turning_on = !p[key as keyof OrgPerm];
       const next = { ...p, [key]: turning_on } as OrgPerm;
-      // Auto-grant View when Add/Edit/Delete is turned on
       if (turning_on && (k.endsWith('Add') || k.endsWith('Edit') || k.endsWith('Delete'))) {
         const mod = k.replace(/Add$|Edit$|Delete$/, '');
         const viewKey = `${mod}View` as keyof OrgPerm;
         (next as unknown as Record<string, boolean>)[viewKey] = true;
       }
       return next;
+    });
+  };
+
+  const toggleVehicle = (id: string) => {
+    setPerms(p => {
+      const ids = p.vehicleIds ?? [];
+      const checked = ids.includes(id);
+      return { ...p, vehicleIds: checked ? ids.filter(x => x !== id) : [...ids, id] };
+    });
+  };
+
+  const toggleGroupVehicles = (vIds: string[]) => {
+    setPerms(p => {
+      const ids = p.vehicleIds ?? [];
+      const allSel = vIds.every(id => ids.includes(id));
+      return { ...p, vehicleIds: allSel ? ids.filter(x => !vIds.includes(x)) : [...new Set([...ids, ...vIds])] };
     });
   };
 
@@ -177,7 +168,17 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
     } finally { setSaving(false); }
   };
 
-  const tabs = [{ id: 'profile' as const, label: 'Profile' }, ...(canEditPerms ? [{ id: 'perms' as const, label: 'Permissions' }] : [])];
+  const tabs = [
+    { id: 'profile' as const, label: 'Profile' },
+    ...(canEditPerms ? [
+      { id: 'vehicles' as const, label: 'Vehicles' },
+      { id: 'perms' as const, label: 'Permissions' },
+    ] : []),
+  ];
+
+  // Group-wise vehicle list for Vehicles tab
+  const groupedVehicleIds = new Set(orgVehicleGroups.flatMap(g => g.vehicleIds));
+  const ungroupedVehicles = orgVehicles.filter(v => !groupedVehicleIds.has(v.id));
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10100, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -195,7 +196,7 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
           <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0', padding: '0 16px' }}>
             {tabs.map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
-                style={{ padding: '8px 12px', border: 'none', borderBottom: `2px solid ${activeTab === t.id ? '#dc2626' : 'transparent'}`, background: 'transparent', color: activeTab === t.id ? '#dc2626' : '#9ca3af', fontSize: 12, fontWeight: activeTab === t.id ? 700 : 400, cursor: 'pointer', marginBottom: -1 }}>
+                style={{ padding: '8px 14px', border: 'none', borderBottom: `2px solid ${activeTab === t.id ? '#dc2626' : 'transparent'}`, background: 'transparent', color: activeTab === t.id ? '#dc2626' : '#9ca3af', fontSize: 12, fontWeight: activeTab === t.id ? 700 : 400, cursor: 'pointer', marginBottom: -1 }}>
                 {t.label}
               </button>
             ))}
@@ -203,6 +204,8 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
         )}
 
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', flex: 1 }}>
+
+          {/* ── Tab 1: Profile ── */}
           {activeTab === 'profile' && (
             <>
               <div>
@@ -244,21 +247,13 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
               <div>
                 <label style={LBL}>{initial?.id ? 'New Password (leave blank to keep)' : 'Password'}</label>
                 <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
+                  <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
                     placeholder={initial?.id ? 'Leave blank to keep' : '••••••••'}
                     style={{ ...inpSt, paddingRight: 36 }}
                     onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
-                    onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(v => !v)}
-                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }}
-                    tabIndex={-1}
-                  >
+                    onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
+                  <button type="button" onClick={() => setShowPassword(v => !v)}
+                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }} tabIndex={-1}>
                     {showPassword ? <IconEyeOff size={15}/> : <IconEye size={15}/>}
                   </button>
                 </div>
@@ -273,28 +268,101 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
             </>
           )}
 
-          {activeTab === 'perms' && canEditPerms && (
-            <>
-              {!permsLoaded ? (
-                <div style={{ padding: 20, textAlign: 'center', color: '#bbb', fontSize: 12 }}>Loading permissions…</div>
-              ) : (
-                <>
-                  {/* Permission Templates */}
-                  <div>
-                    <label style={LBL}>Permission Templates</label>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {Object.entries(TEMPLATES).map(([name, tpl]) => (
-                        <button key={name} onClick={() => setPerms(p => ({ ...tpl, vehicleIds: p.vehicleIds }))}
-                          style={{ padding: '5px 12px', borderRadius: 5, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151', fontSize: 11.5, cursor: 'pointer', fontWeight: 500 }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626'; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#374151'; }}>
-                          {name}
-                        </button>
-                      ))}
-                    </div>
+          {/* ── Tab 2: Vehicles ── */}
+          {activeTab === 'vehicles' && canEditPerms && (
+            !permsLoaded
+              ? <div style={{ padding: 20, textAlign: 'center', color: '#bbb', fontSize: 12 }}>Loading…</div>
+              : (
+                <div>
+                  <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}>
+                      <input type="radio" checked={perms.vehicleIds === null} onChange={() => setPerms(p => ({ ...p, vehicleIds: null }))} />
+                      All Vehicles
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}>
+                      <input type="radio" checked={perms.vehicleIds !== null} onChange={() => setPerms(p => ({ ...p, vehicleIds: [] }))} />
+                      Specific Vehicles
+                    </label>
                   </div>
 
-                  {/* Module Permissions table */}
+                  {perms.vehicleIds !== null && (
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                      {orgVehicles.length === 0 && (
+                        <div style={{ padding: 16, fontSize: 12, color: '#bbb', textAlign: 'center' }}>No vehicles found</div>
+                      )}
+
+                      {/* Groups */}
+                      {orgVehicleGroups.map(grp => {
+                        const grpVehicles = orgVehicles.filter(v => grp.vehicleIds.includes(v.id));
+                        if (grpVehicles.length === 0) return null;
+                        const allSel = grpVehicles.every(v => perms.vehicleIds!.includes(v.id));
+                        const someSel = !allSel && grpVehicles.some(v => perms.vehicleIds!.includes(v.id));
+                        return (
+                          <div key={grp.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                            {/* Group header */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: '#f9fafb', borderBottom: '1px solid #f0f0f0' }}>
+                              <button onClick={() => toggleGroupVehicles(grpVehicles.map(v => v.id))}
+                                style={{ width: 16, height: 16, borderRadius: 3, border: `1.5px solid ${allSel ? '#dc2626' : someSel ? '#dc2626' : '#d1d5db'}`, background: allSel ? '#dc2626' : someSel ? '#fef2f2' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}>
+                                {allSel && <svg width="9" height="9" viewBox="0 0 9 9"><path d="M1.5 4.5l2 2 4-4" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>}
+                                {someSel && <svg width="9" height="9" viewBox="0 0 9 9"><path d="M2 4.5h5" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+                              </button>
+                              <span style={{ fontSize: 11.5, fontWeight: 700, color: '#374151' }}>{grp.name}</span>
+                              <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{grpVehicles.length} vehicles</span>
+                            </div>
+                            {/* Group vehicles */}
+                            <div style={{ padding: '4px 12px 6px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              {grpVehicles.map(v => {
+                                const checked = perms.vehicleIds!.includes(v.id);
+                                const label = v.name || [v.make, v.model].filter(Boolean).join(' ') || '';
+                                return (
+                                  <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', padding: '3px 0' }}>
+                                    <input type="checkbox" checked={checked} onChange={() => toggleVehicle(v.id)} style={{ accentColor: '#dc2626' }} />
+                                    <span style={{ fontWeight: 600, color: '#111', fontFamily: 'monospace', fontSize: 12 }}>{v.plate}</span>
+                                    {label && <span style={{ color: '#9ca3af', fontSize: 11 }}>{label}</span>}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Ungrouped vehicles */}
+                      {ungroupedVehicles.length > 0 && (
+                        <div>
+                          {orgVehicleGroups.length > 0 && (
+                            <div style={{ padding: '7px 12px', background: '#f9fafb', borderBottom: '1px solid #f0f0f0', fontSize: 11.5, fontWeight: 700, color: '#9ca3af' }}>
+                              Other
+                            </div>
+                          )}
+                          <div style={{ padding: '4px 12px 6px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {ungroupedVehicles.map(v => {
+                              const checked = perms.vehicleIds!.includes(v.id);
+                              const label = v.name || [v.make, v.model].filter(Boolean).join(' ') || '';
+                              return (
+                                <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', padding: '3px 0' }}>
+                                  <input type="checkbox" checked={checked} onChange={() => toggleVehicle(v.id)} style={{ accentColor: '#dc2626' }} />
+                                  <span style={{ fontWeight: 600, color: '#111', fontFamily: 'monospace', fontSize: 12 }}>{v.plate}</span>
+                                  {label && <span style={{ color: '#9ca3af', fontSize: 11 }}>{label}</span>}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+          )}
+
+          {/* ── Tab 3: Permissions ── */}
+          {activeTab === 'perms' && canEditPerms && (
+            !permsLoaded
+              ? <div style={{ padding: 20, textAlign: 'center', color: '#bbb', fontSize: 12 }}>Loading permissions…</div>
+              : visibleModules.length === 0
+                ? <div style={{ padding: 20, textAlign: 'center', color: '#bbb', fontSize: 12 }}>No configurable permissions</div>
+                : (
                   <div>
                     <label style={LBL}>Module Permissions</label>
                     <div style={{ border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
@@ -308,11 +376,18 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
                           </tr>
                         </thead>
                         <tbody>
-                          {PERM_MODULES.map((m, mi) => (
-                            <tr key={m.key} style={{ borderBottom: mi < PERM_MODULES.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+                          {visibleModules.map((m, mi) => (
+                            <tr key={m.portalKey} style={{ borderBottom: mi < visibleModules.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
                               <td style={{ padding: '7px 12px', fontSize: 12, fontWeight: 500, color: '#374151' }}>{m.label}</td>
-                              {m.actions.map(a => {
-                                const k = `${m.key}${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()}` as keyof OrgPerm;
+                              {['View', 'Add', 'Edit', 'Delete'].map(a => {
+                                if (!m.actions.includes(a)) {
+                                  return (
+                                    <td key={a} style={{ padding: '7px 10px', textAlign: 'center' }}>
+                                      <span style={{ color: '#e5e7eb', fontSize: 12 }}>—</span>
+                                    </td>
+                                  );
+                                }
+                                const k = `${m.permKey}${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()}` as keyof OrgPerm;
                                 const on = !!(perms as unknown as Record<string, boolean>)[k as string];
                                 const col = ACTION_COLOR[a];
                                 return (
@@ -332,45 +407,11 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
                         </tbody>
                       </table>
                     </div>
-                  </div>
-
-                  {/* Vehicle Access */}
-                  <div>
-                    <label style={LBL}>Vehicle Access</label>
-                    <div style={{ background: '#f9fafb', borderRadius: 7, padding: '7px 10px', border: '1px solid #f0f0f0' }}>
-                      <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12 }}>
-                          <input type="radio" checked={perms.vehicleIds === null} onChange={() => setPerms(p => ({ ...p, vehicleIds: null }))} /> All vehicles
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12 }}>
-                          <input type="radio" checked={perms.vehicleIds !== null} onChange={() => setPerms(p => ({ ...p, vehicleIds: [] }))} /> Specific vehicles
-                        </label>
-                      </div>
-                      {perms.vehicleIds !== null && (
-                        <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                          {orgVehicles.length === 0 && <div style={{ fontSize: 11.5, color: '#bbb', padding: 4 }}>No vehicles found</div>}
-                          {orgVehicles.map(v => {
-                            const checked = perms.vehicleIds?.includes(v.id) ?? false;
-                            return (
-                              <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, cursor: 'pointer', padding: '3px 0' }}>
-                                <input type="checkbox" checked={checked} onChange={() => {
-                                  setPerms(p => {
-                                    const ids = p.vehicleIds ?? [];
-                                    return { ...p, vehicleIds: checked ? ids.filter(x => x !== v.id) : [...ids, v.id] };
-                                  });
-                                }} />
-                                <span style={{ fontWeight: 500, color: '#333' }}>{v.plate}</span>
-                                {v.name && <span style={{ color: '#9ca3af', fontSize: 11 }}>{v.name}</span>}
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
+                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
+                      Only modules available to your role are shown.
                     </div>
                   </div>
-                </>
-              )}
-            </>
+                )
           )}
 
           {err && <div style={{ fontSize: 12, color: '#dc2626' }}>{err}</div>}
