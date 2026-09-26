@@ -26,9 +26,11 @@ const DEFAULT: BehaviorSettings = {
   deductionOverspeed: 2,
 };
 
-const inp: React.CSSProperties = { padding: '6px 9px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' };
-const LBL: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.4, display: 'block', marginBottom: 4 };
-const SECT: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: 0.6, padding: '10px 12px 4px', borderBottom: '1px solid #f5f5f5' };
+const INP: React.CSSProperties = { height: 28, padding: '0 8px', border: '1px solid #e5e7eb', borderRadius: 4, fontSize: 12, color: '#111', background: '#fff', outline: 'none', width: 80 };
+const LBL: React.CSSProperties = { fontSize: 12, color: '#6b7280', minWidth: 170, flexShrink: 0 };
+const ROW: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 };
+const UNIT: React.CSSProperties = { fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' };
+const SECT: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.8, padding: '10px 12px 6px', borderBottom: '1px solid #f5f5f5' };
 
 export default function DriverBehaviorPanel() {
   const { closePanel } = usePortalPanel();
@@ -46,11 +48,12 @@ export default function DriverBehaviorPanel() {
   }, []);
 
   const field = (label: string, key: keyof BehaviorSettings, unit?: string) => (
-    <div>
-      <label style={LBL}>{label}{unit ? ` (${unit})` : ''}</label>
-      <input type="number" value={settings[key]} onChange={e => setSettings(s => ({ ...s, [key]: +e.target.value }))} style={inp}
+    <div style={ROW}>
+      <span style={LBL}>{label}</span>
+      <input type="number" value={settings[key]} onChange={e => setSettings(s => ({ ...s, [key]: +e.target.value }))} style={INP}
         onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
         onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
+      {unit && <span style={UNIT}>{unit}</span>}
     </div>
   );
 
@@ -80,18 +83,18 @@ export default function DriverBehaviorPanel() {
           <div style={SECT}>Detection Thresholds</div>
           <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {field('Overspeed Threshold', 'overspeedThreshold', 'km/h')}
-            {field('Harsh Brake Deceleration', 'harshBrakeDeceleration', 'g')}
-            {field('Rapid Acceleration', 'rapidAccelThreshold', 'g')}
-            {field('Sharp Turn Angle', 'sharpTurnAngle', 'deg')}
+            {field('Harsh Brake Deceleration', 'harshBrakeDeceleration', 'km/h/s')}
+            {field('Rapid Acceleration', 'rapidAccelThreshold', 'km/h/s')}
+            {field('Sharp Turn Angle', 'sharpTurnAngle', 'degrees')}
             {field('Sharp Turn Min Speed', 'sharpTurnMinSpeed', 'km/h')}
           </div>
 
           <div style={SECT}>Score Deductions</div>
           <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {field('Per Harsh Brake', 'deductionHarshBrake', 'pts')}
-            {field('Per Rapid Acceleration', 'deductionRapidAccel', 'pts')}
-            {field('Per Sharp Turn', 'deductionSharpTurn', 'pts')}
-            {field('Per Overspeed', 'deductionOverspeed', 'pts')}
+            {field('Harsh Brake Deduction', 'deductionHarshBrake', 'pts')}
+            {field('Rapid Accel Deduction', 'deductionRapidAccel', 'pts')}
+            {field('Sharp Turn Deduction', 'deductionSharpTurn', 'pts')}
+            {field('Overspeed Deduction', 'deductionOverspeed', 'pts')}
           </div>
         </div>
       )}

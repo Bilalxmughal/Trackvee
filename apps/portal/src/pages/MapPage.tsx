@@ -11,7 +11,7 @@ import AlertsPanel, { type AlertItem } from '../components/AlertsPanel';
 import GeofencesPanel, { type Geofence } from '../components/GeofencesPanel';
 import POIsPanel, { type POI } from '../components/POIsPanel';
 import ReportsModal from '../components/ReportsModal';
-import DriverBehaviorPanel from '../components/DriverBehaviorPanel';
+import DriverBehaviorModal from '../components/DriverBehaviorModal';
 import UsersModal from '../components/UsersModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -139,6 +139,25 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
+function calcBearing(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const r = Math.PI / 180;
+  const dL = (lng2 - lng1) * r;
+  const y = Math.sin(dL) * Math.cos(lat2 * r);
+  const x = Math.cos(lat1 * r) * Math.sin(lat2 * r) - Math.sin(lat1 * r) * Math.cos(lat2 * r) * Math.cos(dL);
+  return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+}
+const geocodeCache = new Map<string, string>();
+async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  const k = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  if (geocodeCache.has(k)) return geocodeCache.get(k)!;
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+    const j = await r.json() as { display_name?: string };
+    const a = j.display_name ?? `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    geocodeCache.set(k, a);
+    return a;
+  } catch { return `${lat.toFixed(5)}, ${lon.toFixed(5)}`; }
+}
 
 // ── Car Icon ──────────────────────────────────────────────────────────────────
 
@@ -210,14 +229,16 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
   const layerRef = useRef<L.LayerGroup | null>(null);
   const pMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const highlightRef = useRef<L.Polyline | null>(null);
+  const dPopupRef = useRef<L.Popup | null>(null);
 
   useEffect(() => {
     if (highlightRef.current) { map.removeLayer(highlightRef.current); highlightRef.current = null; }
+    if (dPopupRef.current) { map.closePopup(dPopupRef.current); dPopupRef.current = null; }
     if (!selectedSegment) return;
+
     if (selectedSegment.type === 'parked' || selectedSegment.type === 'idle') {
       map.flyTo([selectedSegment.lat, selectedSegment.lng], 18, { animate: true, duration: 0.7 });
-      const key = selectedSegment.startTime;
-      const m = pMarkersRef.current.get(key);
+      const m = pMarkersRef.current.get(selectedSegment.startTime);
       if (m) setTimeout(() => m.openPopup(), 800);
     } else {
       const segPts = points.filter(p => p.timestamp >= selectedSegment.startTime && p.timestamp <= selectedSegment.endTime);
@@ -225,66 +246,139 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
       const coords: [number,number][] = segPts.map(p => [p.latitude, p.longitude]);
       highlightRef.current = L.polyline(coords, { color: '#16a34a', weight: 5, opacity: 0.95 }).addTo(map);
       try { map.fitBounds(L.latLngBounds(coords), { padding: [50, 50], animate: true }); } catch {}
+      const mid = segPts[Math.floor(segPts.length / 2)]!;
+      const sp = segPts[0]!, ep = segPts[segPts.length - 1]!;
+      const addrFromId = `dhfrom-${Date.now()}`;
+      const addrToId = `dhto-${Date.now()}`;
+      const popupHtml = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:210px;line-height:1.6">
+        <div style="font-weight:700;margin-bottom:6px;color:#16a34a;font-size:13px">Driving Segment</div>
+        <div style="margin-bottom:5px">
+          <div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div>
+          <div style="font-weight:600;font-size:11px">${formatTsFull(sp.timestamp)}</div>
+          <div id="${addrFromId}" style="color:#555;font-size:10.5px">Loading…</div>
+        </div>
+        <div style="margin-bottom:5px">
+          <div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div>
+          <div style="font-weight:600;font-size:11px">${formatTsFull(ep.timestamp)}</div>
+          <div id="${addrToId}" style="color:#555;font-size:10.5px">Loading…</div>
+        </div>
+        <div style="display:flex;gap:14px;font-size:11px;margin-top:4px">
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase">Duration</div><div style="font-weight:600">${formatDuration(selectedSegment.durationSec)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase">Avg Speed</div><div style="font-weight:600">${selectedSegment.avgSpeed ?? '—'} km/h</div></div>
+        </div>
+      </div>`;
+      const popup = L.popup({ maxWidth: 280 }).setLatLng([mid.latitude, mid.longitude]).setContent(popupHtml);
+      dPopupRef.current = popup;
+      popup.addTo(map);
+      reverseGeocode(sp.latitude, sp.longitude).then(a => { const el = document.getElementById(addrFromId); if (el) el.textContent = a; });
+      reverseGeocode(ep.latitude, ep.longitude).then(a => { const el = document.getElementById(addrToId); if (el) el.textContent = a; });
     }
   }, [selectedSegment, points, map]);
 
   useEffect(() => {
     if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
+    if (highlightRef.current) { map.removeLayer(highlightRef.current); highlightRef.current = null; }
+    if (dPopupRef.current) { map.closePopup(dPopupRef.current); dPopupRef.current = null; }
     pMarkersRef.current.clear();
-    if (points.length === 0) return;
-    const lg = L.layerGroup().addTo(map);
-    layerRef.current = lg;
+    if (points.length < 2) return;
+
+    const layer = L.layerGroup().addTo(map);
+    layerRef.current = layer;
 
     const coords: [number,number][] = points.map(p => [p.latitude, p.longitude]);
-    L.polyline(coords, { color: '#2563eb', weight: 3, opacity: 0.8 }).addTo(lg);
+    L.polyline(coords, { color: '#dc2626', weight: 3.5, opacity: 0.85 }).addTo(layer);
 
-    // Clickable GPS point markers (every ~15th point)
-    const step = Math.max(1, Math.floor(coords.length / 80));
-    for (let i = 0; i < points.length; i += step) {
+    // Direction arrow markers — clickable SVG polygon, placed every ~N moving points
+    const step = Math.max(1, Math.floor(points.length / 200));
+    for (let i = step; i < points.length - 1; i += step) {
       const p = points[i]!;
-      const cm = L.circleMarker([p.latitude, p.longitude], {
-        radius: 4, color: '#dc2626', fillColor: '#dc2626', fillOpacity: 1, weight: 1.5,
-      });
-      const ign = p.ignition === true ? '<span style="color:#16a34a">ON</span>' : p.ignition === false ? '<span style="color:#dc2626">OFF</span>' : '<span style="color:#9ca3af">—</span>';
-      cm.bindPopup(`<div style="font-size:12px;min-width:160px"><b style="color:#111">${formatTs(p.timestamp)}</b><br/><span style="color:#555">Speed:</span> ${p.speedKmh.toFixed(1)} km/h<br/><span style="color:#555">Ignition:</span> ${ign}<br/><span style="color:#aaa;font-size:10.5px">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</span></div>`);
-      cm.addTo(lg);
+      if (p.speedKmh < MOVING_SPEED) continue;
+      const bearing = calcBearing(points[i-1]!.latitude, points[i-1]!.longitude, p.latitude, p.longitude);
+      const addrId = `arrow-${i}-${Date.now()}`;
+      const html = `<div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%) rotate(${bearing}deg);cursor:pointer"><svg width="20" height="20" viewBox="0 0 20 20"><polygon points="10,2 17,18 10,14 3,18" fill="#2563eb" stroke="white" stroke-width="1.5"/></svg></div>`;
+      const popupContent = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:175px;line-height:1.5">
+        <div style="font-weight:700;margin-bottom:5px;color:#2563eb;font-size:13px">Moving</div>
+        <div id="${addrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
+        <div style="color:#9ca3af;font-size:10px;margin-bottom:5px">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</div>
+        <div style="display:flex;gap:14px;font-size:11px">
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Time</div><div style="font-weight:600">${formatTsFull(p.timestamp)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">Speed</div><div style="font-weight:600">${Math.round(p.speedKmh)} km/h</div></div>
+        </div>
+      </div>`;
+      const m = L.marker([p.latitude, p.longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 60 });
+      m.bindPopup(popupContent, { maxWidth: 260 }).addTo(layer);
+      m.on('popupopen', async () => { const addr = await reverseGeocode(p.latitude, p.longitude); const el = document.getElementById(addrId); if (el) el.textContent = addr; });
     }
 
-    const timeline = deriveTimeline(points);
-    let arrowCount = 0;
-    for (let i = 0; i < coords.length - 1 && arrowCount < 200; i += Math.max(1, Math.floor(coords.length / 200))) {
-      const [lat1, lng1] = coords[i]!;
-      const [lat2, lng2] = coords[i + 1]!;
-      const dLat = lat2 - lat1, dLng = lng2 - lng1;
-      const dist = Math.sqrt(dLat*dLat + dLng*dLng);
-      if (dist < 0.0001) continue;
-      const ang = Math.atan2(dLng, dLat) * 180 / Math.PI;
-      L.marker([(lat1+lat2)/2, (lng1+lng2)/2], {
-        icon: L.divIcon({ html: `<div style="color:#2563eb;font-size:10px;transform:rotate(${ang}deg);line-height:1">▲</div>`, className: '', iconSize: [10, 10], iconAnchor: [5, 5] }),
-        interactive: false,
-      }).addTo(lg);
-      arrowCount++;
+    // P / I segment markers (26px, with async address lookup)
+    const segments: Array<{ type: 'parked'|'idle'|'driving'; start: number; end: number }> = [];
+    let curSegType = tripSegType(points[0]!);
+    let si = 0;
+    for (let i = 1; i < points.length; i++) {
+      const nt = tripSegType(points[i]!);
+      if (nt !== curSegType) { segments.push({ type: curSegType, start: si, end: i-1 }); curSegType = nt; si = i; }
     }
+    segments.push({ type: curSegType, start: si, end: points.length - 1 });
 
-    timeline.filter(e => (e.type === 'parked' || e.type === 'idle') && e.durationSec >= 120).forEach(ev => {
-      const bg = ev.type === 'parked' ? '#dc2626' : '#f59e0b';
-      const lbl = ev.type === 'parked' ? 'P' : 'I';
-      const m = L.marker([ev.lat, ev.lng], {
-        icon: L.divIcon({ html: `<div style="background:${bg};color:#fff;font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)">${lbl}</div>`, className: 'leaflet-interactive', iconSize: [16, 16], iconAnchor: [8, 8] }),
-      });
-      m.bindPopup(`<div style="font-size:12px;font-weight:600">${ev.type === 'parked' ? 'Parked' : 'Idle'}: ${formatDuration(ev.durationSec)}<br/><span style="color:#888;font-size:10px">${formatTsFull(ev.startTime)}</span></div>`);
-      m.addTo(lg);
-      pMarkersRef.current.set(ev.startTime, m);
+    segments.forEach((seg, idx) => {
+      if (seg.type === 'driving') return;
+      const sp = points[seg.start]!, ep = points[seg.end]!;
+      const dur = Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000));
+      if (dur < 120) return;
+      const isIdle = seg.type === 'idle';
+      const color = isIdle ? '#f59e0b' : '#dc2626';
+      const lbl = isIdle ? 'I' : 'P';
+      const title = isIdle ? 'Idle (Engine On)' : 'Parked';
+      const addrId = `paddr-${idx}-${Date.now()}`;
+      const html = `<div style="width:26px;height:26px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transform:translate(-50%,-50%)">${lbl}</div>`;
+      const popupContent = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:190px;line-height:1.5">
+        <div style="font-weight:700;margin-bottom:5px;color:${color};font-size:13px">${title}</div>
+        <div id="${addrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
+        <div style="color:#9ca3af;font-size:10px;margin-bottom:6px">${sp.latitude.toFixed(5)}, ${sp.longitude.toFixed(5)}</div>
+        <div style="display:flex;gap:14px;font-size:11px">
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div><div style="font-weight:600">${formatTsFull(sp.timestamp)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div><div style="font-weight:600">${formatTsFull(ep.timestamp)}</div></div>
+        </div>
+        <div style="margin-top:5px;color:#6b7280;font-size:10.5px">Duration: ${formatDuration(dur)}</div>
+      </div>`;
+      const m = L.marker([sp.latitude, sp.longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 100 });
+      m.bindPopup(popupContent, { maxWidth: 280 }).addTo(layer);
+      m.on('popupopen', async () => { const addr = await reverseGeocode(sp.latitude, sp.longitude); const el = document.getElementById(addrId); if (el) el.textContent = addr; });
+      pMarkersRef.current.set(sp.timestamp, m);
     });
 
-    if (coords.length > 0) {
-      const startCoords = coords[0]!;
-      const endCoords = coords[coords.length - 1]!;
-      L.circleMarker(startCoords, { radius: 7, color: '#16a34a', fillColor: '#fff', fillOpacity: 1, weight: 3 }).addTo(lg);
-      L.circleMarker(endCoords, { radius: 7, color: '#dc2626', fillColor: '#dc2626', fillOpacity: 1, weight: 2 }).addTo(lg);
-      try { map.fitBounds(L.latLngBounds(coords), { padding: [40, 40], animate: true }); } catch {}
+    // Ignition-off (STOP) markers
+    for (let i = 1; i < points.length; i++) {
+      if (points[i-1]!.ignition === true && points[i]!.ignition === false) {
+        const p = points[i]!;
+        const addrId = `saddr-${i}-${Date.now()}`;
+        const html = `<div style="width:28px;height:22px;border-radius:5px;background:#f59e0b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transform:translate(-50%,-50%)">STOP</div>`;
+        const popupContent = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:170px;line-height:1.5">
+          <div style="font-weight:700;margin-bottom:5px;color:#f59e0b;font-size:13px">Ignition Off</div>
+          <div id="${addrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
+          <div style="color:#9ca3af;font-size:10px;margin-bottom:6px">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</div>
+          <div style="font-size:11px;font-weight:600">${formatTsFull(p.timestamp)}</div>
+        </div>`;
+        const m = L.marker([p.latitude, p.longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 200 });
+        m.bindPopup(popupContent, { maxWidth: 260 }).addTo(layer);
+        m.on('popupopen', async () => { const addr = await reverseGeocode(p.latitude, p.longitude); const el = document.getElementById(addrId); if (el) el.textContent = addr; });
+      }
     }
-    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+
+    // Start (green) and end (black) dots
+    const startHtml = `<div style="width:14px;height:14px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);transform:translate(-50%,-50%)"></div>`;
+    const endHtml = `<div style="width:14px;height:14px;border-radius:50%;background:#111;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);transform:translate(-50%,-50%)"></div>`;
+    L.marker([points[0]!.latitude, points[0]!.longitude], { icon: L.divIcon({ html: startHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }) }).addTo(layer);
+    L.marker([points[points.length-1]!.latitude, points[points.length-1]!.longitude], { icon: L.divIcon({ html: endHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }) }).addTo(layer);
+
+    try { map.fitBounds(L.latLngBounds(coords), { padding: [30, 30] }); } catch {}
+
+    return () => {
+      if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
+      if (highlightRef.current) { map.removeLayer(highlightRef.current); highlightRef.current = null; }
+      if (dPopupRef.current) { map.closePopup(dPopupRef.current); dPopupRef.current = null; }
+      pMarkersRef.current.clear();
+    };
   }, [points, map]);
 
   return null;
@@ -1535,8 +1629,6 @@ export default function PortalMapPage() {
             onToggleDraw={() => { setPoiDrawActive(a => !a); setPoiDrawnPoint(null); }}
             drawnPoint={poiDrawnPoint}
           />
-        ) : activePanel === 'behavior' ? (
-          <DriverBehaviorPanel />
         ) : historyMode ? (
           <HistoryPanel
             mode={historyMode}
@@ -1673,6 +1765,9 @@ export default function PortalMapPage() {
 
       {/* Reports Modal */}
       {activePanel === 'reports' && <ReportsModal onClose={closePanel} />}
+
+      {/* Driver Behavior Modal */}
+      {activePanel === 'behavior' && <DriverBehaviorModal onClose={closePanel} />}
 
       {/* Users Modal */}
       {activePanel === 'users' && <UsersModal onClose={closePanel} />}
