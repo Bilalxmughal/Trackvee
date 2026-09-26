@@ -240,25 +240,11 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
             !permsLoaded
               ? <div style={{ padding: 20, textAlign: 'center', color: '#bbb', fontSize: 12 }}>Loading…</div>
               : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ display: 'flex', gap: 16 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}>
-                      <input type="radio" checked={perms.vehicleIds === null} onChange={() => setPerms(p => ({ ...p, vehicleIds: null }))} style={{ accentColor: '#dc2626' }} />
-                      All Vehicles
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}>
-                      <input type="radio" checked={perms.vehicleIds !== null} onChange={() => setPerms(p => ({ ...p, vehicleIds: [] }))} style={{ accentColor: '#dc2626' }} />
-                      Specific Vehicles
-                    </label>
-                  </div>
-                  {perms.vehicleIds !== null && (
-                    <VehicleGroupSelect
-                      organizationId={organizationId}
-                      value={perms.vehicleIds}
-                      onChange={ids => setPerms(p => ({ ...p, vehicleIds: ids }))}
-                    />
-                  )}
-                </div>
+                <VehicleGroupSelect
+                  organizationId={organizationId}
+                  value={perms.vehicleIds ?? []}
+                  onChange={ids => setPerms(p => ({ ...p, vehicleIds: ids }))}
+                />
               )
           )}
 
