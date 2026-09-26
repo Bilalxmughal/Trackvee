@@ -277,6 +277,50 @@ Used in all vehicle selection lists (admin AlertsModal, GeofencesModal; portal U
 
 ---
 
+## 17. Portal Topbar Permission Gating
+
+**Context:** `PortalPermsContext` (`apps/portal/src/contexts/PortalPermsContext.tsx`)
+
+- On mount, fetches `/role-portal-permissions` from API → stores current user's role slice as `perms: Record<string, string[]>`
+- Falls back to hardcoded `FALLBACK` map if API fails
+- Exposes `canDo(feature, action): boolean`
+
+**Usage in Layout.tsx:**
+```tsx
+const { canDo } = usePortalPerms();
+// Each topbar button:
+{canDo('alerts', 'view') && <PanelButton panelKey="alerts" ... />}
+{canDo('geofences', 'view') && <PanelButton panelKey="geofences" ... />}
+{canDo('pois', 'view') && <PanelButton panelKey="pois" ... />}
+{canDo('driver-behavior', 'view') && <PanelButton panelKey="behavior" ... />}
+{canDo('reports', 'view') && <PanelButton panelKey="reports" ... />}
+{canDo('users', 'view') && <PanelButton panelKey="users" ... />}
+```
+
+**Feature key mapping** (portal panel key → permission feature key):
+| Panel key | Feature key |
+|---|---|
+| `alerts` | `alerts` |
+| `geofences` | `geofences` |
+| `pois` | `pois` |
+| `behavior` | `driver-behavior` |
+| `reports` | `reports` |
+| `users` | `users` |
+
+**Default access per role (from `ORG_ROLE_PORTAL_PERMISSIONS` in `roles.ts`):**
+| Feature | owner | super_admin | admin | user |
+|---|---|---|---|---|
+| Alerts | ✓ CRUD | ✓ CRUD | ✓ view | ✓ view |
+| Geofences | ✓ CRUD | ✓ CRUD | ✓ view | — |
+| POIs | ✓ CRUD | ✓ CRUD | ✓ view | — |
+| Behavior | ✓ view+edit | ✓ view+edit | ✓ view | ✓ view |
+| Reports | ✓ view | ✓ view | ✓ view | ✓ view |
+| Users | ✓ CRUD | ✓ view+add+edit | ✓ view+add+edit | — |
+
+Admin's Role Access page → Client Portal Roles section is the single source of truth for these defaults (saved to DB via `/role-portal-permissions`).
+
+---
+
 ## 16. Auth Separation (Login Role Guard)
 
 **Portal** (`portal.trackvee.com`): only allows `client_owner`, `client_super_admin`, `client_admin`, `client_user`. Any other role → throw error → "Invalid email or password" shown.
