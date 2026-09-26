@@ -3,6 +3,7 @@ import { IconPlus, IconPencil, IconTrash, IconSearch, IconUsers, IconEye, IconEy
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { usePortalPerms } from '../contexts/PortalPermsContext';
+import VehicleGroupSelect from './VehicleGroupSelect';
 
 interface OrgPerm {
   vehiclesView: boolean; vehiclesAdd: boolean; vehiclesEdit: boolean; vehiclesDelete: boolean;
@@ -19,9 +20,6 @@ interface OrgUser {
   id: string; displayId?: number; email: string; firstName: string | null; lastName: string | null;
   role: string; isActive: boolean; permissions?: OrgPerm | null;
 }
-
-interface Vehicle { id: string; plate: string; name?: string | null; make?: string | null; model?: string | null; }
-interface VehicleGroup { id: string; name: string; vehicleIds: string[]; }
 
 const inpSt: React.CSSProperties = { padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', width: '100%', boxSizing: 'border-box' };
 const LBL: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.4, display: 'block', marginBottom: 4 };
@@ -79,8 +77,6 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
   const [showPassword, setShowPassword] = useState(false);
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [perms, setPerms] = useState<OrgPerm>(defaultPerms);
-  const [orgVehicles, setOrgVehicles] = useState<Vehicle[]>([]);
-  const [orgVehicleGroups, setOrgVehicleGroups] = useState<VehicleGroup[]>([]);
   const [permsLoaded, setPermsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -95,25 +91,16 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
     actions: m.actions.filter(a => canDo(m.portalKey, a.toLowerCase())),
   }));
 
-  // Load existing perms + vehicles + groups
+  // Load existing perms
   useEffect(() => {
     if (!canEditPerms) { setPermsLoaded(true); return; }
     let cancelled = false;
-    Promise.all([
-      initial?.id
-        ? api.get<OrgPerm>(`/org-permissions/${initial.id}`).then(r => r.data).catch(() => defaultPerms())
-        : Promise.resolve(defaultPerms()),
-      api.get<{ id: string; plate: string; name?: string | null; make?: string | null; model?: string | null }[]>(`/vehicles?organizationId=${organizationId}`).then(r => r.data).catch(() => []),
-      api.get<VehicleGroup[]>(`/vehicle-groups?organizationId=${organizationId}`).then(r => r.data).catch(() => []),
-    ]).then(([p, vs, vgs]) => {
-      if (cancelled) return;
-      setPerms({ ...defaultPerms(), ...p });
-      setOrgVehicles(vs);
-      setOrgVehicleGroups(vgs);
-      setPermsLoaded(true);
-    });
+    const req = initial?.id
+      ? api.get<OrgPerm>(`/org-permissions/${initial.id}`).then(r => r.data).catch(() => defaultPerms())
+      : Promise.resolve(defaultPerms());
+    req.then(p => { if (!cancelled) { setPerms({ ...defaultPerms(), ...p }); setPermsLoaded(true); } });
     return () => { cancelled = true; };
-  }, [initial?.id, canEditPerms, organizationId]);
+  }, [initial?.id, canEditPerms]);
 
   const handleRoleChange = (r: string) => { setRole(r); setPerms(defaultPerms()); };
 
@@ -129,22 +116,6 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
         (next as unknown as Record<string, boolean>)[viewKey] = true;
       }
       return next;
-    });
-  };
-
-  const toggleVehicle = (id: string) => {
-    setPerms(p => {
-      const ids = p.vehicleIds ?? [];
-      const checked = ids.includes(id);
-      return { ...p, vehicleIds: checked ? ids.filter(x => x !== id) : [...ids, id] };
-    });
-  };
-
-  const toggleGroupVehicles = (vIds: string[]) => {
-    setPerms(p => {
-      const ids = p.vehicleIds ?? [];
-      const allSel = vIds.every(id => ids.includes(id));
-      return { ...p, vehicleIds: allSel ? ids.filter(x => !vIds.includes(x)) : [...new Set([...ids, ...vIds])] };
     });
   };
 
@@ -175,10 +146,6 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
       { id: 'perms' as const, label: 'Permissions' },
     ] : []),
   ];
-
-  // Group-wise vehicle list for Vehicles tab
-  const groupedVehicleIds = new Set(orgVehicleGroups.flatMap(g => g.vehicleIds));
-  const ungroupedVehicles = orgVehicles.filter(v => !groupedVehicleIds.has(v.id));
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10100, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -273,86 +240,11 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
             !permsLoaded
               ? <div style={{ padding: 20, textAlign: 'center', color: '#bbb', fontSize: 12 }}>Loading…</div>
               : (
-                <div>
-                  <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}>
-                      <input type="radio" checked={perms.vehicleIds === null} onChange={() => setPerms(p => ({ ...p, vehicleIds: null }))} />
-                      All Vehicles
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}>
-                      <input type="radio" checked={perms.vehicleIds !== null} onChange={() => setPerms(p => ({ ...p, vehicleIds: [] }))} />
-                      Specific Vehicles
-                    </label>
-                  </div>
-
-                  {perms.vehicleIds !== null && (
-                    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                      {orgVehicles.length === 0 && (
-                        <div style={{ padding: 16, fontSize: 12, color: '#bbb', textAlign: 'center' }}>No vehicles found</div>
-                      )}
-
-                      {/* Groups */}
-                      {orgVehicleGroups.map(grp => {
-                        const grpVehicles = orgVehicles.filter(v => grp.vehicleIds.includes(v.id));
-                        if (grpVehicles.length === 0) return null;
-                        const allSel = grpVehicles.every(v => perms.vehicleIds!.includes(v.id));
-                        const someSel = !allSel && grpVehicles.some(v => perms.vehicleIds!.includes(v.id));
-                        return (
-                          <div key={grp.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                            {/* Group header */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: '#f9fafb', borderBottom: '1px solid #f0f0f0' }}>
-                              <button onClick={() => toggleGroupVehicles(grpVehicles.map(v => v.id))}
-                                style={{ width: 16, height: 16, borderRadius: 3, border: `1.5px solid ${allSel ? '#dc2626' : someSel ? '#dc2626' : '#d1d5db'}`, background: allSel ? '#dc2626' : someSel ? '#fef2f2' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}>
-                                {allSel && <svg width="9" height="9" viewBox="0 0 9 9"><path d="M1.5 4.5l2 2 4-4" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>}
-                                {someSel && <svg width="9" height="9" viewBox="0 0 9 9"><path d="M2 4.5h5" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round"/></svg>}
-                              </button>
-                              <span style={{ fontSize: 11.5, fontWeight: 700, color: '#374151' }}>{grp.name}</span>
-                              <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{grpVehicles.length} vehicles</span>
-                            </div>
-                            {/* Group vehicles */}
-                            <div style={{ padding: '4px 12px 6px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              {grpVehicles.map(v => {
-                                const checked = perms.vehicleIds!.includes(v.id);
-                                const label = v.name || [v.make, v.model].filter(Boolean).join(' ') || '';
-                                return (
-                                  <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', padding: '3px 0' }}>
-                                    <input type="checkbox" checked={checked} onChange={() => toggleVehicle(v.id)} style={{ accentColor: '#dc2626' }} />
-                                    <span style={{ fontWeight: 600, color: '#111', fontFamily: 'monospace', fontSize: 12 }}>{v.plate}</span>
-                                    {label && <span style={{ color: '#9ca3af', fontSize: 11 }}>{label}</span>}
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {/* Ungrouped vehicles */}
-                      {ungroupedVehicles.length > 0 && (
-                        <div>
-                          {orgVehicleGroups.length > 0 && (
-                            <div style={{ padding: '7px 12px', background: '#f9fafb', borderBottom: '1px solid #f0f0f0', fontSize: 11.5, fontWeight: 700, color: '#9ca3af' }}>
-                              Other
-                            </div>
-                          )}
-                          <div style={{ padding: '4px 12px 6px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            {ungroupedVehicles.map(v => {
-                              const checked = perms.vehicleIds!.includes(v.id);
-                              const label = v.name || [v.make, v.model].filter(Boolean).join(' ') || '';
-                              return (
-                                <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', padding: '3px 0' }}>
-                                  <input type="checkbox" checked={checked} onChange={() => toggleVehicle(v.id)} style={{ accentColor: '#dc2626' }} />
-                                  <span style={{ fontWeight: 600, color: '#111', fontFamily: 'monospace', fontSize: 12 }}>{v.plate}</span>
-                                  {label && <span style={{ color: '#9ca3af', fontSize: 11 }}>{label}</span>}
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <VehicleGroupSelect
+                  organizationId={organizationId}
+                  value={perms.vehicleIds}
+                  onChange={ids => setPerms(p => ({ ...p, vehicleIds: ids }))}
+                />
               )
           )}
 
