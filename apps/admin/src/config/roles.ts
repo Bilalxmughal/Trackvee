@@ -95,6 +95,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     pois:              ['view', 'add', 'edit', 'delete'],
     'driver-behavior': ['view', 'edit'],
     'vehicle-groups':  ['view', 'edit'],
+    reports:           ['view'],
   },
   client_super_admin: {
     dashboard:         ['view'],
@@ -106,6 +107,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     pois:              ['view', 'add', 'edit', 'delete'],
     'driver-behavior': ['view', 'edit'],
     'vehicle-groups':  ['view', 'edit'],
+    reports:           ['view'],
   },
   client_admin: {
     dashboard:         ['view'],
@@ -116,6 +118,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     pois:              ['view'],
     'driver-behavior': ['view', 'edit'],
     'vehicle-groups':  ['view', 'edit'],
+    reports:           ['view'],
   },
   client_user: {
     dashboard:         ['view'],
@@ -124,6 +127,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     alerts:            ['view'],
     'driver-behavior': ['view'],
     'vehicle-groups':  ['view'],
+    reports:           ['view'],
   },
 };
 
@@ -239,6 +243,7 @@ export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Recor
     geofences:         ['view', 'add', 'edit', 'delete'],
     pois:              ['view', 'add', 'edit', 'delete'],
     'driver-behavior': ['view', 'edit'],
+    reports:           ['view'],
     users:             ['view', 'add', 'edit', 'delete'],
   },
   client_super_admin: {
@@ -249,6 +254,7 @@ export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Recor
     geofences:         ['view', 'add', 'edit', 'delete'],
     pois:              ['view', 'add', 'edit', 'delete'],
     'driver-behavior': ['view', 'edit'],
+    reports:           ['view'],
     users:             ['view', 'add', 'edit'],
   },
   client_admin: {
@@ -289,6 +295,7 @@ export const ORG_PORTAL_PAGES: PortalPageDef[] = [
   { key: 'geofences',       label: 'Geofences',         group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'pois',            label: 'POIs',              group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'driver-behavior', label: 'Driver Behavior',   group: 'Analytics',  actions: ['view', 'edit'] },
+  { key: 'reports',         label: 'Reports',           group: 'Analytics',  actions: ['view'] },
   { key: 'users',           label: 'Users',             group: 'Management', actions: ['view', 'add', 'edit', 'delete'] },
 ];
 
