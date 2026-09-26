@@ -20,6 +20,8 @@ function clearAuth() {
   sessionStorage.removeItem('yt_refresh');
 }
 
+const PORTAL_ROLES = new Set(['client_owner', 'client_super_admin', 'client_admin', 'client_user']);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,13 +30,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = getToken();
     if (!token) { setLoading(false); return; }
     authApi.me()
-      .then(r => setUser(r.data))
+      .then(r => {
+        if (!PORTAL_ROLES.has(r.data.role)) { clearAuth(); return; }
+        setUser(r.data);
+      })
       .catch(() => clearAuth())
       .finally(() => setLoading(false));
   }, []);
 
   const login = async (email: string, password: string, remember = false) => {
     const r = await authApi.login(email, password);
+    if (!PORTAL_ROLES.has(r.data.user.role)) {
+      throw new Error('Invalid email or password');
+    }
     const store = remember ? localStorage : sessionStorage;
     store.setItem('yt_token', r.data.accessToken);
     if (r.data.refreshToken) store.setItem('yt_refresh', r.data.refreshToken);

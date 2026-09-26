@@ -30,6 +30,8 @@ function clearAuth() {
   sessionStorage.removeItem('yt_impersonating');
 }
 
+const ADMIN_ROLES = new Set(['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer']);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [originalUser, setOriginalUser] = useState<AuthUser | null>(null);
@@ -43,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (imp) setIsImpersonating(true);
     authApi.me()
       .then((r: AxiosResponse<AuthUser>) => {
+        if (!ADMIN_ROLES.has(r.data.role)) { clearAuth(); setLoading(false); return; }
         setUser(r.data);
         if (imp) {
           // restore original user info from stored token
@@ -62,6 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string, remember = false) => {
     const r = await authApi.login(email, password);
+    if (!ADMIN_ROLES.has(r.data.user.role)) {
+      throw new Error('Invalid email or password');
+    }
     const store = remember ? localStorage : sessionStorage;
     store.setItem('yt_token', r.data.accessToken);
     if (r.data.refreshToken) store.setItem('yt_refresh', r.data.refreshToken);
