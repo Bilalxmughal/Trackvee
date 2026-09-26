@@ -46,7 +46,6 @@ function PanelButton({
 
 export default function Layout() {
   const { user, logout } = useAuth();
-  const { alertCount } = usePortalPanel();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -84,7 +83,7 @@ export default function Layout() {
 
         {/* Panel trigger buttons */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <PanelButton panelKey="alerts"    icon={IconBell}           label="Alerts"    badge={alertCount} />
+          <PanelButton panelKey="alerts"    icon={IconBell}           label="Alerts" />
           <PanelButton panelKey="geofences" icon={IconMap2}           label="Geofences" />
           <PanelButton panelKey="pois"      icon={IconMapPin}         label="POIs" />
           <PanelButton panelKey="behavior"  icon={IconActivity}       label="Behavior" />

@@ -1135,13 +1135,13 @@ function POIMarkerLayer({ pois, selectedId }: { pois: POI[]; selectedId: string 
     for (const poi of pois) {
       const active = selectedId === poi.id;
       const color = active ? '#dc2626' : '#6b7280';
-      if (poi.radius > 0) L.circle([poi.latitude, poi.longitude], { color, fillColor: color, fillOpacity: 0.12, radius: poi.radius, weight: active ? 2.5 : 1.5 }).addTo(lg);
-      const icon = L.divIcon({
-        html: `<div style="background:${color};width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,
-        className: 'leaflet-interactive', iconSize: [10, 10], iconAnchor: [5, 5],
+      if (poi.radius > 0) L.circle([poi.latitude, poi.longitude], { color, fillColor: color, fillOpacity: 0.12, radius: poi.radius, weight: active ? 2.5 : 1.5, dashArray: active ? undefined : '4,3' }).addTo(lg);
+      const markerIcon = L.divIcon({
+        html: `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" transform="rotate(45)"><circle cx="12" cy="12" r="4"/></svg></div>`,
+        className: 'leaflet-interactive', iconSize: [22, 22], iconAnchor: [11, 22],
       });
-      const m = L.marker([poi.latitude, poi.longitude], { icon });
-      m.bindTooltip(poi.name, { permanent: false, direction: 'top' });
+      const m = L.marker([poi.latitude, poi.longitude], { icon: markerIcon });
+      m.bindTooltip(`<strong>${poi.name}</strong><br>${poi.latitude.toFixed(5)}, ${poi.longitude.toFixed(5)}<br>Radius: ${poi.radius}m`, { direction: 'top', offset: [0, -20] });
       m.addTo(lg);
     }
     return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
@@ -1152,50 +1152,76 @@ function POIMarkerLayer({ pois, selectedId }: { pois: POI[]; selectedId: string 
 
 // ── Draw Layers ───────────────────────────────────────────────────────────────
 
-function GeofenceDrawLayer({ active, onCirclePick }: {
+function GeofenceDrawLayer({ active, mode, polygonPts, onCirclePick, onPolygonUpdate }: {
   active: boolean;
+  mode: 'circle' | 'polygon';
+  polygonPts: [number, number][];
   onCirclePick: (lat: number, lng: number, radius: number) => void;
+  onPolygonUpdate: (pts: [number, number][]) => void;
 }) {
   const map = useMap();
-  const previewRef = useRef<L.Circle | null>(null);
+  const circleRef = useRef<L.Circle | null>(null);
+  const polygonRef = useRef<L.Polygon | null>(null);
   const [center, setCenter] = useState<[number, number] | null>(null);
   const [radius, setRadius] = useState(500);
 
   useEffect(() => {
     if (!active) {
       map.getContainer().style.cursor = '';
-      if (previewRef.current) { map.removeLayer(previewRef.current); previewRef.current = null; }
+      if (circleRef.current) { map.removeLayer(circleRef.current); circleRef.current = null; }
+      if (polygonRef.current) { map.removeLayer(polygonRef.current); polygonRef.current = null; }
       setCenter(null);
       return;
     }
     map.getContainer().style.cursor = 'crosshair';
     return () => { map.getContainer().style.cursor = ''; };
-  }, [active, map]);
+  }, [active, mode, map]);
 
+  // Circle preview
   useEffect(() => {
-    if (!active || !center) return;
-    if (previewRef.current) map.removeLayer(previewRef.current);
-    previewRef.current = L.circle(center, { color: '#dc2626', fillColor: '#dc2626', fillOpacity: 0.15, radius, weight: 2, dashArray: '6,4' }).addTo(map);
-    return () => { if (previewRef.current) { map.removeLayer(previewRef.current); previewRef.current = null; } };
-  }, [active, center, radius, map]);
+    if (!active || mode !== 'circle' || !center) return;
+    if (circleRef.current) map.removeLayer(circleRef.current);
+    circleRef.current = L.circle(center, { color: '#dc2626', fillColor: '#dc2626', fillOpacity: 0.15, radius, weight: 2, dashArray: '6,4' }).addTo(map);
+    return () => { if (circleRef.current) { map.removeLayer(circleRef.current); circleRef.current = null; } };
+  }, [active, mode, center, radius, map]);
+
+  // Polygon preview
+  useEffect(() => {
+    if (!active || mode !== 'polygon') return;
+    if (polygonRef.current) map.removeLayer(polygonRef.current);
+    if (polygonPts.length >= 2) {
+      polygonRef.current = L.polygon(polygonPts, { color: '#dc2626', fillColor: '#dc2626', fillOpacity: 0.15, weight: 2, dashArray: '6,4' }).addTo(map);
+    }
+    return () => { if (polygonRef.current) { map.removeLayer(polygonRef.current); polygonRef.current = null; } };
+  }, [active, mode, polygonPts, map]);
 
   useMapEvents({
     click(e) {
       if (!active) return;
-      const c: [number, number] = [e.latlng.lat, e.latlng.lng];
-      setCenter(c);
-      onCirclePick(c[0], c[1], radius);
+      if (mode === 'circle') {
+        const c: [number, number] = [e.latlng.lat, e.latlng.lng];
+        setCenter(c);
+        onCirclePick(c[0], c[1], radius);
+      } else {
+        onPolygonUpdate([...polygonPts, [e.latlng.lat, e.latlng.lng]]);
+      }
     },
   });
 
-  if (!active || !center) return null;
-  return (
-    <div style={{ position: 'absolute', bottom: 100, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: '#fff', borderRadius: 8, padding: '6px 12px', boxShadow: '0 2px 8px rgba(0,0,0,.2)', display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'all' }}>
-      <span style={{ fontSize: 11, color: '#555' }}>Radius:</span>
-      <input type="range" min={100} max={50000} step={100} value={radius} onChange={e => { setRadius(+e.target.value); if (center) onCirclePick(center[0], center[1], +e.target.value); }} style={{ width: 100, accentColor: '#dc2626' }} />
-      <span style={{ fontSize: 11, color: '#dc2626', minWidth: 50 }}>{radius >= 1000 ? `${(radius / 1000).toFixed(1)}km` : `${radius}m`}</span>
-    </div>
-  );
+  if (!active) return null;
+
+  // Radius slider for circle mode
+  if (mode === 'circle' && center) {
+    return (
+      <div style={{ position: 'absolute', bottom: 100, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: '#fff', borderRadius: 8, padding: '6px 14px', boxShadow: '0 2px 8px rgba(0,0,0,.2)', display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'all' }}>
+        <span style={{ fontSize: 11, color: '#555' }}>Radius:</span>
+        <input type="range" min={100} max={50000} step={100} value={radius} onChange={e => { setRadius(+e.target.value); if (center) onCirclePick(center[0], center[1], +e.target.value); }} style={{ width: 110, accentColor: '#dc2626' }} />
+        <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, minWidth: 54 }}>{radius >= 1000 ? `${(radius / 1000).toFixed(1)} km` : `${radius} m`}</span>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function POIDrawLayer({ active, onPick }: {
@@ -1268,6 +1294,7 @@ export default function PortalMapPage() {
 
   // Draw state for geofence/POI
   const [gfDrawActive, setGfDrawActive] = useState(false);
+  const [gfDrawType, setGfDrawType] = useState<'circle' | 'polygon'>('circle');
   const [gfDrawnCircle, setGfDrawnCircle] = useState<{ lat: number; lng: number; radius: number } | null>(null);
   const [gfDrawnPolygon, setGfDrawnPolygon] = useState<[number, number][] | null>(null);
   const [poiDrawActive, setPoiDrawActive] = useState(false);
@@ -1432,7 +1459,13 @@ export default function PortalMapPage() {
         {activePanel === 'geofences' && <GeofenceMapLayer geofences={geofences} selectedId={selectedGfId} />}
         {activePanel === 'pois' && <POIMarkerLayer pois={pois} selectedId={selectedPoiId} />}
         {activePanel === 'geofences' && gfDrawActive && (
-          <GeofenceDrawLayer active={gfDrawActive} onCirclePick={(lat, lng, r) => { setGfDrawnCircle({ lat, lng, radius: r }); }} />
+          <GeofenceDrawLayer
+            active={gfDrawActive}
+            mode={gfDrawType}
+            polygonPts={gfDrawnPolygon ?? []}
+            onCirclePick={(lat, lng, r) => { setGfDrawnCircle({ lat, lng, radius: r }); }}
+            onPolygonUpdate={pts => setGfDrawnPolygon(pts)}
+          />
         )}
         {activePanel === 'pois' && poiDrawActive && (
           <POIDrawLayer active={poiDrawActive} onPick={(lat, lng) => { setPoiDrawnPoint({ lat, lng }); setPoiDrawActive(false); }} />
@@ -1487,6 +1520,9 @@ export default function PortalMapPage() {
             onToggleDraw={() => { setGfDrawActive(a => !a); setGfDrawnCircle(null); setGfDrawnPolygon(null); }}
             drawnCircle={gfDrawnCircle}
             drawnPolygon={gfDrawnPolygon}
+            onTypeChange={t => { setGfDrawType(t); setGfDrawnCircle(null); setGfDrawnPolygon(null); }}
+            onPolygonPointRemove={idx => setGfDrawnPolygon(pts => pts ? pts.filter((_, i) => i !== idx) : null)}
+            onPolygonClear={() => setGfDrawnPolygon(null)}
           />
         ) : activePanel === 'pois' ? (
           <POIsPanel pois={pois} loading={poisLoading} selectedId={selectedPoiId}

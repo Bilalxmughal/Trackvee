@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { IconSearch, IconPlus, IconPencil, IconTrash, IconMapPin } from '@tabler/icons-react';
+import { IconSearch, IconPlus } from '@tabler/icons-react';
 import api from '../api/client';
 import { usePortalPanel } from '../contexts/PortalPanelContext';
 
@@ -10,13 +10,8 @@ export interface Geofence {
   triggerOnEnter: boolean; triggerOnExit: boolean; color: string | null;
 }
 
-const PRESET_COLORS = ['#dc2626', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2', '#ea580c'];
 const inpSt: React.CSSProperties = { padding: '6px 9px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' };
 const LBL: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.4, display: 'block', marginBottom: 4 };
-
-function GeoIcon() {
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>;
-}
 
 function DotMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
@@ -58,7 +53,7 @@ function DotMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => voi
   );
 }
 
-// ── Geofence Form (inline within panel) ──────────────────────────────────────
+// ── Geofence Form ─────────────────────────────────────────────────────────────
 
 interface FormProps {
   initial?: Geofence | null;
@@ -66,43 +61,50 @@ interface FormProps {
   onToggleDraw: () => void;
   drawnCircle: { lat: number; lng: number; radius: number } | null;
   drawnPolygon: [number, number][] | null;
+  onTypeChange?: (t: 'circle' | 'polygon') => void;
+  onPolygonPointRemove?: (idx: number) => void;
+  onPolygonClear?: () => void;
   onSave: (g: Geofence) => void;
   onCancel: () => void;
 }
 
-function GfForm({ initial, drawActive, onToggleDraw, drawnCircle, drawnPolygon, onSave, onCancel }: FormProps) {
+function GfForm({ initial, drawActive, onToggleDraw, drawnCircle, drawnPolygon, onTypeChange, onPolygonPointRemove, onPolygonClear, onSave, onCancel }: FormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [gfType, setGfType] = useState<'circle' | 'polygon'>(initial?.type ?? 'circle');
-  const [lat, setLat] = useState(initial?.latitude != null ? String(initial.latitude) : '');
-  const [lng, setLng] = useState(initial?.longitude != null ? String(initial.longitude) : '');
-  const [radius, setRadius] = useState(initial?.radius != null ? String(initial.radius) : '500');
+  const [radius, setRadius] = useState(initial?.radius ?? 500);
   const [onEnter, setOnEnter] = useState(initial?.triggerOnEnter ?? true);
   const [onExit, setOnExit] = useState(initial?.triggerOnExit ?? false);
-  const [color, setColor] = useState(initial?.color ?? '#2563eb');
+  const [color, setColor] = useState(initial?.color ?? '#dc2626');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
-  // Apply drawn result when it arrives
+  const handleTypeChange = (t: 'circle' | 'polygon') => {
+    setGfType(t);
+    onTypeChange?.(t);
+  };
+
+  // Sync radius from drawn circle
   React.useEffect(() => {
-    if (drawnCircle && gfType === 'circle') {
-      setLat(drawnCircle.lat.toFixed(6));
-      setLng(drawnCircle.lng.toFixed(6));
-      setRadius(String(drawnCircle.radius));
-    }
+    if (drawnCircle && gfType === 'circle') setRadius(drawnCircle.radius);
   }, [drawnCircle, gfType]);
+
+  const circleReady = gfType === 'circle' && (drawnCircle || (initial?.latitude != null && initial?.longitude != null));
+  const circleLat = drawnCircle?.lat ?? initial?.latitude;
+  const circleLng = drawnCircle?.lng ?? initial?.longitude;
+
+  const polygonPts = drawnPolygon ?? (initial?.type === 'polygon' ? initial?.coordinates ?? [] : []);
+  const polygonReady = polygonPts.length >= 3;
 
   const submit = async () => {
     if (!name.trim()) { setErr('Name is required'); return; }
     let payload: Record<string, unknown>;
     if (gfType === 'circle') {
-      const latN = parseFloat(lat), lngN = parseFloat(lng), radN = parseFloat(radius);
-      if (isNaN(latN) || isNaN(lngN)) { setErr('Latitude and longitude are required'); return; }
-      if (isNaN(radN) || radN <= 0) { setErr('Radius must be a positive number'); return; }
-      payload = { name: name.trim(), type: 'circle', latitude: latN, longitude: lngN, radius: radN, triggerOnEnter: onEnter, triggerOnExit: onExit, color };
+      if (circleLat == null || circleLng == null) { setErr('Pick the center point on the map'); return; }
+      if (radius <= 0) { setErr('Radius must be greater than 0'); return; }
+      payload = { name: name.trim(), type: 'circle', latitude: circleLat, longitude: circleLng, radius, triggerOnEnter: onEnter, triggerOnExit: onExit, color };
     } else {
-      const coords = drawnPolygon ?? initial?.coordinates;
-      if (!coords || coords.length < 3) { setErr('Draw a polygon on the map (at least 3 points)'); return; }
-      payload = { name: name.trim(), type: 'polygon', coordinates: coords, triggerOnEnter: onEnter, triggerOnExit: onExit, color };
+      if (!polygonReady) { setErr('Draw a polygon on the map (at least 3 points)'); return; }
+      payload = { name: name.trim(), type: 'polygon', coordinates: polygonPts, triggerOnEnter: onEnter, triggerOnExit: onExit, color };
     }
     setSaving(true); setErr('');
     try {
@@ -113,13 +115,18 @@ function GfForm({ initial, drawActive, onToggleDraw, drawnCircle, drawnPolygon, 
     } catch { setErr('Failed to save'); } finally { setSaving(false); }
   };
 
-  const circleSet = gfType === 'circle' && lat && lng;
-  const polygonSet = gfType === 'polygon' && ((drawnPolygon && drawnPolygon.length >= 3) || (initial?.coordinates && initial.coordinates.length >= 3));
-
   return (
-    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Polygon draw hint banner at TOP */}
+      {gfType === 'polygon' && drawActive && (
+        <div style={{ background: '#fff5f5', borderBottom: '1px solid #fca5a5', padding: '7px 12px', fontSize: 11.5, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4v4m0 4h.01"/></svg>
+          Click on map to add points
+        </div>
+      )}
+
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        <GeoIcon />
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#111' }}>{initial?.id ? 'Edit Geofence' : 'New Geofence'}</span>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: 4, borderRadius: 6, display: 'flex' }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -127,85 +134,127 @@ function GfForm({ initial, drawActive, onToggleDraw, drawnCircle, drawnPolygon, 
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Name */}
         <div>
           <label style={LBL}>Name</label>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Lahore Office" style={inpSt}
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Zone name" style={inpSt}
             onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
             onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
         </div>
 
+        {/* Shape selector */}
         <div>
-          <label style={LBL}>Type</label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            {(['circle', 'polygon'] as const).map(t => (
-              <button key={t} onClick={() => setGfType(t)}
-                style={{ padding: '6px', borderRadius: 6, border: `1.5px solid ${gfType === t ? '#dc2626' : '#e5e7eb'}`, background: gfType === t ? '#fff5f5' : '#fff', color: gfType === t ? '#dc2626' : '#888', fontSize: 11.5, fontWeight: gfType === t ? 600 : 400, cursor: 'pointer', textTransform: 'capitalize' }}>
-                {t}
+          <label style={LBL}>Shape</label>
+          <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0' }}>
+            {([['circle', 'Circle', '○'] as const, ['polygon', 'Polygon', '△'] as const]).map(([val, lbl, icon]) => (
+              <button key={val} onClick={() => handleTypeChange(val)}
+                style={{ flex: 1, padding: '7px 6px', border: 'none', borderBottom: `2px solid ${gfType === val ? '#dc2626' : 'transparent'}`, background: 'transparent', color: gfType === val ? '#dc2626' : '#9ca3af', fontSize: 12, fontWeight: gfType === val ? 700 : 400, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: -1 }}>
+                <span style={{ fontSize: 14 }}>{icon}</span> {lbl}
               </button>
             ))}
           </div>
         </div>
 
+        {/* Zone Color */}
+        <div>
+          <label style={LBL}>Zone Color</label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', position: 'relative', width: 'fit-content' }}>
+            <div style={{ width: 18, height: 18, borderRadius: '50%', background: color, flexShrink: 0, border: '1px solid rgba(0,0,0,.1)' }} />
+            <span style={{ fontSize: 12, color: '#333', fontFamily: 'monospace' }}>{color.toUpperCase()}</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <input type="color" value={color} onChange={e => setColor(e.target.value)} style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', top: 0, left: 0, cursor: 'pointer' }} />
+          </label>
+        </div>
+
+        {/* Circle: center point + radius slider */}
         {gfType === 'circle' && (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <label style={{ ...LBL, marginBottom: 0 }}>Location &amp; Radius</label>
-              <button type="button" onClick={onToggleDraw}
-                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 5, border: `1px solid ${drawActive ? '#dc2626' : '#e5e7eb'}`, background: drawActive ? '#fff5f5' : '#f5f5f5', color: drawActive ? '#dc2626' : '#555', fontSize: 11, cursor: 'pointer', fontWeight: drawActive ? 600 : 500 }}>
-                <IconMapPin size={11} /> {drawActive ? 'Cancel Draw' : 'Pick on Map'}
-              </button>
+          <>
+            <div>
+              <label style={LBL}>Center Point</label>
+              {circleReady ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '6px 10px', fontSize: 11, color: '#16a34a', fontFamily: 'monospace' }}>
+                    {circleLat?.toFixed(5)}, {circleLng?.toFixed(5)}
+                  </div>
+                  <button type="button" onClick={onToggleDraw}
+                    style={{ padding: '5px 10px', borderRadius: 6, border: `1px solid ${drawActive ? '#dc2626' : '#e5e7eb'}`, background: drawActive ? '#fff5f5' : '#f9fafb', color: drawActive ? '#dc2626' : '#555', fontSize: 11, cursor: 'pointer' }}>
+                    {drawActive ? 'Cancel' : 'Change Center'}
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={onToggleDraw}
+                  style={{ width: '100%', padding: '12px', borderRadius: 8, border: `1.5px dashed ${drawActive ? '#dc2626' : '#d1d5db'}`, background: drawActive ? '#fff5f5' : '#f9fafb', color: drawActive ? '#dc2626' : '#9ca3af', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4v4m0 4h.01"/></svg>
+                  {drawActive ? 'Click on the map…' : 'Click to pick center on map'}
+                </button>
+              )}
             </div>
-            {drawActive && (
-              <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 6, padding: '6px 10px', marginBottom: 8, fontSize: 11, color: '#dc2626' }}>
-                Click on the map to place the geofence center, then adjust radius
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <label style={{ ...LBL, marginBottom: 0 }}>Radius</label>
+                <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 700 }}>
+                  {radius >= 1000 ? `${(radius / 1000).toFixed(1)} km` : `${radius} m`}
+                </span>
               </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={LBL}>Latitude</label>
-                <input value={lat} onChange={e => setLat(e.target.value)} placeholder="31.5204" style={inpSt}
+              <input type="range" min={100} max={50000} step={100} value={radius}
+                onChange={e => { const r = +e.target.value; setRadius(r); if (drawnCircle) { /* slider update propagates via drawLayer */ } }}
+                style={{ width: '100%', accentColor: '#dc2626', marginBottom: 4 }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#bbb', marginBottom: 6 }}>
+                <span>100 m</span><span>50 km</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ ...LBL, marginBottom: 0, whiteSpace: 'nowrap' }}>Exact (m):</label>
+                <input type="number" value={radius} onChange={e => setRadius(+e.target.value || 500)} min={100} max={50000}
+                  style={{ ...inpSt, width: 90 }}
                   onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
                   onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
               </div>
-              <div>
-                <label style={LBL}>Longitude</label>
-                <input value={lng} onChange={e => setLng(e.target.value)} placeholder="74.3587" style={inpSt}
-                  onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
-              </div>
             </div>
-            <div style={{ marginTop: 8 }}>
-              <label style={LBL}>Radius (meters)</label>
-              <input type="number" value={radius} onChange={e => setRadius(e.target.value)} placeholder="500" style={inpSt}
-                onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
-                onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
-            </div>
-            {circleSet && (
-              <div style={{ fontSize: 10.5, color: '#16a34a', marginTop: 4 }}>Location set: {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}</div>
-            )}
-          </div>
+          </>
         )}
 
+        {/* Polygon: points list */}
         {gfType === 'polygon' && (
           <div>
-            <label style={LBL}>Polygon</label>
-            <button type="button" onClick={onToggleDraw}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 12px', borderRadius: 6, border: `1.5px solid ${drawActive ? '#dc2626' : '#e5e7eb'}`, background: drawActive ? '#fff5f5' : '#f5f5f5', color: drawActive ? '#dc2626' : '#555', fontSize: 12, cursor: 'pointer', fontWeight: drawActive ? 600 : 500, justifyContent: 'center' }}>
-              <IconMapPin size={13} /> {drawActive ? 'Cancel Drawing (click to finish)' : 'Draw Polygon on Map'}
-            </button>
-            {drawActive && (
-              <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 6, padding: '6px 10px', marginTop: 6, fontSize: 11, color: '#dc2626' }}>
-                Click on map to add points. Double-click or press Enter to finish.
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label style={{ ...LBL, marginBottom: 0 }}>Points ({polygonPts.length})</label>
+              <div style={{ display: 'flex', gap: 5 }}>
+                {polygonPts.length > 0 && (
+                  <button type="button" onClick={onPolygonClear}
+                    style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}>Clear</button>
+                )}
+                <button type="button" onClick={onToggleDraw}
+                  style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, border: `1px solid ${drawActive ? '#dc2626' : '#e5e7eb'}`, background: drawActive ? '#fff5f5' : '#f5f5f5', color: drawActive ? '#dc2626' : '#555', cursor: 'pointer', fontWeight: drawActive ? 600 : 400 }}>
+                  {drawActive ? 'Stop' : 'Draw'}
+                </button>
+              </div>
+            </div>
+            {polygonPts.length === 0 ? (
+              <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 11, color: '#bbb' }}>
+                Click on map to start adding points
+              </div>
+            ) : (
+              <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {polygonPts.map((pt, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', background: '#f9fafb', borderRadius: 5, border: '1px solid #f0f0f0' }}>
+                    <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#dc2626', color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{idx + 1}</div>
+                    <span style={{ flex: 1, fontSize: 10.5, color: '#555', fontFamily: 'monospace' }}>{pt[0].toFixed(5)}, {pt[1].toFixed(5)}</span>
+                    <button type="button" onClick={() => onPolygonPointRemove?.(idx)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', display: 'flex', padding: 2 }}
+                      onMouseEnter={e => e.currentTarget.style.color = '#dc2626'}
+                      onMouseLeave={e => e.currentTarget.style.color = '#bbb'}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
-            {polygonSet && (
-              <div style={{ fontSize: 10.5, color: '#16a34a', marginTop: 6 }}>
-                Polygon set: {(drawnPolygon ?? initial?.coordinates)?.length} points
-              </div>
-            )}
+            {polygonReady && <div style={{ fontSize: 10.5, color: '#16a34a', marginTop: 4 }}>Polygon ready: {polygonPts.length} points</div>}
           </div>
         )}
 
+        {/* Trigger Events */}
         <div>
           <label style={LBL}>Trigger Events</label>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -215,21 +264,6 @@ function GfForm({ initial, drawActive, onToggleDraw, drawnCircle, drawnPolygon, 
                 On {lbl}
               </button>
             ))}
-          </div>
-        </div>
-
-        <div>
-          <label style={LBL}>Color</label>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {PRESET_COLORS.map(c => (
-              <button key={c} onClick={() => setColor(c)}
-                style={{ width: 22, height: 22, borderRadius: '50%', background: c, border: color === c ? '2.5px solid #111' : '2px solid transparent', cursor: 'pointer', flexShrink: 0 }} />
-            ))}
-            <label style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 11 }}>
-              <div style={{ width: 16, height: 16, borderRadius: '50%', background: color, flexShrink: 0 }} />
-              <span style={{ color: '#555' }}>{color}</span>
-              <input type="color" value={color} onChange={e => setColor(e.target.value)} style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', top: 0, left: 0, cursor: 'pointer' }} />
-            </label>
           </div>
         </div>
 
@@ -252,6 +286,7 @@ function GfForm({ initial, drawActive, onToggleDraw, drawnCircle, drawnPolygon, 
 export default function GeofencesPanel({
   geofences: initialGf, loading, selectedId, onSelect, onListChange,
   drawActive, onToggleDraw, drawnCircle, drawnPolygon,
+  onTypeChange, onPolygonPointRemove, onPolygonClear,
 }: {
   geofences: Geofence[]; loading: boolean;
   selectedId: string | null; onSelect: (gf: Geofence) => void;
@@ -260,6 +295,9 @@ export default function GeofencesPanel({
   onToggleDraw?: () => void;
   drawnCircle?: { lat: number; lng: number; radius: number } | null;
   drawnPolygon?: [number, number][] | null;
+  onTypeChange?: (t: 'circle' | 'polygon') => void;
+  onPolygonPointRemove?: (idx: number) => void;
+  onPolygonClear?: () => void;
 }) {
   const { closePanel } = usePortalPanel();
   const [geofences, setGeofences] = useState<Geofence[]>(initialGf);
@@ -292,6 +330,9 @@ export default function GeofencesPanel({
           onToggleDraw={onToggleDraw ?? (() => {})}
           drawnCircle={drawnCircle ?? null}
           drawnPolygon={drawnPolygon ?? null}
+          onTypeChange={onTypeChange}
+          onPolygonPointRemove={onPolygonPointRemove}
+          onPolygonClear={onPolygonClear}
           onSave={onSave}
           onCancel={() => { setView('list'); setEditing(null); }}
         />
@@ -302,7 +343,7 @@ export default function GeofencesPanel({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #f0f0f0', flexShrink: 0, gap: 6 }}>
-        <GeoIcon />
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#111' }}>
           Geofences <span style={{ fontSize: 10, color: '#bbb', fontWeight: 400 }}>{geofences.length}</span>
         </span>
@@ -329,10 +370,10 @@ export default function GeofencesPanel({
           <div style={{ padding: 24, textAlign: 'center', fontSize: 11.5, color: '#bbb' }}>{q ? 'No results' : 'No geofences yet'}</div>
         ) : filtered.map(gf => {
           const active = selectedId === gf.id;
-          const borderC = active ? '#dc2626' : (gf.color ?? '#6b7280');
+          const borderC = gf.color ?? '#6b7280';
           return (
             <div key={gf.id} onClick={() => onSelect(gf)}
-              style={{ padding: '9px 12px', borderBottom: '1px solid #f7f7f7', cursor: 'pointer', background: active ? '#fff5f5' : 'transparent', borderLeft: `3px solid ${borderC}`, display: 'flex', alignItems: 'center', gap: 6 }}
+              style={{ padding: '9px 12px', borderBottom: '1px solid #f7f7f7', cursor: 'pointer', background: active ? '#fff5f5' : 'transparent', borderLeft: `3px solid ${active ? '#dc2626' : borderC}`, display: 'flex', alignItems: 'center', gap: 6 }}
               onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#fafafa'; }}
               onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
               <div style={{ flex: 1, minWidth: 0 }}>
