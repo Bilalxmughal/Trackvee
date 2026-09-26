@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import AlertsModal, { AlertRecord, AlertsPanel as AlertsLeftPanel } from '../components/AlertsModal';
 import GeofencesPanel, { Geofence, CircleCoords, PolygonCoords } from '../components/GeofencesModal';
 import SpeedZonesPanel, { SpeedZone, SZCircleCoords, SZPolygonCoords } from '../components/SpeedZonesPanel';
+import VehicleGroupSelect from '../components/VehicleGroupSelect';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { useAlert, AlertSettings } from '../contexts/AlertContext';
@@ -1428,53 +1429,6 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
 
 // ── Shared modal vehicle list ─────────────────────────────────────────────────
 
-function ModalVehicleList({ allImeis, deviceMap, sel, toggle, dark, groups, excludeGroupId }: {
-  allImeis: string[]; deviceMap: DMap; sel: Set<string>; toggle: (imei: string) => void;
-  dark: boolean; groups?: VehicleGroup[]; excludeGroupId?: string;
-}) {
-  const activeGroups = (groups ?? []).filter(g => g.id !== excludeGroupId);
-  const groupedSet = new Set(activeGroups.flatMap(g => g.imeis));
-  const ungrouped = allImeis.filter(i => !groupedSet.has(i));
-  const sections: { title?: string; imeis: string[] }[] = [];
-  if (ungrouped.length > 0) sections.push({ imeis: ungrouped });
-  activeGroups.forEach(g => {
-    const gImeis = g.imeis.filter(i => allImeis.includes(i));
-    if (gImeis.length > 0) sections.push({ title: g.name, imeis: gImeis });
-  });
-  if (sections.length === 0) sections.push({ imeis: allImeis });
-  const VehicleItem = ({ imei }: { imei: string }) => {
-    const plate = fmtPlate(deviceMap.get(imei), imei);
-    const chk = sel.has(imei);
-    return (
-      <label style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px', cursor: 'pointer', borderRadius: 4, background: 'transparent', userSelect: 'none' }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = dark ? '#1e1e1e' : '#f9fafb'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-      >
-        <input type="checkbox" checked={chk} onChange={() => toggle(imei)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}/>
-        <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, border: chk ? '1.5px solid #dc2626' : `1.5px solid ${dark ? '#555' : '#d1d5db'}`, background: chk ? '#dc2626' : (dark ? '#2a2a2a' : '#fff'), display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s, border-color 0.1s' }}>
-          {chk && (
-            <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-              <polyline points="1.5,5 4,7.5 8.5,2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          )}
-        </span>
-        <span style={{ fontSize: 12, fontWeight: chk ? 600 : 400, color: chk ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</span>
-      </label>
-    );
-  };
-  return (
-    <div style={{ padding: '4px 4px' }}>
-      {sections.map((section, si) => (
-        <div key={si} style={{ marginBottom: si < sections.length - 1 ? 8 : 0 }}>
-          {section.title && <div style={{ padding: '6px 8px 3px', fontSize: 10, fontWeight: 700, color: dark ? '#555' : '#bbb', textTransform: 'uppercase', letterSpacing: 0.6 }}>{section.title}</div>}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
-            {section.imeis.map(imei => <VehicleItem key={imei} imei={imei}/>)}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function ModalHeader({ title, onClose, dark }: { title: string; onClose: () => void; dark: boolean }) {
   return (
@@ -1524,7 +1478,7 @@ function CreateGroupModal({ points, deviceMap, onClose, onCreate, dark, groups }
         </div>
         <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16, border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 8 }}>
           {points.length === 0 ? <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>No vehicles online</div>
-          : <ModalVehicleList allImeis={filtered} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark} groups={groups}/>}
+          : <VehicleGroupSelect allImeis={filtered} deviceMap={deviceMap} selected={sel} onToggle={toggle} dark={dark} groups={groups}/>}
         </div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#888' : '#666', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
@@ -1571,7 +1525,7 @@ function EditGroupModal({ group, points, deviceMap, onClose, onSave, onDelete, d
           </div>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16, border: `1px solid ${dark ? '#2a2a2a' : '#e8e8e8'}`, borderRadius: 8 }}>
-          <ModalVehicleList allImeis={filtered} deviceMap={deviceMap} sel={sel} toggle={toggle} dark={dark} groups={groups} excludeGroupId={group.id}/>
+          <VehicleGroupSelect allImeis={filtered} deviceMap={deviceMap} selected={sel} onToggle={toggle} dark={dark} groups={groups} excludeGroupId={group.id}/>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, paddingTop: 4, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
           <button onClick={() => { onDelete(group.id); onClose(); }} style={{ padding: '8px 14px', borderRadius: 7, border: '1px solid #fca5a5', background: 'transparent', color: '#ef4444', fontSize: 13, cursor: 'pointer' }}>Delete Group</button>
