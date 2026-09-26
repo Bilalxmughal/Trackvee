@@ -4,7 +4,7 @@ import { IconFileSpreadsheet, IconFileTypeCsv, IconPrinter, IconChevronDown, Ico
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
-import VehicleMultiSelect, { VehicleOption } from '../components/VehicleMultiSelect';
+import VehicleMultiSelect, { VehicleOption, VehicleGroup } from '../components/VehicleMultiSelect';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ReportType =
@@ -66,6 +66,7 @@ const btn = (variant: 'primary' | 'outline' | 'ghost'): React.CSSProperties => (
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   const [vehicles, setVehicles]     = useState<VehicleOption[]>([]);
+  const [vehicleGroups, setVehicleGroups] = useState<VehicleGroup[]>([]);
   const [geofences, setGeofences]   = useState<{ id: string; name: string }[]>([]);
   const [selectedVehs, setSelectedVehs] = useState<string[]>([]);
   const [selectedGFs, setSelectedGFs]   = useState<string[]>([]);
@@ -88,6 +89,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     api.get<{ id: string; name: string; licensePlate?: string }[]>('/vehicles').then(r => setVehicles(r.data.map(v => ({ id: v.id, name: v.name, licensePlate: v.licensePlate ?? null })))).catch(() => {});
+    api.get<VehicleGroup[]>('/vehicle-groups').then(r => setVehicleGroups(r.data)).catch(() => {});
     api.get<{ id: string; name: string }[]>('/geofences').then(r => setGeofences(r.data)).catch(() => {});
   }, []);
 
@@ -194,7 +196,7 @@ export default function ReportsPage() {
         {/* Vehicles */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Vehicles</span>
-          <VehicleMultiSelect vehicles={vehicles} selected={selectedVehs} onChange={setSelectedVehs} />
+          <VehicleMultiSelect vehicles={vehicles} groups={vehicleGroups} selected={selectedVehs} onChange={setSelectedVehs} />
         </div>
 
         {/* Period */}
