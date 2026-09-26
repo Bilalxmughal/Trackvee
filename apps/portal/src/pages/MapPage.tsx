@@ -733,7 +733,7 @@ function GroupModal({ title, name, setName, points, deviceMap, sel, setSel, grou
   const btnStyle: React.CSSProperties = { padding: '4px 10px', borderRadius: 5, border: '1px solid #e5e7eb', background: 'transparent', color: '#555', fontSize: 11, cursor: 'pointer' };
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px' }}>
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 24, width: 'min(600px, 93vw)', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' }}>
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 24, width: 'min(1200px, 97vw)', height: 'min(800px, 96vh)', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' }}>
         <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 14, marginBottom: 14, borderBottom: '1px solid #f0f0f0' }}>
           <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: '#111', letterSpacing: 0.2 }}>{title}</span>
           <button onClick={onClose} style={{ background: '#f5f5f5', border: 'none', cursor: 'pointer', color: '#666', padding: '4px 5px', borderRadius: 5, display: 'flex' }}>
