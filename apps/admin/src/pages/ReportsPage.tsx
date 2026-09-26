@@ -148,7 +148,7 @@ export default function ReportsPage() {
   });
 
   const generate = async () => {
-    if (!selectedVehs.length) { setError('Kam az kam ek vehicle select karo'); return; }
+    if (!selectedVehs.length) { setError('Select at least one vehicle'); return; }
     setError(''); setLoading(true); setResult(null);
     try {
       const r = await api.get<ReportResult>(`/reports?${new URLSearchParams(buildParams())}`);

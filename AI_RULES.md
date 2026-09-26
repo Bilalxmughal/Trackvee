@@ -28,6 +28,27 @@ Do **not** read every historical change by default. Use `CHANGELOG.md` only when
 - Protect tenant isolation and authentication/authorization rules.
 - Do not expose secrets or hard-code credentials.
 
+## Admin → Portal parity rule
+
+**Default: every feature built in admin must also be built in portal.**
+
+When a task says "admin mein X banao" or "admin mein Y fix karo" — implement it in admin AND apply the same logic/design to portal, unless:
+- The user explicitly says "sirf admin mein" / "only in admin", OR
+- The feature is admin-only by nature (super_admin panel, org management, client management, internal staff tools).
+
+When implementing in portal:
+- Read `SHARED_PATTERNS.md` first — it documents the exact design tokens, component logic, and API shapes that must be matched.
+- Portal is **light-theme only** — never use CSS variables or dark-mode conditionals.
+- Portal uses `api` client (axios) — never `fetch` with manual auth headers.
+- Portal components use inline styles — no CSS modules or Tailwind classes.
+- After completing both sides, update `SHARED_PATTERNS.md` with the new pattern if it is reusable.
+
+## Language rule
+
+**All UI text, error messages, validation messages, tooltips, placeholder text, and copy must be in English.**
+
+Never write UI strings in Roman Urdu, Urdu, or any language other than English. This applies to both admin and portal. If an existing string is in Roman Urdu or another language, fix it to English.
+
 ## UI / UX preservation rules
 
 - Preserve the existing YoTrack design system, visual language, navigation structure, layouts, and user flows unless the user explicitly requests a specific change.

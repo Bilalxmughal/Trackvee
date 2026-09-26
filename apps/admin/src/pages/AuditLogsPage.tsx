@@ -58,10 +58,8 @@ const dateInp: React.CSSProperties = {
   borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none',
   background: 'var(--input-bg)',
 };
-const badge = (color: string): React.CSSProperties => ({
-  display: 'inline-block', padding: '1px 7px', borderRadius: 3,
-  fontSize: 11, fontWeight: 600, color, border: `1px solid ${color}`,
-  background: color + '18',
+const flat = (color: string): React.CSSProperties => ({
+  fontSize: 12, fontWeight: 600, color,
 });
 
 const PAGE_SIZE = 50;
@@ -215,7 +213,7 @@ export default function AuditLogsPage() {
               <tr key={log.id} style={{ borderBottom: '1px solid var(--table-border)' }}>
                 <td style={{ padding: '7px 10px', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{fmtDate(log.timestamp)}</td>
                 <td style={{ padding: '7px 10px' }}>
-                  <span style={badge(ACTION_COLOR[log.action] ?? '#888')}>{ACTION_LABELS[log.action] ?? log.action}</span>
+                  <span style={flat(ACTION_COLOR[log.action] ?? '#888')}>{ACTION_LABELS[log.action] ?? log.action}</span>
                 </td>
                 <td style={{ padding: '7px 10px', color: 'var(--text-muted)' }}>{ENTITY_LABELS[log.entityType] ?? log.entityType}</td>
                 <td style={{ padding: '7px 10px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.entityName ?? log.entityId ?? ''}>
@@ -229,7 +227,7 @@ export default function AuditLogsPage() {
                 <td style={{ padding: '7px 10px', color: 'var(--text-muted)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.orgName ?? '—'}</td>
                 <td style={{ padding: '7px 10px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{log.ip ?? '—'}</td>
                 <td style={{ padding: '7px 10px' }}>
-                  <span style={badge(STATUS_COLOR[log.status] ?? '#888')}>{log.status}</span>
+                  <span style={flat(STATUS_COLOR[log.status] ?? '#888')}>{log.status}</span>
                 </td>
               </tr>
             ))}

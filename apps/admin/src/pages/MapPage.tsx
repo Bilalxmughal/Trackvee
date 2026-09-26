@@ -1246,7 +1246,7 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
 
   const handleImmoSubmit = async () => {
     const last4 = pt.imei.slice(-4);
-    if (immoInput !== last4) { setImmoError(`Galat digits — dobara koshish karo`); return; }
+    if (immoInput !== last4) { setImmoError('Incorrect digits — please try again'); return; }
     setImmoBusy(true);
     try {
       await fetch(`/api/v1/devices/${pt.imei}/command`, {
