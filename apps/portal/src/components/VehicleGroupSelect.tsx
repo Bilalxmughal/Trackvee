@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import api from '../api/client';
 
 export interface VehicleSelectItem {
-  id: string; plate: string; name?: string | null; make?: string | null; model?: string | null;
+  id: string; licensePlate: string | null; name?: string | null; make?: string | null; model?: string | null;
 }
 export interface VehicleSelectGroup { id: string; name: string; vehicleIds: string[]; }
 
@@ -39,7 +39,7 @@ export default function VehicleGroupSelect({ organizationId, value, onChange, ve
 
   const filtered = useMemo(() => {
     const sq = q.trim().toLowerCase();
-    return sq ? vehicles.filter(v => v.plate.toLowerCase().includes(sq) || (v.name ?? '').toLowerCase().includes(sq)) : vehicles;
+    return sq ? vehicles.filter(v => (v.licensePlate ?? '').toLowerCase().includes(sq) || (v.name ?? '').toLowerCase().includes(sq)) : vehicles;
   }, [vehicles, q]);
 
   const groupedIds  = useMemo(() => new Set(groups.flatMap(g => g.vehicleIds)), [groups]);
@@ -57,7 +57,7 @@ export default function VehicleGroupSelect({ organizationId, value, onChange, ve
   const selCount = value.filter(id => filtered.some(v => v.id === id)).length;
 
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 340 }}>
 
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderBottom: '1px solid #ebebeb', background: '#fafafa' }}>
@@ -87,8 +87,8 @@ export default function VehicleGroupSelect({ organizationId, value, onChange, ve
         </div>
       </div>
 
-      {/* List */}
-      <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+      {/* List — scrollable, toolbar stays fixed */}
+      <div style={{ overflowY: 'auto', flex: 1 }}>
         {filtered.length === 0 && (
           <div style={{ padding: 16, fontSize: 12, color: '#bbb', textAlign: 'center' }}>No results</div>
         )}
@@ -130,7 +130,7 @@ function VehicleRow({ v, checked, onToggle }: { v: VehicleSelectItem; checked: b
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = checked ? 'rgba(220,38,38,0.05)' : 'transparent'; }}
     >
       <input type="checkbox" checked={checked} onChange={onToggle} style={{ accentColor: '#dc2626', flexShrink: 0, cursor: 'pointer' }} />
-      <span style={{ fontSize: 12, fontWeight: checked ? 600 : 400, color: checked ? '#dc2626' : '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.plate}</span>
+      <span style={{ fontSize: 12, fontWeight: checked ? 600 : 400, color: checked ? '#dc2626' : '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.licensePlate ?? '—'}</span>
     </label>
   );
 }

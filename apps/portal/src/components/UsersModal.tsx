@@ -149,7 +149,7 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10100, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 'min(520px, 97vw)', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 48px rgba(0,0,0,0.3)', maxHeight: '92vh', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 12, width: 'min(860px, 98vw)', height: 'min(640px, 95vh)', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 48px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center' }}>
           <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#111' }}>{initial?.id ? 'Edit User' : 'New User'}</span>
