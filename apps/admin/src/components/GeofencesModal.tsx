@@ -85,8 +85,8 @@ function GfList({ geofences, loading, onNew, onEdit, onDelete, dark, onClose, ca
               <div style={{ fontSize: 12.5, fontWeight: 600, color: dark ? '#e5e5e5' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gf.name}</div>
               <div style={{ fontSize: 10.5, color: dark ? '#555' : '#aaa', marginTop: 1 }}>
                 {gf.type === 'circle'
-                  ? `Circle · ${((gf.coordinates as CircleCoords).radius / 1000).toFixed(2)} km`
-                  : `Polygon · ${(gf.coordinates as PolygonCoords).points.length} pts`}
+                  ? `Circle · ${(((gf.coordinates as CircleCoords)?.radius ?? 0) / 1000).toFixed(2)} km`
+                  : `Polygon · ${(gf.coordinates as PolygonCoords)?.points?.length ?? 0} pts`}
               </div>
             </div>
             {canEdit && <button onClick={() => onEdit(gf)} title="Edit" style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? '#555' : '#bbb', display: 'flex', padding: 3 }}>
