@@ -308,6 +308,7 @@ export const ORG_NAV_TO_FEATURE: Record<string, string> = {
   vehicles:          'vehicles',
   'client-users':    'users',
   'driver-behavior': 'driver-behavior',
+  reports:           'reports',
 };
 
 export const ORG_ROLE_LABEL: Record<string, string> = {
