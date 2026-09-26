@@ -341,12 +341,15 @@ function AlertFormModal({ alert: init, vehicles, geofences, speedZones, dark, on
                             {!collapsed && gVehicles.map(v => {
                               const sel = selectedImeis.has(v.imei);
                               return (
-                                <label key={v.imei} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px 8px 28px', borderBottom: `1px solid ${dark ? '#1c1c1c' : '#f5f5f5'}`, cursor: 'pointer', background: sel ? (dark ? '#1a0808' : '#fff5f5') : 'transparent', transition: 'background .12s' }}>
-                                  <div style={{ width: 15, height: 15, borderRadius: 3, border: `2px solid ${sel ? '#dc2626' : (dark ? '#444' : '#d1d5db')}`, background: sel ? '#dc2626' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                                    onClick={() => toggleImei(v.imei)}>
-                                    {sel && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                                  </div>
-                                  <span style={{ flex: 1, fontSize: 12.5, fontWeight: sel ? 700 : 500, color: sel ? '#dc2626' : (dark ? '#e5e5e5' : '#111'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => toggleImei(v.imei)}>{v.plate}</span>
+                                <label key={v.imei} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px 6px 28px', borderBottom: `1px solid ${dark ? '#1c1c1c' : '#f5f5f5'}`, cursor: 'pointer', background: 'transparent', userSelect: 'none' }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = dark ? '#1e1e1e' : '#f9fafb'; }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                                >
+                                  <input type="checkbox" checked={sel} onChange={() => toggleImei(v.imei)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}/>
+                                  <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, border: sel ? '1.5px solid #dc2626' : `1.5px solid ${dark ? '#555' : '#d1d5db'}`, background: sel ? '#dc2626' : (dark ? '#2a2a2a' : '#fff'), display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s' }}>
+                                    {sel && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                  </span>
+                                  <span style={{ flex: 1, fontSize: 12, fontWeight: sel ? 600 : 400, color: sel ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.plate}</span>
                                 </label>
                               );
                             })}
@@ -360,12 +363,15 @@ function AlertFormModal({ alert: init, vehicles, geofences, speedZones, dark, on
                           {ungrouped.map(v => {
                             const sel = selectedImeis.has(v.imei);
                             return (
-                              <label key={v.imei} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: `1px solid ${dark ? '#1c1c1c' : '#f5f5f5'}`, cursor: 'pointer', background: sel ? (dark ? '#1a0808' : '#fff5f5') : 'transparent', transition: 'background .12s' }}>
-                                <div style={{ width: 15, height: 15, borderRadius: 3, border: `2px solid ${sel ? '#dc2626' : (dark ? '#444' : '#d1d5db')}`, background: sel ? '#dc2626' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                                  onClick={() => toggleImei(v.imei)}>
-                                  {sel && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                                </div>
-                                <span style={{ flex: 1, fontSize: 12.5, fontWeight: sel ? 700 : 500, color: sel ? '#dc2626' : (dark ? '#e5e5e5' : '#111'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => toggleImei(v.imei)}>{v.plate}</span>
+                              <label key={v.imei} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: `1px solid ${dark ? '#1c1c1c' : '#f5f5f5'}`, cursor: 'pointer', background: 'transparent', userSelect: 'none' }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = dark ? '#1e1e1e' : '#f9fafb'; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                              >
+                                <input type="checkbox" checked={sel} onChange={() => toggleImei(v.imei)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}/>
+                                <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, border: sel ? '1.5px solid #dc2626' : `1.5px solid ${dark ? '#555' : '#d1d5db'}`, background: sel ? '#dc2626' : (dark ? '#2a2a2a' : '#fff'), display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s' }}>
+                                  {sel && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                </span>
+                                <span style={{ flex: 1, fontSize: 12, fontWeight: sel ? 600 : 400, color: sel ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.plate}</span>
                               </label>
                             );
                           })}

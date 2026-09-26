@@ -259,9 +259,15 @@ function AlertFormWizard({
                           const d = devices.find(x => x.imei === imei)!;
                           const chk = selectedImeis.includes(imei);
                           return (
-                            <label key={imei} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 6px', cursor: 'pointer', borderRadius: 4, background: chk ? '#fff5f5' : 'transparent' }}>
-                              <input type="checkbox" checked={chk} onChange={() => toggleImei(imei)} style={{ flexShrink: 0, accentColor: '#dc2626', cursor: 'pointer' }}/>
-                              <span style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: chk ? '#dc2626' : '#333' }}>{d?.label}</span>
+                            <label key={imei} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 6px', cursor: 'pointer', borderRadius: 4, background: 'transparent', userSelect: 'none' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f9fafb'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                            >
+                              <input type="checkbox" checked={chk} onChange={() => toggleImei(imei)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}/>
+                              <span style={{ flexShrink: 0, width: 14, height: 14, borderRadius: 3, border: chk ? '1.5px solid #dc2626' : '1.5px solid #d1d5db', background: chk ? '#dc2626' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s' }}>
+                                {chk && <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                              </span>
+                              <span style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: chk ? '#dc2626' : '#333', fontWeight: chk ? 600 : 400 }}>{d?.label}</span>
                             </label>
                           );
                         })}
@@ -277,9 +283,15 @@ function AlertFormWizard({
                         const d = devices.find(x => x.imei === imei)!;
                         const chk = selectedImeis.includes(imei);
                         return (
-                          <label key={imei} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 6px', cursor: 'pointer', borderRadius: 4, background: chk ? '#fff5f5' : 'transparent' }}>
-                            <input type="checkbox" checked={chk} onChange={() => toggleImei(imei)} style={{ flexShrink: 0, accentColor: '#dc2626', cursor: 'pointer' }}/>
-                            <span style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: chk ? '#dc2626' : '#333' }}>{d?.label}</span>
+                          <label key={imei} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 6px', cursor: 'pointer', borderRadius: 4, background: 'transparent', userSelect: 'none' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f9fafb'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                          >
+                            <input type="checkbox" checked={chk} onChange={() => toggleImei(imei)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}/>
+                            <span style={{ flexShrink: 0, width: 14, height: 14, borderRadius: 3, border: chk ? '1.5px solid #dc2626' : '1.5px solid #d1d5db', background: chk ? '#dc2626' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s' }}>
+                              {chk && <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                            </span>
+                            <span style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: chk ? '#dc2626' : '#333', fontWeight: chk ? 600 : 400 }}>{d?.label}</span>
                           </label>
                         );
                       })}
