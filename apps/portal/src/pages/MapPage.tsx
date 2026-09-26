@@ -267,11 +267,13 @@ export default function PortalMapPage() {
         />
       </MapContainer>
 
-      {/* Vehicle list — full height floating left */}
+      {/* Vehicle list — full height floating left with margin */}
       <div style={{
-        position: 'absolute', top: 0, left: 0, bottom: 0, width: 220,
-        background: '#fff', boxShadow: '4px 0 20px rgba(0,0,0,.10)',
-        borderRight: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', zIndex: 400,
+        position: 'absolute', top: 10, left: 10, bottom: 10, width: 220,
+        background: '#fff', borderRadius: 10,
+        boxShadow: '0 4px 24px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.07)',
+        border: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', zIndex: 400,
+        overflow: 'hidden',
       }}>
         {/* Header */}
         <div style={{ padding: '11px 12px 9px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
