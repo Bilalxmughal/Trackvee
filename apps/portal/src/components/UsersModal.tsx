@@ -149,7 +149,7 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10100, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 'min(860px, 98vw)', height: 'min(640px, 95vh)', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 48px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 12, width: 'min(1200px, 97vw)', height: 'min(800px, 96vh)', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 48px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center' }}>
           <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#111' }}>{initial?.id ? 'Edit User' : 'New User'}</span>
@@ -363,7 +363,7 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ width: 'min(860px, 98vw)', height: 'min(640px, 95vh)', background: '#fff', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.5)' }}>
+      <div style={{ width: 'min(1200px, 97vw)', height: 'min(800px, 96vh)', background: '#fff', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.5)' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', padding: '13px 18px', borderBottom: '1px solid #f0f0f0', flexShrink: 0, gap: 8 }}>
           <IconUsers size={16} color="#dc2626" strokeWidth={1.8} />

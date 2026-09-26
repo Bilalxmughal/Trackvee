@@ -199,7 +199,7 @@ function AlertFormWizard({
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 'min(520px, 97vw)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 48px rgba(0,0,0,0.35)' }}>
+      <div style={{ background: '#fff', borderRadius: 12, width: 'min(1200px, 97vw)', height: 'min(800px, 96vh)', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 48px rgba(0,0,0,0.35)' }}>
         {/* Header */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <IconBell size={15} color="#dc2626" strokeWidth={1.75} />
