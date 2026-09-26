@@ -1,28 +1,72 @@
-import React, { useState } from 'react';
-import { IconSearch, IconPlus, IconMapPin } from '@tabler/icons-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { IconSearch, IconPlus } from '@tabler/icons-react';
 import api from '../api/client';
 import { usePortalPanel } from '../contexts/PortalPanelContext';
+import { POI_ICONS } from '../lib/poi-icons';
 
 export interface POI {
-  id: string; name: string; category: string | null;
+  id: string; name: string;
+  group: string | null;
+  icon: string;
   latitude: number; longitude: number; radius: number;
   description: string | null;
 }
 
-const CATEGORIES = ['Fuel', 'Parking', 'Office', 'Warehouse', 'Workshop', 'Customer', 'Other'];
-
-const inpSt: React.CSSProperties = { padding: '6px 9px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' };
+const inpSt: React.CSSProperties = { padding: '7px 10px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', width: '100%', boxSizing: 'border-box' };
 const LBL: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.4, display: 'block', marginBottom: 4 };
 
-function POIIcon() {
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0-6 0M17.657 16.657L13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/></svg>;
+// ── Icon picker ──────────────────────────────────────────────────────────────
+
+function IconPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const [search, setSearch] = useState('');
+  const filtered = POI_ICONS.filter(ic => !search || ic.label.toLowerCase().includes(search.toLowerCase()) || ic.id.includes(search.toLowerCase()));
+  return (
+    <div>
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search icons…"
+        style={{ ...inpSt, marginBottom: 8 }}
+        onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
+        onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+        {filtered.map(ic => (
+          <button key={ic.id} type="button" title={ic.label} onClick={() => onChange(ic.id)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 6, cursor: 'pointer',
+              border: value === ic.id ? '2px solid #dc2626' : '1px solid #e5e7eb',
+              background: value === ic.id ? '#fff5f5' : '#fff',
+              color: value === ic.id ? '#dc2626' : '#6b7280', flexShrink: 0 }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d={ic.path} />
+            </svg>
+          </button>
+        ))}
+        {filtered.length === 0 && <div style={{ gridColumn: '1 / -1', padding: 10, color: '#9ca3af', fontSize: 12, textAlign: 'center' }}>No icons found</div>}
+      </div>
+    </div>
+  );
 }
 
-function DotMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+// ── Row icon renderer ────────────────────────────────────────────────────────
+
+function POIIcon({ iconId, size = 14 }: { iconId: string; size?: number }) {
+  const ic = POI_ICONS.find(i => i.id === iconId);
+  if (!ic) return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0-6 0M17.657 16.657L13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z" />
+    </svg>
+  );
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d={ic.path} />
+    </svg>
+  );
+}
+
+// ── Dot menu ─────────────────────────────────────────────────────────────────
+
+function DotMenu({ onEdit, onDelete, onCreateAlert }: { onEdit: () => void; onDelete: () => void; onCreateAlert?: () => void }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, right: 0 });
-  const btnRef = React.useRef<HTMLButtonElement>(null);
-  React.useEffect(() => {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
     document.addEventListener('click', close);
@@ -36,6 +80,11 @@ function DotMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => voi
     }
     setOpen(o => !o);
   };
+  const items = [
+    ...(onCreateAlert ? [{ label: 'Create Alert', action: onCreateAlert, red: false }] : []),
+    { label: 'Edit', action: onEdit, red: false },
+    { label: 'Delete', action: onDelete, red: true },
+  ];
   return (
     <>
       <button ref={btnRef} onClick={handleOpen}
@@ -43,8 +92,8 @@ function DotMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => voi
         <svg width="3" height="13" viewBox="0 0 3 13" fill="currentColor"><circle cx="1.5" cy="1.5" r="1.5"/><circle cx="1.5" cy="6.5" r="1.5"/><circle cx="1.5" cy="11.5" r="1.5"/></svg>
       </button>
       {open && (
-        <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 9500, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.18)', minWidth: 120, overflow: 'hidden' }}>
-          {[{ label: 'Edit', action: onEdit, red: false }, { label: 'Delete', action: onDelete, red: true }].map(it => (
+        <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 9500, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.18)', minWidth: 130, overflow: 'hidden' }}>
+          {items.map(it => (
             <button key={it.label} onClick={() => { it.action(); setOpen(false); }}
               style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '9px 14px', border: 'none', background: 'transparent', color: it.red ? '#dc2626' : '#333', fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#f5f5f5'; }}
@@ -60,8 +109,9 @@ function DotMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => voi
 
 // ── POI Form (inline) ─────────────────────────────────────────────────────────
 
-function POIForm({ initial, drawActive, onToggleDraw, drawnPoint, onSave, onCancel }: {
+function POIForm({ initial, existingGroups, drawActive, onToggleDraw, drawnPoint, onSave, onCancel }: {
   initial?: POI | null;
+  existingGroups: string[];
   drawActive: boolean;
   onToggleDraw: () => void;
   drawnPoint: { lat: number; lng: number } | null;
@@ -69,27 +119,31 @@ function POIForm({ initial, drawActive, onToggleDraw, drawnPoint, onSave, onCanc
   onCancel: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [category, setCategory] = useState(initial?.category ?? 'Other');
+  const [group, setGroup] = useState(initial?.group ?? '');
+  const [newGroup, setNewGroup] = useState('');
+  const [icon, setIcon] = useState(initial?.icon ?? 'map-pin');
   const [lat, setLat] = useState(initial?.latitude != null ? String(initial.latitude) : '');
   const [lng, setLng] = useState(initial?.longitude != null ? String(initial.longitude) : '');
-  const [radius, setRadius] = useState(initial?.radius != null ? String(initial.radius) : '100');
+  const [radius, setRadius] = useState(initial?.radius != null ? String(initial.radius) : '200');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (drawnPoint) {
       setLat(drawnPoint.lat.toFixed(6));
       setLng(drawnPoint.lng.toFixed(6));
     }
   }, [drawnPoint]);
 
+  const finalGroup = newGroup.trim() || group;
+
   const submit = async () => {
     if (!name.trim()) { setErr('Name is required'); return; }
-    const latN = parseFloat(lat), lngN = parseFloat(lng), radN = parseFloat(radius);
+    const latN = parseFloat(lat), lngN = parseFloat(lng);
     if (isNaN(latN) || isNaN(lngN)) { setErr('Latitude and longitude are required'); return; }
     setSaving(true); setErr('');
-    const payload = { name: name.trim(), category: category || null, latitude: latN, longitude: lngN, radius: radN || 100, description: description.trim() || null };
+    const payload = { name: name.trim(), group: finalGroup || null, icon, latitude: latN, longitude: lngN, radius: parseFloat(radius) || 200, description: description.trim() || null };
     try {
       let r: POI;
       if (initial?.id) { r = (await api.put<POI>(`/pois/${initial.id}`, payload)).data; }
@@ -98,10 +152,11 @@ function POIForm({ initial, drawActive, onToggleDraw, drawnPoint, onSave, onCanc
     } catch { setErr('Failed to save'); } finally { setSaving(false); }
   };
 
+  const selectedIconData = POI_ICONS.find(i => i.id === icon);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        <POIIcon />
         <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#111' }}>{initial?.id ? 'Edit POI' : 'New POI'}</span>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: 4, borderRadius: 6, display: 'flex' }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -117,14 +172,22 @@ function POIForm({ initial, drawActive, onToggleDraw, drawnPoint, onSave, onCanc
         </div>
 
         <div>
-          <label style={LBL}>Category</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {CATEGORIES.map(c => (
-              <button key={c} onClick={() => setCategory(c)}
-                style={{ padding: '4px 9px', borderRadius: 5, border: `1.5px solid ${category === c ? '#dc2626' : '#e5e7eb'}`, background: category === c ? '#fff5f5' : '#fff', color: category === c ? '#dc2626' : '#555', fontSize: 11, cursor: 'pointer', fontWeight: category === c ? 600 : 400 }}>
-                {c}
-              </button>
-            ))}
+          <label style={LBL}>Description (optional)</label>
+          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Notes…" style={inpSt}
+            onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
+            onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
+        </div>
+
+        <div>
+          <label style={LBL}>Group</label>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select value={group} onChange={e => setGroup(e.target.value)} style={{ ...inpSt, flex: 1 }}>
+              <option value="">— No group —</option>
+              {existingGroups.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <input value={newGroup} onChange={e => setNewGroup(e.target.value)} placeholder="Or create new…" style={{ ...inpSt, flex: 1 }}
+              onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
+              onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
           </div>
         </div>
 
@@ -133,7 +196,8 @@ function POIForm({ initial, drawActive, onToggleDraw, drawnPoint, onSave, onCanc
             <label style={{ ...LBL, marginBottom: 0 }}>Location</label>
             <button type="button" onClick={onToggleDraw}
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 5, border: `1px solid ${drawActive ? '#dc2626' : '#e5e7eb'}`, background: drawActive ? '#fff5f5' : '#f5f5f5', color: drawActive ? '#dc2626' : '#555', fontSize: 11, cursor: 'pointer', fontWeight: drawActive ? 600 : 500 }}>
-              <IconMapPin size={11} /> {drawActive ? 'Cancel' : 'Pick on Map'}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0-6 0M17.657 16.657L13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/></svg>
+              {drawActive ? 'Cancel' : 'Pick on Map'}
             </button>
           </div>
           {drawActive && (
@@ -155,7 +219,7 @@ function POIForm({ initial, drawActive, onToggleDraw, drawnPoint, onSave, onCanc
                 onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
             </div>
           </div>
-          {lat && lng && (
+          {lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng)) && (
             <div style={{ fontSize: 10.5, color: '#16a34a', marginTop: 4 }}>
               Location set: {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
             </div>
@@ -164,16 +228,24 @@ function POIForm({ initial, drawActive, onToggleDraw, drawnPoint, onSave, onCanc
 
         <div>
           <label style={LBL}>Radius (meters)</label>
-          <input type="number" value={radius} onChange={e => setRadius(e.target.value)} placeholder="100" style={inpSt}
+          <input type="number" value={radius} onChange={e => setRadius(e.target.value)} placeholder="200" style={inpSt}
             onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
             onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
         </div>
 
         <div>
-          <label style={LBL}>Description (optional)</label>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Notes…" style={inpSt}
-            onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
-            onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <label style={{ ...LBL, marginBottom: 0 }}>Marker Icon</label>
+            {selectedIconData && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d={selectedIconData.path} />
+                </svg>
+                {selectedIconData.label}
+              </div>
+            )}
+          </div>
+          <IconPicker value={icon} onChange={setIcon} />
         </div>
 
         {err && <div style={{ fontSize: 12, color: '#dc2626' }}>{err}</div>}
@@ -194,7 +266,7 @@ function POIForm({ initial, drawActive, onToggleDraw, drawnPoint, onSave, onCanc
 
 export default function POIsPanel({
   pois: initialPois, loading, selectedId, onSelect, onListChange,
-  drawActive, onToggleDraw, drawnPoint,
+  drawActive, onToggleDraw, drawnPoint, onRequestAlert,
 }: {
   pois: POI[]; loading: boolean;
   selectedId: string | null; onSelect: (p: POI) => void;
@@ -202,18 +274,27 @@ export default function POIsPanel({
   drawActive?: boolean;
   onToggleDraw?: () => void;
   drawnPoint?: { lat: number; lng: number } | null;
+  onRequestAlert?: (poi: POI) => void;
 }) {
   const { closePanel } = usePortalPanel();
   const [pois, setPois] = useState<POI[]>(initialPois);
   const [view, setView] = useState<'list' | 'form'>('list');
   const [editing, setEditing] = useState<POI | null>(null);
   const [q, setQ] = useState('');
+  const [filterGroup, setFilterGroup] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  React.useEffect(() => { setPois(initialPois); }, [initialPois]);
+  useEffect(() => { setPois(initialPois); }, [initialPois]);
 
   const update = (list: POI[]) => { setPois(list); onListChange?.(list); };
-  const filtered = q.trim() ? pois.filter(p => p.name.toLowerCase().includes(q.toLowerCase())) : pois;
+
+  const groups = Array.from(new Set(pois.map(p => p.group).filter(Boolean) as string[])).sort();
+
+  const displayed = pois.filter(p => {
+    if (filterGroup && p.group !== filterGroup) return false;
+    if (q.trim() && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
+    return true;
+  });
 
   const onSave = (p: POI) => {
     const next = editing?.id ? pois.map(x => x.id === p.id ? p : x) : [p, ...pois];
@@ -229,6 +310,7 @@ export default function POIsPanel({
     return (
       <POIForm
         initial={editing}
+        existingGroups={groups}
         drawActive={drawActive ?? false}
         onToggleDraw={onToggleDraw ?? (() => {})}
         drawnPoint={drawnPoint ?? null}
@@ -241,7 +323,11 @@ export default function POIsPanel({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #f0f0f0', flexShrink: 0, gap: 6 }}>
-        <POIIcon />
+        <div style={{ width: 26, height: 26, borderRadius: 7, background: '#fff5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626', flexShrink: 0 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0-6 0M17.657 16.657L13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z" />
+          </svg>
+        </div>
         <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#111' }}>
           Points of Interest <span style={{ fontSize: 10, color: '#bbb', fontWeight: 400 }}>{pois.length}</span>
         </span>
@@ -258,31 +344,50 @@ export default function POIsPanel({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f5f5f5', borderRadius: 6, padding: '4px 8px' }}>
           <IconSearch size={11} color="#bbb" />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search POIs…" style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 11.5, color: '#111', outline: 'none' }} />
+          {q && <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', padding: 0, display: 'flex' }}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>}
         </div>
       </div>
+
+      {/* Group filter tabs */}
+      {groups.length > 0 && (
+        <div style={{ display: 'flex', padding: '0 10px', borderBottom: '1px solid #f0f0f0', flexShrink: 0, overflowX: 'auto' }}>
+          {['', ...groups].map(g => (
+            <button key={g} onClick={() => setFilterGroup(g)}
+              style={{ padding: '6px 9px', border: 'none', borderBottom: `2px solid ${filterGroup === g ? '#dc2626' : 'transparent'}`, background: 'transparent', color: filterGroup === g ? '#dc2626' : '#9ca3af', fontSize: 11, fontWeight: filterGroup === g ? 700 : 400, cursor: 'pointer', whiteSpace: 'nowrap', marginBottom: -1 }}>
+              {g || 'All'}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {loading ? (
           <div style={{ padding: 20, textAlign: 'center', fontSize: 11.5, color: '#bbb' }}>Loading…</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ padding: 24, textAlign: 'center', fontSize: 11.5, color: '#bbb' }}>{q ? 'No results' : 'No POIs yet'}</div>
-        ) : filtered.map(p => {
+        ) : displayed.length === 0 ? (
+          <div style={{ padding: 24, textAlign: 'center', fontSize: 11.5, color: '#bbb' }}>{q || filterGroup ? 'No results' : 'No POIs yet'}</div>
+        ) : displayed.map(p => {
           const active = selectedId === p.id;
           return (
             <div key={p.id} onClick={() => onSelect(p)}
-              style={{ padding: '9px 12px', borderBottom: '1px solid #f7f7f7', cursor: 'pointer', background: active ? '#fff5f5' : 'transparent', borderLeft: `3px solid ${active ? '#dc2626' : '#6b7280'}`, display: 'flex', alignItems: 'center', gap: 6 }}
+              style={{ padding: '9px 12px', borderBottom: '1px solid #f7f7f7', cursor: 'pointer', background: active ? '#fff5f5' : 'transparent', borderLeft: `3px solid ${active ? '#dc2626' : 'transparent'}`, display: 'flex', alignItems: 'center', gap: 8 }}
               onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#fafafa'; }}
               onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: active ? '#dc2626' : '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: active ? '#fff' : '#dc2626', flexShrink: 0 }}>
+                <POIIcon iconId={p.icon} size={14} />
+              </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: active ? '#dc2626' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                 <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
-                  {p.category && <span style={{ fontSize: 9.5, color: '#888', background: '#f0f0f0', padding: '1px 5px', borderRadius: 3 }}>{p.category}</span>}
+                  {p.group && <span style={{ fontSize: 9.5, color: '#888', background: '#f0f0f0', padding: '1px 5px', borderRadius: 3 }}>{p.group}</span>}
                   <span style={{ fontSize: 9.5, color: '#bbb' }}>{p.radius >= 1000 ? `${(p.radius / 1000).toFixed(1)}km` : `${p.radius}m`}</span>
                 </div>
               </div>
               <DotMenu
                 onEdit={() => { setEditing(p); setView('form'); }}
                 onDelete={() => setDeleting(p.id)}
+                onCreateAlert={onRequestAlert ? () => onRequestAlert(p) : undefined}
               />
             </div>
           );

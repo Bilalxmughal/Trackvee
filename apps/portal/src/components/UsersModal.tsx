@@ -4,17 +4,19 @@ import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
 interface OrgPerm {
-  vehiclesView?: boolean; vehiclesAdd?: boolean; vehiclesEdit?: boolean; vehiclesDelete?: boolean;
-  alertsView?: boolean; alertsAdd?: boolean; alertsEdit?: boolean; alertsDelete?: boolean;
-  geofencesView?: boolean; geofencesAdd?: boolean; geofencesEdit?: boolean; geofencesDelete?: boolean;
-  poisView?: boolean; poisAdd?: boolean; poisEdit?: boolean; poisDelete?: boolean;
-  vehicleIds?: string[];
+  vehiclesView: boolean; vehiclesAdd: boolean; vehiclesEdit: boolean; vehiclesDelete: boolean;
+  alertsView: boolean; alertsAdd: boolean; alertsEdit: boolean; alertsDelete: boolean;
+  geofencesView: boolean; geofencesAdd: boolean; geofencesEdit: boolean; geofencesDelete: boolean;
+  poisView: boolean; poisAdd: boolean; poisEdit: boolean; poisDelete: boolean;
+  vehicleIds: string[] | null;
 }
 
 interface OrgUser {
   id: string; displayId?: number; email: string; firstName: string | null; lastName: string | null;
   role: string; isActive: boolean; permissions?: OrgPerm | null;
 }
+
+interface Vehicle { id: string; plate: string; name?: string | null; }
 
 const inpSt: React.CSSProperties = { padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', width: '100%', boxSizing: 'border-box' };
 const LBL: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.4, display: 'block', marginBottom: 4 };
@@ -46,8 +48,6 @@ const PORTAL_ROLE_PERMS: Record<string, Record<string, string[]>> = {
   client_user:        { map: ['view'], vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'] },
 };
 
-// ── Form Modal ─────────────────────────────────────────────────────────────────
-
 const PERM_MODULES: { key: string; label: string; actions: string[] }[] = [
   { key: 'vehicles',  label: 'Vehicles',  actions: ['View', 'Add', 'Edit', 'Delete'] },
   { key: 'alerts',    label: 'Alerts',    actions: ['View', 'Add', 'Edit', 'Delete'] },
@@ -55,18 +55,17 @@ const PERM_MODULES: { key: string; label: string; actions: string[] }[] = [
   { key: 'pois',      label: 'POIs',      actions: ['View', 'Add', 'Edit', 'Delete'] },
 ];
 
-function defaultPerms(role: string): OrgPerm {
-  const base = PORTAL_ROLE_PERMS[role] ?? {};
-  const p: OrgPerm = {};
-  for (const m of PERM_MODULES) {
-    const acts = base[m.key] ?? [];
-    for (const a of m.actions) {
-      const k = `${m.key}${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()}` as keyof OrgPerm;
-      if (k !== 'vehicleIds') (p as Record<string, boolean>)[k] = acts.includes(a.toLowerCase());
-    }
-  }
-  return p;
+function defaultPerms(): OrgPerm {
+  return {
+    vehiclesView: false, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false,
+    alertsView: false, alertsAdd: false, alertsEdit: false, alertsDelete: false,
+    geofencesView: false, geofencesAdd: false, geofencesEdit: false, geofencesDelete: false,
+    poisView: false, poisAdd: false, poisEdit: false, poisDelete: false,
+    vehicleIds: null,
+  };
 }
+
+// ── Form Modal ─────────────────────────────────────────────────────────────────
 
 function UserFormModal({ initial, organizationId, currentUserId, currentUserRole, onSave, onClose }: {
   initial?: OrgUser | null; organizationId: string; currentUserId: string; currentUserRole: string;
@@ -77,20 +76,55 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
   const [lastName, setLastName] = useState(initial?.lastName ?? '');
   const [role, setRole] = useState(initial?.role ?? 'client_user');
   const [password, setPassword] = useState('');
-  const [perms, setPerms] = useState<OrgPerm>(() => initial?.permissions ?? defaultPerms(initial?.role ?? 'client_user'));
+  const [perms, setPerms] = useState<OrgPerm>(defaultPerms);
+  const [orgVehicles, setOrgVehicles] = useState<Vehicle[]>([]);
+  const [permsLoaded, setPermsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [activeTab, setActiveTab] = useState<'info' | 'perms'>('info');
 
   const isSelf = !!initial?.id && initial.id === currentUserId;
+  const isOrgUser = role === 'client_admin';
   const canEditPerms = (currentUserRole === 'client_owner' || currentUserRole === 'client_super_admin' || currentUserRole === 'client_admin') && !isSelf;
-  const showPermsEditor = canEditPerms && (role === 'client_user' || role === 'client_admin');
 
-  // Reset perms when role changes
-  const handleRoleChange = (r: string) => { setRole(r); setPerms(defaultPerms(r)); };
+  // Load existing perms and org vehicles when editing a client_admin
+  useEffect(() => {
+    if (!initial?.id || role !== 'client_admin') { setPermsLoaded(true); return; }
+    let cancelled = false;
+    Promise.all([
+      api.get<OrgPerm>(`/org-permissions/${initial.id}`).then(r => r.data).catch(() => defaultPerms()),
+      api.get<Vehicle[]>(`/vehicles?organizationId=${organizationId}`).then(r => r.data).catch(() => []),
+    ]).then(([p, vs]) => {
+      if (cancelled) return;
+      setPerms({ ...defaultPerms(), ...p });
+      setOrgVehicles(vs);
+      setPermsLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, [initial?.id, role, organizationId]);
+
+  // Load vehicles when creating a new client_admin
+  useEffect(() => {
+    if (initial?.id || role !== 'client_admin') return;
+    api.get<Vehicle[]>(`/vehicles?organizationId=${organizationId}`).then(r => setOrgVehicles(r.data)).catch(() => {});
+  }, [role, organizationId, initial?.id]);
+
+  const handleRoleChange = (r: string) => { setRole(r); setPerms(defaultPerms()); };
 
   const togglePerm = (key: keyof OrgPerm) => {
     if (key === 'vehicleIds') return;
-    setPerms(p => ({ ...p, [key]: !p[key as keyof OrgPerm] }));
+    setPerms(p => {
+      const k = key as string;
+      const turning_on = !p[key as keyof OrgPerm];
+      const next = { ...p, [key]: turning_on } as OrgPerm;
+      // Auto-grant View when Add/Edit/Delete is turned on
+      if (turning_on && (k.endsWith('Add') || k.endsWith('Edit') || k.endsWith('Delete'))) {
+        const mod = k.replace(/Add$|Edit$|Delete$/, '');
+        const viewKey = `${mod}View` as keyof OrgPerm;
+        (next as unknown as Record<string, boolean>)[viewKey] = true;
+      }
+      return next;
+    });
   };
 
   const submit = async () => {
@@ -99,11 +133,14 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
     setSaving(true); setErr('');
     const payload: Record<string, unknown> = { email: email.trim(), firstName: firstName.trim() || null, lastName: lastName.trim() || null, role, organizationId };
     if (password.trim()) payload.password = password;
-    if (showPermsEditor) payload.permissions = perms;
     try {
       let u: OrgUser;
       if (initial?.id) { u = (await api.patch<OrgUser>(`/users/${initial.id}`, payload)).data; }
       else { u = (await api.post<OrgUser>('/users', payload)).data; }
+      // Save org permissions separately for client_admin
+      if (isOrgUser && canEditPerms) {
+        await api.put(`/org-permissions/${u.id}`, { ...perms, orgId: organizationId });
+      }
       onSave(u);
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -111,107 +148,174 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
     } finally { setSaving(false); }
   };
 
+  const tabs = [{ id: 'info' as const, label: 'Info' }, ...(isOrgUser && canEditPerms ? [{ id: 'perms' as const, label: 'Permissions' }] : [])];
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10100, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 'min(480px, 97vw)', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 48px rgba(0,0,0,0.3)', maxHeight: '92vh', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 12, width: 'min(520px, 97vw)', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 48px rgba(0,0,0,0.3)', maxHeight: '92vh', overflow: 'hidden' }}>
+        {/* Header */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center' }}>
           <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#111' }}>{initial?.id ? 'Edit User' : 'New User'}</span>
           <button onClick={onClose} style={{ background: '#f5f5f5', border: 'none', cursor: 'pointer', color: '#666', padding: '4px 5px', borderRadius: 5, display: 'flex' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
-          <div>
-            <label style={LBL}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="user@example.com" style={inpSt}
-              onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
-              onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <div>
-              <label style={LBL}>First Name</label>
-              <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First" style={inpSt}
-                onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
-                onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
-            </div>
-            <div>
-              <label style={LBL}>Last Name</label>
-              <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last" style={inpSt}
-                onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
-                onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
-            </div>
-          </div>
-          <div>
-            <label style={LBL}>Role</label>
-            {isSelf ? (
-              <div style={{ ...inpSt, background: '#f9fafb', color: '#555', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>{ROLE_LABEL[role] ?? role}</span>
-                <span style={{ fontSize: 11, color: '#aaa' }}>(cannot change your own role)</span>
-              </div>
-            ) : (
-              <select value={role} onChange={e => setRole(e.target.value)} style={{ ...inpSt, cursor: 'pointer' }}>
-                <option value="client_user">User</option>
-                <option value="client_admin">Admin</option>
-                <option value="client_super_admin">Super Admin</option>
-                <option value="client_owner">Owner</option>
-              </select>
-            )}
-          </div>
 
-          {/* Permissions */}
-          {showPermsEditor ? (
-            <div>
-              <label style={LBL}>Module Permissions</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {PERM_MODULES.map(m => (
-                  <div key={m.key} style={{ background: '#f9fafb', borderRadius: 7, padding: '7px 10px', border: '1px solid #f0f0f0' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 5 }}>{m.label}</div>
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                      {m.actions.map(a => {
-                        const k = `${m.key}${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()}` as keyof OrgPerm;
-                        const on = !!(perms as Record<string, boolean>)[k as string];
-                        return (
-                          <button key={a} onClick={() => togglePerm(k)}
-                            style={{ padding: '3px 9px', borderRadius: 4, border: `1px solid ${on ? '#fca5a5' : '#e5e7eb'}`, background: on ? '#fff5f5' : '#fff', color: on ? '#dc2626' : '#aaa', fontSize: 11, cursor: 'pointer', fontWeight: on ? 600 : 400 }}>
-                            {a}
-                          </button>
-                        );
-                      })}
-                    </div>
+        {/* Tabs */}
+        {tabs.length > 1 && (
+          <div style={{ display: 'flex', borderBottom: '1px solid #f0f0f0', padding: '0 16px' }}>
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                style={{ padding: '8px 12px', border: 'none', borderBottom: `2px solid ${activeTab === t.id ? '#dc2626' : 'transparent'}`, background: 'transparent', color: activeTab === t.id ? '#dc2626' : '#9ca3af', fontSize: 12, fontWeight: activeTab === t.id ? 700 : 400, cursor: 'pointer', marginBottom: -1 }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', flex: 1 }}>
+          {activeTab === 'info' && (
+            <>
+              <div>
+                <label style={LBL}>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="user@example.com" style={inpSt}
+                  onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
+                  onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={LBL}>First Name</label>
+                  <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First" style={inpSt}
+                    onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
+                    onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
+                </div>
+                <div>
+                  <label style={LBL}>Last Name</label>
+                  <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last" style={inpSt}
+                    onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
+                    onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
+                </div>
+              </div>
+              <div>
+                <label style={LBL}>Role</label>
+                {isSelf ? (
+                  <div style={{ ...inpSt, background: '#f9fafb', color: '#555', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>{ROLE_LABEL[role] ?? role}</span>
+                    <span style={{ fontSize: 11, color: '#aaa' }}>(cannot change your own role)</span>
                   </div>
-                ))}
+                ) : (
+                  <select value={role} onChange={e => handleRoleChange(e.target.value)} style={{ ...inpSt, cursor: 'pointer' }}>
+                    <option value="client_user">User</option>
+                    <option value="client_admin">Admin</option>
+                    <option value="client_super_admin">Super Admin</option>
+                    <option value="client_owner">Owner</option>
+                  </select>
+                )}
               </div>
-            </div>
-          ) : (
-            <div>
-              <label style={LBL}>Portal Access</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {PORTAL_PAGES.map(pg => {
-                  const actions = PORTAL_ROLE_PERMS[role]?.[pg.key];
-                  const hasAccess = !!actions && actions.length > 0;
-                  const canWrite = actions?.some(a => ['add','edit','delete'].includes(a));
-                  return (
-                    <div key={pg.key} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 5, border: `1px solid ${hasAccess ? '#fca5a5' : '#e5e7eb'}`, background: hasAccess ? '#fff5f5' : '#f9fafb', color: hasAccess ? '#dc2626' : '#ccc', fontSize: 11.5, fontWeight: hasAccess ? 600 : 400 }}>
-                      {hasAccess ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg> : <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
-                      {pg.label}
-                      {hasAccess && canWrite && <span style={{ fontSize: 10, opacity: 0.7 }}>+edit</span>}
-                    </div>
-                  );
-                })}
+
+              {/* Role access summary for non-admin roles */}
+              {!isOrgUser && (
+                <div>
+                  <label style={LBL}>Portal Access</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {PORTAL_PAGES.map(pg => {
+                      const actions = PORTAL_ROLE_PERMS[role]?.[pg.key];
+                      const hasAccess = !!actions && actions.length > 0;
+                      const canWrite = actions?.some(a => ['add','edit','delete'].includes(a));
+                      return (
+                        <div key={pg.key} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 5, border: `1px solid ${hasAccess ? '#fca5a5' : '#e5e7eb'}`, background: hasAccess ? '#fff5f5' : '#f9fafb', color: hasAccess ? '#dc2626' : '#ccc', fontSize: 11.5, fontWeight: hasAccess ? 600 : 400 }}>
+                          {hasAccess ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg> : <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
+                          {pg.label}
+                          {hasAccess && canWrite && <span style={{ fontSize: 10, opacity: 0.7 }}>+edit</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 5 }}>Access is determined by role.</div>
+                </div>
+              )}
+
+              <div>
+                <label style={LBL}>{initial?.id ? 'New Password (leave blank to keep)' : 'Password'}</label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={initial?.id ? 'Leave blank to keep' : 'Set password'} style={inpSt}
+                  onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
+                  onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
               </div>
-              <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 5 }}>Access is determined by role.</div>
-            </div>
+            </>
           )}
 
-          <div>
-            <label style={LBL}>{initial?.id ? 'New Password (leave blank to keep)' : 'Password'}</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={initial?.id ? 'Leave blank to keep' : 'Set password'} style={inpSt}
-              onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
-              onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
-          </div>
+          {activeTab === 'perms' && isOrgUser && canEditPerms && (
+            <>
+              {!permsLoaded ? (
+                <div style={{ padding: 20, textAlign: 'center', color: '#bbb', fontSize: 12 }}>Loading permissions…</div>
+              ) : (
+                <>
+                  <div>
+                    <label style={LBL}>Module Permissions</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {PERM_MODULES.map(m => (
+                        <div key={m.key} style={{ background: '#f9fafb', borderRadius: 7, padding: '7px 10px', border: '1px solid #f0f0f0' }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 5 }}>{m.label}</div>
+                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                            {m.actions.map(a => {
+                              const k = `${m.key}${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()}` as keyof OrgPerm;
+                              const on = !!(perms as unknown as Record<string, boolean>)[k as string];
+                              return (
+                                <button key={a} onClick={() => togglePerm(k)}
+                                  style={{ padding: '3px 9px', borderRadius: 4, border: `1px solid ${on ? '#fca5a5' : '#e5e7eb'}`, background: on ? '#fff5f5' : '#fff', color: on ? '#dc2626' : '#aaa', fontSize: 11, cursor: 'pointer', fontWeight: on ? 600 : 400 }}>
+                                  {a}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Vehicle Access */}
+                  <div>
+                    <label style={LBL}>Vehicle Access</label>
+                    <div style={{ background: '#f9fafb', borderRadius: 7, padding: '7px 10px', border: '1px solid #f0f0f0' }}>
+                      <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12 }}>
+                          <input type="radio" checked={perms.vehicleIds === null} onChange={() => setPerms(p => ({ ...p, vehicleIds: null }))} /> All vehicles
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12 }}>
+                          <input type="radio" checked={perms.vehicleIds !== null} onChange={() => setPerms(p => ({ ...p, vehicleIds: [] }))} /> Specific vehicles
+                        </label>
+                      </div>
+                      {perms.vehicleIds !== null && (
+                        <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          {orgVehicles.length === 0 && <div style={{ fontSize: 11.5, color: '#bbb', padding: 4 }}>No vehicles found</div>}
+                          {orgVehicles.map(v => {
+                            const checked = perms.vehicleIds?.includes(v.id) ?? false;
+                            return (
+                              <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, cursor: 'pointer', padding: '3px 0' }}>
+                                <input type="checkbox" checked={checked} onChange={() => {
+                                  setPerms(p => {
+                                    const ids = p.vehicleIds ?? [];
+                                    return { ...p, vehicleIds: checked ? ids.filter(x => x !== v.id) : [...ids, v.id] };
+                                  });
+                                }} />
+                                <span style={{ fontWeight: 500, color: '#333' }}>{v.plate}</span>
+                                {v.name && <span style={{ color: '#9ca3af', fontSize: 11 }}>{v.name}</span>}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
           {err && <div style={{ fontSize: 12, color: '#dc2626' }}>{err}</div>}
         </div>
-        <div style={{ padding: '10px 16px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+
+        <div style={{ padding: '10px 16px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
           <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#555', fontSize: 12.5, cursor: 'pointer' }}>Cancel</button>
           <button onClick={submit} disabled={saving} style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: saving ? '#9ca3af' : '#dc2626', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
             {saving ? 'Saving…' : initial?.id ? 'Save Changes' : 'Create User'}
@@ -267,7 +371,6 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ width: 'min(860px, 98vw)', height: 'min(640px, 95vh)', background: '#fff', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.5)' }}>
 
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '13px 18px', borderBottom: '1px solid #f0f0f0', flexShrink: 0, gap: 8 }}>
           <IconUsers size={16} color="#dc2626" strokeWidth={1.8} />
           <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#111' }}>
@@ -282,7 +385,6 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {/* Search */}
         <div style={{ padding: '10px 16px', borderBottom: '1px solid #f5f5f5', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#f5f5f5', borderRadius: 7, padding: '6px 11px' }}>
             <IconSearch size={12} color="#bbb" />
@@ -294,7 +396,6 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Table */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
             <thead style={{ position: 'sticky', top: 0, background: '#fafafa', zIndex: 1 }}>

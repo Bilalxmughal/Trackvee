@@ -10,17 +10,26 @@ import { usePortalPanel } from '../contexts/PortalPanelContext';
 export type AlertType =
   | 'over_speed' | 'idle' | 'ignition_on' | 'ignition_off'
   | 'power_cut' | 'low_battery' | 'no_gps' | 'offline'
-  | 'tow' | 'over_parking' | 'geofence' | 'low_score';
+  | 'tow' | 'over_parking' | 'geofence' | 'low_score' | 'speed_zone';
 
 export interface AlertConfig {
   speedLimit?: number; minutes?: number; level?: number;
   geofenceId?: string; geofenceEvent?: 'enter' | 'exit' | 'both';
-  scoreThreshold?: number;
+  scoreThreshold?: number; speedZoneId?: string;
+}
+
+export interface AlertSchedule {
+  from?: string; to?: string; days?: string[]; timeFrom?: string; timeTo?: string;
+}
+
+export interface AlertNotifications {
+  appPush?: boolean; webPush?: boolean; webSound?: boolean; email?: boolean;
 }
 
 export interface AlertRecord {
   id: string; name: string; active: boolean; type: AlertType;
   config: AlertConfig; vehicleImeis: string[];
+  schedule?: AlertSchedule | null; notifications?: AlertNotifications;
   createdAt?: string;
 }
 
@@ -41,6 +50,7 @@ const ALERT_TYPES: { type: AlertType; label: string; icon: React.ReactNode; colo
   { type: 'over_parking', label: 'Over Parking',  icon: <IconParking size={22} strokeWidth={1.5}/>, color: '#a16207', desc: 'Alert when parked too long' },
   { type: 'geofence',     label: 'Geofence',      icon: <IconMapPin size={22} strokeWidth={1.5}/>,  color: '#0891b2', desc: 'Alert on geofence enter/exit' },
   { type: 'low_score',    label: 'Low Score',     icon: <IconStar size={22} strokeWidth={1.5}/>,    color: '#e11d48', desc: 'Alert when behavior score drops' },
+  { type: 'speed_zone',   label: 'Speed Zone',    icon: <IconGauge size={22} strokeWidth={1.5}/>,   color: '#f59e0b', desc: 'Alert when speeding inside a defined zone' },
 ];
 
 const ALERT_TYPE_MAP = Object.fromEntries(ALERT_TYPES.map(t => [t.type, t])) as Record<AlertType, typeof ALERT_TYPES[0]>;
@@ -105,12 +115,25 @@ function DotMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => voi
 
 // ── 3-Step Wizard Form ─────────────────────────────────────────────────────────
 
+const DAYS = ['mon','tue','wed','thu','fri','sat','sun'] as const;
+const DAY_LABELS: Record<string,string> = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
+
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button onClick={() => onChange(!value)}
+      style={{ width: 36, height: 20, borderRadius: 10, border: 'none', background: value ? '#16a34a' : '#d1d5db', cursor: 'pointer', position: 'relative', transition: 'background .2s', flexShrink: 0, padding: 0 }}>
+      <span style={{ position: 'absolute', top: 2, left: value ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.25)', transition: 'left .2s' }}/>
+    </button>
+  );
+}
+
 function AlertFormWizard({
-  initial, devices, groups, onSave, onClose,
+  initial, devices, groups, geofences, onSave, onClose,
 }: {
   initial?: AlertRecord | null;
   devices: { imei: string; label: string }[];
   groups: { id: string; name: string; imeis: string[] }[];
+  geofences: { id: string; name: string }[];
   onSave: (r: AlertRecord) => void;
   onClose: () => void;
 }) {
@@ -123,10 +146,18 @@ function AlertFormWizard({
   const [speedLimit, setSpeedLimit] = useState(initial?.config?.speedLimit ?? 80);
   const [minutes, setMinutes] = useState(initial?.config?.minutes ?? 10);
   const [level, setLevel] = useState(initial?.config?.level ?? 2);
+  const [geofenceId, setGeofenceId] = useState(initial?.config?.geofenceId ?? '');
+  const [geofenceEvent, setGeofenceEvent] = useState<'enter'|'exit'|'both'>(initial?.config?.geofenceEvent ?? 'both');
+  const [scoreThreshold, setScoreThreshold] = useState(initial?.config?.scoreThreshold ?? 70);
   const [active, setActive] = useState(initial?.active ?? true);
-  // Step 3 (schedule - optional)
+  // Step 3
+  const [scheduled, setScheduled] = useState(!!initial?.schedule);
+  const [schedule, setSchedule] = useState<AlertSchedule>(initial?.schedule ?? { days: [] });
+  const [notif, setNotif] = useState<AlertNotifications>(initial?.notifications ?? {});
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+
+  const toggleDay = (d: string) => setSchedule(s => { const days = s.days ?? []; return { ...s, days: days.includes(d) ? days.filter(x => x !== d) : [...days, d] }; });
 
   const selectedType = ALERT_TYPE_MAP[type];
 
@@ -138,15 +169,18 @@ function AlertFormWizard({
   };
 
   const buildConfig = (): AlertConfig => {
-    if (TYPES_WITH_SPEED.includes(type)) return { speedLimit };
+    if (type === 'over_speed') return { speedLimit };
+    if (type === 'speed_zone') return { geofenceId, speedLimit };
+    if (type === 'geofence') return { geofenceId, geofenceEvent };
     if (TYPES_WITH_MINUTES.includes(type)) return { minutes };
     if (type === 'low_battery') return { level };
+    if (type === 'low_score') return { scoreThreshold };
     return {};
   };
 
   const submit = async () => {
     setSaving(true); setErr('');
-    const payload = { name: name.trim(), type, config: buildConfig(), vehicleImeis: selectedImeis, active };
+    const payload = { name: name.trim(), type, config: buildConfig(), vehicleImeis: selectedImeis, active, schedule: scheduled ? schedule : null, notifications: notif };
     try {
       let r: AlertRecord;
       if (initial?.id) {
@@ -282,58 +316,177 @@ function AlertFormWizard({
               </div>
 
               {/* Type-specific config */}
-              {TYPES_WITH_SPEED.includes(type) && (
-                <div style={{ marginTop: 14 }}>
-                  <label style={LBL}>Speed Limit (km/h)</label>
-                  <input type="number" value={speedLimit} onChange={e => setSpeedLimit(+e.target.value)} style={inpSt}
-                    onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
-                    onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
-                </div>
-              )}
-              {TYPES_WITH_MINUTES.includes(type) && (
-                <div style={{ marginTop: 14 }}>
-                  <label style={LBL}>Duration (minutes)</label>
-                  <input type="number" value={minutes} onChange={e => setMinutes(+e.target.value)} style={inpSt}
-                    onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
-                    onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
-                </div>
-              )}
-              {type === 'low_battery' && (
-                <div style={{ marginTop: 14 }}>
-                  <label style={LBL}>Battery Level Threshold (1–5)</label>
-                  <input type="number" min={1} max={5} value={level} onChange={e => setLevel(+e.target.value)} style={inpSt}
-                    onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
-                    onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
-                </div>
-              )}
-              {selectedType && (
-                <div style={{ marginTop: 10, padding: '8px 10px', background: `${selectedType.color}0d`, borderRadius: 7, border: `1px solid ${selectedType.color}30`, fontSize: 11, color: '#555' }}>
-                  {selectedType.desc}
-                </div>
-              )}
+              <div style={{ marginTop: 14, padding: '12px 14px', background: '#f9fafb', borderRadius: 8, border: '1px solid #f0f0f0' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 10 }}>Configuration</div>
+                {type === 'over_speed' && (
+                  <>
+                    <label style={LBL}>Speed Limit (km/h)</label>
+                    <input type="number" min={1} max={300} value={speedLimit} onChange={e => setSpeedLimit(+e.target.value)} style={inpSt}
+                      onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
+                      onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
+                  </>
+                )}
+                {TYPES_WITH_MINUTES.includes(type) && (
+                  <>
+                    <label style={LBL}>{type === 'idle' ? 'Idle Duration (min)' : type === 'over_parking' ? 'Max Parking (min)' : 'Threshold (min)'}</label>
+                    <input type="number" min={1} max={1440} value={minutes} onChange={e => setMinutes(+e.target.value)} style={inpSt}
+                      onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
+                      onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
+                  </>
+                )}
+                {type === 'low_battery' && (
+                  <>
+                    <label style={LBL}>Trigger when battery level ≤</label>
+                    <select value={level} onChange={e => setLevel(+e.target.value)} style={inpSt}>
+                      {[1,2,3].map(l => <option key={l} value={l}>{['Critical (Level 1)','Low (Level 2)','Medium (Level 3)'][l-1]}</option>)}
+                    </select>
+                  </>
+                )}
+                {type === 'geofence' && (
+                  <>
+                    <label style={LBL}>Select Geofence</label>
+                    <select value={geofenceId} onChange={e => setGeofenceId(e.target.value)} style={{ ...inpSt, marginBottom: 10 }}>
+                      <option value="">— Select geofence —</option>
+                      {geofences.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    </select>
+                    <label style={LBL}>Trigger on</label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {(['enter','exit','both'] as const).map(ev => (
+                        <button key={ev} onClick={() => setGeofenceEvent(ev)}
+                          style={{ flex: 1, padding: '6px 4px', borderRadius: 5, border: `2px solid ${geofenceEvent === ev ? '#0891b2' : '#e5e7eb'}`, background: geofenceEvent === ev ? '#ecfeff' : 'transparent', color: geofenceEvent === ev ? '#0891b2' : '#666', fontSize: 11.5, fontWeight: geofenceEvent === ev ? 700 : 500, cursor: 'pointer', textTransform: 'capitalize' }}>
+                          {ev}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {type === 'speed_zone' && (
+                  <>
+                    <label style={LBL}>Select Geofence (as Speed Zone)</label>
+                    <select value={geofenceId} onChange={e => setGeofenceId(e.target.value)} style={{ ...inpSt, marginBottom: 10 }}>
+                      <option value="">— Select geofence —</option>
+                      {geofences.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    </select>
+                    <label style={LBL}>Speed Limit inside zone (km/h)</label>
+                    <input type="number" min={1} max={300} value={speedLimit} onChange={e => setSpeedLimit(+e.target.value)} style={inpSt}
+                      onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
+                      onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
+                  </>
+                )}
+                {type === 'low_score' && (
+                  <>
+                    <label style={LBL}>Alert when daily score drops at or below</label>
+                    <input type="number" min={1} max={99} value={scoreThreshold} onChange={e => setScoreThreshold(+e.target.value)} style={inpSt}
+                      onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
+                      onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
+                  </>
+                )}
+                {type === 'tow' && (
+                  <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6 }}>Triggers when the vehicle is <strong>moving at 15+ km/h with ignition off</strong> — no configuration needed.</div>
+                )}
+                {['ignition_on','ignition_off','power_cut','offline','no_gps'].includes(type) && !TYPES_WITH_MINUTES.includes(type) && (
+                  <div style={{ fontSize: 12, color: '#9ca3af' }}>No additional configuration needed.</div>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Step 3: Settings */}
+          {/* Step 3: Schedule + Notifications */}
           {step === 3 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label style={LBL}>Status</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <button onClick={() => setActive(v => !v)} style={{ width: 36, height: 20, borderRadius: 10, border: 'none', background: active ? '#dc2626' : '#d1d5db', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-                    <span style={{ position: 'absolute', top: 2, left: active ? 18 : 2, width: 16, height: 16, background: '#fff', borderRadius: '50%', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }}/>
-                  </button>
-                  <span style={{ fontSize: 12, color: '#555' }}>{active ? 'Enabled — alert rule is active' : 'Disabled — alert rule is paused'}</span>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Active status */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#f9fafb', borderRadius: 8, border: '1px solid #f0f0f0' }}>
+                <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: '#333' }}>Active</span>
+                <Toggle value={active} onChange={setActive}/>
               </div>
-              <div style={{ background: '#f9fafb', borderRadius: 8, padding: '12px 14px', border: '1px solid #f0f0f0' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#333', marginBottom: 8 }}>Summary</div>
-                <div style={{ fontSize: 11.5, color: '#555', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div><span style={{ color: '#9ca3af' }}>Name:</span> {name || '—'}</div>
-                  <div><span style={{ color: '#9ca3af' }}>Type:</span> {ALERT_TYPE_MAP[type]?.label}</div>
-                  <div><span style={{ color: '#9ca3af' }}>Vehicles:</span> {selectedImeis.length === 0 ? 'All vehicles' : `${selectedImeis.length} selected`}</div>
-                  {TYPES_WITH_SPEED.includes(type) && <div><span style={{ color: '#9ca3af' }}>Speed limit:</span> {speedLimit} km/h</div>}
-                  {TYPES_WITH_MINUTES.includes(type) && <div><span style={{ color: '#9ca3af' }}>Duration:</span> {minutes} min</div>}
+
+              {/* Schedule */}
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: '#f9fafb', borderBottom: scheduled ? '1px solid #e5e7eb' : 'none' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 7, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#111' }}>Schedule</div>
+                    <div style={{ fontSize: 11, color: '#9ca3af' }}>{scheduled ? 'Active in specific times only' : 'Always active'}</div>
+                  </div>
+                  <Toggle value={scheduled} onChange={setScheduled}/>
+                </div>
+                {scheduled && (
+                  <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={LBL}>From Date</label>
+                        <input type="date" value={schedule.from ?? ''} onChange={e => setSchedule(s => ({ ...s, from: e.target.value }))} style={inpSt}/>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={LBL}>To Date</label>
+                        <input type="date" value={schedule.to ?? ''} onChange={e => setSchedule(s => ({ ...s, to: e.target.value }))} style={inpSt}/>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={LBL}>Days of Week</label>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {DAYS.map(d => {
+                          const isActive = (schedule.days ?? []).includes(d);
+                          return (
+                            <button key={d} onClick={() => toggleDay(d)}
+                              style={{ padding: '4px 9px', borderRadius: 5, border: `2px solid ${isActive ? '#dc2626' : '#e5e7eb'}`, background: isActive ? '#fff5f5' : 'transparent', color: isActive ? '#dc2626' : '#555', fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
+                              {DAY_LABELS[d]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={LBL}>From Time</label>
+                        <input type="time" value={schedule.timeFrom ?? ''} onChange={e => setSchedule(s => ({ ...s, timeFrom: e.target.value }))} style={inpSt}/>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={LBL}>To Time</label>
+                        <input type="time" value={schedule.timeTo ?? ''} onChange={e => setSchedule(s => ({ ...s, timeTo: e.target.value }))} style={inpSt}/>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Notifications */}
+              <div>
+                <label style={LBL}>Notifications</label>
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+                  {[
+                    { key: 'appPush', label: 'App Push Notification', sub: 'Mobile app alert', iconColor: '#2563eb', bg: '#eff6ff' },
+                    { key: 'webPush', label: 'Web Push Notification', sub: 'Browser alert', iconColor: '#16a34a', bg: '#f0fdf4' },
+                    { key: 'email', label: 'Email Notification', sub: 'Send to account email', iconColor: '#d97706', bg: '#fffbeb' },
+                  ].map((item, idx, arr) => (
+                    <div key={item.key}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: idx < arr.length - 1 ? '1px solid #f5f5f5' : 'none' }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 7, background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={item.iconColor} strokeWidth="2.2" strokeLinecap="round">
+                            {item.key === 'appPush' && <><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></>}
+                            {item.key === 'webPush' && <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>}
+                            {item.key === 'email' && <><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></>}
+                          </svg>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#111' }}>{item.label}</div>
+                          <div style={{ fontSize: 10.5, color: '#9ca3af' }}>{item.sub}</div>
+                        </div>
+                        <Toggle value={!!(notif as Record<string,boolean>)[item.key]} onChange={v => setNotif(n => ({ ...n, [item.key]: v, ...(item.key === 'webPush' && !v ? { webSound: false } : {}) }))}/>
+                      </div>
+                      {item.key === 'webPush' && notif.webPush && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px 8px 50px', borderBottom: '1px solid #f5f5f5', background: '#fafafa' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11.5, color: '#555' }}>Sound notification</div>
+                            <div style={{ fontSize: 10.5, color: '#9ca3af' }}>Play alert sound</div>
+                          </div>
+                          <Toggle value={!!notif.webSound} onChange={v => setNotif(n => ({ ...n, webSound: v }))}/>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
               {err && <div style={{ fontSize: 12, color: '#dc2626' }}>{err}</div>}
@@ -384,6 +537,7 @@ export default function AlertsPanel({ alerts: initialAlerts, loading: initialLoa
   const [deleting, setDeleting] = useState<string | null>(null);
   const [devices, setDevices] = useState<{ imei: string; label: string }[]>([]);
   const [groups, setGroups] = useState<{ id: string; name: string; imeis: string[] }[]>([]);
+  const [geofences, setGeofences] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => { setAlerts(initialAlerts); }, [initialAlerts]);
   useEffect(() => { setLoading(initialLoading); }, [initialLoading]);
@@ -392,6 +546,7 @@ export default function AlertsPanel({ alerts: initialAlerts, loading: initialLoa
     api.get<{ imei: string; displayId: number; vehicle?: { licensePlate?: string | null; displayId: number } | null }[]>('/devices')
       .then(r => setDevices(r.data.map(d => ({ imei: d.imei, label: d.vehicle?.licensePlate || `#${d.vehicle?.displayId ?? d.displayId}` }))))
       .catch(() => {});
+    api.get<{ id: string; name: string }[]>('/geofences').then(r => setGeofences(r.data)).catch(() => {});
     // Load vehicle groups
     const stored = localStorage.getItem('yotrack_map_groups_v1');
     if (stored) {
@@ -510,6 +665,7 @@ export default function AlertsPanel({ alerts: initialAlerts, loading: initialLoa
           initial={editing}
           devices={devices}
           groups={groups}
+          geofences={geofences}
           onSave={onSave}
           onClose={() => { setFormOpen(false); setEditing(null); }}
         />

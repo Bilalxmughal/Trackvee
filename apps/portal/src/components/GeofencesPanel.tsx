@@ -220,11 +220,16 @@ function GfForm({ initial, drawActive, onToggleDraw, drawnCircle, drawnPolygon, 
 
         <div>
           <label style={LBL}>Color</label>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             {PRESET_COLORS.map(c => (
               <button key={c} onClick={() => setColor(c)}
                 style={{ width: 22, height: 22, borderRadius: '50%', background: c, border: color === c ? '2.5px solid #111' : '2px solid transparent', cursor: 'pointer', flexShrink: 0 }} />
             ))}
+            <label style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 11 }}>
+              <div style={{ width: 16, height: 16, borderRadius: '50%', background: color, flexShrink: 0 }} />
+              <span style={{ color: '#555' }}>{color}</span>
+              <input type="color" value={color} onChange={e => setColor(e.target.value)} style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', top: 0, left: 0, cursor: 'pointer' }} />
+            </label>
           </div>
         </div>
 

@@ -1132,10 +1132,9 @@ function POIMarkerLayer({ pois, selectedId }: { pois: POI[]; selectedId: string 
     if (pois.length === 0) return;
     const lg = L.layerGroup().addTo(map);
     layerRef.current = lg;
-    const CAT_COLOR: Record<string, string> = { fuel: '#f59e0b', parking: '#3b82f6', office: '#8b5cf6', warehouse: '#16a34a', workshop: '#ea580c', customer: '#06b6d4' };
     for (const poi of pois) {
       const active = selectedId === poi.id;
-      const color = active ? '#dc2626' : (poi.category ? (CAT_COLOR[poi.category.toLowerCase()] ?? '#6b7280') : '#6b7280');
+      const color = active ? '#dc2626' : '#6b7280';
       if (poi.radius > 0) L.circle([poi.latitude, poi.longitude], { color, fillColor: color, fillOpacity: 0.12, radius: poi.radius, weight: active ? 2.5 : 1.5 }).addTo(lg);
       const icon = L.divIcon({
         html: `<div style="background:${color};width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,
