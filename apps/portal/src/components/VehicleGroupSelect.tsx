@@ -102,7 +102,9 @@ export default function VehicleGroupSelect({ organizationId, value, onChange, ve
               <div style={{ padding: '6px 10px 3px', fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 0.6, background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
                 {grp.name}
               </div>
-              {grpVehicles.map(v => <VehicleRow key={v.id} v={v} checked={value.includes(v.id)} onToggle={() => toggle(v.id)} />)}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                {grpVehicles.map(v => <VehicleRow key={v.id} v={v} checked={value.includes(v.id)} onToggle={() => toggle(v.id)} />)}
+              </div>
             </div>
           );
         })}
@@ -115,7 +117,9 @@ export default function VehicleGroupSelect({ organizationId, value, onChange, ve
                 Other
               </div>
             )}
-            {ungrouped.map(v => <VehicleRow key={v.id} v={v} checked={value.includes(v.id)} onToggle={() => toggle(v.id)} />)}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+              {ungrouped.map(v => <VehicleRow key={v.id} v={v} checked={value.includes(v.id)} onToggle={() => toggle(v.id)} />)}
+            </div>
           </div>
         )}
       </div>
@@ -125,9 +129,9 @@ export default function VehicleGroupSelect({ organizationId, value, onChange, ve
 
 function VehicleRow({ v, checked, onToggle }: { v: VehicleSelectItem; checked: boolean; onToggle: () => void }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', cursor: 'pointer', background: checked ? 'rgba(220,38,38,0.05)' : 'transparent', borderBottom: '1px solid #f5f5f5', userSelect: 'none' }}
-      onMouseEnter={e => { if (!checked) (e.currentTarget as HTMLElement).style.background = '#f9fafb'; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = checked ? 'rgba(220,38,38,0.05)' : 'transparent'; }}
+    <label style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px', cursor: 'pointer', background: 'transparent', userSelect: 'none', minWidth: 0 }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f9fafb'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
     >
       <input type="checkbox" checked={checked} onChange={onToggle} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
       <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, border: checked ? '1.5px solid #dc2626' : '1.5px solid #d1d5db', background: checked ? '#dc2626' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s, border-color 0.1s' }}>
