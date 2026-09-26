@@ -296,18 +296,21 @@ export interface PortalPageDef {
 }
 
 export const ORG_PORTAL_PAGES: PortalPageDef[] = [
-  { key: 'dashboard',       label: 'Dashboard',        group: 'Core',       actions: ['view'] },
-  { key: 'map',             label: 'Live Map',          group: 'Core',       actions: ['view'] },
-  { key: 'vehicles',        label: 'Vehicles',          group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'alerts',          label: 'Alerts',            group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'geofences',       label: 'Geofences',         group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'pois',            label: 'POIs',              group: 'Fleet',      actions: ['view', 'add', 'edit', 'delete'] },
-  { key: 'driver-behavior', label: 'Driver Behavior',   group: 'Analytics',  actions: ['view', 'edit'] },
-  { key: 'reports',         label: 'Reports',           group: 'Analytics',  actions: ['view'] },
-  { key: 'users',           label: 'Users',             group: 'Management', actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'dashboard', label: 'Dashboard', group: 'Core',  actions: ['view'] },
+  { key: 'map',       label: 'Live Map',  group: 'Core',  actions: ['view'] },
+  { key: 'vehicles',  label: 'Vehicles',  group: 'Fleet', actions: ['view', 'add', 'edit', 'delete'] },
 ];
 
-export const ORG_PORTAL_GROUPS = ['Core', 'Fleet', 'Analytics', 'Management'];
+export const ORG_PORTAL_GROUPS = ['Core', 'Fleet'];
+
+export const ORG_PORTAL_TOPBAR: PortalPageDef[] = [
+  { key: 'alerts',          label: 'Alerts',          group: 'Topbar', actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'geofences',       label: 'Geofences',       group: 'Topbar', actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'pois',            label: 'POIs',             group: 'Topbar', actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'driver-behavior', label: 'Driver Behavior',  group: 'Topbar', actions: ['view', 'edit'] },
+  { key: 'reports',         label: 'Reports',          group: 'Topbar', actions: ['view'] },
+  { key: 'users',           label: 'Users',            group: 'Topbar', actions: ['view', 'add', 'edit', 'delete'] },
+];
 
 // Maps sidebar nav route key → portal feature key (used for sidebar + canOrgDo)
 export const ORG_NAV_TO_FEATURE: Record<string, string> = {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { IconShield, IconCheck, IconMinus, IconLock } from '@tabler/icons-react';
 import PageHeader from '../components/PageHeader';
-import { ROLE_PERMISSIONS, TOPBAR_PERMISSIONS, ROLE_LABEL, INTERNAL_ROLES, canManageRole, ORG_ROLE_PORTAL_PERMISSIONS, ORG_ROLES, ORG_ROLE_LABEL, ORG_PORTAL_PAGES, ORG_PORTAL_GROUPS, type PageAction } from '../config/roles';
+import { ROLE_PERMISSIONS, TOPBAR_PERMISSIONS, ROLE_LABEL, INTERNAL_ROLES, canManageRole, ORG_ROLE_PORTAL_PERMISSIONS, ORG_ROLES, ORG_ROLE_LABEL, ORG_PORTAL_PAGES, ORG_PORTAL_GROUPS, ORG_PORTAL_TOPBAR, type PageAction } from '../config/roles';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
 import type { UserRole } from '@yotrack/types';
@@ -131,6 +131,20 @@ export default function RoleAccessPage() {
       const cur = rp[pageKey] ?? [];
       if (cur.includes(action)) { rp[pageKey] = cur.filter(a => a !== action); }
       else { rp[pageKey] = [...cur, action]; if (action !== 'view' && !rp[pageKey].includes('view')) rp[pageKey].push('view'); }
+      next[activeOrgRole] = rp;
+      return next;
+    });
+    setSaved(false);
+  }
+
+  function toggleOrgTopbar(action: PageAction, featureKey: string) {
+    if (!canEditOrg) return;
+    setOrgPerms(prev => {
+      const next = deepClone(prev);
+      const rp = next[activeOrgRole] ?? {};
+      const cur = rp[featureKey] ?? [];
+      if (cur.includes(action)) { rp[featureKey] = cur.filter(a => a !== action); }
+      else { rp[featureKey] = [...cur, action]; if (action !== 'view' && !rp[featureKey].includes('view')) rp[featureKey].push('view'); }
       next[activeOrgRole] = rp;
       return next;
     });
@@ -377,6 +391,33 @@ export default function RoleAccessPage() {
                   })}
                 </tbody>
               </table>
+
+              <div style={{ borderTop: '2px solid var(--border)', marginTop: 4 }}>
+                <div style={{ padding: '12px 20px 0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 1 }}>Topbar Features</div>
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1.5px solid var(--border)', background: 'var(--bg2)' }}>
+                      <th style={{ padding: '9px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.6, width: 160 }}>Feature</th>
+                      {ALL_ACTIONS.map(a => <th key={a} style={{ padding: '9px 10px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: ACTION_COLOR[a], textTransform: 'uppercase', letterSpacing: 0.6, minWidth: 64 }}>{ACTION_LABEL[a]}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ORG_PORTAL_TOPBAR.map(feat => {
+                      const allowed = activeOrgPerms[feat.key] ?? [];
+                      return (
+                        <tr key={feat.key} style={{ borderBottom: '1px solid var(--border2)' }}>
+                          <td style={{ padding: '9px 20px', color: allowed.length ? 'var(--text)' : 'var(--muted)', fontWeight: allowed.length ? 500 : 400 }}>{feat.label}</td>
+                          {ALL_ACTIONS.map(action => (
+                            <Cell key={action} action={action} on={allowed.includes(action)} na={!feat.actions.includes(action)} locked={!canEditOrg} onClick={() => toggleOrgTopbar(action, feat.key)} />
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
               <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)' }}>
                 <IconShield size={12} color="#3b82f6" />
