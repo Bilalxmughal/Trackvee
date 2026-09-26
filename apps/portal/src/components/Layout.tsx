@@ -5,6 +5,7 @@ import {
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePortalPanel } from '../contexts/PortalPanelContext';
+import { usePortalPerms } from '../contexts/PortalPermsContext';
 
 function PanelButton({
   label, icon: Icon, panelKey, badge,
@@ -46,6 +47,7 @@ function PanelButton({
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { canDo } = usePortalPerms();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -83,13 +85,17 @@ export default function Layout() {
 
         {/* Panel trigger buttons */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <PanelButton panelKey="alerts"    icon={IconBell}           label="Alerts" />
-          <PanelButton panelKey="geofences" icon={IconMap2}           label="Geofences" />
-          <PanelButton panelKey="pois"      icon={IconMapPin}         label="POIs" />
-          <PanelButton panelKey="behavior"  icon={IconActivity}       label="Behavior" />
-          <PanelButton panelKey="reports"   icon={IconChartBar}       label="Reports" />
-          <div style={{ width: 1, height: 16, background: '#ebebeb', margin: '0 6px', flexShrink: 0 }} />
-          <PanelButton panelKey="users" icon={IconUsers} label="Users" />
+          {canDo('alerts',          'view') && <PanelButton panelKey="alerts"    icon={IconBell}     label="Alerts" />}
+          {canDo('geofences',       'view') && <PanelButton panelKey="geofences" icon={IconMap2}     label="Geofences" />}
+          {canDo('pois',            'view') && <PanelButton panelKey="pois"      icon={IconMapPin}   label="POIs" />}
+          {canDo('driver-behavior', 'view') && <PanelButton panelKey="behavior"  icon={IconActivity} label="Behavior" />}
+          {canDo('reports',         'view') && <PanelButton panelKey="reports"   icon={IconChartBar} label="Reports" />}
+          {canDo('users',           'view') && (
+            <>
+              <div style={{ width: 1, height: 16, background: '#ebebeb', margin: '0 6px', flexShrink: 0 }} />
+              <PanelButton panelKey="users" icon={IconUsers} label="Users" />
+            </>
+          )}
         </nav>
 
         {/* Spacer */}

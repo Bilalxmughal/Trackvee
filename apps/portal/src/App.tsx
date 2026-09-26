@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PortalPanelProvider } from './contexts/PortalPanelContext';
+import { PortalPermsProvider } from './contexts/PortalPermsContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import PortalMapPage from './pages/MapPage';
@@ -32,9 +33,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <PortalPanelProvider>
-        <AppRoutes />
-      </PortalPanelProvider>
+      <PortalPermsProvider>
+        <PortalPanelProvider>
+          <AppRoutes />
+        </PortalPanelProvider>
+      </PortalPermsProvider>
     </AuthProvider>
   );
 }

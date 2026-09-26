@@ -270,6 +270,8 @@ export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Recor
     geofences:         ['view'],
     pois:              ['view'],
     'driver-behavior': ['view'],
+    reports:           ['view'],
+    users:             ['view', 'add', 'edit'],
   },
   client_user: {
     dashboard:         ['view'],
@@ -277,6 +279,7 @@ export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Recor
     vehicles:          ['view'],
     alerts:            ['view'],
     'driver-behavior': ['view'],
+    reports:           ['view'],
   },
 };
 

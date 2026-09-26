@@ -159,7 +159,16 @@ Data APIs: `GET /vehicles` → `VehicleOption[]`, `GET /vehicle-groups` → `Veh
 
 **APIs:**
 - Leaderboard: `GET /driver-behavior/leaderboard`
+- Vehicle detail: `GET /driver-behavior/vehicle/:vehicleId/scores?days=30` + `GET /driver-behavior/vehicle/:vehicleId/events`
 - Settings: `GET /driver-behavior/settings`, `PUT /driver-behavior/settings`
+
+**Vehicle detail view** (on leaderboard row click — inline, not a separate modal):
+- Back button → returns to leaderboard; tabs hidden while in detail view
+- Summary tiles: Harsh Brake / Rapid Accel / Sharp Turn / Overspeed (amber for > 0, red for overspeed)
+- 30-Day Score Trend: SVG line chart (`ScoreChart` component, hardcoded light colors: border `#e5e7eb`, text `#9ca3af`)
+- Recent Events table: Event icon + label | Severity (colored uppercase) | Speed | Time (`DD-Mon-YYYY H:MM AM/PM`) | Location (map pin button → OSM iframe + Google Maps link → Back)
+- Event icons: `harsh_brake=IconAlertTriangle`, `rapid_accel=IconGauge`, `sharp_turn=IconRotateClockwise`, `overspeed=IconArrowNarrowRight`
+- Severity colors: `low=#6b7280`, `medium=#f59e0b`, `high=#dc2626`
 
 **Settings fields (detection thresholds):** overspeedThreshold (km/h), harshBrakeDeceleration (km/h/s), rapidAccelThreshold (km/h/s), sharpTurnAngle (degrees), sharpTurnMinSpeed (km/h).
 
@@ -205,3 +214,39 @@ Vehicle groups stored in `localStorage` key `yotrack_map_groups_v1` as `{ id, na
 ## 14. Date / Time Format
 
 Display format: `01-Jan-2026 10:00 AM` — consistent across all tables and panels.
+
+---
+
+## 15. Users Form (Portal UsersModal — UserFormModal)
+
+**Tabs:** Profile | Permissions (Permissions tab shows when: logged-in user is owner/super_admin/admin, not editing self, target role ≠ client_owner)
+
+**Profile tab field order:** Role → First Name / Last Name (grid) → Email → Password (with show/hide eye icon) → Status (Active/Inactive)
+
+**Permissions tab:**
+- **Permission Templates section:** "View Only" / "Field Staff" / "Manager" preset buttons — apply template preserving vehicleIds
+- **Module Permissions table:** Module | VIEW | ADD | EDIT | DELETE header row (colored per action), each cell = 26×26 toggle button, `background: on ? '${ACTION_COLOR}18' : '#f9fafb'`, check SVG when on / dash SVG when off
+- **ACTION_COLOR:** View=`#3b82f6`, Add=`#16a34a`, Edit=`#f59e0b`, Delete=`#dc2626`
+- **Vehicle Access:** radio (All vehicles / Specific vehicles) + checkbox list
+- Permissions apply to ALL roles except client_owner (owner has fixed full access)
+- Auto-grant View when Add/Edit/Delete is toggled on
+- API: `GET /org-permissions/:userId` (load), `PUT /org-permissions/:userId` (save)
+
+**TEMPLATES:**
+```ts
+'View Only':  all View=true, Add/Edit/Delete=false
+'Field Staff': View+Add+Edit for alerts/geofences/pois, vehicles View only
+'Manager':    View+Add+Edit for all modules, Delete=false
+```
+
+---
+
+## 16. Auth Separation (Login Role Guard)
+
+**Portal** (`portal.trackvee.com`): only allows `client_owner`, `client_super_admin`, `client_admin`, `client_user`. Any other role → throw error → "Invalid email or password" shown.
+
+**Admin** (`admin.trackvee.com`): only allows `super_admin`, `admin`, `ops`, `live_ops`, `agent`, `chat_support`, `viewer`. Any other role → throw error → "Invalid email or password" shown.
+
+Both apps also check on token reload (`/auth/me`) — wrong-role token is cleared silently (user lands on login).
+
+Rule: **never reveal** which portal the user should use in the error message.

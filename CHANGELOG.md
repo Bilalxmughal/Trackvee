@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-09-26 (Session 2)
+
+### Added
+- [Portal — DriverBehaviorModal] Clicking a leaderboard row now opens vehicle detail view (inline, same modal): summary tiles (Harsh Brake/Rapid Accel/Sharp Turn/Overspeed), 30-day SVG score chart, recent events table with severity, speed, time, and map pin → OSM iframe + Google Maps link.
+- [Portal — UsersModal] Permissions tab redesigned to match admin: Permission Templates (View Only / Field Staff / Manager), Module Permissions as table (Module | VIEW | ADD | EDIT | DELETE with 26×26 icon-toggle cells, per-action color).
+- [Portal — UsersModal] Profile tab: password show/hide eye icon, Active/Inactive status field (was missing — now saved in payload), tab renamed from "Info" → "Profile", field order matches admin (Role → First/Last Name → Email → Password → Status).
+- [Portal — UsersModal] Permissions tab now available for ALL roles (Admin, Super Admin, User) — not just client_admin. client_owner excluded (fixed full access).
+- [Auth] Login separation: internal admin roles cannot login to portal.trackvee.com, org user roles cannot login to admin.trackvee.com. Wrong-role login shows "Invalid email or password". Wrong-role token in storage is auto-cleared on page load.
+
+### Fixed
+- [Admin — MapPage] White screen crash caused by malformed geofence/speed-zone polygon data (undefined coordinates). Added null/undefined filter before `L.polygon()` call; shapes with < 3 valid points are skipped silently.
+
+---
+
 ## 2026-09-26
 
 ### Added (Portal)

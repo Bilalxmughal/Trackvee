@@ -4,7 +4,7 @@
 
 ## Last Updated
 
-2026-09-26
+2026-09-26 (Session 2)
 
 ## Current Phase
 
@@ -36,6 +36,13 @@ Current work is ongoing feature additions on top of a stable production base.
 - Geofences: circle + polygon, enter/exit/both triggers
 - POIs: point-of-interest markers on map
 - **Trackvee manages client workflow**: admin selects a client from live map dropdown → all map operations (alerts, geofences, POIs, groups) are scoped to that client; backend supports `?orgId=` on all three endpoints; AlertsModal/AlertsLeftPanel/POIsPanel/GeofencesPanel all respect selected client
+
+## Recently Completed (Session 2, 2026-09-26)
+
+- Portal DriverBehaviorModal: vehicle detail view on row click (tiles + ScoreChart + events table + OSM map)
+- Portal UsersModal: Profile tab redesign (eye icon, Active/Inactive, field order), Permissions tab now table format with templates, available for all roles
+- Admin MapPage: polygon crash fix (undefined coordinates in geofence/speed-zone data)
+- Auth login separation: admin/portal roles strictly separated, wrong-role login silently blocked
 
 ## In Progress / Pending Features
 
