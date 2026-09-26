@@ -114,12 +114,12 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
   const [activeTab, setActiveTab] = useState<'profile' | 'perms'>('profile');
 
   const isSelf = !!initial?.id && initial.id === currentUserId;
-  const isOrgUser = role === 'client_admin';
-  const canEditPerms = (currentUserRole === 'client_owner' || currentUserRole === 'client_super_admin' || currentUserRole === 'client_admin') && !isSelf;
+  // client_owner has fixed full access — no custom perms needed
+  const canEditPerms = (currentUserRole === 'client_owner' || currentUserRole === 'client_super_admin' || currentUserRole === 'client_admin') && !isSelf && role !== 'client_owner';
 
-  // Load existing perms and org vehicles when editing a client_admin
+  // Load existing perms and org vehicles when editing any permissioned user
   useEffect(() => {
-    if (!initial?.id || role !== 'client_admin') { setPermsLoaded(true); return; }
+    if (!initial?.id || !canEditPerms) { setPermsLoaded(true); return; }
     let cancelled = false;
     Promise.all([
       api.get<OrgPerm>(`/org-permissions/${initial.id}`).then(r => r.data).catch(() => defaultPerms()),
@@ -131,13 +131,13 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
       setPermsLoaded(true);
     });
     return () => { cancelled = true; };
-  }, [initial?.id, role, organizationId]);
+  }, [initial?.id, canEditPerms, organizationId]);
 
-  // Load vehicles when creating a new client_admin
+  // Load vehicles when creating a new permissioned user
   useEffect(() => {
-    if (initial?.id || role !== 'client_admin') return;
+    if (initial?.id || !canEditPerms) return;
     api.get<Vehicle[]>(`/vehicles?organizationId=${organizationId}`).then(r => setOrgVehicles(r.data)).catch(() => {});
-  }, [role, organizationId, initial?.id]);
+  }, [canEditPerms, organizationId, initial?.id]);
 
   const handleRoleChange = (r: string) => { setRole(r); setPerms(defaultPerms()); };
 
@@ -167,8 +167,7 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
       let u: OrgUser;
       if (initial?.id) { u = (await api.patch<OrgUser>(`/users/${initial.id}`, payload)).data; }
       else { u = (await api.post<OrgUser>('/users', payload)).data; }
-      // Save org permissions separately for client_admin
-      if (isOrgUser && canEditPerms) {
+      if (canEditPerms) {
         await api.put(`/org-permissions/${u.id}`, { ...perms, orgId: organizationId });
       }
       onSave(u);
@@ -178,7 +177,7 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
     } finally { setSaving(false); }
   };
 
-  const tabs = [{ id: 'profile' as const, label: 'Profile' }, ...(isOrgUser && canEditPerms ? [{ id: 'perms' as const, label: 'Permissions' }] : [])];
+  const tabs = [{ id: 'profile' as const, label: 'Profile' }, ...(canEditPerms ? [{ id: 'perms' as const, label: 'Permissions' }] : [])];
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10100, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -274,7 +273,7 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
             </>
           )}
 
-          {activeTab === 'perms' && isOrgUser && canEditPerms && (
+          {activeTab === 'perms' && canEditPerms && (
             <>
               {!permsLoaded ? (
                 <div style={{ padding: 20, textAlign: 'center', color: '#bbb', fontSize: 12 }}>Loading permissions…</div>
