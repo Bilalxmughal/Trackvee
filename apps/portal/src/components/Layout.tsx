@@ -1,47 +1,51 @@
 import { useState, useRef, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import {
-  IconMap, IconCar, IconChartBar, IconBell, IconLogout, IconChevronDown,
+  IconBell, IconMap2, IconMapPin, IconChartBar, IconLogout, IconChevronDown,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
+import { usePortalPanel } from '../contexts/PortalPanelContext';
 
-const NAV_ITEMS = [
-  { to: '/map',      icon: IconMap,      label: 'Live Map' },
-  { to: '/vehicles', icon: IconCar,      label: 'Vehicles' },
-  { to: '/reports',  icon: IconChartBar, label: 'Reports'  },
-  { to: '/alerts',   icon: IconBell,     label: 'Alerts'   },
-];
-
-function TopNavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) {
+function PanelButton({
+  label, icon: Icon, panelKey, badge,
+}: {
+  label: string; icon: React.ElementType;
+  panelKey: 'alerts' | 'geofences' | 'pois' | 'reports';
+  badge?: number;
+}) {
+  const { activePanel, openPanel } = usePortalPanel();
+  const active = activePanel === panelKey;
   return (
-    <NavLink
-      to={to}
-      style={({ isActive }) => ({
+    <button
+      onClick={() => openPanel(panelKey)}
+      style={{
         display: 'flex', alignItems: 'center', gap: 5,
-        padding: '5px 9px', borderRadius: 6, textDecoration: 'none',
-        color: isActive ? '#dc2626' : '#777',
-        background: isActive ? 'rgba(220,38,38,0.08)' : 'transparent',
-        fontWeight: isActive ? 600 : 400,
-        fontSize: 12.5, whiteSpace: 'nowrap',
-        transition: 'color 0.13s, background 0.13s',
-      })}
-      onMouseEnter={e => {
-        const a = e.currentTarget as HTMLElement;
-        if (!a.getAttribute('aria-current')) { a.style.color = '#dc2626'; a.style.background = 'rgba(220,38,38,0.06)'; }
+        padding: '5px 9px', borderRadius: 6, border: 'none',
+        background: active ? 'rgba(220,38,38,0.08)' : 'transparent',
+        color: active ? '#dc2626' : '#777',
+        fontWeight: active ? 600 : 400,
+        fontSize: 12.5, whiteSpace: 'nowrap', cursor: 'pointer',
+        transition: 'color 0.13s, background 0.13s', position: 'relative',
       }}
-      onMouseLeave={e => {
-        const a = e.currentTarget as HTMLElement;
-        if (!a.getAttribute('aria-current')) { a.style.color = ''; a.style.background = ''; }
-      }}
+      onMouseEnter={e => { if (!active) { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; } }}
+      onMouseLeave={e => { if (!active) { e.currentTarget.style.color = ''; e.currentTarget.style.background = ''; } }}
     >
       <Icon size={14} strokeWidth={1.9} style={{ flexShrink: 0 }} />
       {label}
-    </NavLink>
+      {badge != null && badge > 0 && (
+        <span style={{
+          position: 'absolute', top: 1, right: 1,
+          background: '#dc2626', color: '#fff', fontSize: 8.5, fontWeight: 700,
+          padding: '1px 4px', borderRadius: 6, lineHeight: 1.4,
+        }}>{badge > 99 ? '99+' : badge}</span>
+      )}
+    </button>
   );
 }
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { alertCount } = usePortalPanel();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -77,11 +81,12 @@ export default function Layout() {
         {/* Divider */}
         <div style={{ width: 1, height: 16, background: '#ebebeb', marginRight: 12, flexShrink: 0 }} />
 
-        {/* Nav links */}
+        {/* Panel trigger buttons */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {NAV_ITEMS.map(item => (
-            <TopNavItem key={item.to} {...item} />
-          ))}
+          <PanelButton panelKey="alerts"    icon={IconBell}     label="Alerts"    badge={alertCount} />
+          <PanelButton panelKey="geofences" icon={IconMap2}     label="Geofences" />
+          <PanelButton panelKey="pois"      icon={IconMapPin}   label="POIs" />
+          <PanelButton panelKey="reports"   icon={IconChartBar} label="Reports" />
         </nav>
 
         {/* Spacer */}

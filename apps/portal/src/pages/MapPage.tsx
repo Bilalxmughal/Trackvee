@@ -6,6 +6,11 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import api from '../api/client';
+import { usePortalPanel } from '../contexts/PortalPanelContext';
+import AlertsPanel, { type AlertItem } from '../components/AlertsPanel';
+import GeofencesPanel, { type Geofence } from '../components/GeofencesPanel';
+import POIsPanel, { type POI } from '../components/POIsPanel';
+import ReportsModal from '../components/ReportsModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1007,6 +1012,65 @@ function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFo
   );
 }
 
+// ── Geofence & POI Map Layers ─────────────────────────────────────────────────
+
+function GeofenceMapLayer({ geofences, selectedId }: { geofences: Geofence[]; selectedId: string | null }) {
+  const map = useMap();
+  const layerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
+    if (geofences.length === 0) return;
+    const lg = L.layerGroup().addTo(map);
+    layerRef.current = lg;
+    for (const gf of geofences) {
+      const color = selectedId === gf.id ? '#dc2626' : (gf.color ?? '#3b82f6');
+      const opts = { color, fillColor: color, fillOpacity: 0.1, weight: selectedId === gf.id ? 2.5 : 1.5 };
+      let layer: L.Circle | L.Polygon | null = null;
+      if (gf.type === 'circle' && gf.latitude != null && gf.longitude != null && gf.radius != null) {
+        layer = L.circle([gf.latitude, gf.longitude], { ...opts, radius: gf.radius });
+      } else if (gf.type === 'polygon' && gf.coordinates && gf.coordinates.length >= 3) {
+        layer = L.polygon(gf.coordinates, opts);
+      }
+      if (layer) {
+        layer.bindTooltip(gf.name, { permanent: false, direction: 'center', className: '' });
+        layer.addTo(lg);
+      }
+    }
+    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+  }, [geofences, selectedId, map]);
+
+  return null;
+}
+
+function POIMarkerLayer({ pois, selectedId }: { pois: POI[]; selectedId: string | null }) {
+  const map = useMap();
+  const layerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
+    if (pois.length === 0) return;
+    const lg = L.layerGroup().addTo(map);
+    layerRef.current = lg;
+    const CAT_COLOR: Record<string, string> = { fuel: '#f59e0b', parking: '#3b82f6', office: '#8b5cf6', warehouse: '#16a34a', workshop: '#ea580c', customer: '#06b6d4' };
+    for (const poi of pois) {
+      const active = selectedId === poi.id;
+      const color = active ? '#dc2626' : (poi.category ? (CAT_COLOR[poi.category.toLowerCase()] ?? '#6b7280') : '#6b7280');
+      if (poi.radius > 0) L.circle([poi.latitude, poi.longitude], { color, fillColor: color, fillOpacity: 0.12, radius: poi.radius, weight: active ? 2.5 : 1.5 }).addTo(lg);
+      const icon = L.divIcon({
+        html: `<div style="background:${color};width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,
+        className: 'leaflet-interactive', iconSize: [10, 10], iconAnchor: [5, 5],
+      });
+      const m = L.marker([poi.latitude, poi.longitude], { icon });
+      m.bindTooltip(poi.name, { permanent: false, direction: 'top' });
+      m.addTo(lg);
+    }
+    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+  }, [pois, selectedId, map]);
+
+  return null;
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PortalMapPage() {
@@ -1042,6 +1106,19 @@ export default function PortalMapPage() {
   // Follow
   const [followImei, setFollowImei] = useState<string | null>(null);
   const [followPos] = useState({ x: 260, y: 60 });
+
+  // Panel context
+  const { activePanel, setAlertCount, closePanel } = usePortalPanel();
+
+  // Panel data
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [geofences, setGeofences] = useState<Geofence[]>([]);
+  const [gfLoading, setGfLoading] = useState(false);
+  const [pois, setPois] = useState<POI[]>([]);
+  const [poisLoading, setPoisLoading] = useState(false);
+  const [selectedGfId, setSelectedGfId] = useState<string | null>(null);
+  const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
 
   const mapRef = useRef<L.Map | null>(null);
 
@@ -1083,6 +1160,33 @@ export default function PortalMapPage() {
     poll();
     return () => clearTimeout(timer);
   }, []);
+
+  // Initial alert count badge
+  useEffect(() => {
+    api.get<AlertItem[]>('/alerts?limit=200').then(r => {
+      setAlerts(r.data);
+      setAlertCount(r.data.filter(a => !a.resolvedAt).length);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Lazy panel data fetch
+  useEffect(() => {
+    if (activePanel === 'alerts') {
+      setAlertsLoading(true);
+      api.get<AlertItem[]>('/alerts?limit=500').then(r => {
+        setAlerts(r.data);
+        setAlertCount(r.data.filter(a => !a.resolvedAt).length);
+      }).catch(() => {}).finally(() => setAlertsLoading(false));
+    } else if (activePanel === 'geofences') {
+      setGfLoading(true);
+      api.get<Geofence[]>('/geofences').then(r => setGeofences(r.data)).catch(() => {}).finally(() => setGfLoading(false));
+    } else if (activePanel === 'pois') {
+      setPoisLoading(true);
+      api.get<POI[]>('/pois').then(r => setPois(r.data)).catch(() => {}).finally(() => setPoisLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePanel]);
 
   // History load
   const loadHistory = useCallback(async (imei: string, plate: string, from: string, to: string) => {
@@ -1172,12 +1276,14 @@ export default function PortalMapPage() {
           <ClusterLayer points={points} deviceMap={deviceMap} vehicleDetails={vehicleDetails} onSelect={handleSelect} />
         )}
         {flyTarget && <FlyTo lat={flyTarget.lat} lng={flyTarget.lng} ts={flyTarget.ts} />}
+        {activePanel === 'geofences' && <GeofenceMapLayer geofences={geofences} selectedId={selectedGfId} />}
+        {activePanel === 'pois' && <POIMarkerLayer pois={pois} selectedId={selectedPoiId} />}
       </MapContainer>
 
       {/* Map Style Switcher */}
       <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} />
 
-      {/* Vehicle list — full height floating left */}
+      {/* Left floating panel */}
       <div style={{
         position: 'absolute', top: 10, left: 10, bottom: 10, width: 300,
         background: '#fff', borderRadius: 10,
@@ -1185,7 +1291,27 @@ export default function PortalMapPage() {
         border: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', zIndex: 400,
         overflow: 'hidden',
       }}>
-        {historyMode ? (
+        {activePanel === 'alerts' ? (
+          <AlertsPanel alerts={alerts} loading={alertsLoading} />
+        ) : activePanel === 'geofences' ? (
+          <GeofencesPanel geofences={geofences} loading={gfLoading} selectedId={selectedGfId}
+            onSelect={gf => {
+              setSelectedGfId(gf.id);
+              if (gf.type === 'circle' && gf.latitude != null && gf.longitude != null) {
+                mapRef.current?.flyTo([gf.latitude, gf.longitude], 14, { animate: true, duration: 0.7 });
+              } else if (gf.type === 'polygon' && gf.coordinates && gf.coordinates.length > 0) {
+                try { mapRef.current?.fitBounds(L.latLngBounds(gf.coordinates), { padding: [40, 40], animate: true }); } catch {}
+              }
+            }}
+          />
+        ) : activePanel === 'pois' ? (
+          <POIsPanel pois={pois} loading={poisLoading} selectedId={selectedPoiId}
+            onSelect={poi => {
+              setSelectedPoiId(poi.id);
+              mapRef.current?.flyTo([poi.latitude, poi.longitude], 16, { animate: true, duration: 0.7 });
+            }}
+          />
+        ) : historyMode ? (
           <HistoryPanel
             mode={historyMode}
             points={historyPoints}
@@ -1328,6 +1454,9 @@ export default function PortalMapPage() {
       {followImei && (
         <FollowWindow plate={followPlate} pt={followPt} onStop={() => setFollowImei(null)} initPos={followPos} />
       )}
+
+      {/* Reports Modal */}
+      {activePanel === 'reports' && <ReportsModal onClose={closePanel} />}
     </div>
   );
 }

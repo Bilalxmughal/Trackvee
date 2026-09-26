@@ -1,11 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { PortalPanelProvider } from './contexts/PortalPanelContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import PortalMapPage from './pages/MapPage';
-import VehiclesPage from './pages/VehiclesPage';
-import ReportsPage from './pages/ReportsPage';
-import AlertsPage from './pages/AlertsPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -24,11 +22,8 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Navigate to="/map" replace />} />
-        <Route path="/map"      element={<PortalMapPage />} />
-        <Route path="/vehicles" element={<VehiclesPage />} />
-        <Route path="/reports"  element={<ReportsPage />} />
-        <Route path="/alerts"   element={<AlertsPage />} />
-        <Route path="*"         element={<Navigate to="/map" replace />} />
+        <Route path="/map" element={<PortalMapPage />} />
+        <Route path="*"   element={<Navigate to="/map" replace />} />
       </Route>
     </Routes>
   );
@@ -37,7 +32,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <PortalPanelProvider>
+        <AppRoutes />
+      </PortalPanelProvider>
     </AuthProvider>
   );
 }
