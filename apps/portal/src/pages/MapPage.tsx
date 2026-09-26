@@ -12,6 +12,7 @@ import GeofencesPanel, { type Geofence } from '../components/GeofencesPanel';
 import POIsPanel, { type POI } from '../components/POIsPanel';
 import ReportsModal from '../components/ReportsModal';
 import DriverBehaviorPanel from '../components/DriverBehaviorPanel';
+import UsersModal from '../components/UsersModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1507,6 +1508,9 @@ export default function PortalMapPage() {
 
       {/* Reports Modal */}
       {activePanel === 'reports' && <ReportsModal onClose={closePanel} />}
+
+      {/* Users Modal */}
+      {activePanel === 'users' && <UsersModal onClose={closePanel} />}
     </div>
   );
 }

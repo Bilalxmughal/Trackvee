@@ -4,7 +4,6 @@ import { PortalPanelProvider } from './contexts/PortalPanelContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import PortalMapPage from './pages/MapPage';
-import UsersPage from './pages/UsersPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -23,9 +22,8 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Navigate to="/map" replace />} />
-        <Route path="/map"   element={<PortalMapPage />} />
-        <Route path="/users" element={<UsersPage />} />
-        <Route path="*"      element={<Navigate to="/map" replace />} />
+        <Route path="/map" element={<PortalMapPage />} />
+        <Route path="*"    element={<Navigate to="/map" replace />} />
       </Route>
     </Routes>
   );

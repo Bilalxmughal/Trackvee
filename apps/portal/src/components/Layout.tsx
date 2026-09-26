@@ -10,7 +10,7 @@ function PanelButton({
   label, icon: Icon, panelKey, badge,
 }: {
   label: string; icon: React.ElementType;
-  panelKey: 'alerts' | 'geofences' | 'pois' | 'reports' | 'behavior';
+  panelKey: 'alerts' | 'geofences' | 'pois' | 'reports' | 'behavior' | 'users';
   badge?: number;
 }) {
   const { activePanel, openPanel } = usePortalPanel();
@@ -90,12 +90,7 @@ export default function Layout() {
           <PanelButton panelKey="behavior"  icon={IconActivity}       label="Behavior" />
           <PanelButton panelKey="reports"   icon={IconChartBar}       label="Reports" />
           <div style={{ width: 1, height: 16, background: '#ebebeb', margin: '0 6px', flexShrink: 0 }} />
-          <button onClick={() => navigate('/users')}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 9px', borderRadius: 6, border: 'none', background: 'transparent', color: '#777', fontSize: 12.5, whiteSpace: 'nowrap', cursor: 'pointer' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#777'; e.currentTarget.style.background = 'transparent'; }}>
-            <IconUsers size={14} strokeWidth={1.9} /> Users
-          </button>
+          <PanelButton panelKey="users" icon={IconUsers} label="Users" />
         </nav>
 
         {/* Spacer */}
