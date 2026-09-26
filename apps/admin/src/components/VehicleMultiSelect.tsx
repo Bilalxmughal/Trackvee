@@ -61,8 +61,8 @@ export default function VehicleMultiSelect({ vehicles, groups = [], selected, on
     selected.length === vehicles.length ? 'all'  : 'some';
 
   const label =
-    selected.length === 0          ? placeholder :
-    selected.length === 1          ? (vehicles.find(v => v.id === selected[0])?.name ?? '1 vehicle') :
+    selected.length === 0 ? placeholder :
+    selected.length === 1 ? (() => { const v = vehicles.find(v => v.id === selected[0]); return v ? (v.licensePlate ?? v.name) : '1 vehicle'; })() :
     `${selected.length} vehicles selected`;
 
   // Styles
@@ -108,10 +108,10 @@ export default function VehicleMultiSelect({ vehicles, groups = [], selected, on
       <div style={itemRow(isSel, groups.length > 0)} onClick={() => toggle(v.id)}>
         <div style={cb(isSel ? 'all' : 'none')}>{isSel && CHECK}</div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.name}</div>
-          {v.licensePlate && (
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{v.licensePlate}</div>
-          )}
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {v.licensePlate ?? v.name}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{v.name}</div>
         </div>
       </div>
     );
