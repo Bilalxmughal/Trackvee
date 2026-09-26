@@ -251,7 +251,7 @@ export default function UsersPage() {
         </div>
       )}
 
-      <Modal open={modal} title={editing ? 'Edit User' : 'Add User'} onClose={closeModal}>
+      <Modal open={modal} title={editing ? 'Edit User' : 'Add User'} onClose={closeModal} width='min(1200px, 97vw)' height='min(800px, 96vh)'>
         {/* Tabs */}
         {isOrgUser && (
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 16 }}>

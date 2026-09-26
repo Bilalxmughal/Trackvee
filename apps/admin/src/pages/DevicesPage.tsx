@@ -205,7 +205,7 @@ export default function DevicesPage() {
         </div>
       )}
 
-      <Modal open={modal} title={editing ? 'Edit Device' : 'Add Device'} onClose={closeModal}>
+      <Modal open={modal} title={editing ? 'Edit Device' : 'Add Device'} onClose={closeModal} width='min(1200px, 97vw)' height='min(800px, 96vh)'>
         <form onSubmit={handleSubmit}>
           <FormField label="IMEI *">
             <input required value={form.imei} onChange={e => set('imei', e.target.value)} placeholder="15-digit IMEI number" maxLength={20}

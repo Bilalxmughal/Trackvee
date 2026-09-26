@@ -390,7 +390,7 @@ export default function ClientUsersPage() {
       )}
 
       {/* Add/Edit Modal */}
-      <Modal open={modal} title={editing ? 'Edit Client User' : 'Add Client User'} onClose={() => { setModal(false); setEditing(null); }}>
+      <Modal open={modal} title={editing ? 'Edit Client User' : 'Add Client User'} onClose={() => { setModal(false); setEditing(null); }} width='min(1200px, 97vw)' height='min(800px, 96vh)'>
         {isOrgUser && (
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
             {tabs.map(t => (

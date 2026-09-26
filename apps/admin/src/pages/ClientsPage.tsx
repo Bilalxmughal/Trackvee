@@ -252,7 +252,7 @@ export default function ClientsPage() {
         </div>
       )}
 
-      <Modal open={modal} title={editing ? 'Edit Client' : 'Add Client'} onClose={closeModal}>
+      <Modal open={modal} title={editing ? 'Edit Client' : 'Add Client'} onClose={closeModal} width='min(1200px, 97vw)' height='min(800px, 96vh)'>
         <form onSubmit={handleSubmit}>
           {/* Type selector */}
           <FormField label="Client Type">
