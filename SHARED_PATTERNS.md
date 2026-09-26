@@ -219,25 +219,39 @@ Display format: `01-Jan-2026 10:00 AM` — consistent across all tables and pane
 
 ## 15. Users Form (Portal UsersModal — UserFormModal)
 
-**Tabs:** Profile | Permissions (Permissions tab shows when: logged-in user is owner/super_admin/admin, not editing self, target role ≠ client_owner)
+**Tabs:** Profile | Vehicles | Permissions
 
 **Profile tab field order:** Role → First Name / Last Name (grid) → Email → Password (with show/hide eye icon) → Status (Active/Inactive)
 
+**Vehicles tab:**
+- Radio: All vehicles / Specific vehicles
+- When "Specific": group-wise vehicle list from `GET /vehicle-groups?organizationId=X`
+- Each group has a header checkbox (toggle all vehicles in group)
+- Individual vehicle checkboxes show plate number
+- Ungrouped vehicles shown under "Other"
+- Saved as `vehicleIds` array in `org_permissions`
+
 **Permissions tab:**
-- **Permission Templates section:** "View Only" / "Field Staff" / "Manager" preset buttons — apply template preserving vehicleIds
-- **Module Permissions table:** Module | VIEW | ADD | EDIT | DELETE header row (colored per action), each cell = 26×26 toggle button, `background: on ? '${ACTION_COLOR}18' : '#f9fafb'`, check SVG when on / dash SVG when off
+- Dynamic: `ALL_MODULES.filter(m => canDo(m.portalKey, 'view'))` — only shows modules current user's role can access
+- Per-module, only actions the current user can do are shown as toggleable; others show `—`
+- **MODULE table:** Module | VIEW | ADD | EDIT | DELETE header row (colored per action), each cell = 26×26 toggle button
 - **ACTION_COLOR:** View=`#3b82f6`, Add=`#16a34a`, Edit=`#f59e0b`, Delete=`#dc2626`
-- **Vehicle Access:** radio (All vehicles / Specific vehicles) + checkbox list
-- Permissions apply to ALL roles except client_owner (owner has fixed full access)
+- Permissions tab shows for all roles except client_owner (fixed full access)
 - Auto-grant View when Add/Edit/Delete is toggled on
 - API: `GET /org-permissions/:userId` (load), `PUT /org-permissions/:userId` (save)
 
-**TEMPLATES:**
+**ALL_MODULES (portalKey → permKey mapping):**
 ```ts
-'View Only':  all View=true, Add/Edit/Delete=false
-'Field Staff': View+Add+Edit for alerts/geofences/pois, vehicles View only
-'Manager':    View+Add+Edit for all modules, Delete=false
+vehicles → vehicles (View/Add/Edit/Delete)
+alerts → alerts (View/Add/Edit/Delete)
+geofences → geofences (View/Add/Edit/Delete)
+pois → pois (View/Add/Edit/Delete)
+driver-behavior → driverBehavior (View/Edit)
+reports → reports (View)
+users → users (View/Add/Edit/Delete)
 ```
+
+**Key rule:** Client admins can only grant permissions they themselves have — enforced by `canDo` filter on `visibleModules`.
 
 ---
 

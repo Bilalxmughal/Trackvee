@@ -37,16 +37,16 @@ Current work is ongoing feature additions on top of a stable production base.
 - POIs: point-of-interest markers on map
 - **Trackvee manages client workflow**: admin selects a client from live map dropdown → all map operations (alerts, geofences, POIs, groups) are scoped to that client; backend supports `?orgId=` on all three endpoints; AlertsModal/AlertsLeftPanel/POIsPanel/GeofencesPanel all respect selected client
 
-## Recently Completed (Session 2, 2026-09-26)
+## Recently Completed (Session 3, 2026-09-26)
 
-- Portal DriverBehaviorModal: vehicle detail view on row click (tiles + ScoreChart + events table + OSM map)
-- Portal UsersModal: Profile tab redesign (eye icon, Active/Inactive, field order), Permissions tab now table format with templates, available for all roles
-- Admin MapPage: polygon crash fix (undefined coordinates in geofence/speed-zone data)
-- Auth login separation: admin/portal roles strictly separated, wrong-role login silently blocked
+- Migration 018 (`speed_zones` table) deployed on production server
+- Portal topbar permissions: `PortalPermsContext` (fetches `role_portal_permissions` DB), topbar buttons (Alerts/Geofences/POIs/Behavior/Reports/Users) conditionally rendered via `canDo(feature, 'view')`
+- Admin `RoleAccessPage`: Client Portal section now has "Topbar Features" table (mirrors Trackvee section) — `ORG_PORTAL_TOPBAR` array in `roles.ts` as source of truth
+- Portal `UsersModal`: restructured into 3 tabs — Profile (unchanged), Vehicles (group-wise with plates, `/vehicle-groups` API), Permissions (dynamic from `canDo`, only shows what current user's role can grant)
+- `ORG_PORTAL_TOPBAR` array added to `apps/admin/src/config/roles.ts` as single source of truth for topbar permission features
 
 ## In Progress / Pending Features
 
-See session memory `pending-features.md` for full list. Key upcoming items:
 1. Maintenance Reminders (mileage/date-based service alerts)
 2. Fuel Monitoring
 3. Idle Time Alerts + Cost
@@ -59,9 +59,8 @@ See session memory `pending-features.md` for full list. Key upcoming items:
 
 ## Next
 
-1. **Server: deploy migration 018** (`apps/api/migrations/018_speed_zones.sql`) + rebuild API
-2. Implement Maintenance Reminders
-3. Reports Module
+1. Implement Maintenance Reminders
+2. Reports Module
 
 ## Important Context
 
@@ -70,3 +69,4 @@ See session memory `pending-features.md` for full list. Key upcoming items:
 - TypeORM query builder does NOT support `DISTINCT ON` — use `repo.query()` raw SQL
 - Server runs compiled JS from `dist/` — `git pull` alone does NOT update running code; must rebuild
 - Every new feature must be wired into client portal permissions in the same session it is built
+- Portal permission flow: Admin RoleAccessPage → DB `role_portal_permissions` → Portal `PortalPermsContext` → `canDo(feature, action)` → UI conditional render → Add User modal inherits same scope so client admins can only grant what they themselves have

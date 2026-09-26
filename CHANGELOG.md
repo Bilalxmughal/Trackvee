@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-09-26 (Session 3)
+
+### Added
+- [API] Migration 018 deployed: `speed_zones` table (id, org_id, name, type, coordinates JSONB, speed_limit, color, created_at) on production DB.
+- [Portal — PortalPermsContext] New context (`apps/portal/src/contexts/PortalPermsContext.tsx`): fetches `GET /role-portal-permissions`, scopes to logged-in user's role, exposes `canDo(feature, action): boolean`. Fallback hardcoded for network failure.
+- [Portal — Layout] Topbar buttons (Alerts/Geofences/POIs/Behavior/Reports/Users) now conditionally rendered via `canDo`. Users button separated with divider.
+- [Admin — roles.ts] `ORG_PORTAL_TOPBAR: PortalPageDef[]` added — single source of truth for topbar permission features (alerts, geofences, pois, driver-behavior, reports, users). `ORG_PORTAL_PAGES` trimmed to core 3 (dashboard, map, vehicles).
+- [Admin — RoleAccessPage] Client Portal section: "Topbar Features" table added below pages table, mirrors Trackvee section pattern exactly. `toggleOrgTopbar()` handler added.
+- [Portal — UsersModal] Restructured Add User modal to 3 tabs: Profile (unchanged), Vehicles (group-wise list from `/vehicle-groups`, toggle group/individual, all/specific radio), Permissions (dynamic from `canDo` — only shows features current user's role can grant).
+- [Portal — UsersModal] `ALL_MODULES` array as single source of truth (portalKey → permKey mapping). Extended `OrgPerm` with `driverBehaviorView/Edit`, `reportsView`, `usersView/Add/Edit/Delete`.
+
+---
+
 ## 2026-09-26 (Session 2)
 
 ### Added
