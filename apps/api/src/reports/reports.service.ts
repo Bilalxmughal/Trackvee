@@ -24,6 +24,7 @@ export interface ReportParams {
   minSpeedKmh?: number;
   minStopMin?: number;
   geofenceIds?: string[];
+  organizationId?: string; // set for client users — enforces tenant isolation
 }
 
 export interface ReportResult {
@@ -150,8 +151,11 @@ export class ReportsService {
     const diffDays = (p.to.getTime() - p.from.getTime()) / 86400000;
     if (diffDays > 31) throw new BadRequestException('Date range max 31 days');
 
-    // Resolve vehicles + IMEIs
-    const vehicles = await this.vehRepo.find({ where: { id: In(p.vehicleIds) } });
+    // Resolve vehicles + IMEIs — enforce org isolation for client users
+    const vehicleWhere = p.organizationId
+      ? { id: In(p.vehicleIds), organizationId: p.organizationId }
+      : { id: In(p.vehicleIds) };
+    const vehicles = await this.vehRepo.find({ where: vehicleWhere });
     const devices  = await this.devRepo.find({ where: { vehicle: { id: In(p.vehicleIds) } }, relations: { vehicle: true } });
 
     const vehMap = new Map(vehicles.map(v => [v.id, v]));
