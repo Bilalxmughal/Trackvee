@@ -25,7 +25,8 @@ export interface ReportParams {
   minSpeedKmh?: number;
   minStopMin?: number;
   geofenceIds?: string[];
-  organizationId?: string; // set for client users — enforces tenant isolation
+  organizationId?: string;
+  groupBy?: 'day' | 'week' | 'month';
 }
 
 export interface ReportResult {
@@ -166,10 +167,53 @@ export class ReportsService {
     await this.savedRepo.remove(r);
   }
 
+  private splitPeriods(from: Date, to: Date, groupBy: 'day'|'week'|'month'): {from: Date; to: Date; label: string}[] {
+    const periods: {from: Date; to: Date; label: string}[] = [];
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let cur = new Date(from);
+    while (cur < to) {
+      let end: Date;
+      let label: string;
+      if (groupBy === 'day') {
+        end = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
+        label = `${String(cur.getDate()).padStart(2,'0')}-${MONTHS[cur.getMonth()]}-${cur.getFullYear()}`;
+      } else if (groupBy === 'week') {
+        end = new Date(cur); end.setDate(end.getDate() + 7);
+        const endDisplay = new Date(Math.min(end.getTime() - 1, to.getTime() - 1));
+        label = `${String(cur.getDate()).padStart(2,'0')}-${MONTHS[cur.getMonth()]} – ${String(endDisplay.getDate()).padStart(2,'0')}-${MONTHS[endDisplay.getMonth()]}`;
+      } else {
+        end = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+        label = `${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`;
+      }
+      if (end > to) end = new Date(to);
+      periods.push({ from: new Date(cur), to: end, label });
+      cur = new Date(end);
+    }
+    return periods;
+  }
+
   async generate(p: ReportParams): Promise<ReportResult> {
     if (!p.vehicleIds.length) throw new BadRequestException('Select at least one vehicle');
     const diffDays = (p.to.getTime() - p.from.getTime()) / 86400000;
     if (diffDays > 31) throw new BadRequestException('Date range max 31 days');
+
+    // groupBy: split date range into periods and merge results
+    if (p.groupBy) {
+      const periods = this.splitPeriods(p.from, p.to, p.groupBy);
+      const allRows: (string|number|null)[][] = [];
+      let columns: string[] = [];
+      let vehicleCount = 0;
+      for (const period of periods) {
+        const sub = await this.generate({ ...p, groupBy: undefined, from: period.from, to: period.to });
+        if (!columns.length) { columns = ['Period', ...sub.columns]; vehicleCount = sub.vehicleCount; }
+        for (const row of sub.rows) allRows.push([period.label, ...row]);
+      }
+      return {
+        type: p.type, from: fmtDt(p.from), to: fmtDt(p.to), generatedAt: fmtDt(new Date()),
+        vehicleCount, rowCount: allRows.length, columns,
+        rows: allRows, summary: null,
+      };
+    }
 
     // Resolve vehicles + IMEIs — enforce org isolation for client users
     const vehicleWhere = p.organizationId

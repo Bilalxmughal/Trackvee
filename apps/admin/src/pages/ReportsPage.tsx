@@ -103,9 +103,10 @@ export default function ReportsPage() {
   const [reportType,  setReportType]  = useState<ReportType>('travel_summary');
   const [fromDt,      setFromDt]      = useState(() => toDate(new Date())+'T00:00');
   const [toDt,        setToDt]        = useState(() => toDate(new Date())+'T23:59');
-  const [speedLimit,  setSpeedLimit]  = useState(80);
-  const [minSpeedKmh, setMinSpeedKmh] = useState(20);
-  const [minStopMin,  setMinStopMin]  = useState(1);
+  const [speedLimit,  setSpeedLimit]  = useState('');
+  const [minSpeedKmh, setMinSpeedKmh] = useState('');
+  const [minStopMin,  setMinStopMin]  = useState('1');
+  const [groupBy,     setGroupBy]     = useState<''|'day'|'week'|'month'>('');
   const [activePeriod,setActivePeriod]= useState('Today');
 
   const [result,  setResult]  = useState<ReportResult|null>(null);
@@ -139,8 +140,11 @@ export default function ReportsPage() {
   const buildParams = () => ({
     type: reportType, vehicleIds: selectedVehs.join(','),
     from: new Date(fromDt).toISOString(), to: new Date(toDt).toISOString(),
-    speedLimit: String(speedLimit), minSpeedKmh: String(minSpeedKmh), minStopMin: String(minStopMin),
+    ...(speedLimit  ? {speedLimit}  : {}),
+    ...(minSpeedKmh ? {minSpeedKmh} : {}),
+    ...(minStopMin  ? {minStopMin}  : {}),
     ...(selectedGFs.length ? {geofenceIds: selectedGFs.join(',')} : {}),
+    ...(groupBy ? {groupBy} : {}),
   });
 
   const generate = async () => {
@@ -158,7 +162,7 @@ export default function ReportsPage() {
     try {
       await api.post('/reports/saved', {
         title, type: reportType,
-        params: { vehicleIds: selectedVehs, from: fromDt, to: toDt, speedLimit, minSpeedKmh, minStopMin, geofenceIds: selectedGFs },
+        params: { vehicleIds: selectedVehs, from: fromDt, to: toDt, speedLimit, minSpeedKmh, minStopMin, geofenceIds: selectedGFs, groupBy },
       });
       loadSaved();
     } catch {}
@@ -175,10 +179,11 @@ export default function ReportsPage() {
     if (p.vehicleIds) setSelectedVehs(Array.isArray(p.vehicleIds) ? p.vehicleIds : p.vehicleIds.split(',').filter(Boolean));
     if (p.from) setFromDt(p.from);
     if (p.to)   setToDt(p.to);
-    if (p.speedLimit)  setSpeedLimit(+p.speedLimit);
-    if (p.minSpeedKmh) setMinSpeedKmh(+p.minSpeedKmh);
-    if (p.minStopMin)  setMinStopMin(+p.minStopMin);
+    if (p.speedLimit)  setSpeedLimit(String(p.speedLimit));
+    if (p.minSpeedKmh) setMinSpeedKmh(String(p.minSpeedKmh));
+    if (p.minStopMin)  setMinStopMin(String(p.minStopMin));
     if (p.geofenceIds) setSelectedGFs(Array.isArray(p.geofenceIds) ? p.geofenceIds : p.geofenceIds.split(',').filter(Boolean));
+    if (p.groupBy)     setGroupBy(p.groupBy as ''|'day'|'week'|'month');
     setActivePeriod('');
     setResult(null);
     window.scrollTo({top:0,behavior:'smooth'});
@@ -252,22 +257,32 @@ export default function ReportsPage() {
 
           {opts.includes('speed') && (
             <div style={field(85)}>
-              <span style={lbl}>Speed Limit</span>
-              <input type="number" min={1} max={300} style={inp} value={speedLimit} onChange={e=>setSpeedLimit(+e.target.value)} />
+              <span style={lbl}>Speed Limit (km/h)</span>
+              <input type="number" min={1} max={300} style={inp} placeholder="e.g. 80" value={speedLimit} onChange={e=>setSpeedLimit(e.target.value)} />
             </div>
           )}
           {opts.includes('minStop') && (
-            <div style={field(80)}>
+            <div style={field(85)}>
               <span style={lbl}>Min Stop (min)</span>
-              <input type="number" min={1} max={120} style={inp} value={minStopMin} onChange={e=>setMinStopMin(+e.target.value)} />
+              <input type="number" min={1} max={120} style={inp} placeholder="e.g. 5" value={minStopMin} onChange={e=>setMinStopMin(e.target.value)} />
             </div>
           )}
           {opts.includes('minSpeed') && (
             <div style={field(85)}>
-              <span style={lbl}>Min Speed</span>
-              <input type="number" min={1} max={200} style={inp} value={minSpeedKmh} onChange={e=>setMinSpeedKmh(+e.target.value)} />
+              <span style={lbl}>Min Speed (km/h)</span>
+              <input type="number" min={1} max={200} style={inp} placeholder="e.g. 20" value={minSpeedKmh} onChange={e=>setMinSpeedKmh(e.target.value)} />
             </div>
           )}
+
+          <div style={field(100)}>
+            <span style={lbl}>Group By</span>
+            <select style={sel} value={groupBy} onChange={e=>setGroupBy(e.target.value as ''|'day'|'week'|'month')}>
+              <option value="">None</option>
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
+            </select>
+          </div>
           {opts.includes('geofence') && (
             <div style={field(170)}>
               <span style={lbl}>Geofence</span>

@@ -26,6 +26,7 @@ export class ReportsController {
     @Query('minSpeedKmh') minSpeedKmh?: string,
     @Query('minStopMin')  minStopMin?: string,
     @Query('geofenceIds') geofenceIds?: string,
+    @Query('groupBy')     groupBy?: string,
   ) {
     const orgId = INTERNAL_ROLES.includes(user.role) ? undefined : (user.organizationId ?? undefined);
     return this.svc.generate({
@@ -38,6 +39,7 @@ export class ReportsController {
       minStopMin:     minStopMin  ? +minStopMin  : undefined,
       geofenceIds:    geofenceIds ? geofenceIds.split(',').filter(Boolean) : undefined,
       organizationId: orgId,
+      groupBy:        (groupBy as 'day'|'week'|'month'|undefined) || undefined,
     });
   }
 
@@ -52,6 +54,7 @@ export class ReportsController {
     @Query('minSpeedKmh') minSpeedKmh?: string,
     @Query('minStopMin')  minStopMin?: string,
     @Query('geofenceIds') geofenceIds?: string,
+    @Query('groupBy')     groupBy?: string,
     @Res() res?: Response,
   ) {
     const orgId = INTERNAL_ROLES.includes(user.role) ? undefined : (user.organizationId ?? undefined);
@@ -65,6 +68,7 @@ export class ReportsController {
       minStopMin:     minStopMin  ? +minStopMin  : undefined,
       geofenceIds:    geofenceIds ? geofenceIds.split(',').filter(Boolean) : undefined,
       organizationId: orgId,
+      groupBy:        (groupBy as 'day'|'week'|'month'|undefined) || undefined,
     });
     const csv = this.svc.toCsv(result);
     res!.setHeader('Content-Type', 'text/csv');
