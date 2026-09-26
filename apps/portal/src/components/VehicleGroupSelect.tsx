@@ -8,9 +8,8 @@ export interface VehicleSelectGroup { id: string; name: string; vehicleIds: stri
 
 interface Props {
   organizationId: string;
-  /** null = all vehicles; string[] = specific vehicle IDs */
-  value: string[] | null;
-  onChange: (ids: string[] | null) => void;
+  value: string[];
+  onChange: (ids: string[]) => void;
   /** Pass pre-loaded data to skip API fetch */
   vehicles?: VehicleSelectItem[];
   groups?: VehicleSelectGroup[];
@@ -48,83 +47,60 @@ export default function VehicleGroupSelect({ organizationId, value, onChange, ve
   const groupedIds  = new Set(groups.flatMap(g => g.vehicleIds));
   const ungrouped   = vehicles.filter(v => !groupedIds.has(v.id));
 
-  const toggleVehicle = (id: string) => {
-    const ids = value ?? [];
-    onChange(ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
-  };
+  const toggleVehicle = (id: string) =>
+    onChange(value.includes(id) ? value.filter(x => x !== id) : [...value, id]);
 
   const toggleGroup = (vIds: string[]) => {
-    const ids    = value ?? [];
-    const allSel = vIds.every(id => ids.includes(id));
-    onChange(allSel ? ids.filter(x => !vIds.includes(x)) : [...new Set([...ids, ...vIds])]);
+    const allSel = vIds.every(id => value.includes(id));
+    onChange(allSel ? value.filter(x => !vIds.includes(x)) : [...new Set([...value, ...vIds])]);
   };
 
   if (loading) return <div style={{ padding: 20, textAlign: 'center', color: '#bbb', fontSize: 12 }}>Loading…</div>;
 
   return (
-    <div>
-      {/* All / Specific radio */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}>
-          <input type="radio" checked={value === null} onChange={() => onChange(null)} style={{ accentColor: '#dc2626' }} />
-          All Vehicles
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}>
-          <input type="radio" checked={value !== null} onChange={() => onChange([])} style={{ accentColor: '#dc2626' }} />
-          Specific Vehicles
-        </label>
-      </div>
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+      {vehicles.length === 0 && (
+        <div style={{ padding: 16, fontSize: 12, color: '#bbb', textAlign: 'center' }}>No vehicles found</div>
+      )}
 
-      {value !== null && (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-          {vehicles.length === 0 && (
-            <div style={{ padding: 16, fontSize: 12, color: '#bbb', textAlign: 'center' }}>No vehicles found</div>
+      {/* Groups */}
+      {groups.map(grp => {
+        const grpVehicles = vehicles.filter(v => grp.vehicleIds.includes(v.id));
+        if (grpVehicles.length === 0) return null;
+        const isCollapsed = collapsed.has(grp.id);
+        const allSel      = grpVehicles.every(v => value.includes(v.id));
+        const someSel     = !allSel && grpVehicles.some(v => value.includes(v.id));
+        return (
+          <div key={grp.id}>
+            <GroupHeader
+              name={grp.name} count={grpVehicles.length}
+              collapsed={isCollapsed} allSel={allSel} someSel={someSel}
+              onToggleCollapse={() => toggleCollapse(grp.id)}
+              onToggleSelect={() => toggleGroup(grpVehicles.map(v => v.id))}
+            />
+            {!isCollapsed && grpVehicles.map(v => (
+              <VehicleRow key={v.id} v={v} checked={value.includes(v.id)} onToggle={() => toggleVehicle(v.id)} />
+            ))}
+          </div>
+        );
+      })}
+
+      {/* Ungrouped */}
+      {ungrouped.length > 0 && (
+        <div>
+          {groups.length > 0 && (
+            <GroupHeader
+              name="Other" count={ungrouped.length}
+              collapsed={collapsed.has('__ungrouped__')}
+              allSel={ungrouped.every(v => value.includes(v.id))}
+              someSel={!ungrouped.every(v => value.includes(v.id)) && ungrouped.some(v => value.includes(v.id))}
+              onToggleCollapse={() => toggleCollapse('__ungrouped__')}
+              onToggleSelect={() => toggleGroup(ungrouped.map(v => v.id))}
+            />
           )}
-
-          {/* Groups */}
-          {groups.map(grp => {
-            const grpVehicles = vehicles.filter(v => grp.vehicleIds.includes(v.id));
-            if (grpVehicles.length === 0) return null;
-            const isCollapsed = collapsed.has(grp.id);
-            const allSel      = grpVehicles.every(v => value.includes(v.id));
-            const someSel     = !allSel && grpVehicles.some(v => value.includes(v.id));
-            return (
-              <div key={grp.id}>
-                <GroupHeader
-                  name={grp.name}
-                  count={grpVehicles.length}
-                  collapsed={isCollapsed}
-                  allSel={allSel}
-                  someSel={someSel}
-                  onToggleCollapse={() => toggleCollapse(grp.id)}
-                  onToggleSelect={() => toggleGroup(grpVehicles.map(v => v.id))}
-                />
-                {!isCollapsed && grpVehicles.map(v => (
-                  <VehicleRow key={v.id} v={v} checked={value.includes(v.id)} onToggle={() => toggleVehicle(v.id)} />
-                ))}
-              </div>
-            );
-          })}
-
-          {/* Ungrouped */}
-          {ungrouped.length > 0 && (
-            <div>
-              {groups.length > 0 && (
-                <GroupHeader
-                  name="Other"
-                  count={ungrouped.length}
-                  collapsed={collapsed.has('__ungrouped__')}
-                  allSel={ungrouped.every(v => value.includes(v.id))}
-                  someSel={!ungrouped.every(v => value.includes(v.id)) && ungrouped.some(v => value.includes(v.id))}
-                  onToggleCollapse={() => toggleCollapse('__ungrouped__')}
-                  onToggleSelect={() => toggleGroup(ungrouped.map(v => v.id))}
-                />
-              )}
-              {!collapsed.has('__ungrouped__') && ungrouped.map(v => (
-                <VehicleRow key={v.id} v={v} checked={value.includes(v.id)} onToggle={() => toggleVehicle(v.id)} />
-              ))}
-            </div>
-          )}
+          {!collapsed.has('__ungrouped__') && ungrouped.map(v => (
+            <VehicleRow key={v.id} v={v} checked={value.includes(v.id)} onToggle={() => toggleVehicle(v.id)} />
+          ))}
         </div>
       )}
     </div>
