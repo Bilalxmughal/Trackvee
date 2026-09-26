@@ -479,31 +479,40 @@ function EngineCutConfirm({ imei, plate, isImmobilized, onClose }: { imei: strin
   const last4 = imei.slice(-4);
   const action = isImmobilized ? 'activate' : 'immobilize';
   const confirm = async () => {
-    if (input.trim() !== last4) { setErr(`Enter last 4 digits of IMEI: ${last4}`); return; }
+    if (input !== last4) { setErr('Incorrect digits — please try again'); return; }
     setSaving(true); setErr('');
     try {
       await api.post(`/devices/${imei}/command`, { action });
       onClose();
-    } catch { setErr('Command failed. Try again.'); } finally { setSaving(false); }
+    } catch { setErr('Server error'); } finally { setSaving(false); }
   };
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 300, boxShadow: '0 16px 48px rgba(0,0,0,.4)' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#dc2626', marginBottom: 6 }}>
-          {isImmobilized ? 'Restore Engine' : 'Cut Engine'}
+    <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)' }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: 300, boxShadow: '0 12px 40px rgba(0,0,0,0.4)' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>
+          {isImmobilized ? 'Engine Restore Confirm' : 'Engine Cut Confirm'}
         </div>
-        <div style={{ fontSize: 12.5, color: '#555', marginBottom: 14 }}>
-          Vehicle: <strong>{plate}</strong>. Enter the last 4 digits of the IMEI to confirm.
+        <div style={{ fontSize: 12.5, color: '#666', marginBottom: 16, lineHeight: 1.5 }}>
+          Vehicle: <strong style={{ color: '#111' }}>{plate}</strong><br/>
+          Enter the <strong>last 4 digits</strong> of the device IMEI to confirm:
         </div>
-        <input value={input} onChange={e => setInput(e.target.value)} placeholder="Last 4 IMEI digits"
-          style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
-          onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
-          onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
+        <input
+          autoFocus
+          maxLength={4}
+          value={input}
+          onChange={e => { setInput(e.target.value.replace(/\D/g, '')); setErr(''); }}
+          onKeyDown={e => { if (e.key === 'Enter') confirm(); if (e.key === 'Escape') onClose(); }}
+          placeholder="_ _ _ _"
+          style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${err ? '#dc2626' : '#e5e7eb'}`, background: '#f9fafb', color: '#111', fontSize: 20, textAlign: 'center', letterSpacing: 8, outline: 'none', boxSizing: 'border-box', marginBottom: 6 }}
+        />
         {err && <div style={{ fontSize: 11.5, color: '#dc2626', marginBottom: 8 }}>{err}</div>}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={confirm} disabled={saving} style={{ padding: '7px 16px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-            {saving ? 'Sending…' : 'Confirm'}
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid #e5e7eb', background: 'transparent', color: '#666', fontSize: 13, cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button onClick={confirm} disabled={saving || input.length !== 4}
+            style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving || input.length !== 4 ? 'not-allowed' : 'pointer', opacity: saving || input.length !== 4 ? 0.6 : 1 }}>
+            {saving ? '...' : 'Confirm'}
           </button>
         </div>
       </div>

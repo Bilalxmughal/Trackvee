@@ -12,6 +12,7 @@ Your job is to continue developing the existing product safely and consistently.
 - `KNOWN_ISSUES.md` — active issues, warnings, previous bug knowledge, and regression risks.
 - `DECISIONS.md` — important architectural and technical decisions.
 - `CHANGELOG.md` — concise history of meaningful implemented changes.
+- `SHARED_PATTERNS.md` — **shared UI patterns, component logic, and design tokens** common to both admin and portal. Read this whenever implementing a portal feature that has an admin equivalent.
 
 These files are the source of truth for project context.
 

@@ -55,6 +55,34 @@ const PERM_MODULES: { key: string; label: string; actions: string[] }[] = [
   { key: 'pois',      label: 'POIs',      actions: ['View', 'Add', 'Edit', 'Delete'] },
 ];
 
+const ACTION_COLOR: Record<string, string> = {
+  View: '#3b82f6', Add: '#16a34a', Edit: '#f59e0b', Delete: '#dc2626',
+};
+
+const TEMPLATES: Record<string, OrgPerm> = {
+  'View Only': {
+    vehiclesView: true,  vehiclesAdd: false,  vehiclesEdit: false,  vehiclesDelete: false,
+    alertsView: true,    alertsAdd: false,    alertsEdit: false,    alertsDelete: false,
+    geofencesView: true, geofencesAdd: false, geofencesEdit: false, geofencesDelete: false,
+    poisView: true,      poisAdd: false,      poisEdit: false,      poisDelete: false,
+    vehicleIds: null,
+  },
+  'Field Staff': {
+    vehiclesView: true,  vehiclesAdd: false,  vehiclesEdit: false,  vehiclesDelete: false,
+    alertsView: true,    alertsAdd: true,     alertsEdit: true,     alertsDelete: false,
+    geofencesView: true, geofencesAdd: false, geofencesEdit: false, geofencesDelete: false,
+    poisView: true,      poisAdd: false,      poisEdit: false,      poisDelete: false,
+    vehicleIds: null,
+  },
+  'Manager': {
+    vehiclesView: true,  vehiclesAdd: true,   vehiclesEdit: true,   vehiclesDelete: false,
+    alertsView: true,    alertsAdd: true,     alertsEdit: true,     alertsDelete: true,
+    geofencesView: true, geofencesAdd: true,  geofencesEdit: true,  geofencesDelete: false,
+    poisView: true,      poisAdd: true,       poisEdit: true,       poisDelete: false,
+    vehicleIds: null,
+  },
+};
+
 function defaultPerms(): OrgPerm {
   return {
     vehiclesView: false, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false,
@@ -250,26 +278,58 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
                 <div style={{ padding: 20, textAlign: 'center', color: '#bbb', fontSize: 12 }}>Loading permissions…</div>
               ) : (
                 <>
+                  {/* Permission Templates */}
+                  <div>
+                    <label style={LBL}>Permission Templates</label>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {Object.entries(TEMPLATES).map(([name, tpl]) => (
+                        <button key={name} onClick={() => setPerms(p => ({ ...tpl, vehicleIds: p.vehicleIds }))}
+                          style={{ padding: '5px 12px', borderRadius: 5, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151', fontSize: 11.5, cursor: 'pointer', fontWeight: 500 }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626'; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#374151'; }}>
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Module Permissions table */}
                   <div>
                     <label style={LBL}>Module Permissions</label>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {PERM_MODULES.map(m => (
-                        <div key={m.key} style={{ background: '#f9fafb', borderRadius: 7, padding: '7px 10px', border: '1px solid #f0f0f0' }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 5 }}>{m.label}</div>
-                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                            {m.actions.map(a => {
-                              const k = `${m.key}${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()}` as keyof OrgPerm;
-                              const on = !!(perms as unknown as Record<string, boolean>)[k as string];
-                              return (
-                                <button key={a} onClick={() => togglePerm(k)}
-                                  style={{ padding: '3px 9px', borderRadius: 4, border: `1px solid ${on ? '#fca5a5' : '#e5e7eb'}`, background: on ? '#fff5f5' : '#fff', color: on ? '#dc2626' : '#aaa', fontSize: 11, cursor: 'pointer', fontWeight: on ? 600 : 400 }}>
-                                  {a}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
+                    <div style={{ border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: '#fafafa', borderBottom: '1px solid #e5e7eb' }}>
+                            <th style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, color: '#9ca3af', textAlign: 'left' }}>Module</th>
+                            {['View', 'Add', 'Edit', 'Delete'].map(a => (
+                              <th key={a} style={{ padding: '7px 10px', fontSize: 11, fontWeight: 600, color: ACTION_COLOR[a], textAlign: 'center', width: 52 }}>{a}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {PERM_MODULES.map((m, mi) => (
+                            <tr key={m.key} style={{ borderBottom: mi < PERM_MODULES.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+                              <td style={{ padding: '7px 12px', fontSize: 12, fontWeight: 500, color: '#374151' }}>{m.label}</td>
+                              {m.actions.map(a => {
+                                const k = `${m.key}${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()}` as keyof OrgPerm;
+                                const on = !!(perms as unknown as Record<string, boolean>)[k as string];
+                                const col = ACTION_COLOR[a];
+                                return (
+                                  <td key={a} style={{ padding: '7px 10px', textAlign: 'center' }}>
+                                    <button onClick={() => togglePerm(k)} title={`${on ? 'Remove' : 'Grant'} ${a}`}
+                                      style={{ width: 26, height: 26, borderRadius: 5, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: on ? `${col}18` : '#f9fafb' }}>
+                                      {on
+                                        ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth="2.5" strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+                                        : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                      }
+                                    </button>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
 
