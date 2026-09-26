@@ -1446,8 +1446,18 @@ function ModalVehicleList({ allImeis, deviceMap, sel, toggle, dark, groups, excl
     const plate = fmtPlate(deviceMap.get(imei), imei);
     const chk = sel.has(imei);
     return (
-      <label style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', cursor: 'pointer', borderRadius: 4, background: chk ? (dark ? '#2a1010' : '#fff5f5') : 'transparent' }}>
-        <input type="checkbox" checked={chk} onChange={() => toggle(imei)} style={{ flexShrink: 0, accentColor: '#dc2626', cursor: 'pointer' }}/>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px', cursor: 'pointer', borderRadius: 4, background: 'transparent', userSelect: 'none' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = dark ? '#1e1e1e' : '#f9fafb'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+      >
+        <input type="checkbox" checked={chk} onChange={() => toggle(imei)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}/>
+        <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, border: chk ? '1.5px solid #dc2626' : `1.5px solid ${dark ? '#555' : '#d1d5db'}`, background: chk ? '#dc2626' : (dark ? '#2a2a2a' : '#fff'), display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s, border-color 0.1s' }}>
+          {chk && (
+            <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+              <polyline points="1.5,5 4,7.5 8.5,2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </span>
         <span style={{ fontSize: 12, fontWeight: chk ? 600 : 400, color: chk ? '#dc2626' : (dark ? '#e5e5e5' : '#333'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plate}</span>
       </label>
     );
