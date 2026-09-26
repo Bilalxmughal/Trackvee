@@ -236,7 +236,19 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
     layerRef.current = lg;
 
     const coords: [number,number][] = points.map(p => [p.latitude, p.longitude]);
-    L.polyline(coords, { color: '#9ca3af', weight: 3, opacity: 0.6 }).addTo(lg);
+    L.polyline(coords, { color: '#2563eb', weight: 3, opacity: 0.8 }).addTo(lg);
+
+    // Clickable GPS point markers (every ~15th point)
+    const step = Math.max(1, Math.floor(coords.length / 80));
+    for (let i = 0; i < points.length; i += step) {
+      const p = points[i]!;
+      const cm = L.circleMarker([p.latitude, p.longitude], {
+        radius: 4, color: '#dc2626', fillColor: '#dc2626', fillOpacity: 1, weight: 1.5,
+      });
+      const ign = p.ignition === true ? '<span style="color:#16a34a">ON</span>' : p.ignition === false ? '<span style="color:#dc2626">OFF</span>' : '<span style="color:#9ca3af">—</span>';
+      cm.bindPopup(`<div style="font-size:12px;min-width:160px"><b style="color:#111">${formatTs(p.timestamp)}</b><br/><span style="color:#555">Speed:</span> ${p.speedKmh.toFixed(1)} km/h<br/><span style="color:#555">Ignition:</span> ${ign}<br/><span style="color:#aaa;font-size:10.5px">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</span></div>`);
+      cm.addTo(lg);
+    }
 
     const timeline = deriveTimeline(points);
     let arrowCount = 0;
@@ -248,7 +260,7 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
       if (dist < 0.0001) continue;
       const ang = Math.atan2(dLng, dLat) * 180 / Math.PI;
       L.marker([(lat1+lat2)/2, (lng1+lng2)/2], {
-        icon: L.divIcon({ html: `<div style="color:#6b7280;font-size:10px;transform:rotate(${ang}deg);line-height:1">▲</div>`, className: '', iconSize: [10, 10], iconAnchor: [5, 5] }),
+        icon: L.divIcon({ html: `<div style="color:#2563eb;font-size:10px;transform:rotate(${ang}deg);line-height:1">▲</div>`, className: '', iconSize: [10, 10], iconAnchor: [5, 5] }),
         interactive: false,
       }).addTo(lg);
       arrowCount++;
@@ -308,14 +320,14 @@ function MapStyleSwitcher({ current, onChange }: { current: MapStyle; onChange: 
   const [open, setOpen] = useState(false);
   const styles: MapStyle[] = ['street', 'satellite', 'terrain', 'dark'];
   return (
-    <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
+    <div style={{ position: 'relative' }}>
       <button onClick={() => setOpen(o => !o)} title="Map style"
-        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: '1px solid #ddd', background: '#fff', color: '#333', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
+        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: '1px solid #ddd', background: '#fff', color: '#333', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.18)', whiteSpace: 'nowrap' }}>
         <span>{TILE_CONFIG[current].icon}</span> {TILE_CONFIG[current].label}
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="18,15 12,9 6,15"/></svg>
       </button>
       {open && (
-        <div style={{ position: 'absolute', right: 0, top: 36, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', minWidth: 130 }}>
+        <div style={{ position: 'absolute', right: 0, bottom: 36, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', minWidth: 130 }}>
           {styles.map(s => (
             <button key={s} onClick={() => { onChange(s); setOpen(false); }}
               style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', border: 'none', background: s === current ? '#fff5f5' : 'transparent', color: s === current ? '#dc2626' : '#333', fontSize: 12.5, fontWeight: s === current ? 600 : 400, cursor: 'pointer', textAlign: 'left' }}
@@ -1326,8 +1338,27 @@ export default function PortalMapPage() {
         {activePanel === 'pois' && <POIMarkerLayer pois={pois} selectedId={selectedPoiId} />}
       </MapContainer>
 
-      {/* Map Style Switcher */}
-      <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} />
+      {/* Bottom-right controls: zoom → map style → status counts */}
+      <div style={{ position: 'absolute', bottom: 30, right: 10, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+        {/* Zoom */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {['+', '−'].map(lbl => (
+            <button key={lbl} onClick={() => lbl === '+' ? mapRef.current?.zoomIn() : mapRef.current?.zoomOut()}
+              style={{ width: 30, height: 30, background: '#fff', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,.1)' }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        {/* Map style */}
+        <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} />
+        {/* Status counts */}
+        <div style={{ background: 'rgba(255,255,255,0.92)', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 8px', display: 'flex', gap: 8, boxShadow: '0 1px 4px rgba(0,0,0,.1)' }}>
+          <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>Moving: {counts.moving}</span>
+          <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600 }}>Idle: {counts.idle}</span>
+          <span style={{ fontSize: 10, color: '#6b7280', fontWeight: 600 }}>Parked: {counts.parked}</span>
+          <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>Offline: {counts.offline}</span>
+        </div>
+      </div>
 
       {/* Left floating panel */}
       <div style={{
@@ -1457,16 +1488,6 @@ export default function PortalMapPage() {
           }}
         />
       )}
-
-      {/* Zoom controls */}
-      <div style={{ position: 'absolute', bottom: 20, right: 10, display: 'flex', flexDirection: 'column', gap: 2, zIndex: 400 }}>
-        {['+', '−'].map(lbl => (
-          <button key={lbl} onClick={() => lbl === '+' ? mapRef.current?.zoomIn() : mapRef.current?.zoomOut()}
-            style={{ width: 30, height: 30, background: '#fff', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,.1)' }}>
-            {lbl}
-          </button>
-        ))}
-      </div>
 
       {/* Create Group Modal */}
       {showCreate && (

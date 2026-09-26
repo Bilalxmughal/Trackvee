@@ -4,7 +4,7 @@ import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
 interface OrgUser {
-  id: string; email: string; firstName: string | null; lastName: string | null;
+  id: string; displayId?: number; email: string; firstName: string | null; lastName: string | null;
   role: string; isActive: boolean;
 }
 
@@ -16,8 +16,8 @@ const ROLE_LABEL: Record<string, string> = {
   client_admin: 'Admin', client_user: 'User',
 };
 const ROLE_COLOR: Record<string, string> = {
-  client_owner: '#7c3aed', client_super_admin: '#0891b2',
-  client_admin: '#16a34a', client_user: '#6b7280',
+  client_owner: '#374151', client_super_admin: '#374151',
+  client_admin: '#374151', client_user: '#6b7280',
 };
 
 const PORTAL_PAGES = [
@@ -131,9 +131,9 @@ function UserFormModal({ initial, organizationId, currentUserId, onSave, onClose
                   <div key={pg.key} style={{
                     display: 'flex', alignItems: 'center', gap: 4,
                     padding: '3px 9px', borderRadius: 5,
-                    border: `1px solid ${hasAccess ? (canWrite ? '#2563eb' : '#16a34a') : '#e5e7eb'}`,
-                    background: hasAccess ? (canWrite ? '#eff6ff' : '#f0fdf4') : '#f9fafb',
-                    color: hasAccess ? (canWrite ? '#2563eb' : '#16a34a') : '#bbb',
+                    border: `1px solid ${hasAccess ? '#fca5a5' : '#e5e7eb'}`,
+                    background: hasAccess ? '#fff5f5' : '#f9fafb',
+                    color: hasAccess ? '#dc2626' : '#ccc',
                     fontSize: 11.5, fontWeight: hasAccess ? 600 : 400,
                   }}>
                     {hasAccess ? (
@@ -259,7 +259,7 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
                 <tr key={u.id} style={{ borderBottom: '1px solid #f7f7f7' }}
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#fafafa'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                  <td style={{ padding: '11px 16px', color: '#aaa', fontSize: 11.5, fontFamily: 'monospace' }}>#{u.id.slice(0, 8)}</td>
+                  <td style={{ padding: '11px 16px', color: '#aaa', fontSize: 11.5, fontFamily: 'monospace' }}>#{u.displayId ?? u.id.slice(0, 8)}</td>
                   <td style={{ padding: '11px 16px', fontWeight: 600, color: '#111' }}>{displayName(u)}</td>
                   <td style={{ padding: '11px 16px', color: '#555' }}>{u.email}</td>
                   <td style={{ padding: '11px 16px' }}>
@@ -280,12 +280,14 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
                         onMouseLeave={e => { e.currentTarget.style.background = '#f5f5f5'; }}>
                         <IconPencil size={13} />
                       </button>
-                      <button onClick={() => setDeleting(u)}
-                        style={{ padding: 5, border: 'none', background: '#f5f5f5', cursor: 'pointer', color: '#dc2626', borderRadius: 5, display: 'flex' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#f5f5f5'; }}>
-                        <IconTrash size={13} />
-                      </button>
+                      {u.id !== currentUserId && (
+                        <button onClick={() => setDeleting(u)}
+                          style={{ padding: 5, border: 'none', background: '#f5f5f5', cursor: 'pointer', color: '#dc2626', borderRadius: 5, display: 'flex' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#f5f5f5'; }}>
+                          <IconTrash size={13} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
