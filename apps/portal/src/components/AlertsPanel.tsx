@@ -522,10 +522,11 @@ function AlertFormWizard({
 
 type FilterTab = 'all' | 'active' | 'inactive';
 
-export default function AlertsPanel({ alerts: initialAlerts, loading: initialLoading, setAlertList }: {
+export default function AlertsPanel({ alerts: initialAlerts, loading: initialLoading, setAlertList, initialImei }: {
   alerts: AlertRecord[];
   loading: boolean;
   setAlertList?: (a: AlertRecord[]) => void;
+  initialImei?: string | null;
 }) {
   const { closePanel } = usePortalPanel();
   const [alerts, setAlerts] = useState<AlertRecord[]>(initialAlerts);
@@ -534,6 +535,15 @@ export default function AlertsPanel({ alerts: initialAlerts, loading: initialLoa
   const [tab, setTab] = useState<FilterTab>('all');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AlertRecord | null>(null);
+
+  // Auto-open create form when a vehicle IMEI is pre-seeded from vehicle menu
+  useEffect(() => {
+    if (initialImei) {
+      setEditing({ vehicleImeis: [initialImei] } as AlertRecord);
+      setFormOpen(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialImei]);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [devices, setDevices] = useState<{ imei: string; label: string }[]>([]);
   const [groups, setGroups] = useState<{ id: string; name: string; imeis: string[] }[]>([]);

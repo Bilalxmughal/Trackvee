@@ -511,11 +511,13 @@ function EngineCutConfirm({ imei, plate, isImmobilized, onClose }: { imei: strin
   );
 }
 
-function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow }: {
+function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow, onCreateAlert, hasAlert }: {
   pt: LivePoint; plate: string;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
   onFollow: () => void;
+  onCreateAlert: () => void;
+  hasAlert: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, right: 0 });
@@ -553,6 +555,8 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow }:
     { label: 'History: Today', icon: <CalIcon/>, action: () => { onShowHistory('today'); setOpen(false); } },
     { label: 'History: Yesterday', icon: <CalIcon/>, action: () => { onShowHistory('yesterday'); setOpen(false); } },
     { label: '──', icon: null, action: () => {}, divider: true },
+    { label: hasAlert ? 'Edit Alert' : 'Create Alert', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="1" x2="12" y2="4"/></svg>, action: () => { onCreateAlert(); setOpen(false); } },
+    { label: '──', icon: null, action: () => {}, divider: true },
     { label: isImmobilized ? 'Restore Engine' : 'Cut Engine', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>, action: () => { setEngineCutOpen(true); setOpen(false); }, red: true },
   ];
 
@@ -585,11 +589,13 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow }:
 
 // ── Vehicle Row ───────────────────────────────────────────────────────────────
 
-function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow }: {
+function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow, onCreateAlert, hasAlert }: {
   pt: LivePoint; plate: string; onSelect: () => void;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
   onFollow: () => void;
+  onCreateAlert: () => void;
+  hasAlert: boolean;
 }) {
   const status = vehicleStatus(pt);
   const [hov, setHov] = useState(false);
@@ -605,20 +611,22 @@ function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow
         <IconBattery level={pt.voltageLevel}/>
         <IconSignal level={pt.gsmSignal}/>
       </div>
-      <VehicleMenuButton pt={pt} plate={plate} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onFollow={onFollow}/>
+      <VehicleMenuButton pt={pt} plate={plate} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onFollow={onFollow} onCreateAlert={onCreateAlert} hasAlert={hasAlert}/>
     </div>
   );
 }
 
 // ── Group Section ─────────────────────────────────────────────────────────────
 
-function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, onTripReplay, onShowHistory, onFollow }: {
+function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, onTripReplay, onShowHistory, onFollow, onCreateAlert, getHasAlert }: {
   group: VehicleGroup; pts: LivePoint[]; deviceMap: DMap;
   onSelect: (imei: string) => void; collapsed: boolean;
   onToggle: () => void; onEdit: () => void;
   onTripReplay: (imei: string, plate: string) => void;
   onShowHistory: (imei: string, plate: string, preset: 'lastHour' | 'today' | 'yesterday') => void;
   onFollow: (imei: string) => void;
+  onCreateAlert: (imei: string) => void;
+  getHasAlert: (imei: string) => boolean;
 }) {
   const gpPts = pts.filter(p => group.imeis.includes(p.imei));
   const [hov, setHov] = useState(false);
@@ -647,7 +655,9 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
             onSelect={() => onSelect(pt.imei)}
             onTripReplay={() => onTripReplay(pt.imei, plate)}
             onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}
-            onFollow={() => onFollow(pt.imei)}/>
+            onFollow={() => onFollow(pt.imei)}
+            onCreateAlert={() => onCreateAlert(pt.imei)}
+            hasAlert={getHasAlert(pt.imei)}/>
         );
       })}
     </div>
@@ -1374,7 +1384,14 @@ export default function PortalMapPage() {
   const [followPos] = useState({ x: 260, y: 60 });
 
   // Panel context
-  const { activePanel, setAlertCount, closePanel } = usePortalPanel();
+  const { activePanel, openPanel, setAlertCount, closePanel } = usePortalPanel();
+
+  // Create alert from vehicle menu
+  const [createAlertImei, setCreateAlertImei] = useState<string | null>(null);
+  const handleCreateAlert = (imei: string) => {
+    setCreateAlertImei(imei);
+    openPanel('alerts');
+  };
 
   // Panel data
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
@@ -1598,7 +1615,9 @@ export default function PortalMapPage() {
       }}>
         {activePanel === 'alerts' ? (
           <AlertsPanel alerts={alerts} loading={alertsLoading}
-            setAlertList={list => { setAlerts(list); setAlertCount(list.filter(a => a.active).length); }} />
+            setAlertList={list => { setAlerts(list); setAlertCount(list.filter(a => a.active).length); }}
+            initialImei={createAlertImei}
+            key={createAlertImei ?? 'alerts'} />
         ) : activePanel === 'geofences' ? (
           <GeofencesPanel geofences={geofences} loading={gfLoading} selectedId={selectedGfId}
             onSelect={gf => {
@@ -1674,7 +1693,9 @@ export default function PortalMapPage() {
                     onEdit={() => { setEditingGroup(group); setEditName(group.name); setEditSel(new Set(group.imeis)); }}
                     onTripReplay={(imei, plate) => setTripReplay({ imei, plate })}
                     onShowHistory={showHistory}
-                    onFollow={handleFollow}/>
+                    onFollow={handleFollow}
+                    onCreateAlert={handleCreateAlert}
+                    getHasAlert={(imei) => alerts.some(a => a.active && a.vehicleImeis.includes(imei))}/>
                 );
               })}
               {ungrouped.length > 0 && (
@@ -1687,7 +1708,9 @@ export default function PortalMapPage() {
                         onSelect={() => handleSelect(pt.imei)}
                         onTripReplay={() => setTripReplay({ imei: pt.imei, plate })}
                         onShowHistory={(preset) => showHistory(pt.imei, plate, preset)}
-                        onFollow={() => handleFollow(pt.imei)}/>
+                        onFollow={() => handleFollow(pt.imei)}
+                        onCreateAlert={() => handleCreateAlert(pt.imei)}
+                        hasAlert={alerts.some(a => a.active && a.vehicleImeis.includes(pt.imei))}/>
                     );
                   })}
                 </>
