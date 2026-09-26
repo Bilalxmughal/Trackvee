@@ -1179,7 +1179,7 @@ export default function PortalMapPage() {
 
       {/* Vehicle list — full height floating left */}
       <div style={{
-        position: 'absolute', top: 10, left: 10, bottom: 10, width: 240,
+        position: 'absolute', top: 10, left: 10, bottom: 10, width: 300,
         background: '#fff', borderRadius: 10,
         boxShadow: '0 4px 24px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.07)',
         border: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', zIndex: 400,
