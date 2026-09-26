@@ -11,6 +11,7 @@ import AlertsPanel, { type AlertItem } from '../components/AlertsPanel';
 import GeofencesPanel, { type Geofence } from '../components/GeofencesPanel';
 import POIsPanel, { type POI } from '../components/POIsPanel';
 import ReportsModal from '../components/ReportsModal';
+import DriverBehaviorPanel from '../components/DriverBehaviorPanel';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -364,6 +365,45 @@ function IconSignal({ level }: { level?: number | null }) {
 
 // ── Vehicle Menu Button (3-dot) ───────────────────────────────────────────────
 
+function EngineCutConfirm({ imei, plate, isImmobilized, onClose }: { imei: string; plate: string; isImmobilized: boolean; onClose: () => void }) {
+  const [input, setInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const last4 = imei.slice(-4);
+  const action = isImmobilized ? 'activate' : 'immobilize';
+  const confirm = async () => {
+    if (input.trim() !== last4) { setErr(`Enter last 4 digits of IMEI: ${last4}`); return; }
+    setSaving(true); setErr('');
+    try {
+      await api.post(`/devices/${imei}/command`, { action });
+      onClose();
+    } catch { setErr('Command failed. Try again.'); } finally { setSaving(false); }
+  };
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 300, boxShadow: '0 16px 48px rgba(0,0,0,.4)' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#dc2626', marginBottom: 6 }}>
+          {isImmobilized ? 'Restore Engine' : 'Cut Engine'}
+        </div>
+        <div style={{ fontSize: 12.5, color: '#555', marginBottom: 14 }}>
+          Vehicle: <strong>{plate}</strong>. Enter the last 4 digits of the IMEI to confirm.
+        </div>
+        <input value={input} onChange={e => setInput(e.target.value)} placeholder="Last 4 IMEI digits"
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+          onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
+          onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
+        {err && <div style={{ fontSize: 11.5, color: '#dc2626', marginBottom: 8 }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '7px 14px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+          <button onClick={confirm} disabled={saving} style={{ padding: '7px 16px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Sending…' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow }: {
   pt: LivePoint; plate: string;
   onTripReplay: () => void;
@@ -372,6 +412,7 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow }:
 }) {
   const [open, setOpen] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, right: 0 });
+  const [engineCutOpen, setEngineCutOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -393,8 +434,9 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow }:
   const ClockIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
   const CalIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
   const svUrl = `https://maps.google.com/maps?layer=c&cbll=${pt.latitude},${pt.longitude}`;
+  const isImmobilized = !!pt.immobilizer;
 
-  const items: Array<{ label: string; icon: React.ReactNode; action: () => void; divider?: boolean }> = [
+  const items: Array<{ label: string; icon: React.ReactNode; action: () => void; divider?: boolean; red?: boolean }> = [
     { label: 'Follow Vehicle', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" strokeDasharray="4 2"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg>, action: () => { onFollow(); setOpen(false); } },
     { label: '──', icon: null, action: () => {}, divider: true },
     { label: 'Trip Replay', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21"/></svg>, action: () => { onTripReplay(); setOpen(false); } },
@@ -403,6 +445,8 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow }:
     { label: 'History: Last Hour', icon: <ClockIcon/>, action: () => { onShowHistory('lastHour'); setOpen(false); } },
     { label: 'History: Today', icon: <CalIcon/>, action: () => { onShowHistory('today'); setOpen(false); } },
     { label: 'History: Yesterday', icon: <CalIcon/>, action: () => { onShowHistory('yesterday'); setOpen(false); } },
+    { label: '──', icon: null, action: () => {}, divider: true },
+    { label: isImmobilized ? 'Restore Engine' : 'Cut Engine', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>, action: () => { setEngineCutOpen(true); setOpen(false); }, red: true },
   ];
 
   return (
@@ -419,14 +463,15 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow }:
             <div key={idx} style={{ height: 1, background: '#f0f0f0', margin: '3px 0' }}/>
           ) : (
             <button key={it.label} onClick={(e) => { e.stopPropagation(); it.action(); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 13px', border: 'none', background: 'transparent', color: '#333', fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 13px', border: 'none', background: 'transparent', color: it.red ? '#dc2626' : '#333', fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}
               onMouseEnter={e => { e.currentTarget.style.background = '#fff5f5'; e.currentTarget.style.color = '#dc2626'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#333'; }}>
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = it.red ? '#dc2626' : '#333'; }}>
               <span style={{ display: 'flex', flexShrink: 0 }}>{it.icon}</span> {it.label}
             </button>
           ))}
         </div>
       )}
+      {engineCutOpen && <EngineCutConfirm imei={pt.imei} plate={plate} isImmobilized={isImmobilized} onClose={() => setEngineCutOpen(false)} />}
     </>
   );
 }
@@ -1165,7 +1210,7 @@ export default function PortalMapPage() {
   useEffect(() => {
     api.get<AlertItem[]>('/alerts?limit=200').then(r => {
       setAlerts(r.data);
-      setAlertCount(r.data.filter(a => !a.resolvedAt).length);
+      setAlertCount(r.data.filter(a => a.active).length);
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1176,7 +1221,7 @@ export default function PortalMapPage() {
       setAlertsLoading(true);
       api.get<AlertItem[]>('/alerts?limit=500').then(r => {
         setAlerts(r.data);
-        setAlertCount(r.data.filter(a => !a.resolvedAt).length);
+        setAlertCount(r.data.filter(a => a.active).length);
       }).catch(() => {}).finally(() => setAlertsLoading(false));
     } else if (activePanel === 'geofences') {
       setGfLoading(true);
@@ -1285,14 +1330,15 @@ export default function PortalMapPage() {
 
       {/* Left floating panel */}
       <div style={{
-        position: 'absolute', top: 10, left: 10, bottom: 10, width: 300,
+        position: 'absolute', top: 10, left: 10, bottom: 10, width: 360,
         background: '#fff', borderRadius: 10,
         boxShadow: '0 4px 24px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.07)',
         border: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', zIndex: 400,
         overflow: 'hidden',
       }}>
         {activePanel === 'alerts' ? (
-          <AlertsPanel alerts={alerts} loading={alertsLoading} />
+          <AlertsPanel alerts={alerts} loading={alertsLoading}
+            setAlertList={list => { setAlerts(list); setAlertCount(list.filter(a => a.active).length); }} />
         ) : activePanel === 'geofences' ? (
           <GeofencesPanel geofences={geofences} loading={gfLoading} selectedId={selectedGfId}
             onSelect={gf => {
@@ -1303,6 +1349,7 @@ export default function PortalMapPage() {
                 try { mapRef.current?.fitBounds(L.latLngBounds(gf.coordinates), { padding: [40, 40], animate: true }); } catch {}
               }
             }}
+            onListChange={setGeofences}
           />
         ) : activePanel === 'pois' ? (
           <POIsPanel pois={pois} loading={poisLoading} selectedId={selectedPoiId}
@@ -1310,7 +1357,10 @@ export default function PortalMapPage() {
               setSelectedPoiId(poi.id);
               mapRef.current?.flyTo([poi.latitude, poi.longitude], 16, { animate: true, duration: 0.7 });
             }}
+            onListChange={setPois}
           />
+        ) : activePanel === 'behavior' ? (
+          <DriverBehaviorPanel />
         ) : historyMode ? (
           <HistoryPanel
             mode={historyMode}

@@ -28,9 +28,10 @@ const PAGES: PageRow[] = [
 const ORG_PAGES: PageRow[] = ORG_PORTAL_PAGES;
 
 const TOPBAR_ROWS: TopbarRow[] = [
-  { key: 'alerts',    label: 'Alerts' },
-  { key: 'geofences', label: 'Geofences' },
-  { key: 'pois',      label: 'POIs' },
+  { key: 'alerts',      label: 'Alerts' },
+  { key: 'geofences',   label: 'Geofences' },
+  { key: 'pois',        label: 'POIs' },
+  { key: 'engine_cut',  label: 'Engine Cut' },
 ];
 
 const GROUPS       = ['Core', 'Management', 'Administration'];

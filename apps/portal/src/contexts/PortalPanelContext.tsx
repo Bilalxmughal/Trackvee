@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-export type PanelType = 'alerts' | 'geofences' | 'pois' | 'reports' | null;
+export type PanelType = 'alerts' | 'geofences' | 'pois' | 'reports' | 'behavior' | null;
 
 interface PortalPanelCtx {
   activePanel: PanelType;
