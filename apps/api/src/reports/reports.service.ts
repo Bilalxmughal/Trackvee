@@ -77,6 +77,10 @@ function latLng(lat: number, lng: number): string {
 
 const MOVING = 5; // km/h threshold
 
+function vehName(v: Vehicle): string {
+  return [v.make, v.model].filter(Boolean).join(' ') || v.name || '';
+}
+
 interface Seg {
   type: 'move' | 'stop';
   pts: Telemetry[];
@@ -280,13 +284,13 @@ export class ReportsService {
 
   // ── 1. Travel Summary ──────────────────────────────────────────────────────
   private travelSummary(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>, p: ReportParams) {
-    const columns = ['Vehicle', 'License Plate', 'Route Start', 'Route End', 'Route Length (km)', 'Move Duration', 'Stop Duration', 'Top Speed (km/h)', 'Avg Speed (km/h)', 'Overspeed Count', 'Engine Hours', 'Engine Work', 'Engine Idle'];
+    const columns = ['License Plate', 'Vehicle', 'Route Start', 'Route End', 'Route Length (km)', 'Move Duration', 'Stop Duration', 'Top Speed (km/h)', 'Avg Speed (km/h)', 'Overspeed Count', 'Engine Hours', 'Engine Work', 'Engine Idle'];
     const rows: (string|number|null)[][] = [];
     let totalDist = 0, totalMove = 0, totalStop = 0;
 
     for (const v of vehList) {
       const pts = byImei.get(vehToImei.get(v.id)!) ?? [];
-      if (!pts.length) { rows.push([v.name, v.licensePlate, '—', '—', 0, '—', '—', 0, 0, 0, '—', '—', '—']); continue; }
+      if (!pts.length) { rows.push([v.licensePlate, vehName(v), '—', '—', 0, '—', '—', 0, 0, 0, '—', '—', '—']); continue; }
 
       let dist = 0, moveMs = 0, engMs = 0, idleMs = 0, maxSpd = 0, sumSpd = 0, mc = 0, ovCt = 0;
       const lim = p.speedLimit ?? 80;
@@ -304,7 +308,7 @@ export class ReportsService {
       totalDist += dist; totalMove += moveMs; totalStop += (totalMs - moveMs);
 
       rows.push([
-        v.name, v.licensePlate,
+        v.licensePlate, vehName(v),
         fmtDt(new Date(pts[0].timestamp)), fmtDt(new Date(pts[pts.length-1].timestamp)),
         +dist.toFixed(2), fmtMs(moveMs), fmtMs(totalMs - moveMs),
         +maxSpd.toFixed(1), mc ? +(sumSpd/mc).toFixed(1) : 0,
@@ -318,7 +322,7 @@ export class ReportsService {
 
   // ── 2. Stops Move Summary ─────────────────────────────────────────────────
   private stopsMoveSum(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>, p: ReportParams) {
-    const columns = ['Vehicle', 'License Plate', 'Type', 'Start Time', 'End Time', 'Duration', 'Distance (km)', 'Max Speed (km/h)', 'Avg Speed (km/h)', 'Location'];
+    const columns = ['License Plate', 'Vehicle', 'Type', 'Start Time', 'End Time', 'Duration', 'Distance (km)', 'Max Speed (km/h)', 'Avg Speed (km/h)', 'Location'];
     const rows: (string|number|null)[][] = [];
     const minMs = (p.minStopMin ?? 1) * 60 * 1000;
 
@@ -328,7 +332,7 @@ export class ReportsService {
       for (const s of segs) {
         if (s.type === 'stop' && s.ms < minMs) continue;
         const loc = s.type === 'stop' ? latLng(s.pts[0].latitude, s.pts[0].longitude) : '';
-        rows.push([v.name, v.licensePlate, s.type === 'move' ? 'Move' : 'Stop', fmtDt(s.startTime), fmtDt(s.endTime), fmtMs(s.ms), s.type === 'move' ? +s.distKm.toFixed(2) : '', +s.maxSpd.toFixed(1), +s.avgSpd.toFixed(1), loc]);
+        rows.push([v.licensePlate, vehName(v), s.type === 'move' ? 'Move' : 'Stop', fmtDt(s.startTime), fmtDt(s.endTime), fmtMs(s.ms), s.type === 'move' ? +s.distKm.toFixed(2) : '', +s.maxSpd.toFixed(1), +s.avgSpd.toFixed(1), loc]);
       }
     }
     return { columns, rows, rowCount: rows.length, summary: null };
@@ -336,7 +340,7 @@ export class ReportsService {
 
   // ── 3. Stoppage Summary ───────────────────────────────────────────────────
   private stoppageSum(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>, p: ReportParams) {
-    const columns = ['Vehicle', 'License Plate', 'Stop Start', 'Stop End', 'Duration', 'Location'];
+    const columns = ['License Plate', 'Vehicle', 'Stop Start', 'Stop End', 'Duration', 'Location'];
     const rows: (string|number|null)[][] = [];
     const minMs = (p.minStopMin ?? 1) * 60 * 1000;
 
@@ -344,7 +348,7 @@ export class ReportsService {
       const pts = byImei.get(vehToImei.get(v.id)!) ?? [];
       const segs = segment(pts).filter(s => s.type === 'stop' && s.ms >= minMs);
       for (const s of segs) {
-        rows.push([v.name, v.licensePlate, fmtDt(s.startTime), fmtDt(s.endTime), fmtMs(s.ms), latLng(s.pts[0].latitude, s.pts[0].longitude)]);
+        rows.push([v.licensePlate, vehName(v), fmtDt(s.startTime), fmtDt(s.endTime), fmtMs(s.ms), latLng(s.pts[0].latitude, s.pts[0].longitude)]);
       }
     }
     return { columns, rows, rowCount: rows.length, summary: null };
@@ -352,13 +356,13 @@ export class ReportsService {
 
   // ── 4. Move Summary ───────────────────────────────────────────────────────
   private moveSum(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>) {
-    const columns = ['Vehicle', 'License Plate', 'Trip Start', 'Trip End', 'Duration', 'Distance (km)', 'Max Speed (km/h)', 'Avg Speed (km/h)'];
+    const columns = ['License Plate', 'Vehicle', 'Trip Start', 'Trip End', 'Duration', 'Distance (km)', 'Max Speed (km/h)', 'Avg Speed (km/h)'];
     const rows: (string|number|null)[][] = [];
 
     for (const v of vehList) {
       const pts = byImei.get(vehToImei.get(v.id)!) ?? [];
       for (const s of segment(pts).filter(s => s.type === 'move')) {
-        rows.push([v.name, v.licensePlate, fmtDt(s.startTime), fmtDt(s.endTime), fmtMs(s.ms), +s.distKm.toFixed(2), +s.maxSpd.toFixed(1), +s.avgSpd.toFixed(1)]);
+        rows.push([v.licensePlate, vehName(v), fmtDt(s.startTime), fmtDt(s.endTime), fmtMs(s.ms), +s.distKm.toFixed(2), +s.maxSpd.toFixed(1), +s.avgSpd.toFixed(1)]);
       }
     }
     return { columns, rows, rowCount: rows.length, summary: null };
@@ -366,7 +370,7 @@ export class ReportsService {
 
   // ── 5. Ignition ON/OFF ────────────────────────────────────────────────────
   private ignitionReport(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>) {
-    const columns = ['Vehicle', 'License Plate', 'Event', 'Time', 'Speed (km/h)', 'Location'];
+    const columns = ['License Plate', 'Vehicle', 'Event', 'Time', 'Speed (km/h)', 'Location'];
     const rows: (string|number|null)[][] = [];
 
     for (const v of vehList) {
@@ -374,7 +378,7 @@ export class ReportsService {
       for (let i = 1; i < pts.length; i++) {
         const prev = pts[i-1].ignition, cur = pts[i].ignition;
         if (prev !== cur && cur !== null) {
-          rows.push([v.name, v.licensePlate, cur ? 'Ignition ON' : 'Ignition OFF', fmtDt(new Date(pts[i].timestamp)), +pts[i].speedKmh.toFixed(1), latLng(pts[i].latitude, pts[i].longitude)]);
+          rows.push([v.licensePlate, vehName(v), cur ? 'Ignition ON' : 'Ignition OFF', fmtDt(new Date(pts[i].timestamp)), +pts[i].speedKmh.toFixed(1), latLng(pts[i].latitude, pts[i].longitude)]);
         }
       }
     }
@@ -383,7 +387,7 @@ export class ReportsService {
 
   // ── 6. Overspeed ──────────────────────────────────────────────────────────
   private overspeedReport(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>, lim: number) {
-    const columns = ['Vehicle', 'License Plate', 'Start Time', 'End Time', 'Duration', 'Max Speed (km/h)', 'Speed Limit (km/h)', 'Start Location'];
+    const columns = ['License Plate', 'Vehicle', 'Start Time', 'End Time', 'Duration', 'Max Speed (km/h)', 'Speed Limit (km/h)', 'Start Location'];
     const rows: (string|number|null)[][] = [];
 
     for (const v of vehList) {
@@ -392,7 +396,7 @@ export class ReportsService {
 
       const flush = (end: Telemetry) => {
         if (!startPt) return;
-        rows.push([v.name, v.licensePlate, fmtDt(new Date(evStart)), fmtDt(new Date(end.timestamp)), fmtMs(new Date(end.timestamp).getTime() - evStart), +maxSpd.toFixed(1), lim, latLng(startPt.latitude, startPt.longitude)]);
+        rows.push([v.licensePlate, vehName(v), fmtDt(new Date(evStart)), fmtDt(new Date(end.timestamp)), fmtMs(new Date(end.timestamp).getTime() - evStart), +maxSpd.toFixed(1), lim, latLng(startPt.latitude, startPt.longitude)]);
       };
 
       for (const pt of pts) {
@@ -408,7 +412,7 @@ export class ReportsService {
 
   // ── 7. Overspeed Summary ──────────────────────────────────────────────────
   private overspeedSummary(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>, lim: number) {
-    const columns = ['Vehicle', 'License Plate', 'Speed Limit (km/h)', 'Total Events', 'Total Duration', 'Max Speed (km/h)', 'Avg Speed in Events (km/h)'];
+    const columns = ['License Plate', 'Vehicle', 'Speed Limit (km/h)', 'Total Events', 'Total Duration', 'Max Speed (km/h)', 'Avg Speed in Events (km/h)'];
     const rows: (string|number|null)[][] = [];
 
     for (const v of vehList) {
@@ -423,14 +427,14 @@ export class ReportsService {
           sumSpd += pt.speedKmh; spdCt++;
         } else if (inEv) { totalMs += new Date(pt.timestamp).getTime() - evStart; inEv = false; }
       }
-      rows.push([v.name, v.licensePlate, lim, ct, fmtMs(totalMs), +maxSpd.toFixed(1), spdCt ? +(sumSpd/spdCt).toFixed(1) : 0]);
+      rows.push([v.licensePlate, vehName(v), lim, ct, fmtMs(totalMs), +maxSpd.toFixed(1), spdCt ? +(sumSpd/spdCt).toFixed(1) : 0]);
     }
     return { columns, rows, rowCount: rows.length, summary: null };
   }
 
   // ── 8. Underspeed ─────────────────────────────────────────────────────────
   private underspeedReport(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>, minSpd: number) {
-    const columns = ['Vehicle', 'License Plate', 'Start Time', 'End Time', 'Duration', 'Min Speed (km/h)', 'Speed Threshold (km/h)', 'Location'];
+    const columns = ['License Plate', 'Vehicle', 'Start Time', 'End Time', 'Duration', 'Min Speed (km/h)', 'Speed Threshold (km/h)', 'Location'];
     const rows: (string|number|null)[][] = [];
 
     for (const v of vehList) {
@@ -439,7 +443,7 @@ export class ReportsService {
 
       const flush = (end: Telemetry) => {
         if (!startPt) return;
-        rows.push([v.name, v.licensePlate, fmtDt(new Date(evStart)), fmtDt(new Date(end.timestamp)), fmtMs(new Date(end.timestamp).getTime() - evStart), +minSpd2.toFixed(1), minSpd, latLng(startPt.latitude, startPt.longitude)]);
+        rows.push([v.licensePlate, vehName(v), fmtDt(new Date(evStart)), fmtDt(new Date(end.timestamp)), fmtMs(new Date(end.timestamp).getTime() - evStart), +minSpd2.toFixed(1), minSpd, latLng(startPt.latitude, startPt.longitude)]);
       };
 
       for (const pt of pts) {
@@ -455,7 +459,7 @@ export class ReportsService {
 
   // ── 9. Daily Travel ───────────────────────────────────────────────────────
   private dailyTravel(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>, p: ReportParams) {
-    const columns = ['Vehicle', 'License Plate', 'Date', 'Distance (km)', 'Move Duration', 'Stop Duration', 'Top Speed (km/h)', 'Avg Speed (km/h)', 'Trips', 'Overspeed Count'];
+    const columns = ['License Plate', 'Vehicle', 'Date', 'Distance (km)', 'Move Duration', 'Stop Duration', 'Top Speed (km/h)', 'Avg Speed (km/h)', 'Trips', 'Overspeed Count'];
     const rows: (string|number|null)[][] = [];
     const lim = p.speedLimit ?? 80;
 
@@ -478,7 +482,7 @@ export class ReportsService {
           if (dpts[i].speedKmh > lim) ovCt++;
         }
         const totalMs = new Date(dpts[dpts.length-1].timestamp).getTime() - new Date(dpts[0].timestamp).getTime();
-        rows.push([v.name, v.licensePlate, day, +dist.toFixed(2), fmtMs(moveMs), fmtMs(totalMs - moveMs), +maxSpd.toFixed(1), mc ? +(sumSpd/mc).toFixed(1) : 0, trips, ovCt]);
+        rows.push([v.licensePlate, vehName(v), day, +dist.toFixed(2), fmtMs(moveMs), fmtMs(totalMs - moveMs), +maxSpd.toFixed(1), mc ? +(sumSpd/mc).toFixed(1) : 0, trips, ovCt]);
       }
     }
     return { columns, rows, rowCount: rows.length, summary: null };
@@ -486,13 +490,13 @@ export class ReportsService {
 
   // ── 10. Vehicle History ───────────────────────────────────────────────────
   private vehicleHistory(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>) {
-    const columns = ['Vehicle', 'License Plate', 'Time', 'Latitude', 'Longitude', 'Speed (km/h)', 'Heading', 'Ignition', 'Satellites', 'Signal'];
+    const columns = ['License Plate', 'Vehicle', 'Time', 'Latitude', 'Longitude', 'Speed (km/h)', 'Heading', 'Ignition', 'Satellites', 'Signal'];
     const rows: (string|number|null)[][] = [];
 
     for (const v of vehList) {
       const pts = byImei.get(vehToImei.get(v.id)!) ?? [];
       for (const pt of pts) {
-        rows.push([v.name, v.licensePlate, fmtDt(new Date(pt.timestamp)), +pt.latitude.toFixed(6), +pt.longitude.toFixed(6), +pt.speedKmh.toFixed(1), pt.heading, pt.ignition ? 'ON' : 'OFF', pt.satellites, pt.gsmSignal ?? '']);
+        rows.push([v.licensePlate, vehName(v), fmtDt(new Date(pt.timestamp)), +pt.latitude.toFixed(6), +pt.longitude.toFixed(6), +pt.speedKmh.toFixed(1), pt.heading, pt.ignition ? 'ON' : 'OFF', pt.satellites, pt.gsmSignal ?? '']);
       }
     }
     return { columns, rows, rowCount: rows.length, summary: null };
@@ -500,7 +504,7 @@ export class ReportsService {
 
   // ── 11. Alert History ─────────────────────────────────────────────────────
   private async alertHistory(vehList: Vehicle[], vehToImei: Map<string,string>, p: ReportParams) {
-    const columns = ['Vehicle', 'License Plate', 'Alert Name', 'Alert Type', 'Triggered At', 'Speed (km/h)', 'Location'];
+    const columns = ['License Plate', 'Vehicle', 'Alert Name', 'Alert Type', 'Triggered At', 'Speed (km/h)', 'Location'];
     const rows: (string|number|null)[][] = [];
 
     const imeis = vehList.map(v => vehToImei.get(v.id)!).filter(Boolean);
@@ -523,14 +527,14 @@ export class ReportsService {
       const spd = (log.payload as any)?.speed ?? '';
       const lat = (log.payload as any)?.lat, lng = (log.payload as any)?.lng;
       const loc = lat && lng ? latLng(lat, lng) : '';
-      rows.push([v?.name ?? log.imei, v?.licensePlate ?? '', al?.name ?? '—', al?.type ?? '—', fmtDt(new Date(log.triggeredAt)), spd ? +Number(spd).toFixed(1) : '', loc]);
+      rows.push([v?.licensePlate ?? '', v ? vehName(v) : log.imei, al?.name ?? '—', al?.type ?? '—', fmtDt(new Date(log.triggeredAt)), spd ? +Number(spd).toFixed(1) : '', loc]);
     }
     return { columns, rows, rowCount: rows.length, summary: null };
   }
 
   // ── 12. Driver Behavior ───────────────────────────────────────────────────
   private async driverBehaviorReport(vehList: Vehicle[], p: ReportParams) {
-    const columns = ['Vehicle', 'License Plate', 'Harsh Brakes', 'Rapid Accels', 'Sharp Turns', 'Overspeed Events', 'Total Events', 'Worst Severity'];
+    const columns = ['License Plate', 'Vehicle', 'Harsh Brakes', 'Rapid Accels', 'Sharp Turns', 'Overspeed Events', 'Total Events', 'Worst Severity'];
     const rows: (string|number|null)[][] = [];
 
     const vehIds = vehList.map(v => v.id);
@@ -549,14 +553,14 @@ export class ReportsService {
       const st = evs.filter(e => e.type === 'sharp_turn').length;
       const os = evs.filter(e => e.type === 'overspeed').length;
       const worst = evs.some(e => e.severity === 'high') ? 'High' : evs.some(e => e.severity === 'medium') ? 'Medium' : evs.length ? 'Low' : '—';
-      rows.push([v.name, v.licensePlate, hb, ra, st, os, evs.length, worst]);
+      rows.push([v.licensePlate, vehName(v), hb, ra, st, os, evs.length, worst]);
     }
     return { columns, rows, rowCount: rows.length, summary: null };
   }
 
   // ── 13. Geofence Activity ─────────────────────────────────────────────────
   private async geofenceActivity(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>, gfIds: string[]) {
-    const columns = ['Vehicle', 'License Plate', 'Geofence', 'Event', 'Time', 'Duration Inside', 'Speed (km/h)', 'Location'];
+    const columns = ['License Plate', 'Vehicle', 'Geofence', 'Event', 'Time', 'Duration Inside', 'Speed (km/h)', 'Location'];
     const rows: (string|number|null)[][] = [];
 
     const geofences = gfIds.length ? await this.gfRepo.find({ where: { id: In(gfIds) } }) : await this.gfRepo.find();
@@ -570,13 +574,13 @@ export class ReportsService {
           const cur = inGeofence(pt, gf);
           if (cur && !inside) {
             inside = true; enterTime = new Date(pt.timestamp).getTime(); enterPt = pt;
-            rows.push([v.name, v.licensePlate, gf.name, 'Enter', fmtDt(new Date(pt.timestamp)), '—', +pt.speedKmh.toFixed(1), latLng(pt.latitude, pt.longitude)]);
+            rows.push([v.licensePlate, vehName(v), gf.name, 'Enter', fmtDt(new Date(pt.timestamp)), '—', +pt.speedKmh.toFixed(1), latLng(pt.latitude, pt.longitude)]);
           } else if (!cur && inside) {
             inside = false;
             const dur = new Date(pt.timestamp).getTime() - enterTime;
-            rows.push([v.name, v.licensePlate, gf.name, 'Exit', fmtDt(new Date(pt.timestamp)), fmtMs(dur), +pt.speedKmh.toFixed(1), latLng(pt.latitude, pt.longitude)]);
+            rows.push([v.licensePlate, vehName(v), gf.name, 'Exit', fmtDt(new Date(pt.timestamp)), fmtMs(dur), +pt.speedKmh.toFixed(1), latLng(pt.latitude, pt.longitude)]);
             // Update the Enter row with duration — find it and replace
-            const eRow = [...rows].reverse().find((r: (string|number|null)[]) => r[0] === v.name && r[2] === gf.name && r[3] === 'Enter');
+            const eRow = [...rows].reverse().find((r: (string|number|null)[]) => r[0] === v.licensePlate && r[2] === gf.name && r[3] === 'Enter');
             if (eRow) eRow[5] = fmtMs(dur);
           }
         }

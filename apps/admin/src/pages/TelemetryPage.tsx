@@ -8,6 +8,7 @@ import Spinner from '../components/Spinner';
 import SkeletonTable from '../components/SkeletonTable';
 import DateRangePicker from '../components/DateRangePicker';
 import { useCityFilter } from '../contexts/CityFilterContext';
+import { fmtDateTime } from '../utils/date';
 
 interface Telemetry {
   id: string;
@@ -38,7 +39,7 @@ function exportCSV(data: Telemetry[], plateMap: Map<string, string>) {
     return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const csvRows = data.map(t => [
-    new Date(t.timestamp).toLocaleString(),
+    fmtDateTime(t.timestamp),
     plateMap.get(t.deviceId) ?? t.deviceId,
     t.latitude.toFixed(6),
     t.longitude.toFixed(6),
@@ -192,7 +193,7 @@ export default function TelemetryPage() {
             <tbody>
               {paged.map(t => (
                 <tr key={t.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${t.ignition ? '#22c55e' : '#e5e7eb'}` }}>
-                  <td style={{ padding: '9px 16px', color: 'var(--muted)', whiteSpace: 'nowrap', fontSize: 12 }}>{new Date(t.timestamp).toLocaleString()}</td>
+                  <td style={{ padding: '9px 16px', color: 'var(--muted)', whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDateTime(t.timestamp)}</td>
                   <td style={{ padding: '9px 16px', fontSize: 12, fontWeight: 600 }}>{devicePlateMap.get(t.deviceId) ?? <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--muted)' }}>{t.deviceId.slice(0, 8)}…</span>}</td>
                   <td style={{ padding: '9px 16px', fontVariantNumeric: 'tabular-nums', fontSize: 12 }}>{t.latitude.toFixed(5)}, {t.longitude.toFixed(5)}</td>
                   <td style={{ padding: '9px 16px', fontSize: 12 }}>{t.speed != null ? `${t.speed} km/h` : '—'}</td>

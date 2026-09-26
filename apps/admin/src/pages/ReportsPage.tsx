@@ -122,7 +122,7 @@ export default function ReportsPage() {
   const opts = REPORT_TYPES.find(r=>r.value===reportType)?.opts ?? [];
 
   useEffect(() => {
-    api.get<{id:string;name:string;licensePlate?:string}[]>('/vehicles').then(r=>setVehicles(r.data.map(v=>({id:v.id,name:v.name,licensePlate:v.licensePlate??null})))).catch(()=>{});
+    api.get<{id:string;name:string;licensePlate?:string;make?:string;model?:string}[]>('/vehicles').then(r=>setVehicles(r.data.map(v=>({id:v.id,name:v.name,licensePlate:v.licensePlate??null,make:v.make??null,model:v.model??null})))).catch(()=>{});
     api.get<VehicleGroup[]>('/vehicle-groups').then(r=>setVehicleGroups(r.data)).catch(()=>{});
     api.get<{id:string;name:string}[]>('/geofences').then(r=>setGeofences(r.data)).catch(()=>{});
     loadSaved();

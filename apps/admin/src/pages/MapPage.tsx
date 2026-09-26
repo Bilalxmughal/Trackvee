@@ -235,7 +235,7 @@ function fmtPlate(dv: { plate: string | null; displayId: number | null } | undef
 
 // ── Car Icon ──────────────────────────────────────────────────────────────────
 
-function makeCarIcon(heading: number, status: 'moving' | 'idle' | 'parked' | 'offline', plate: string, speed: number, alertType?: 'speed' | 'idle'): L.DivIcon {
+function makeCarIcon(heading: number, status: 'moving' | 'idle' | 'parked' | 'offline', plate: string, speed: number, alertType?: 'speed' | 'idle', expired?: boolean): L.DivIcon {
   const color = STATUS_COLOR[status];
   let glow: string;
   if (alertType === 'speed') glow = 'drop-shadow(0 0 10px #dc2626) drop-shadow(0 0 5px #dc2626)';
@@ -243,11 +243,13 @@ function makeCarIcon(heading: number, status: 'moving' | 'idle' | 'parked' | 'of
   else glow = `drop-shadow(0 0 5px ${color}) drop-shadow(0 0 3px ${color}bb)`;
   const borderColor = alertType === 'speed' ? '#dc2626' : alertType === 'idle' ? '#f59e0b' : color;
   const label = plate ? `${plate} (${Math.round(speed)} kph)` : `${Math.round(speed)} kph`;
+  const expiredBadge = expired ? `<div style="background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;letter-spacing:0.5px;pointer-events:none">EXPIRED</div>` : '';
   const html = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-family:system-ui,sans-serif">
     <img src="/car-icon.png" style="display:block;width:38px;height:38px;transform:rotate(${(heading + 180) % 360}deg);transform-origin:center center;filter:${glow};pointer-events:none"/>
     <div style="background:rgba(10,10,10,0.85);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;white-space:nowrap;letter-spacing:0.3px;border-left:3px solid ${borderColor};pointer-events:none">${label}</div>
+    ${expiredBadge}
   </div>`;
-  return L.divIcon({ html, className: 'leaflet-interactive', iconSize: [150, 62], iconAnchor: [75, 42], popupAnchor: [0, -46] });
+  return L.divIcon({ html, className: 'leaflet-interactive', iconSize: [150, 70], iconAnchor: [75, expired ? 50 : 42], popupAnchor: [0, -46] });
 }
 
 // ── Popup HTML ─────────────────────────────────────────────────────────────────
@@ -466,10 +468,11 @@ function TripReplayInner({ points, currentIdx }: { points: TripPoint[]; currentI
 }
 
 // Cluster Layer with status colors + alert support
-function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, distanceModeRef }: {
+function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, distanceModeRef, orgExpiredIds }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   alertSettingsRef: React.MutableRefObject<AlertSettings>;
   distanceModeRef: React.MutableRefObject<boolean>;
+  orgExpiredIds: Set<string>;
 }) {
   const map = useMap();
   const groupRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -554,7 +557,8 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
         const emaLat = EMA_ALPHA * pt.latitude + (1 - EMA_ALPHA) * existing.emaLat;
         const emaLng = EMA_ALPHA * pt.longitude + (1 - EMA_ALPHA) * existing.emaLng;
         Object.assign(existing.ctx, { pt, dv, vc, plate });
-        existing.marker.setIcon(makeCarIcon(pt.heading, status, plate, pt.speedKmh, alertType));
+        const expd = vc?.organizationId ? orgExpiredIds.has(vc.organizationId) : false;
+        existing.marker.setIcon(makeCarIcon(pt.heading, status, plate, pt.speedKmh, alertType, expd));
         (existing.marker as any)._ytStatus = status;
         (existing.marker as any)._ytAlert = alertType;
         const updated: MarkerState = {
@@ -573,7 +577,8 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
       } else {
         const popup = L.popup({ minWidth: 280, maxWidth: 340 });
         const ctx = { pt, dv, vc, plate };
-        const marker = L.marker([pt.latitude, pt.longitude], { icon: makeCarIcon(pt.heading, status, plate, pt.speedKmh, alertType) });
+        const expired = vc?.organizationId ? orgExpiredIds.has(vc.organizationId) : false;
+        const marker = L.marker([pt.latitude, pt.longitude], { icon: makeCarIcon(pt.heading, status, plate, pt.speedKmh, alertType, expired) });
         (marker as any)._ytStatus = status;
         (marker as any)._ytAlert = alertType;
         marker.bindPopup(popup.setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching…')));
@@ -603,7 +608,7 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
     }
     stateRef.current = next;
     try { group.refreshClusters(); } catch {}
-  }, [points, deviceMap, vehicleDetails, alertSettingsRef]);
+  }, [points, deviceMap, vehicleDetails, alertSettingsRef, orgExpiredIds]);
 
   return null;
 }
@@ -2245,7 +2250,8 @@ export default function MapPage() {
   const { user } = useAuth();
   const mapOrgId = user?.organizationId ?? null;
   const mapIsAdmin = !mapOrgId;
-  const [mapOrgs, setMapOrgs] = useState<{ id: string; name: string }[]>([]);
+  const [mapOrgs, setMapOrgs] = useState<{ id: string; name: string; trackingExpiresAt?: string | null }[]>([]);
+  const [orgExpiredIds, setOrgExpiredIds] = useState<Set<string>>(new Set());
   const [groupOrgId, setGroupOrgId] = useState<string>('');
   const [vehicleOrgFilter, setVehicleOrgFilter] = useState<string>('');
   // selectedClientId: unified org context for all map operations (alerts, geofences, POIs, groups)
@@ -2380,9 +2386,12 @@ export default function MapPage() {
 
   useEffect(() => {
     if (mapIsAdmin) {
-      api.get<{ id: string; name: string }[]>('/organizations').then(r => {
+      api.get<{ id: string; name: string; trackingExpiresAt?: string | null }[]>('/organizations').then(r => {
         setMapOrgs(r.data);
         if (r.data.length > 0) setGroupOrgId(r.data[0].id);
+        const now = Date.now();
+        const expired = new Set(r.data.filter(o => o.trackingExpiresAt && new Date(o.trackingExpiresAt).getTime() < now).map(o => o.id));
+        setOrgExpiredIds(expired);
       }).catch(() => {});
     }
   }, [mapIsAdmin]);
@@ -2867,7 +2876,7 @@ export default function MapPage() {
                 ? <HistoryLayer points={historyPoints} speedLimit={alertSettings.speedLimit} selectedSegment={selectedSegment}/>
                 : <>
                     <TrailLayer trails={trails} visibleImeis={new Set(visiblePoints.map(p => p.imei))}/>
-                    <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef}/>
+                    <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef} orgExpiredIds={orgExpiredIds}/>
                   </>}
               <DistanceTool active={distanceMode} distanceModeRef={distanceModeRef}/>
               <GeofenceLayer geofences={geofences} editingId={gfEditing?.id ?? null} visible={gfVisible}/>

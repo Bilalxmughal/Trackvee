@@ -16,6 +16,7 @@ interface Client {
   contactNo: string | null; email: string | null;
   cityId: string | null; isActive: boolean; createdAt: string;
   vehicleCount: number; deviceCount: number;
+  trackingExpiresAt: string | null;
 }
 interface Vehicle {
   id: string; displayId: number; licensePlate: string | null;
@@ -51,7 +52,7 @@ export default function ClientDetailPage() {
 
   // Edit client modal
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', companyName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true, type: 'b2b' });
+  const [editForm, setEditForm] = useState({ name: '', companyName: '', contactNo: '', email: '', password: '', cityId: '', isActive: true, type: 'b2b', trackingExpiresAt: '' });
   const [showPw, setShowPw] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -110,13 +111,13 @@ export default function ClientDetailPage() {
   // Edit client
   const openEdit = () => {
     if (!client) return;
-    setEditForm({ name: client.name, companyName: client.companyName ?? '', contactNo: client.contactNo ?? '', email: client.email ?? '', password: '', cityId: client.cityId ?? '', isActive: client.isActive, type: client.type });
+    setEditForm({ name: client.name, companyName: client.companyName ?? '', contactNo: client.contactNo ?? '', email: client.email ?? '', password: '', cityId: client.cityId ?? '', isActive: client.isActive, type: client.type, trackingExpiresAt: client.trackingExpiresAt ? client.trackingExpiresAt.slice(0, 10) : '' });
     setShowPw(false); setEditOpen(true);
   };
   const handleEditSave = async (e: FormEvent) => {
     e.preventDefault(); setEditSaving(true);
     try {
-      const payload: Record<string, unknown> = { name: editForm.name, companyName: editForm.type === 'b2b' ? (editForm.companyName || null) : null, contactNo: editForm.contactNo || null, email: editForm.email || null, cityId: editForm.cityId || null, isActive: editForm.isActive };
+      const payload: Record<string, unknown> = { name: editForm.name, companyName: editForm.type === 'b2b' ? (editForm.companyName || null) : null, contactNo: editForm.contactNo || null, email: editForm.email || null, cityId: editForm.cityId || null, isActive: editForm.isActive, trackingExpiresAt: editForm.trackingExpiresAt || null };
       if (editForm.password) payload.password = editForm.password;
       await api.patch(`/organizations/${id}`, payload);
       setEditOpen(false); setLoading(true); await load();
@@ -175,6 +176,7 @@ export default function ClientDetailPage() {
     { icon: IconMail, label: 'Email', value: client.email ?? '—' },
     { icon: IconMapPin, label: 'City', value: cityName },
     { icon: IconCalendar, label: 'Added', value: fmtDate(client.createdAt) },
+    ...(client.trackingExpiresAt ? [{ icon: IconCalendar, label: 'Tracking Expires', value: fmtDate(client.trackingExpiresAt) }] : []),
   ];
 
   return (
@@ -395,6 +397,9 @@ export default function ClientDetailPage() {
               </select>
             </FormField>
           </div>
+          <FormField label="Tracking Expires">
+            <input type="date" value={editForm.trackingExpiresAt} onChange={e => setE('trackingExpiresAt', e.target.value)} style={inputStyle} onFocus={focus} onBlur={blur} />
+          </FormField>
           <FormActions onClose={() => setEditOpen(false)} loading={editSaving} submitLabel="Update Client" />
         </form>
       </Modal>

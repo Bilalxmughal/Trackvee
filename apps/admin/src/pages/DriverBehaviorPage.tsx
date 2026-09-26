@@ -562,7 +562,7 @@ export default function DriverBehaviorPage() {
                     <div key={v.id} style={{ border: `1px solid ${hasOverride ? '#fca5a5' : 'var(--border)'}`, borderRadius: 4, marginBottom: 6, overflow: 'hidden' }}>
                       <div onClick={() => setExpandedVehicle(isOpen ? null : v.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', cursor: 'pointer', background: hasOverride ? 'rgba(220,38,38,0.04)' : 'var(--table-header-bg)' }}>
                         {isOpen ? <IconChevronDown size={13}/> : <IconChevronRight size={13}/>}
-                        <span style={{ flex: 1, fontSize: 12, fontWeight: 500 }}>{v.licensePlate ?? v.name}</span>
+                        <span style={{ flex: 1, fontSize: 12, fontWeight: 500 }}>{v.licensePlate ?? ([v.make, v.model].filter(Boolean).join(' ') || v.name)}</span>
                         {v.make && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{v.make}{v.model ? ` ${v.model}` : ''}</span>}
                         {hasOverride && <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 600, marginLeft: 4 }}>OVERRIDE</span>}
                       </div>

@@ -42,6 +42,9 @@ export class Organization {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
+  @Column({ name: 'tracking_expires_at', type: 'timestamptz', nullable: true })
+  trackingExpiresAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

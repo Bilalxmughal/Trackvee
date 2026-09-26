@@ -174,7 +174,7 @@ export default function DevicesPage() {
           <tbody>
             {filtered.map(d => {
               const online = d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < 5 * 60 * 1000;
-              const borderColor = !d.isActive ? '#e5e7eb' : online ? '#22c55e' : '#dc2626';
+              const borderColor = online ? '#22c55e' : !d.isActive ? '#e5e7eb' : '#dc2626';
               return (
                 <tr key={d.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${borderColor}` }}>
                   <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{d.displayId}</td>
@@ -185,8 +185,8 @@ export default function DevicesPage() {
                     {d.vehicle ? `${d.vehicle.displayId} ${d.vehicle.licensePlate ?? ''}`.trim() : <span style={{ color: 'var(--muted2)' }}>Unassigned</span>}
                   </td>
                   <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{lastSeenLabel(d.lastSeenAt)}</td>
-                  <td style={{ padding: '10px 14px', color: !d.isActive ? '#aaa' : online ? '#16a34a' : '#dc2626' }}>
-                    {!d.isActive ? 'Inactive' : online ? 'Online' : 'Offline'}
+                  <td style={{ padding: '10px 14px', color: online ? '#16a34a' : !d.isActive ? '#aaa' : '#dc2626' }}>
+                    {online ? 'Online' : !d.isActive ? 'Inactive' : 'Offline'}
                   </td>
                   <td style={{ padding: '10px 14px' }}>
                     <div style={{ display: 'flex', gap: 4 }}>

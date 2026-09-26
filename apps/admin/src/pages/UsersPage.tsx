@@ -80,7 +80,7 @@ export default function UsersPage() {
   const load = () => {
     const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
     Promise.all([api.get<User[]>(`/users${p}`), api.get<Org[]>('/organizations')])
-      .then(([u, o]) => { setUsers(u.data.filter(x => x.role !== 'client_user')); setOrgs(o.data); })
+      .then(([u, o]) => { setUsers(u.data.filter(x => !x.role.startsWith('client_'))); setOrgs(o.data); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [selectedCityId]);

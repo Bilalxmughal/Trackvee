@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { IconChevronDown, IconSearch, IconX } from '@tabler/icons-react';
 
-export interface VehicleOption { id: string; name: string; licensePlate: string | null; }
+export interface VehicleOption { id: string; name: string; licensePlate: string | null; make?: string | null; model?: string | null; }
 export interface VehicleGroup  { id: string; name: string; vehicleIds: string[]; }
 
 interface Props {
@@ -31,8 +31,9 @@ export default function VehicleMultiSelect({ vehicles, groups = [], selected, on
   const ungrouped = vehicles.filter(v => !groupedVehicleIds.has(v.id));
 
   // Filter by search
+  const vDisplayName = (v: VehicleOption) => [v.make, v.model].filter(Boolean).join(' ') || v.name;
   const matchV = (v: VehicleOption) =>
-    v.name.toLowerCase().includes(q.toLowerCase()) ||
+    vDisplayName(v).toLowerCase().includes(q.toLowerCase()) ||
     (v.licensePlate ?? '').toLowerCase().includes(q.toLowerCase());
 
   const toggle = (id: string) =>
@@ -111,7 +112,7 @@ export default function VehicleMultiSelect({ vehicles, groups = [], selected, on
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {v.licensePlate ?? v.name}
           </div>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{v.name}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{vDisplayName(v)}</div>
         </div>
       </div>
     );
