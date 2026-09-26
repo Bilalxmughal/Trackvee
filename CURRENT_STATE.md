@@ -4,7 +4,7 @@
 
 ## Last Updated
 
-2026-09-26 (Session 2)
+2026-09-26 (Session 4)
 
 ## Current Phase
 
@@ -36,6 +36,16 @@ Current work is ongoing feature additions on top of a stable production base.
 - Geofences: circle + polygon, enter/exit/both triggers
 - POIs: point-of-interest markers on map
 - **Trackvee manages client workflow**: admin selects a client from live map dropdown → all map operations (alerts, geofences, POIs, groups) are scoped to that client; backend supports `?orgId=` on all three endpoints; AlertsModal/AlertsLeftPanel/POIsPanel/GeofencesPanel all respect selected client
+
+## Recently Completed (Session 4, 2026-09-26)
+
+- **Admin `VehicleGroupSelect` component** created (`apps/admin/src/components/VehicleGroupSelect.tsx`) — 3-column grid, custom red checkbox (no row background highlight), group section headers, matches portal styling; used in AlertsModal and GeofencesModal
+- **Custom checkbox style applied** across all vehicle selection lists (admin + portal): 15×15 red filled checkbox, white checkmark SVG, no row background on hover
+- **Portal `UsersModal` `UserFormModal` size fix** — max-height and overflow corrected so the form doesn't clip
+- **Bug fix: GeofencesModal crash** — `(gf.coordinates as PolygonCoords)?.points?.length ?? 0` guard in `filtered.map()` render; root cause: API data for client orgs could have `coordinates.points` undefined, causing "Cannot read properties of undefined (reading 'length')" at `Array.map`
+- **Bug fix: AlertsModal null guards** — `(g.imeis ?? [])` in `flatMap` and `forEach`, `alert.vehicleImeis?.length ?? 0` in two render locations
+- **Bug fix: MapPage alertsByImei builder** — `(alert.vehicleImeis ?? []).forEach(...)` in `useEffect` that re-runs when `selectedClientId` changes
+- **Bug fix: VehicleGroupSelect null guards** — `_allImeis ?? []`, `g.imeis ?? []` for undefined props during panel transitions
 
 ## Recently Completed (Session 3, 2026-09-26)
 

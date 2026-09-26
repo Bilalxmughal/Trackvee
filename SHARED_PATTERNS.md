@@ -255,6 +255,28 @@ users → users (View/Add/Edit/Delete)
 
 ---
 
+## 17. VehicleGroupSelect — Custom Checkbox Style
+
+Used in all vehicle selection lists (admin AlertsModal, GeofencesModal; portal UsersModal Vehicles tab).
+
+**Layout:** 3-column CSS grid (`gridTemplateColumns: 'repeat(3,1fr)'`).
+
+**Group section header:** 10px, 700 weight, uppercase, `letterSpacing: 0.6`, color `#bbb` (light) / `#555` (dark). Padding `6px 8px 3px`.
+
+**Checkbox item (`<label>`):**
+- No row background on idle — `background: transparent`
+- Hover: `background: #f9fafb` (light) / `#1e1e1e` (dark)
+- Real `<input type="checkbox">` hidden (`opacity:0, position:absolute, width:0, height:0`)
+- Custom 15×15 span: `borderRadius:3`, checked → `background:#dc2626, border:1.5px solid #dc2626`, unchecked → `background:#fff (#2a2a2a dark), border:1.5px solid #d1d5db (#555 dark)`
+- White checkmark SVG (9×9, `polyline points="1.5,5 4,7.5 8.5,2"`, stroke `#fff`, strokeWidth 1.5)
+- Label text: 12px, checked → `fontWeight:600, color:#dc2626`, unchecked → `fontWeight:400, color:#333 (#e5e5e5 dark)`
+
+**Admin component:** `apps/admin/src/components/VehicleGroupSelect.tsx` — accepts `allImeis`, `deviceMap`, `selected` (Set), `onToggle`, `dark`, `groups`, `excludeGroupId`.
+
+**Defensive guards:** always use `_allImeis ?? []`, `g.imeis ?? []`, `group.imeis ?? []` — API data can have undefined `imeis` fields. Also guard `alert.vehicleImeis?.length ?? 0` and `gf.coordinates?.points?.length ?? 0` in render.
+
+---
+
 ## 16. Auth Separation (Login Role Guard)
 
 **Portal** (`portal.trackvee.com`): only allows `client_owner`, `client_super_admin`, `client_admin`, `client_user`. Any other role → throw error → "Invalid email or password" shown.
