@@ -213,10 +213,10 @@ export default function ReportsPage() {
       {/* ── Config Panel ─────────────────────────────────────────────────── */}
       <div className="no-print" style={{padding:'0 20px 20px',borderBottom:'1px solid var(--border)'}}>
 
-        {/* Row 1: Type + Vehicles + Period shortcuts */}
-        <div style={{display:'flex',flexWrap:'wrap',gap:12,alignItems:'flex-end',marginBottom:12}}>
+        {/* Single row: all fields + Generate */}
+        <div style={{display:'flex',flexWrap:'wrap',gap:12,alignItems:'flex-end'}}>
 
-          <div style={field(200)}>
+          <div style={field(190)}>
             <span style={lbl}>Report Type</span>
             <select style={sel} value={reportType} onChange={e=>{setReportType(e.target.value as ReportType);setResult(null);}}>
               {['Travel','Activity','Speed','Events','Geofence'].map(g=>(
@@ -227,41 +227,23 @@ export default function ReportsPage() {
             </select>
           </div>
 
-          <div style={field(220)}>
+          <div style={field(210)}>
             <span style={lbl}>Vehicles</span>
             <VehicleMultiSelect vehicles={vehicles} groups={vehicleGroups} selected={selectedVehs} onChange={setSelectedVehs} />
           </div>
 
-          <div style={{display:'flex',flexDirection:'column',gap:4}}>
-            <span style={lbl}>Quick Period</span>
-            <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-              {PERIODS.map(p=>(
-                <button key={p.label} style={{
-                  height:30, padding:'0 10px', borderRadius:3, fontSize:11, cursor:'pointer', fontWeight:500,
-                  border: activePeriod===p.label ? '1px solid #dc2626' : '1px solid var(--input-border)',
-                  background: activePeriod===p.label ? '#dc262610' : 'transparent',
-                  color: activePeriod===p.label ? '#dc2626' : 'var(--text)',
-                }} onClick={()=>applyPeriod(p)}>{p.label}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Row 2: Date + Options + Generate */}
-        <div style={{display:'flex',flexWrap:'wrap',gap:12,alignItems:'flex-end'}}>
-
-          <div style={field(170)}>
+          <div style={field(160)}>
             <span style={lbl}>From</span>
             <input type="datetime-local" style={inp} value={fromDt} onChange={e=>{setFromDt(e.target.value);setActivePeriod('');}} />
           </div>
 
-          <div style={field(170)}>
+          <div style={field(160)}>
             <span style={lbl}>To</span>
             <input type="datetime-local" style={inp} value={toDt} onChange={e=>{setToDt(e.target.value);setActivePeriod('');}} />
           </div>
 
           {opts.includes('speed') && (
-            <div style={field(90)}>
+            <div style={field(85)}>
               <span style={lbl}>Speed Limit</span>
               <input type="number" min={1} max={300} style={inp} value={speedLimit} onChange={e=>setSpeedLimit(+e.target.value)} />
             </div>
@@ -273,13 +255,13 @@ export default function ReportsPage() {
             </div>
           )}
           {opts.includes('minSpeed') && (
-            <div style={field(90)}>
+            <div style={field(85)}>
               <span style={lbl}>Min Speed</span>
               <input type="number" min={1} max={200} style={inp} value={minSpeedKmh} onChange={e=>setMinSpeedKmh(+e.target.value)} />
             </div>
           )}
           {opts.includes('geofence') && (
-            <div style={field(180)}>
+            <div style={field(170)}>
               <span style={lbl}>Geofence</span>
               <select style={sel} value={selectedGFs[0]??''} onChange={e=>setSelectedGFs(e.target.value?[e.target.value]:[])}>
                 <option value="">All Geofences</option>
@@ -293,6 +275,18 @@ export default function ReportsPage() {
               {loading ? 'Generating...' : 'Generate Report'}
             </button>
           </div>
+        </div>
+
+        {/* Period shortcuts row */}
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:10}}>
+          {PERIODS.map(p=>(
+            <button key={p.label} style={{
+              height:26, padding:'0 10px', borderRadius:3, fontSize:11, cursor:'pointer', fontWeight:500,
+              border: activePeriod===p.label ? '1px solid #dc2626' : '1px solid var(--input-border)',
+              background: activePeriod===p.label ? '#dc262610' : 'transparent',
+              color: activePeriod===p.label ? '#dc2626' : 'var(--text)',
+            }} onClick={()=>applyPeriod(p)}>{p.label}</button>
+          ))}
         </div>
 
         {error && <div style={{marginTop:10,padding:'7px 12px',background:'#fee2e2',color:'#dc2626',borderRadius:4,fontSize:12}}>{error}</div>}
