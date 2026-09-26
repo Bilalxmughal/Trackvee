@@ -7,11 +7,12 @@ import { AlertLog }     from '../alerts/entities/alert-log.entity.js';
 import { Alert }        from '../alerts/entities/alert.entity.js';
 import { DriverEvent }  from '../driver-behavior/entities/driver-event.entity.js';
 import { Geofence }     from '../geofences/entities/geofence.entity.js';
+import { SavedReport }       from './entities/saved-report.entity.js';
 import { ReportsService }    from './reports.service.js';
 import { ReportsController } from './reports.controller.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Telemetry, Device, Vehicle, AlertLog, Alert, DriverEvent, Geofence])],
+  imports: [TypeOrmModule.forFeature([Telemetry, Device, Vehicle, AlertLog, Alert, DriverEvent, Geofence, SavedReport])],
   providers: [ReportsService],
   controllers: [ReportsController],
 })

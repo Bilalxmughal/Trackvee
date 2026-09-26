@@ -1,6 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { IconFileSpreadsheet, IconFileTypeCsv, IconPrinter, IconChevronDown, IconSearch } from '@tabler/icons-react';
+import {
+  IconFileSpreadsheet, IconFileTypeCsv, IconPrinter,
+  IconSearch, IconTrash, IconBookmark, IconRefresh, IconChevronDown,
+} from '@tabler/icons-react';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
@@ -14,319 +17,415 @@ type ReportType =
   | 'geofence_activity';
 
 interface ReportResult {
-  type: ReportType;
-  from: string;
-  to: string;
-  generatedAt: string;
-  vehicleCount: number;
-  rowCount: number;
-  columns: string[];
-  rows: (string | number | null)[][];
-  summary: (string | number | null)[] | null;
+  type: ReportType; from: string; to: string; generatedAt: string;
+  vehicleCount: number; rowCount: number;
+  columns: string[]; rows: (string|number|null)[][];
+  summary: (string|number|null)[] | null;
 }
 
-const REPORT_TYPES: { value: ReportType; label: string; group: string; opts?: ('speed' | 'minStop' | 'minSpeed' | 'geofence')[] }[] = [
-  { value: 'travel_summary',     label: 'Travel Summary',         group: 'Travel',   opts: ['speed'] },
-  { value: 'stops_move_summary', label: 'Stops & Move Summary',   group: 'Travel',   opts: ['speed', 'minStop'] },
-  { value: 'stoppage_summary',   label: 'Stoppage Summary',       group: 'Travel',   opts: ['minStop'] },
-  { value: 'move_summary',       label: 'Move Summary',           group: 'Travel' },
-  { value: 'daily_travel',       label: 'Daily Travel Report',    group: 'Travel',   opts: ['speed'] },
-  { value: 'ignition_on_off',    label: 'Ignition ON / OFF',      group: 'Activity' },
-  { value: 'vehicle_history',    label: 'Vehicle History',        group: 'Activity' },
-  { value: 'overspeed',          label: 'Overspeed',              group: 'Speed',    opts: ['speed'] },
-  { value: 'overspeed_summary',  label: 'Overspeed Summary',      group: 'Speed',    opts: ['speed'] },
-  { value: 'underspeed',         label: 'Underspeed',             group: 'Speed',    opts: ['minSpeed'] },
-  { value: 'alert_history',      label: 'Alert History',          group: 'Events' },
-  { value: 'driver_behavior',    label: 'Driver Behavior',        group: 'Events' },
-  { value: 'geofence_activity',  label: 'Geofence Activity',      group: 'Geofence', opts: ['geofence'] },
+interface SavedReport {
+  id: string; title: string; type: string;
+  params: Record<string, unknown>; userName: string | null; createdAt: string;
+}
+
+const REPORT_TYPES: { value: ReportType; label: string; group: string; opts?: ('speed'|'minStop'|'minSpeed'|'geofence')[] }[] = [
+  { value: 'travel_summary',     label: 'Travel Summary',       group: 'Travel',    opts: ['speed'] },
+  { value: 'stops_move_summary', label: 'Stops & Move Summary', group: 'Travel',    opts: ['speed','minStop'] },
+  { value: 'stoppage_summary',   label: 'Stoppage Summary',     group: 'Travel',    opts: ['minStop'] },
+  { value: 'move_summary',       label: 'Move Summary',         group: 'Travel' },
+  { value: 'daily_travel',       label: 'Daily Travel',         group: 'Travel',    opts: ['speed'] },
+  { value: 'ignition_on_off',    label: 'Ignition ON / OFF',    group: 'Activity' },
+  { value: 'vehicle_history',    label: 'Vehicle History',      group: 'Activity' },
+  { value: 'overspeed',          label: 'Overspeed',            group: 'Speed',     opts: ['speed'] },
+  { value: 'overspeed_summary',  label: 'Overspeed Summary',    group: 'Speed',     opts: ['speed'] },
+  { value: 'underspeed',         label: 'Underspeed',           group: 'Speed',     opts: ['minSpeed'] },
+  { value: 'alert_history',      label: 'Alert History',        group: 'Events' },
+  { value: 'driver_behavior',    label: 'Driver Behavior',      group: 'Events' },
+  { value: 'geofence_activity',  label: 'Geofence Activity',    group: 'Geofence',  opts: ['geofence'] },
 ];
 
-const PERIODS: { label: string; getDates: () => { from: string; to: string } }[] = [
-  { label: 'Today',         getDates: () => { const d = new Date(); return { from: toDate(d) + 'T00:00', to: toDate(d) + 'T23:59' }; } },
-  { label: 'Yesterday',     getDates: () => { const d = new Date(); d.setDate(d.getDate()-1); return { from: toDate(d) + 'T00:00', to: toDate(d) + 'T23:59' }; } },
-  { label: 'This Week',     getDates: () => { const d = new Date(), day = d.getDay(); const s = new Date(d); s.setDate(d.getDate()-day); return { from: toDate(s)+'T00:00', to: toDate(d)+'T23:59' }; } },
-  { label: 'Last Week',     getDates: () => { const d = new Date(), day = d.getDay(); const e = new Date(d); e.setDate(d.getDate()-day-1); const s = new Date(e); s.setDate(e.getDate()-6); return { from: toDate(s)+'T00:00', to: toDate(e)+'T23:59' }; } },
-  { label: 'This Month',    getDates: () => { const d = new Date(); return { from: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01T00:00`, to: toDate(d)+'T23:59' }; } },
-  { label: 'Last Month',    getDates: () => { const d = new Date(); d.setDate(0); const s = new Date(d.getFullYear(), d.getMonth(), 1); return { from: toDate(s)+'T00:00', to: toDate(d)+'T23:59' }; } },
-  { label: 'Custom', getDates: () => { const d = new Date(); return { from: toDate(d)+'T00:00', to: toDate(d)+'T23:59' }; } },
-];
+const REPORT_TYPE_LABEL: Record<string, string> = Object.fromEntries(REPORT_TYPES.map(r => [r.value, r.label]));
 
 function toDate(d: Date) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
+const PERIODS = [
+  { label: 'Today',      get: () => { const d=new Date(); return {f:toDate(d)+'T00:00',t:toDate(d)+'T23:59'}; } },
+  { label: 'Yesterday',  get: () => { const d=new Date(); d.setDate(d.getDate()-1); return {f:toDate(d)+'T00:00',t:toDate(d)+'T23:59'}; } },
+  { label: 'This Week',  get: () => { const d=new Date(),day=d.getDay(),s=new Date(d); s.setDate(d.getDate()-day); return {f:toDate(s)+'T00:00',t:toDate(d)+'T23:59'}; } },
+  { label: 'Last Week',  get: () => { const d=new Date(),day=d.getDay(),e=new Date(d); e.setDate(d.getDate()-day-1); const s=new Date(e); s.setDate(e.getDate()-6); return {f:toDate(s)+'T00:00',t:toDate(e)+'T23:59'}; } },
+  { label: 'This Month', get: () => { const d=new Date(); return {f:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01T00:00`,t:toDate(d)+'T23:59'}; } },
+  { label: 'Last Month', get: () => { const d=new Date(); d.setDate(0); const s=new Date(d.getFullYear(),d.getMonth(),1); return {f:toDate(s)+'T00:00',t:toDate(d)+'T23:59'}; } },
+];
+
 // ── Styles ────────────────────────────────────────────────────────────────────
-const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
-const inp: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none' };
-const btn = (variant: 'primary' | 'outline' | 'ghost'): React.CSSProperties => ({
-  height: 30, padding: '0 14px', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
-  ...(variant === 'primary'  ? { background: '#dc2626', color: '#fff', border: '1px solid #dc2626' } : {}),
-  ...(variant === 'outline'  ? { background: 'transparent', color: 'var(--text)', border: '1px solid var(--input-border)' } : {}),
-  ...(variant === 'ghost'    ? { background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--input-border)' } : {}),
+const inp: React.CSSProperties = { height:30, padding:'0 8px', border:'1px solid var(--input-border)', borderRadius:3, fontSize:12, color:'var(--input-color)', background:'var(--input-bg)', outline:'none', width:'100%' };
+const sel: React.CSSProperties = { ...inp, cursor:'pointer' };
+const lbl: React.CSSProperties = { fontSize:11, fontWeight:600, color:'var(--text-muted)', marginBottom:4, display:'block' };
+const field = (w?: number): React.CSSProperties => ({ display:'flex', flexDirection:'column', minWidth: w ?? 140 });
+const btnS = (variant:'primary'|'outline'|'ghost'|'danger'): React.CSSProperties => ({
+  height:30, padding:'0 14px', borderRadius:3, fontSize:12, fontWeight:500, cursor:'pointer',
+  display:'flex', alignItems:'center', gap:5, whiteSpace:'nowrap',
+  ...(variant==='primary' ? {background:'#dc2626',color:'#fff',border:'1px solid #dc2626'} : {}),
+  ...(variant==='outline' ? {background:'transparent',color:'var(--text)',border:'1px solid var(--input-border)'} : {}),
+  ...(variant==='ghost'   ? {background:'transparent',color:'var(--text-muted)',border:'1px solid var(--input-border)'} : {}),
+  ...(variant==='danger'  ? {background:'transparent',color:'#dc2626',border:'1px solid #dc2626'} : {}),
 });
+
+// ── Save Modal ────────────────────────────────────────────────────────────────
+function SaveModal({ onSave, onClose }: { onSave:(title:string)=>void; onClose:()=>void }) {
+  const [title, setTitle] = useState('');
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{background:'var(--card-bg)',borderRadius:6,padding:24,width:360,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
+        <div style={{fontSize:14,fontWeight:600,marginBottom:16}}>Save Report</div>
+        <label style={lbl}>Report Title</label>
+        <input ref={ref} style={{...inp,marginBottom:20}} placeholder="e.g. Monthly Travel — Fleet A" value={title} onChange={e=>setTitle(e.target.value)}
+          onKeyDown={e=>{if(e.key==='Enter'&&title.trim()) onSave(title.trim()); if(e.key==='Escape') onClose();}} />
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+          <button style={btnS('outline')} onClick={onClose}>Cancel</button>
+          <button style={btnS('primary')} disabled={!title.trim()} onClick={()=>onSave(title.trim())}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const [vehicles, setVehicles]     = useState<VehicleOption[]>([]);
+  const [vehicles,      setVehicles]      = useState<VehicleOption[]>([]);
   const [vehicleGroups, setVehicleGroups] = useState<VehicleGroup[]>([]);
-  const [geofences, setGeofences]   = useState<{ id: string; name: string }[]>([]);
-  const [selectedVehs, setSelectedVehs] = useState<string[]>([]);
-  const [selectedGFs, setSelectedGFs]   = useState<string[]>([]);
-  const [reportType, setReportType] = useState<ReportType>('travel_summary');
-  const [period, setPeriod]         = useState('Today');
-  const [fromDt, setFromDt]         = useState(() => { const d = new Date(); return `${toDate(d)}T00:00`; });
-  const [toDt, setToDt]             = useState(() => { const d = new Date(); return `${toDate(d)}T23:59`; });
-  const [speedLimit, setSpeedLimit] = useState(80);
+  const [geofences,     setGeofences]     = useState<{id:string;name:string}[]>([]);
+  const [selectedVehs,  setSelectedVehs]  = useState<string[]>([]);
+  const [selectedGFs,   setSelectedGFs]   = useState<string[]>([]);
+
+  const [reportType,  setReportType]  = useState<ReportType>('travel_summary');
+  const [fromDt,      setFromDt]      = useState(() => toDate(new Date())+'T00:00');
+  const [toDt,        setToDt]        = useState(() => toDate(new Date())+'T23:59');
+  const [speedLimit,  setSpeedLimit]  = useState(80);
   const [minSpeedKmh, setMinSpeedKmh] = useState(20);
-  const [minStopMin, setMinStopMin] = useState(1);
+  const [minStopMin,  setMinStopMin]  = useState(1);
+  const [activePeriod,setActivePeriod]= useState('Today');
 
-  const [result, setResult]   = useState<ReportResult | null>(null);
+  const [result,  setResult]  = useState<ReportResult|null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
-  const [q, setQ]             = useState('');
-  const printRef = useRef<HTMLDivElement>(null);
+  const [error,   setError]   = useState('');
+  const [q,       setQ]       = useState('');
 
-  const currentTypeDef = REPORT_TYPES.find(r => r.value === reportType)!;
-  const opts = currentTypeDef.opts ?? [];
+  const [saved,        setSaved]        = useState<SavedReport[]>([]);
+  const [showSaveModal,setShowSaveModal]= useState(false);
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [deleteId,     setDeleteId]     = useState<string|null>(null);
+
+  const opts = REPORT_TYPES.find(r=>r.value===reportType)?.opts ?? [];
 
   useEffect(() => {
-    api.get<{ id: string; name: string; licensePlate?: string }[]>('/vehicles').then(r => setVehicles(r.data.map(v => ({ id: v.id, name: v.name, licensePlate: v.licensePlate ?? null })))).catch(() => {});
-    api.get<VehicleGroup[]>('/vehicle-groups').then(r => setVehicleGroups(r.data)).catch(() => {});
-    api.get<{ id: string; name: string }[]>('/geofences').then(r => setGeofences(r.data)).catch(() => {});
+    api.get<{id:string;name:string;licensePlate?:string}[]>('/vehicles').then(r=>setVehicles(r.data.map(v=>({id:v.id,name:v.name,licensePlate:v.licensePlate??null})))).catch(()=>{});
+    api.get<VehicleGroup[]>('/vehicle-groups').then(r=>setVehicleGroups(r.data)).catch(()=>{});
+    api.get<{id:string;name:string}[]>('/geofences').then(r=>setGeofences(r.data)).catch(()=>{});
+    loadSaved();
   }, []);
 
-  const applyPeriod = (lbl: string) => {
-    setPeriod(lbl);
-    const p = PERIODS.find(p => p.label === lbl);
-    if (p && lbl !== 'Custom') { const d = p.getDates(); setFromDt(d.from); setToDt(d.to); }
+  const loadSaved = () => {
+    setSavedLoading(true);
+    api.get<SavedReport[]>('/reports/saved').then(r=>setSaved(r.data)).catch(()=>{}).finally(()=>setSavedLoading(false));
   };
+
+  const applyPeriod = (p: typeof PERIODS[0]) => {
+    const d = p.get(); setFromDt(d.f); setToDt(d.t); setActivePeriod(p.label);
+  };
+
+  const buildParams = () => ({
+    type: reportType, vehicleIds: selectedVehs.join(','),
+    from: new Date(fromDt).toISOString(), to: new Date(toDt).toISOString(),
+    speedLimit: String(speedLimit), minSpeedKmh: String(minSpeedKmh), minStopMin: String(minStopMin),
+    ...(selectedGFs.length ? {geofenceIds: selectedGFs.join(',')} : {}),
+  });
 
   const generate = async () => {
     if (!selectedVehs.length) { setError('Kam az kam ek vehicle select karo'); return; }
     setError(''); setLoading(true); setResult(null);
     try {
-      const params = new URLSearchParams({
-        type: reportType,
-        vehicleIds: selectedVehs.join(','),
-        from: new Date(fromDt).toISOString(),
-        to: new Date(toDt).toISOString(),
-        speedLimit: String(speedLimit),
-        minSpeedKmh: String(minSpeedKmh),
-        minStopMin: String(minStopMin),
-        ...(selectedGFs.length ? { geofenceIds: selectedGFs.join(',') } : {}),
-      });
-      const r = await api.get<ReportResult>(`/reports?${params}`);
+      const r = await api.get<ReportResult>(`/reports?${new URLSearchParams(buildParams())}`);
       setResult(r.data);
-    } catch (e: any) {
-      setError(e?.response?.data?.message ?? 'Report generate nahi hua');
-    } finally { setLoading(false); }
+    } catch(e:any) { setError(e?.response?.data?.message ?? 'Report generate nahi hua'); }
+    finally { setLoading(false); }
+  };
+
+  const handleSave = async (title: string) => {
+    setShowSaveModal(false);
+    try {
+      await api.post('/reports/saved', {
+        title, type: reportType,
+        params: { vehicleIds: selectedVehs, from: fromDt, to: toDt, speedLimit, minSpeedKmh, minStopMin, geofenceIds: selectedGFs },
+      });
+      loadSaved();
+    } catch {}
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeleteId(null);
+    try { await api.delete(`/reports/saved/${id}`); loadSaved(); } catch {}
+  };
+
+  const loadSavedReport = (sr: SavedReport) => {
+    const p = sr.params as any;
+    setReportType(sr.type as ReportType);
+    if (p.vehicleIds) setSelectedVehs(Array.isArray(p.vehicleIds) ? p.vehicleIds : p.vehicleIds.split(',').filter(Boolean));
+    if (p.from) setFromDt(p.from);
+    if (p.to)   setToDt(p.to);
+    if (p.speedLimit)  setSpeedLimit(+p.speedLimit);
+    if (p.minSpeedKmh) setMinSpeedKmh(+p.minSpeedKmh);
+    if (p.minStopMin)  setMinStopMin(+p.minStopMin);
+    if (p.geofenceIds) setSelectedGFs(Array.isArray(p.geofenceIds) ? p.geofenceIds : p.geofenceIds.split(',').filter(Boolean));
+    setActivePeriod('');
+    setResult(null);
+    window.scrollTo({top:0,behavior:'smooth'});
   };
 
   const exportCsv = async () => {
     if (!result) return;
-    const params = new URLSearchParams({
-      type: reportType, vehicleIds: selectedVehs.join(','),
-      from: new Date(fromDt).toISOString(), to: new Date(toDt).toISOString(),
-      speedLimit: String(speedLimit), minSpeedKmh: String(minSpeedKmh), minStopMin: String(minStopMin),
-      ...(selectedGFs.length ? { geofenceIds: selectedGFs.join(',') } : {}),
-    });
-    const r = await api.get(`/reports/export?${params}`, { responseType: 'blob' });
+    const r = await api.get(`/reports/export?${new URLSearchParams(buildParams())}`, {responseType:'blob'});
     const url = URL.createObjectURL(r.data as Blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = `report-${reportType}-${toDate(new Date())}.csv`; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement('a'); a.href=url; a.download=`report-${reportType}-${toDate(new Date())}.csv`; a.click(); URL.revokeObjectURL(url);
   };
 
   const exportExcel = () => {
     if (!result) return;
-    const ws = XLSX.utils.aoa_to_sheet([result.columns, ...result.rows, ...(result.summary ? [result.summary] : [])]);
-    // Style header row
-    const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
-    ws['!cols'] = result.columns.map(() => ({ wch: 20 }));
+    const ws = XLSX.utils.aoa_to_sheet([result.columns, ...result.rows, ...(result.summary?[result.summary]:[])]);
+    ws['!cols'] = result.columns.map(()=>({wch:20}));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, currentTypeDef.label.slice(0, 31));
+    XLSX.utils.book_append_sheet(wb, ws, (REPORT_TYPE_LABEL[reportType]??reportType).slice(0,31));
     XLSX.writeFile(wb, `report-${reportType}-${toDate(new Date())}.xlsx`);
   };
 
-  const printReport = () => { window.print(); };
+  const displayRows = q ? result?.rows.filter(row=>row.some(c=>String(c??'').toLowerCase().includes(q.toLowerCase()))) : result?.rows;
 
-  // Filter rows by search
-  const displayRows = q
-    ? result?.rows.filter(row => row.some(cell => String(cell ?? '').toLowerCase().includes(q.toLowerCase())))
-    : result?.rows;
+  const fmtDate = (iso: string) => { const d=new Date(iso); return `${String(d.getDate()).padStart(2,'0')}-${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}-${d.getFullYear()}`; };
 
   return (
-    <div style={{ padding: '0 0 60px' }} id="reports-page">
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          #reports-print-area, #reports-print-area * { visibility: visible !important; }
-          #reports-print-area { position: fixed; top: 0; left: 0; width: 100%; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
+    <div style={{padding:'0 0 60px'}} id="reports-page">
+      <style>{`@media print{body *{visibility:hidden!important}#rpt-print,#rpt-print *{visibility:visible!important}#rpt-print{position:fixed;top:0;left:0;width:100%}.no-print{display:none!important}}`}</style>
 
-      <PageHeader
-        title="Reports"
-        action={
-          <div className="no-print" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {result && <>
-              <button style={btn('ghost')} onClick={exportCsv}><IconFileTypeCsv size={14} /> CSV</button>
-              <button style={btn('ghost')} onClick={exportExcel}><IconFileSpreadsheet size={14} /> Excel</button>
-              <button style={btn('ghost')} onClick={printReport}><IconPrinter size={14} /> Print / PDF</button>
-            </>}
-            <button style={btn('primary')} onClick={generate} disabled={loading}>
+      <PageHeader title="Reports" />
+
+      {/* ── Config Panel ─────────────────────────────────────────────────── */}
+      <div className="no-print" style={{padding:'0 20px 20px',borderBottom:'1px solid var(--border)'}}>
+
+        {/* Row 1: Type + Vehicles + Period shortcuts */}
+        <div style={{display:'flex',flexWrap:'wrap',gap:12,alignItems:'flex-end',marginBottom:12}}>
+
+          <div style={field(200)}>
+            <span style={lbl}>Report Type</span>
+            <select style={sel} value={reportType} onChange={e=>{setReportType(e.target.value as ReportType);setResult(null);}}>
+              {['Travel','Activity','Speed','Events','Geofence'].map(g=>(
+                <optgroup key={g} label={g}>
+                  {REPORT_TYPES.filter(r=>r.group===g).map(r=><option key={r.value} value={r.value}>{r.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          <div style={field(220)}>
+            <span style={lbl}>Vehicles</span>
+            <VehicleMultiSelect vehicles={vehicles} groups={vehicleGroups} selected={selectedVehs} onChange={setSelectedVehs} />
+          </div>
+
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            <span style={lbl}>Quick Period</span>
+            <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+              {PERIODS.map(p=>(
+                <button key={p.label} style={{
+                  height:30, padding:'0 10px', borderRadius:3, fontSize:11, cursor:'pointer', fontWeight:500,
+                  border: activePeriod===p.label ? '1px solid #dc2626' : '1px solid var(--input-border)',
+                  background: activePeriod===p.label ? '#dc262610' : 'transparent',
+                  color: activePeriod===p.label ? '#dc2626' : 'var(--text)',
+                }} onClick={()=>applyPeriod(p)}>{p.label}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Date + Options + Generate */}
+        <div style={{display:'flex',flexWrap:'wrap',gap:12,alignItems:'flex-end'}}>
+
+          <div style={field(170)}>
+            <span style={lbl}>From</span>
+            <input type="datetime-local" style={inp} value={fromDt} onChange={e=>{setFromDt(e.target.value);setActivePeriod('');}} />
+          </div>
+
+          <div style={field(170)}>
+            <span style={lbl}>To</span>
+            <input type="datetime-local" style={inp} value={toDt} onChange={e=>{setToDt(e.target.value);setActivePeriod('');}} />
+          </div>
+
+          {opts.includes('speed') && (
+            <div style={field(90)}>
+              <span style={lbl}>Speed Limit</span>
+              <input type="number" min={1} max={300} style={inp} value={speedLimit} onChange={e=>setSpeedLimit(+e.target.value)} />
+            </div>
+          )}
+          {opts.includes('minStop') && (
+            <div style={field(80)}>
+              <span style={lbl}>Min Stop (min)</span>
+              <input type="number" min={1} max={120} style={inp} value={minStopMin} onChange={e=>setMinStopMin(+e.target.value)} />
+            </div>
+          )}
+          {opts.includes('minSpeed') && (
+            <div style={field(90)}>
+              <span style={lbl}>Min Speed</span>
+              <input type="number" min={1} max={200} style={inp} value={minSpeedKmh} onChange={e=>setMinSpeedKmh(+e.target.value)} />
+            </div>
+          )}
+          {opts.includes('geofence') && (
+            <div style={field(180)}>
+              <span style={lbl}>Geofence</span>
+              <select style={sel} value={selectedGFs[0]??''} onChange={e=>setSelectedGFs(e.target.value?[e.target.value]:[])}>
+                <option value="">All Geofences</option>
+                {geofences.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div style={{marginTop:'auto'}}>
+            <button style={btnS('primary')} onClick={generate} disabled={loading}>
               {loading ? 'Generating...' : 'Generate Report'}
             </button>
           </div>
-        }
-      />
-
-      {/* Config Row */}
-      <div className="no-print" style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '0 20px 16px', alignItems: 'flex-end' }}>
-        {/* Report Type */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Report Type</span>
-          <select style={{ ...sel, minWidth: 200 }} value={reportType} onChange={e => { setReportType(e.target.value as ReportType); setResult(null); }}>
-            {['Travel', 'Activity', 'Speed', 'Events', 'Geofence'].map(group => (
-              <optgroup key={group} label={group}>
-                {REPORT_TYPES.filter(r => r.group === group).map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </optgroup>
-            ))}
-          </select>
         </div>
 
-        {/* Vehicles */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Vehicles</span>
-          <VehicleMultiSelect vehicles={vehicles} groups={vehicleGroups} selected={selectedVehs} onChange={setSelectedVehs} />
-        </div>
-
-        {/* Period */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Period</span>
-          <select style={sel} value={period} onChange={e => applyPeriod(e.target.value)}>
-            {PERIODS.map(p => <option key={p.label}>{p.label}</option>)}
-          </select>
-        </div>
-
-        {/* Date From */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Date From</span>
-          <input type="datetime-local" style={inp} value={fromDt} onChange={e => { setFromDt(e.target.value); setPeriod('Custom'); }} />
-        </div>
-
-        {/* Date To */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Date To</span>
-          <input type="datetime-local" style={inp} value={toDt} onChange={e => { setToDt(e.target.value); setPeriod('Custom'); }} />
-        </div>
-
-        {/* Conditional Options */}
-        {opts.includes('speed') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Speed Limit (km/h)</span>
-            <input type="number" min={1} max={300} style={{ ...inp, width: 80 }} value={speedLimit} onChange={e => setSpeedLimit(+e.target.value)} />
-          </div>
-        )}
-        {opts.includes('minStop') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Min Stop (min)</span>
-            <input type="number" min={1} max={120} style={{ ...inp, width: 72 }} value={minStopMin} onChange={e => setMinStopMin(+e.target.value)} />
-          </div>
-        )}
-        {opts.includes('minSpeed') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Min Speed (km/h)</span>
-            <input type="number" min={1} max={200} style={{ ...inp, width: 90 }} value={minSpeedKmh} onChange={e => setMinSpeedKmh(+e.target.value)} />
-          </div>
-        )}
-        {opts.includes('geofence') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Geofences</span>
-            <select style={{ ...sel, minWidth: 160 }} value={selectedGFs[0] ?? ''} onChange={e => setSelectedGFs(e.target.value ? [e.target.value] : [])}>
-              <option value="">All Geofences</option>
-              {geofences.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          </div>
-        )}
+        {error && <div style={{marginTop:10,padding:'7px 12px',background:'#fee2e2',color:'#dc2626',borderRadius:4,fontSize:12}}>{error}</div>}
       </div>
 
-      {/* Error */}
-      {error && <div className="no-print" style={{ margin: '0 20px 12px', padding: '8px 12px', background: '#fee2e2', color: '#dc2626', borderRadius: 4, fontSize: 12 }}>{error}</div>}
+      {/* ── Result ──────────────────────────────────────────────────────── */}
+      {loading && <div style={{display:'flex',justifyContent:'center',padding:60}}><Spinner /></div>}
 
-      {/* Loading */}
-      {loading && <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner /></div>}
-
-      {/* Empty State */}
-      {!loading && !result && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-          <div style={{ fontSize: 13 }}>Select vehicles and date range, then click <strong>Generate Report</strong></div>
+      {!loading && !result && !error && (
+        <div style={{textAlign:'center',padding:'50px 20px',color:'var(--text-muted)',fontSize:13}}>
+          Select vehicles and date range, then click <strong>Generate Report</strong>
         </div>
       )}
 
-      {/* Result */}
       {!loading && result && (
-        <div id="reports-print-area" ref={printRef}>
-          {/* Print Header */}
-          <div style={{ padding: '0 20px 10px' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-              {currentTypeDef.label}
+        <div id="rpt-print">
+          {/* Result header */}
+          <div style={{padding:'14px 20px 10px',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:600}}>{REPORT_TYPE_LABEL[result.type]}</div>
+              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
+                {result.from} — {result.to} &nbsp;·&nbsp; {result.vehicleCount} vehicle{result.vehicleCount!==1?'s':''} &nbsp;·&nbsp; {result.rowCount} rows
+              </div>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-              {result.from} — {result.to} &nbsp;·&nbsp; {result.vehicleCount} vehicle{result.vehicleCount !== 1 ? 's' : ''} &nbsp;·&nbsp; {result.rowCount} rows &nbsp;·&nbsp; Generated: {result.generatedAt}
+            <div className="no-print" style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <button style={btnS('ghost')} onClick={exportCsv}><IconFileTypeCsv size={14}/>CSV</button>
+              <button style={btnS('ghost')} onClick={exportExcel}><IconFileSpreadsheet size={14}/>Excel</button>
+              <button style={btnS('ghost')} onClick={()=>window.print()}><IconPrinter size={14}/>Print</button>
+              <button style={btnS('outline')} onClick={()=>setShowSaveModal(true)}><IconBookmark size={14}/>Save Report</button>
             </div>
           </div>
 
           {/* Search */}
-          <div className="no-print" style={{ padding: '0 20px 10px' }}>
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <IconSearch size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-              <input style={{ ...inp, paddingLeft: 28, width: 220 }} placeholder="Search results..." value={q} onChange={e => setQ(e.target.value)} />
+          <div className="no-print" style={{padding:'0 20px 10px',display:'flex',alignItems:'center',gap:8}}>
+            <div style={{position:'relative',width:220}}>
+              <IconSearch size={13} style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',color:'var(--text-muted)',pointerEvents:'none'}}/>
+              <input style={{...inp,paddingLeft:28}} placeholder="Search results..." value={q} onChange={e=>setQ(e.target.value)}/>
             </div>
           </div>
 
           {/* Table */}
-          <div style={{ overflowX: 'auto', padding: '0 20px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <div style={{overflowX:'auto',padding:'0 20px'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
               <thead>
-                <tr style={{ background: 'var(--table-head-bg, var(--bg2))', borderBottom: '2px solid var(--table-border)' }}>
-                  {result.columns.map(col => (
-                    <th key={col} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{col}</th>
-                  ))}
+                <tr style={{background:'var(--bg2)',borderBottom:'2px solid var(--border)'}}>
+                  {result.columns.map(c=><th key={c} style={{padding:'7px 10px',textAlign:'left',fontWeight:600,fontSize:11,color:'var(--text-muted)',whiteSpace:'nowrap'}}>{c}</th>)}
                 </tr>
               </thead>
               <tbody>
-                {(displayRows ?? []).length === 0 ? (
-                  <tr><td colSpan={result.columns.length} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No data in selected range</td></tr>
-                ) : (displayRows ?? []).map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--table-border)', background: i % 2 === 0 ? 'transparent' : 'var(--table-alt-bg, transparent)' }}>
-                    {row.map((cell, j) => (
-                      <td key={j} style={{ padding: '6px 10px', color: 'var(--text)', whiteSpace: 'nowrap' }}>
-                        {cell === null || cell === '' ? <span style={{ color: 'var(--text-muted)' }}>—</span> : cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
+                {!(displayRows??[]).length
+                  ? <tr><td colSpan={result.columns.length} style={{padding:40,textAlign:'center',color:'var(--text-muted)'}}>No data</td></tr>
+                  : (displayRows??[]).map((row,i)=>(
+                    <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2?'var(--bg2)':'transparent'}}>
+                      {row.map((cell,j)=><td key={j} style={{padding:'6px 10px',whiteSpace:'nowrap',color:'var(--text)'}}>{cell===null||cell===''?<span style={{color:'var(--text-muted)'}}>—</span>:cell}</td>)}
+                    </tr>
+                  ))
+                }
               </tbody>
               {result.summary && (
                 <tfoot>
-                  <tr style={{ borderTop: '2px solid var(--table-border)', background: 'var(--bg2)' }}>
-                    {result.summary.map((cell, j) => (
-                      <td key={j} style={{ padding: '7px 10px', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>
-                        {cell === null || cell === '' ? '' : cell}
-                      </td>
-                    ))}
+                  <tr style={{borderTop:'2px solid var(--border)',background:'var(--bg2)'}}>
+                    {result.summary.map((c,j)=><td key={j} style={{padding:'7px 10px',fontWeight:600,fontSize:11,whiteSpace:'nowrap'}}>{c===null||c===''?'':c}</td>)}
                   </tr>
                 </tfoot>
               )}
             </table>
           </div>
-
-          {result.rowCount > 1000 && (
-            <div style={{ padding: '10px 20px', fontSize: 11, color: 'var(--text-muted)' }}>
-              {result.rowCount.toLocaleString()} rows total — export to Excel/CSV for full data
-            </div>
-          )}
         </div>
       )}
+
+      {/* ── Saved Reports ────────────────────────────────────────────────── */}
+      <div className="no-print" style={{margin:'28px 20px 0',borderTop:'1px solid var(--border)',paddingTop:20}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:600}}>Saved Reports</div>
+          <button style={btnS('ghost')} onClick={loadSaved}><IconRefresh size={13}/>Refresh</button>
+        </div>
+
+        {savedLoading && <div style={{padding:'20px 0',textAlign:'center'}}><Spinner /></div>}
+
+        {!savedLoading && saved.length === 0 && (
+          <div style={{padding:'20px 0',textAlign:'center',color:'var(--text-muted)',fontSize:12}}>
+            No saved reports yet — generate a report and click <strong>Save Report</strong>
+          </div>
+        )}
+
+        {!savedLoading && saved.length > 0 && (
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+            <thead>
+              <tr style={{background:'var(--bg2)',borderBottom:'2px solid var(--border)'}}>
+                <th style={{padding:'7px 10px',textAlign:'left',fontWeight:600,fontSize:11,color:'var(--text-muted)'}}>Title</th>
+                <th style={{padding:'7px 10px',textAlign:'left',fontWeight:600,fontSize:11,color:'var(--text-muted)'}}>Report Type</th>
+                <th style={{padding:'7px 10px',textAlign:'left',fontWeight:600,fontSize:11,color:'var(--text-muted)'}}>Date Range</th>
+                <th style={{padding:'7px 10px',textAlign:'left',fontWeight:600,fontSize:11,color:'var(--text-muted)'}}>Saved By</th>
+                <th style={{padding:'7px 10px',textAlign:'left',fontWeight:600,fontSize:11,color:'var(--text-muted)'}}>Saved On</th>
+                <th style={{padding:'7px 10px',textAlign:'center',fontWeight:600,fontSize:11,color:'var(--text-muted)'}}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {saved.map((sr,i)=>{
+                const p = sr.params as any;
+                const fromStr = p.from ? fmtDate(p.from.includes('T') ? p.from : p.from+'T00:00') : '—';
+                const toStr   = p.to   ? fmtDate(p.to.includes('T')   ? p.to   : p.to+'T23:59')   : '—';
+                return (
+                  <tr key={sr.id} style={{borderBottom:'1px solid var(--border)',background:i%2?'var(--bg2)':'transparent'}}>
+                    <td style={{padding:'7px 10px',fontWeight:500,color:'var(--text)'}}>{sr.title}</td>
+                    <td style={{padding:'7px 10px',color:'var(--text)'}}>{REPORT_TYPE_LABEL[sr.type]??sr.type}</td>
+                    <td style={{padding:'7px 10px',color:'var(--text)',whiteSpace:'nowrap'}}>{fromStr} — {toStr}</td>
+                    <td style={{padding:'7px 10px',color:'var(--text-muted)'}}>{sr.userName??'—'}</td>
+                    <td style={{padding:'7px 10px',color:'var(--text-muted)',whiteSpace:'nowrap'}}>{fmtDate(sr.createdAt)}</td>
+                    <td style={{padding:'7px 10px',textAlign:'center'}}>
+                      <div style={{display:'flex',gap:6,justifyContent:'center'}}>
+                        <button title="Load & Generate" style={{...btnS('outline'),padding:'0 10px',fontSize:11}} onClick={()=>loadSavedReport(sr)}>Load</button>
+                        {deleteId===sr.id ? (
+                          <>
+                            <button style={{...btnS('danger'),padding:'0 10px',fontSize:11}} onClick={()=>handleDelete(sr.id)}>Confirm</button>
+                            <button style={{...btnS('ghost'),padding:'0 10px',fontSize:11}} onClick={()=>setDeleteId(null)}>Cancel</button>
+                          </>
+                        ) : (
+                          <button title="Delete" style={{...btnS('ghost'),padding:'0 8px'}} onClick={()=>setDeleteId(sr.id)}><IconTrash size={13}/></button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showSaveModal && <SaveModal onSave={handleSave} onClose={()=>setShowSaveModal(false)} />}
+
+      {/* Delete confirm is inline in row */}
     </div>
   );
 }

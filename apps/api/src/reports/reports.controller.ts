@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ReportsService, ReportType } from './reports.service.js';
@@ -70,5 +70,27 @@ export class ReportsController {
     res!.setHeader('Content-Type', 'text/csv');
     res!.setHeader('Content-Disposition', `attachment; filename="report-${type}-${Date.now()}.csv"`);
     res!.send(csv);
+  }
+
+  @Get('saved')
+  listSaved(@CurrentUser() user: User) {
+    const orgId = INTERNAL_ROLES.includes(user.role) ? null : (user.organizationId ?? null);
+    return this.svc.listSaved(user.id, orgId);
+  }
+
+  @Post('saved')
+  saveReport(
+    @CurrentUser() user: User,
+    @Body() body: { title: string; type: string; params: Record<string, unknown> },
+  ) {
+    const orgId    = INTERNAL_ROLES.includes(user.role) ? null : (user.organizationId ?? null);
+    const userName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
+    return this.svc.saveReport(body, user.id, userName, orgId);
+  }
+
+  @Delete('saved/:id')
+  deleteSaved(@CurrentUser() user: User, @Param('id') id: string) {
+    const orgId = INTERNAL_ROLES.includes(user.role) ? null : (user.organizationId ?? null);
+    return this.svc.deleteSaved(id, user.id, orgId);
   }
 }

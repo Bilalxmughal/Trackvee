@@ -1,6 +1,7 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { SavedReport } from './entities/saved-report.entity.js';
 import { Telemetry } from '../telemetry/entities/telemetry.entity.js';
 import { Device } from '../devices/entities/device.entity.js';
 import { Vehicle } from '../vehicles/entities/vehicle.entity.js';
@@ -137,14 +138,33 @@ function inGeofence(pt: Telemetry, gf: Geofence): boolean {
 @Injectable()
 export class ReportsService {
   constructor(
-    @InjectRepository(Telemetry)  private teleRepo: Repository<Telemetry>,
-    @InjectRepository(Device)     private devRepo:  Repository<Device>,
-    @InjectRepository(Vehicle)    private vehRepo:  Repository<Vehicle>,
-    @InjectRepository(AlertLog)   private alRepo:   Repository<AlertLog>,
-    @InjectRepository(Alert)      private alertRepo: Repository<Alert>,
-    @InjectRepository(DriverEvent) private deRepo:  Repository<DriverEvent>,
-    @InjectRepository(Geofence)   private gfRepo:   Repository<Geofence>,
+    @InjectRepository(Telemetry)   private teleRepo:  Repository<Telemetry>,
+    @InjectRepository(Device)      private devRepo:   Repository<Device>,
+    @InjectRepository(Vehicle)     private vehRepo:   Repository<Vehicle>,
+    @InjectRepository(AlertLog)    private alRepo:    Repository<AlertLog>,
+    @InjectRepository(Alert)       private alertRepo: Repository<Alert>,
+    @InjectRepository(DriverEvent) private deRepo:    Repository<DriverEvent>,
+    @InjectRepository(Geofence)    private gfRepo:    Repository<Geofence>,
+    @InjectRepository(SavedReport) private savedRepo: Repository<SavedReport>,
   ) {}
+
+  // ── Saved Reports ────────────────────────────────────────────────────────────
+
+  async listSaved(userId: string, orgId: string | null): Promise<SavedReport[]> {
+    if (orgId) return this.savedRepo.find({ where: { orgId }, order: { createdAt: 'DESC' } });
+    return this.savedRepo.find({ where: { userId }, order: { createdAt: 'DESC' } });
+  }
+
+  async saveReport(dto: { title: string; type: string; params: Record<string, unknown> }, userId: string, userName: string, orgId: string | null): Promise<SavedReport> {
+    return this.savedRepo.save(this.savedRepo.create({ title: dto.title, type: dto.type, params: dto.params, userId, userName, orgId }));
+  }
+
+  async deleteSaved(id: string, userId: string, orgId: string | null): Promise<void> {
+    const r = await this.savedRepo.findOne({ where: { id } });
+    if (!r) throw new NotFoundException();
+    if (orgId ? r.orgId !== orgId : r.userId !== userId) throw new ForbiddenException();
+    await this.savedRepo.remove(r);
+  }
 
   async generate(p: ReportParams): Promise<ReportResult> {
     if (!p.vehicleIds.length) throw new BadRequestException('Select at least one vehicle');
