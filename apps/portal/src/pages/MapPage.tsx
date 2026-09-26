@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
@@ -1129,6 +1129,73 @@ function POIMarkerLayer({ pois, selectedId }: { pois: POI[]; selectedId: string 
   return null;
 }
 
+// ── Draw Layers ───────────────────────────────────────────────────────────────
+
+function GeofenceDrawLayer({ active, onCirclePick }: {
+  active: boolean;
+  onCirclePick: (lat: number, lng: number, radius: number) => void;
+}) {
+  const map = useMap();
+  const previewRef = useRef<L.Circle | null>(null);
+  const [center, setCenter] = useState<[number, number] | null>(null);
+  const [radius, setRadius] = useState(500);
+
+  useEffect(() => {
+    if (!active) {
+      map.getContainer().style.cursor = '';
+      if (previewRef.current) { map.removeLayer(previewRef.current); previewRef.current = null; }
+      setCenter(null);
+      return;
+    }
+    map.getContainer().style.cursor = 'crosshair';
+    return () => { map.getContainer().style.cursor = ''; };
+  }, [active, map]);
+
+  useEffect(() => {
+    if (!active || !center) return;
+    if (previewRef.current) map.removeLayer(previewRef.current);
+    previewRef.current = L.circle(center, { color: '#dc2626', fillColor: '#dc2626', fillOpacity: 0.15, radius, weight: 2, dashArray: '6,4' }).addTo(map);
+    return () => { if (previewRef.current) { map.removeLayer(previewRef.current); previewRef.current = null; } };
+  }, [active, center, radius, map]);
+
+  useMapEvents({
+    click(e) {
+      if (!active) return;
+      const c: [number, number] = [e.latlng.lat, e.latlng.lng];
+      setCenter(c);
+      onCirclePick(c[0], c[1], radius);
+    },
+  });
+
+  if (!active || !center) return null;
+  return (
+    <div style={{ position: 'absolute', bottom: 100, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: '#fff', borderRadius: 8, padding: '6px 12px', boxShadow: '0 2px 8px rgba(0,0,0,.2)', display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'all' }}>
+      <span style={{ fontSize: 11, color: '#555' }}>Radius:</span>
+      <input type="range" min={100} max={50000} step={100} value={radius} onChange={e => { setRadius(+e.target.value); if (center) onCirclePick(center[0], center[1], +e.target.value); }} style={{ width: 100, accentColor: '#dc2626' }} />
+      <span style={{ fontSize: 11, color: '#dc2626', minWidth: 50 }}>{radius >= 1000 ? `${(radius / 1000).toFixed(1)}km` : `${radius}m`}</span>
+    </div>
+  );
+}
+
+function POIDrawLayer({ active, onPick }: {
+  active: boolean;
+  onPick: (lat: number, lng: number) => void;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (!active) { map.getContainer().style.cursor = ''; return; }
+    map.getContainer().style.cursor = 'crosshair';
+    return () => { map.getContainer().style.cursor = ''; };
+  }, [active, map]);
+  useMapEvents({
+    click(e) {
+      if (!active) return;
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PortalMapPage() {
@@ -1177,6 +1244,13 @@ export default function PortalMapPage() {
   const [poisLoading, setPoisLoading] = useState(false);
   const [selectedGfId, setSelectedGfId] = useState<string | null>(null);
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
+
+  // Draw state for geofence/POI
+  const [gfDrawActive, setGfDrawActive] = useState(false);
+  const [gfDrawnCircle, setGfDrawnCircle] = useState<{ lat: number; lng: number; radius: number } | null>(null);
+  const [gfDrawnPolygon, setGfDrawnPolygon] = useState<[number, number][] | null>(null);
+  const [poiDrawActive, setPoiDrawActive] = useState(false);
+  const [poiDrawnPoint, setPoiDrawnPoint] = useState<{ lat: number; lng: number } | null>(null);
 
   const mapRef = useRef<L.Map | null>(null);
 
@@ -1336,6 +1410,12 @@ export default function PortalMapPage() {
         {flyTarget && <FlyTo lat={flyTarget.lat} lng={flyTarget.lng} ts={flyTarget.ts} />}
         {activePanel === 'geofences' && <GeofenceMapLayer geofences={geofences} selectedId={selectedGfId} />}
         {activePanel === 'pois' && <POIMarkerLayer pois={pois} selectedId={selectedPoiId} />}
+        {activePanel === 'geofences' && gfDrawActive && (
+          <GeofenceDrawLayer active={gfDrawActive} onCirclePick={(lat, lng, r) => { setGfDrawnCircle({ lat, lng, radius: r }); }} />
+        )}
+        {activePanel === 'pois' && poiDrawActive && (
+          <POIDrawLayer active={poiDrawActive} onPick={(lat, lng) => { setPoiDrawnPoint({ lat, lng }); setPoiDrawActive(false); }} />
+        )}
       </MapContainer>
 
       {/* Bottom-right controls: zoom → map style → status counts */}
@@ -1382,6 +1462,10 @@ export default function PortalMapPage() {
               }
             }}
             onListChange={setGeofences}
+            drawActive={gfDrawActive}
+            onToggleDraw={() => { setGfDrawActive(a => !a); setGfDrawnCircle(null); setGfDrawnPolygon(null); }}
+            drawnCircle={gfDrawnCircle}
+            drawnPolygon={gfDrawnPolygon}
           />
         ) : activePanel === 'pois' ? (
           <POIsPanel pois={pois} loading={poisLoading} selectedId={selectedPoiId}
@@ -1390,6 +1474,9 @@ export default function PortalMapPage() {
               mapRef.current?.flyTo([poi.latitude, poi.longitude], 16, { animate: true, duration: 0.7 });
             }}
             onListChange={setPois}
+            drawActive={poiDrawActive}
+            onToggleDraw={() => { setPoiDrawActive(a => !a); setPoiDrawnPoint(null); }}
+            drawnPoint={poiDrawnPoint}
           />
         ) : activePanel === 'behavior' ? (
           <DriverBehaviorPanel />
