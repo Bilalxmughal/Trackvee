@@ -129,7 +129,14 @@ function VehicleRow({ v, checked, onToggle }: { v: VehicleSelectItem; checked: b
       onMouseEnter={e => { if (!checked) (e.currentTarget as HTMLElement).style.background = '#f9fafb'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = checked ? 'rgba(220,38,38,0.05)' : 'transparent'; }}
     >
-      <input type="checkbox" checked={checked} onChange={onToggle} style={{ accentColor: '#dc2626', flexShrink: 0, cursor: 'pointer' }} />
+      <input type="checkbox" checked={checked} onChange={onToggle} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
+      <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 3, border: checked ? '1.5px solid #dc2626' : '1.5px solid #d1d5db', background: checked ? '#dc2626' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s, border-color 0.1s' }}>
+        {checked && (
+          <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+            <polyline points="1.5,5 4,7.5 8.5,2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+      </span>
       <span style={{ fontSize: 12, fontWeight: checked ? 600 : 400, color: checked ? '#dc2626' : '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.licensePlate ?? '—'}</span>
     </label>
   );
