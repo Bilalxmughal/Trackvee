@@ -2379,7 +2379,7 @@ export default function MapPage() {
     const qs = selectedClientId ? `?orgId=${selectedClientId}` : '';
     api.get<AlertRecord[]>(`/alerts${qs}`).then(r => {
       const m = new Map<string, AlertRecord[]>();
-      r.data.forEach(alert => alert.vehicleImeis.forEach(imei => {
+      r.data.forEach(alert => (alert.vehicleImeis ?? []).forEach(imei => {
         const arr = m.get(imei) ?? [];
         arr.push(alert);
         m.set(imei, arr);
