@@ -172,7 +172,7 @@ function VehicleDetailModal({ row, onClose }: { row: LeaderboardRow; onClose: ()
     ]).then(([h, e]) => { setScoreHistory(h); setEvents(e); }).finally(() => setLoading(false));
   }, [row.vehicleId]);
 
-  const vehicleLabel = row.vehicleLicensePlate ?? row.vehicleName ?? row.vehicleId.slice(0, 8);
+  const vehicleLabel = row.vehicleLicensePlate ?? ([row.vehicleMake, row.vehicleModel].filter(Boolean).join(' ') || row.vehicleName) ?? row.vehicleId.slice(0, 8);
   const vehicleSub = [row.vehicleMake, row.vehicleModel].filter(Boolean).join(' ');
 
   const tStyle: React.CSSProperties = { padding: '7px 10px', fontSize: 12, borderBottom: '1px solid var(--border)' };
@@ -624,7 +624,7 @@ export default function DriverBehaviorPage() {
                           {row.vehicleLicensePlate ?? <span style={{ color: 'var(--muted)' }}>—</span>}
                         </td>
                         <td style={{ padding: '10px 14px', fontSize: 13 }}>
-                          {row.vehicleName ?? <span style={{ color: 'var(--muted)' }}>—</span>}
+                          {[row.vehicleMake, row.vehicleModel].filter(Boolean).join(' ') || row.vehicleName || <span style={{ color: 'var(--muted)' }}>—</span>}
                         </td>
                         {isAdmin && <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{row.orgName ?? '—'}</td>}
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
