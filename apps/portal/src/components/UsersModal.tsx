@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IconPlus, IconPencil, IconTrash, IconSearch, IconUsers } from '@tabler/icons-react';
+import { IconPlus, IconPencil, IconTrash, IconSearch, IconUsers, IconEye, IconEyeOff } from '@tabler/icons-react';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -104,12 +104,14 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
   const [lastName, setLastName] = useState(initial?.lastName ?? '');
   const [role, setRole] = useState(initial?.role ?? 'client_user');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [perms, setPerms] = useState<OrgPerm>(defaultPerms);
   const [orgVehicles, setOrgVehicles] = useState<Vehicle[]>([]);
   const [permsLoaded, setPermsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
-  const [activeTab, setActiveTab] = useState<'info' | 'perms'>('info');
+  const [activeTab, setActiveTab] = useState<'profile' | 'perms'>('profile');
 
   const isSelf = !!initial?.id && initial.id === currentUserId;
   const isOrgUser = role === 'client_admin';
@@ -159,7 +161,7 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
     if (!email.trim()) { setErr('Email is required'); return; }
     if (!initial?.id && !password.trim()) { setErr('Password is required for new users'); return; }
     setSaving(true); setErr('');
-    const payload: Record<string, unknown> = { email: email.trim(), firstName: firstName.trim() || null, lastName: lastName.trim() || null, role, organizationId };
+    const payload: Record<string, unknown> = { email: email.trim(), firstName: firstName.trim() || null, lastName: lastName.trim() || null, role, organizationId, isActive };
     if (password.trim()) payload.password = password;
     try {
       let u: OrgUser;
@@ -176,7 +178,7 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
     } finally { setSaving(false); }
   };
 
-  const tabs = [{ id: 'info' as const, label: 'Info' }, ...(isOrgUser && canEditPerms ? [{ id: 'perms' as const, label: 'Permissions' }] : [])];
+  const tabs = [{ id: 'profile' as const, label: 'Profile' }, ...(isOrgUser && canEditPerms ? [{ id: 'perms' as const, label: 'Permissions' }] : [])];
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10100, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -202,28 +204,8 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
         )}
 
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', flex: 1 }}>
-          {activeTab === 'info' && (
+          {activeTab === 'profile' && (
             <>
-              <div>
-                <label style={LBL}>Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="user@example.com" style={inpSt}
-                  onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
-                  onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <div>
-                  <label style={LBL}>First Name</label>
-                  <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First" style={inpSt}
-                    onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
-                    onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
-                </div>
-                <div>
-                  <label style={LBL}>Last Name</label>
-                  <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last" style={inpSt}
-                    onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
-                    onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
-                </div>
-              </div>
               <div>
                 <label style={LBL}>Role</label>
                 {isSelf ? (
@@ -240,34 +222,54 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
                   </select>
                 )}
               </div>
-
-              {/* Role access summary for non-admin roles */}
-              {!isOrgUser && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <div>
-                  <label style={LBL}>Portal Access</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    {PORTAL_PAGES.map(pg => {
-                      const actions = PORTAL_ROLE_PERMS[role]?.[pg.key];
-                      const hasAccess = !!actions && actions.length > 0;
-                      const canWrite = actions?.some(a => ['add','edit','delete'].includes(a));
-                      return (
-                        <div key={pg.key} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 5, border: `1px solid ${hasAccess ? '#fca5a5' : '#e5e7eb'}`, background: hasAccess ? '#fff5f5' : '#f9fafb', color: hasAccess ? '#dc2626' : '#ccc', fontSize: 11.5, fontWeight: hasAccess ? 600 : 400 }}>
-                          {hasAccess ? <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg> : <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
-                          {pg.label}
-                          {hasAccess && canWrite && <span style={{ fontSize: 10, opacity: 0.7 }}>+edit</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 5 }}>Access is determined by role.</div>
+                  <label style={LBL}>First Name</label>
+                  <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Ali" style={inpSt}
+                    onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
+                    onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
                 </div>
-              )}
-
+                <div>
+                  <label style={LBL}>Last Name</label>
+                  <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Hassan" style={inpSt}
+                    onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
+                    onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
+                </div>
+              </div>
               <div>
-                <label style={LBL}>{initial?.id ? 'New Password (leave blank to keep)' : 'Password'}</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={initial?.id ? 'Leave blank to keep' : 'Set password'} style={inpSt}
+                <label style={LBL}>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="user@company.com" style={inpSt}
                   onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
                   onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'} />
+              </div>
+              <div>
+                <label style={LBL}>{initial?.id ? 'New Password (leave blank to keep)' : 'Password'}</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder={initial?.id ? 'Leave blank to keep' : '••••••••'}
+                    style={{ ...inpSt, paddingRight: 36 }}
+                    onFocus={ev => ev.currentTarget.style.borderColor = '#dc2626'}
+                    onBlur={ev => ev.currentTarget.style.borderColor = '#e5e7eb'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 0 }}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <IconEyeOff size={15}/> : <IconEye size={15}/>}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label style={LBL}>Status</label>
+                <select value={String(isActive)} onChange={e => setIsActive(e.target.value === 'true')} style={{ ...inpSt, cursor: 'pointer' }}>
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
               </div>
             </>
           )}
