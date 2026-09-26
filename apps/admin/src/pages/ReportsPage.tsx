@@ -232,6 +232,14 @@ export default function ReportsPage() {
             <VehicleMultiSelect vehicles={vehicles} groups={vehicleGroups} selected={selectedVehs} onChange={setSelectedVehs} />
           </div>
 
+          <div style={field(130)}>
+            <span style={lbl}>Period</span>
+            <select style={sel} value={activePeriod} onChange={e=>{const p=PERIODS.find(x=>x.label===e.target.value);if(p)applyPeriod(p);}}>
+              <option value="">Custom</option>
+              {PERIODS.map(p=><option key={p.label} value={p.label}>{p.label}</option>)}
+            </select>
+          </div>
+
           <div style={field(160)}>
             <span style={lbl}>From</span>
             <input type="datetime-local" style={inp} value={fromDt} onChange={e=>{setFromDt(e.target.value);setActivePeriod('');}} />
@@ -277,17 +285,6 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* Period shortcuts row */}
-        <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:10}}>
-          {PERIODS.map(p=>(
-            <button key={p.label} style={{
-              height:26, padding:'0 10px', borderRadius:3, fontSize:11, cursor:'pointer', fontWeight:500,
-              border: activePeriod===p.label ? '1px solid #dc2626' : '1px solid var(--input-border)',
-              background: activePeriod===p.label ? '#dc262610' : 'transparent',
-              color: activePeriod===p.label ? '#dc2626' : 'var(--text)',
-            }} onClick={()=>applyPeriod(p)}>{p.label}</button>
-          ))}
-        </div>
 
         {error && <div style={{marginTop:10,padding:'7px 12px',background:'#fee2e2',color:'#dc2626',borderRadius:4,fontSize:12}}>{error}</div>}
       </div>
