@@ -13,6 +13,17 @@ const REPORT_TYPES: { key: ReportType; label: string }[] = [
   { key: 'speed', label: 'Overspeeding' },
 ];
 
+function toLocal(d: Date) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
+
+const PERIODS: { label: string; get: () => { f: string; t: string } }[] = [
+  { label: 'Today',      get: () => { const d = new Date(); const s = new Date(d); s.setHours(0,0,0,0); return { f: toLocal(s), t: toLocal(d) }; } },
+  { label: 'Yesterday',  get: () => { const s = new Date(); s.setHours(0,0,0,0); const e = new Date(s); s.setDate(s.getDate()-1); e.setMilliseconds(-1); return { f: toLocal(s), t: toLocal(e) }; } },
+  { label: 'This Week',  get: () => { const d = new Date(); const s = new Date(d); s.setDate(d.getDate()-d.getDay()); s.setHours(0,0,0,0); return { f: toLocal(s), t: toLocal(d) }; } },
+  { label: 'Last Week',  get: () => { const d = new Date(); const s = new Date(d); s.setDate(d.getDate()-d.getDay()-7); s.setHours(0,0,0,0); const e = new Date(s); e.setDate(e.getDate()+7); e.setMilliseconds(-1); return { f: toLocal(s), t: toLocal(e) }; } },
+  { label: 'This Month', get: () => { const d = new Date(); const s = new Date(d.getFullYear(), d.getMonth(), 1); return { f: toLocal(s), t: toLocal(d) }; } },
+  { label: 'Last Month', get: () => { const d = new Date(); const s = new Date(d.getFullYear(), d.getMonth()-1, 1); const e = new Date(d.getFullYear(), d.getMonth(), 0, 23, 59, 59); return { f: toLocal(s), t: toLocal(e) }; } },
+];
+
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmt(ts: string) {
   const d = new Date(ts);
@@ -36,10 +47,10 @@ export default function ReportsModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
   const [showDrop, setShowDrop] = useState(false);
+  const [activePeriod, setActivePeriod] = useState<string | null>('Today');
 
   useEffect(() => {
     const now = new Date();
-    const toLocal = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
     const dayStart = new Date(now); dayStart.setHours(0,0,0,0);
     setFrom(toLocal(dayStart)); setTo(toLocal(now));
     api.get<DeviceInfo[]>('/devices').then(r => { setDevices(r.data); if (r.data.length > 0) setSelectedImei(r.data[0]!.imei); }).catch(() => {});
@@ -139,6 +150,16 @@ export default function ReportsModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
+        {/* Period presets */}
+        <div style={{ padding: '6px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 4, flexShrink: 0, background: '#fafafa', flexWrap: 'wrap' }}>
+          {PERIODS.map(p => (
+            <button key={p.label} onClick={() => { const r = p.get(); setFrom(r.f); setTo(r.t); setActivePeriod(p.label); }}
+              style={{ padding: '3px 10px', borderRadius: 5, border: `1px solid ${activePeriod === p.label ? '#dc2626' : '#e5e7eb'}`, background: activePeriod === p.label ? '#fff5f5' : '#fff', color: activePeriod === p.label ? '#dc2626' : '#777', fontSize: 11.5, fontWeight: activePeriod === p.label ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+
         {/* Filter bar */}
         <div style={{ padding: '10px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap', background: '#fafafa' }}>
           {/* Vehicle selector */}
@@ -181,11 +202,11 @@ export default function ReportsModal({ onClose }: { onClose: () => void }) {
 
           <div>
             <div style={{ fontSize: 9.5, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>From</div>
-            <input type="datetime-local" value={from} onChange={e => setFrom(e.target.value)} style={inpStyle} onFocus={e => e.currentTarget.style.borderColor = '#dc2626'} onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'}/>
+            <input type="datetime-local" value={from} onChange={e => { setFrom(e.target.value); setActivePeriod(null); }} style={inpStyle} onFocus={e => e.currentTarget.style.borderColor = '#dc2626'} onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'}/>
           </div>
           <div>
             <div style={{ fontSize: 9.5, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>To</div>
-            <input type="datetime-local" value={to} onChange={e => setTo(e.target.value)} style={inpStyle} onFocus={e => e.currentTarget.style.borderColor = '#dc2626'} onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'}/>
+            <input type="datetime-local" value={to} onChange={e => { setTo(e.target.value); setActivePeriod(null); }} style={inpStyle} onFocus={e => e.currentTarget.style.borderColor = '#dc2626'} onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'}/>
           </div>
 
           <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', paddingTop: 16 }}>

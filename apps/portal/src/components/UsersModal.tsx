@@ -20,10 +20,28 @@ const ROLE_COLOR: Record<string, string> = {
   client_admin: '#16a34a', client_user: '#6b7280',
 };
 
+const PORTAL_PAGES = [
+  { key: 'map',             label: 'Live Map' },
+  { key: 'vehicles',        label: 'Vehicles' },
+  { key: 'alerts',          label: 'Alerts' },
+  { key: 'geofences',       label: 'Geofences' },
+  { key: 'pois',            label: 'POIs' },
+  { key: 'driver-behavior', label: 'Behavior' },
+  { key: 'reports',         label: 'Reports' },
+  { key: 'users',           label: 'Users' },
+];
+
+const PORTAL_ROLE_PERMS: Record<string, Record<string, string[]>> = {
+  client_owner:       { map: ['view'], vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit','delete'] },
+  client_super_admin: { map: ['view'], vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit'] },
+  client_admin:       { map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'] },
+  client_user:        { map: ['view'], vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'] },
+};
+
 // ── Form Modal ─────────────────────────────────────────────────────────────────
 
-function UserFormModal({ initial, organizationId, onSave, onClose }: {
-  initial?: OrgUser | null; organizationId: string;
+function UserFormModal({ initial, organizationId, currentUserId, onSave, onClose }: {
+  initial?: OrgUser | null; organizationId: string; currentUserId: string;
   onSave: (u: OrgUser) => void; onClose: () => void;
 }) {
   const [email, setEmail] = useState(initial?.email ?? '');
@@ -34,6 +52,9 @@ function UserFormModal({ initial, organizationId, onSave, onClose }: {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
+  const isSelf = !!initial?.id && initial.id === currentUserId;
+  const rolePerms = PORTAL_ROLE_PERMS[role] ?? {};
+
   const submit = async () => {
     if (!email.trim()) { setErr('Email is required'); return; }
     if (!initial?.id && !password.trim()) { setErr('Password is required for new users'); return; }
@@ -42,7 +63,7 @@ function UserFormModal({ initial, organizationId, onSave, onClose }: {
     if (password.trim()) payload.password = password;
     try {
       let u: OrgUser;
-      if (initial?.id) { u = (await api.put<OrgUser>(`/users/${initial.id}`, payload)).data; }
+      if (initial?.id) { u = (await api.patch<OrgUser>(`/users/${initial.id}`, payload)).data; }
       else { u = (await api.post<OrgUser>('/users', payload)).data; }
       onSave(u);
     } catch (e: unknown) {
@@ -53,14 +74,14 @@ function UserFormModal({ initial, organizationId, onSave, onClose }: {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10100, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 'min(420px, 97vw)', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 48px rgba(0,0,0,0.3)' }}>
+      <div style={{ background: '#fff', borderRadius: 12, width: 'min(480px, 97vw)', display: 'flex', flexDirection: 'column', boxShadow: '0 16px 48px rgba(0,0,0,0.3)', maxHeight: '92vh', overflow: 'hidden' }}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center' }}>
           <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#111' }}>{initial?.id ? 'Edit User' : 'New User'}</span>
           <button onClick={onClose} style={{ background: '#f5f5f5', border: 'none', cursor: 'pointer', color: '#666', padding: '4px 5px', borderRadius: 5, display: 'flex' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
           <div>
             <label style={LBL}>Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="user@example.com" style={inpSt}
@@ -83,13 +104,52 @@ function UserFormModal({ initial, organizationId, onSave, onClose }: {
           </div>
           <div>
             <label style={LBL}>Role</label>
-            <select value={role} onChange={e => setRole(e.target.value)} style={{ ...inpSt, cursor: 'pointer' }}>
-              <option value="client_user">User</option>
-              <option value="client_admin">Admin</option>
-              <option value="client_super_admin">Super Admin</option>
-              <option value="client_owner">Owner</option>
-            </select>
+            {isSelf ? (
+              <div style={{ ...inpSt, background: '#f9fafb', color: '#555', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{ROLE_LABEL[role] ?? role}</span>
+                <span style={{ fontSize: 11, color: '#aaa' }}>(cannot change your own role)</span>
+              </div>
+            ) : (
+              <select value={role} onChange={e => setRole(e.target.value)} style={{ ...inpSt, cursor: 'pointer' }}>
+                <option value="client_user">User</option>
+                <option value="client_admin">Admin</option>
+                <option value="client_super_admin">Super Admin</option>
+                <option value="client_owner">Owner</option>
+              </select>
+            )}
           </div>
+
+          {/* Portal access preview */}
+          <div>
+            <label style={LBL}>Portal Access</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {PORTAL_PAGES.map(pg => {
+                const actions = rolePerms[pg.key];
+                const hasAccess = !!actions && actions.length > 0;
+                const canWrite = actions?.some(a => ['add','edit','delete'].includes(a));
+                return (
+                  <div key={pg.key} style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '3px 9px', borderRadius: 5,
+                    border: `1px solid ${hasAccess ? (canWrite ? '#2563eb' : '#16a34a') : '#e5e7eb'}`,
+                    background: hasAccess ? (canWrite ? '#eff6ff' : '#f0fdf4') : '#f9fafb',
+                    color: hasAccess ? (canWrite ? '#2563eb' : '#16a34a') : '#bbb',
+                    fontSize: 11.5, fontWeight: hasAccess ? 600 : 400,
+                  }}>
+                    {hasAccess ? (
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20,6 9,17 4,12"/></svg>
+                    ) : (
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    )}
+                    {pg.label}
+                    {hasAccess && canWrite && <span style={{ fontSize: 10, opacity: 0.7 }}>+edit</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 5 }}>Access is determined by role. Change the role above to update permissions.</div>
+          </div>
+
           <div>
             <label style={LBL}>{initial?.id ? 'New Password (leave blank to keep)' : 'Password'}</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={initial?.id ? 'Leave blank to keep' : 'Set password'} style={inpSt}
@@ -121,6 +181,7 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
   const [deleting, setDeleting] = useState<OrgUser | null>(null);
 
   const orgId = (user as { organizationId?: string })?.organizationId ?? '';
+  const currentUserId = (user as { id?: string })?.id ?? '';
 
   useEffect(() => {
     if (!orgId) return;
@@ -184,20 +245,21 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
             <thead style={{ position: 'sticky', top: 0, background: '#fafafa', zIndex: 1 }}>
               <tr>
-                {['Name', 'Email', 'Role', 'Status', ''].map(h => (
+                {['User ID', 'Name', 'Email', 'Role', 'Status', ''].map(h => (
                   <th key={h} style={{ padding: '9px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid #f0f0f0' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} style={{ padding: 36, textAlign: 'center', color: '#bbb', fontSize: 13 }}>Loading…</td></tr>
+                <tr><td colSpan={6} style={{ padding: 36, textAlign: 'center', color: '#bbb', fontSize: 13 }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: 36, textAlign: 'center', color: '#bbb', fontSize: 13 }}>{q ? 'No results' : 'No users found'}</td></tr>
+                <tr><td colSpan={6} style={{ padding: 36, textAlign: 'center', color: '#bbb', fontSize: 13 }}>{q ? 'No results' : 'No users found'}</td></tr>
               ) : filtered.map(u => (
                 <tr key={u.id} style={{ borderBottom: '1px solid #f7f7f7' }}
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#fafafa'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                  <td style={{ padding: '11px 16px', color: '#aaa', fontSize: 11.5, fontFamily: 'monospace' }}>#{u.id.slice(0, 8)}</td>
                   <td style={{ padding: '11px 16px', fontWeight: 600, color: '#111' }}>{displayName(u)}</td>
                   <td style={{ padding: '11px 16px', color: '#555' }}>{u.email}</td>
                   <td style={{ padding: '11px 16px' }}>
@@ -234,7 +296,7 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
       </div>
 
       {formOpen && (
-        <UserFormModal initial={editing} organizationId={orgId} onSave={onSave}
+        <UserFormModal initial={editing} organizationId={orgId} currentUserId={currentUserId} onSave={onSave}
           onClose={() => { setFormOpen(false); setEditing(null); }} />
       )}
 
