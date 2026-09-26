@@ -17,6 +17,7 @@ import { DriverBehaviorModule } from './driver-behavior/driver-behavior.module.j
 import { VehicleGroupsModule } from './vehicle-groups/vehicle-groups.module.js';
 import { SpeedZonesModule } from './speed-zones/speed-zones.module.js';
 import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
+import { ReportsModule }   from './reports/reports.module.js';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
     VehicleGroupsModule,
     SpeedZonesModule,
     AuditLogsModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}

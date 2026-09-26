@@ -30,6 +30,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     users:             ['view', 'add', 'edit', 'delete'],
     roles:             ['view'],
     'audit-logs':      ['view'],
+    reports:           ['view'],
     settings:          ['view', 'edit'],
     setup:             ['view'],
   },
@@ -45,6 +46,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     users:             ['view', 'add', 'edit', 'delete'],
     roles:             ['view'],
     'audit-logs':      ['view'],
+    reports:           ['view'],
     settings:          ['view', 'edit'],
     setup:             ['view'],
   },
@@ -58,6 +60,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     telemetry:         ['view'],
     'driver-behavior': ['view'],
     'audit-logs':      ['view'],
+    reports:           ['view'],
     setup:             ['view'],
   },
   live_ops: {

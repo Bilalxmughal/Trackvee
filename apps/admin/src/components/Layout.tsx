@@ -55,6 +55,7 @@ const NAV_SECTIONS: Section[] = [
       { to: '/users',      icon: IconUsers,  label: 'User Management' },
       { to: '/roles',      icon: IconShield, label: 'Role Access' },
       { to: '/audit-logs', icon: IconList,   label: 'Audit Logs' },
+      { to: '/reports',    icon: IconChartBar, label: 'Reports' },
       { to: '/settings',   icon: IconSettings, label: 'Settings' },
       { to: '/setup',      icon: IconBook,   label: 'Setup Guide' },
     ],

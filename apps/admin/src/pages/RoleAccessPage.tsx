@@ -20,6 +20,7 @@ const PAGES: PageRow[] = [
   { key: 'users',       label: 'User Management', group: 'Administration', actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'roles',       label: 'Role Access',     group: 'Administration', actions: ['view'] },
   { key: 'audit-logs',  label: 'Audit Logs',      group: 'Administration', actions: ['view'] },
+  { key: 'reports',     label: 'Reports',          group: 'Administration', actions: ['view'] },
   { key: 'settings',    label: 'Settings',        group: 'Administration', actions: ['view', 'edit'] },
 ];
 
