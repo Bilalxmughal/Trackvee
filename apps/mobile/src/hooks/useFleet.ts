@@ -13,8 +13,10 @@ export interface LivePoint {
   gpsValid: boolean;
   timestamp: string;
   ignition?: boolean | null;
+  immobilizer?: boolean | null;
   voltageLevel?: number | null;
   gsmSignal?: number | null;
+  vehicleStatus?: 'moving' | 'idle' | 'parked' | 'offline';
 }
 export interface FleetDevice {
   id: string;
@@ -39,6 +41,7 @@ export function displayVehicleName(vehicle: FleetVehicle | null | undefined) {
 
 export function getFleetStatus(point: LivePoint | null): 'moving' | 'idle' | 'parked' | 'offline' {
   if (!point || Date.now() - new Date(point.timestamp).getTime() > 10 * 60_000) return 'offline';
+  if (point.vehicleStatus) return point.vehicleStatus;
   if (point.speedKmh >= 5) return 'moving';
   return point.ignition === true ? 'idle' : 'parked';
 }

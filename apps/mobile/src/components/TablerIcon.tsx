@@ -14,6 +14,7 @@ const PATHS: Record<string, string[]> = {
   user: ['M20 21a8 8 0 0 0-16 0', 'M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10'],
   logout: ['M10 17l5-5-5-5', 'M15 12H3', 'M12 3h6a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-6'],
   refresh: ['M20 7v5h-5', 'M4 17v-5h5', 'M5.6 9a7 7 0 0 1 11.6-2L20 12', 'M4 12l2.8 5a7 7 0 0 0 11.6-2'],
+  engine: ['M3 10h3l2-3h7l2 3h3v8h-3l-2 3H8l-2-3H3z', 'M9 10v3h5v-3', 'M6 5V3', 'M18 5V3'],
 };
 
 export function TablerIcon({ name, size = 22, color = '#111827', strokeWidth = 1.8 }: { name: string; size?: number; color?: string; strokeWidth?: number }) {

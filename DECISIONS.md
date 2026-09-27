@@ -121,13 +121,14 @@ Do not upgrade react-leaflet (breaking API changes between major versions). Do n
 **Status:** Accepted
 
 **Decision:**
-Vehicle status is computed from live telemetry:
-- **Moving**: speed ≥ 5 km/h
-- **Idle**: speed < 5 km/h, ignition ON, last data < 5 min ago
-- **Parked**: speed < 5 km/h, ignition OFF (or no recent data)
+Vehicle status is computed from recent valid GPS telemetry and shared by API consumers:
+- **Moving**: speed ≥ 5 km/h, or validated displacement indicates low-speed movement; retain Moving through a single deceleration/noisy fix.
+- **Idle**: confirmed stationary (two consecutive fixes at ≤ 2 km/h) with ignition ON.
+- **Parked**: confirmed stationary with ignition OFF or unknown.
+- **Offline**: latest valid GPS fix is older than 10 minutes.
 
 **Rule:**
-Do not add more states without deliberate UI and DB migration planning. The 5 km/h threshold is intentional to filter GPS jitter.
+Keep the 5 km/h entry threshold to filter GPS jitter. Require consecutive low-speed samples to confirm a stop; derive stop duration from the start of that confirmed stationary run and do not count stale telemetry. The UI polling interval does not change the tracker device's GPS acquisition or transmission interval.
 
 ---
 

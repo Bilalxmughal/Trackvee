@@ -32,6 +32,7 @@ interface LivePoint {
   ignition?: boolean | null; externalPower?: boolean | null;
   immobilizer?: boolean | null; voltageLevel?: number | null;
   gsmSignal?: number | null; altitude?: number | null;
+  vehicleStatus?: 'moving' | 'idle' | 'parked' | 'offline';
 }
 interface DeviceInfo {
   imei: string; displayId: number; cityId: string | null;
@@ -59,6 +60,7 @@ const MOVING_SPEED = 5; // km/h — professional threshold: GPS noise stays belo
 
 function isOffline(pt: LivePoint) { return Date.now() - new Date(pt.timestamp).getTime() > 10 * 60 * 1000; }
 function vehicleStatus(pt: LivePoint): 'moving' | 'idle' | 'parked' | 'offline' {
+  if (pt.vehicleStatus) return pt.vehicleStatus;
   if (isOffline(pt)) return 'offline';
   if (pt.speedKmh >= MOVING_SPEED) return 'moving';
   if (pt.ignition === true) return 'idle';    // engine on, not moving
@@ -187,8 +189,8 @@ function saveCollapsed(s: Set<string>) { try { localStorage.setItem(GK_COLLAPSED
 // ── Stats / Geocode ───────────────────────────────────────────────────────────
 
 const statsCache = new Map<string, VehicleStats>();
-async function fetchStats(imei: string): Promise<VehicleStats> {
-  if (statsCache.has(imei)) return statsCache.get(imei)!;
+async function fetchStats(imei: string, force = false): Promise<VehicleStats> {
+  if (!force && statsCache.has(imei)) return statsCache.get(imei)!;
   const { data } = await api.get<VehicleStats>(`/telemetry/${imei}/stats`);
   statsCache.set(imei, data); return data;
 }
@@ -583,11 +585,21 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
         (marker as any)._ytStatus = status;
         (marker as any)._ytAlert = alertType;
         marker.bindPopup(popup.setContent(buildPopupHtml(pt, dv, vc, plate, 'Fetching…')));
+        let popupStatsTimer: ReturnType<typeof setInterval> | null = null;
         marker.on('popupopen', () => {
-          Promise.all([
+          const updatePopup = () => Promise.all([
             reverseGeocode(ctx.pt.latitude, ctx.pt.longitude).catch(() => `${ctx.pt.latitude.toFixed(5)}, ${ctx.pt.longitude.toFixed(5)}`),
-            fetchStats(ctx.pt.imei).catch(() => null),
-          ]).then(([addr, stats]) => popup.setContent(buildPopupHtml(ctx.pt, ctx.dv, ctx.vc, ctx.plate, addr, stats)));
+            fetchStats(ctx.pt.imei, true).catch(() => null),
+          ]).then(([addr, stats]) => {
+            if (marker.isPopupOpen()) popup.setContent(buildPopupHtml(ctx.pt, ctx.dv, ctx.vc, ctx.plate, addr, stats));
+          });
+          void updatePopup();
+          if (popupStatsTimer) clearInterval(popupStatsTimer);
+          popupStatsTimer = setInterval(() => { void updatePopup(); }, 30_000);
+        });
+        marker.on('popupclose', () => {
+          if (popupStatsTimer) clearInterval(popupStatsTimer);
+          popupStatsTimer = null;
         });
         group.addLayer(marker);
         next.set(pt.imei, {

@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Param, Query, Body, UseGuards, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, UseGuards, Headers, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TelemetryService } from './telemetry.service.js';
 import { DevicesService } from '../devices/devices.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { User } from '../users/entities/user.entity.js';
+
+const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
 @ApiTags('telemetry')
 @Controller('telemetry')
@@ -97,26 +99,39 @@ export class TelemetryController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get(':imei/stats')
-  getStats(@Param('imei') imei: string) {
+  async getStats(@CurrentUser() user: User, @Param('imei') imei: string) {
+    if (!ADMIN_ROLES.includes(user.role)) {
+      const allowedDevices = await this.devicesService.findAll(user);
+      if (!allowedDevices.some(device => device.imei === imei)) throw new NotFoundException();
+    }
     return this.telemetryService.getVehicleStats(imei);
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get(':imei/latest')
-  getLatest(@Param('imei') imei: string) {
+  async getLatest(@CurrentUser() user: User, @Param('imei') imei: string) {
+    if (!ADMIN_ROLES.includes(user.role)) {
+      const allowedDevices = await this.devicesService.findAll(user);
+      if (!allowedDevices.some(device => device.imei === imei)) throw new NotFoundException();
+    }
     return this.telemetryService.getLatest(imei);
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get(':imei/history')
-  getHistory(
+  async getHistory(
+    @CurrentUser() user: User,
     @Param('imei') imei: string,
     @Query('limit') limit?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
+    if (!ADMIN_ROLES.includes(user.role)) {
+      const allowedDevices = await this.devicesService.findAll(user);
+      if (!allowedDevices.some(device => device.imei === imei)) throw new NotFoundException();
+    }
     return this.telemetryService.getHistory(imei, {
       limit: limit ? parseInt(limit) : 2000,
       from,

@@ -54,6 +54,8 @@ The exact visible navigation items are permission-controlled. Map remains the pr
 - Push notifications with deep links to the relevant vehicle/event.
 - Foreground/background refresh behavior that respects battery usage.
 - Clear loading, empty, offline, stale-data and retry states.
+- Use the admin vehicle icon with heading rotation, animate between received fixes, and cluster nearby vehicles when zoomed out. Keep the main map top controls unchanged when adjusting map behavior.
+- Vehicle detail opens directly on map-marker tap and uses a map plus docked telemetry sheet. Refresh stop duration from the shared stats endpoint; do not invent movement samples when the tracker has not transmitted a new fix.
 - Secure token storage and biometric/PIN protection for sensitive commands.
 - Cache only a validated client profile in SecureStore. Restore it immediately on launch and refresh it from `/auth/me`; preserve the session across network and server failures, and clear it only on explicit logout or a definitively invalid refresh token. Never relax the client-role allowlist.
 - Engine Cut/Restore retains IMEI confirmation and permission checks.

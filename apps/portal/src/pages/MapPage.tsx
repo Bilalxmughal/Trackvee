@@ -22,6 +22,7 @@ interface LivePoint {
   heading: number; satellites: number; gpsValid: boolean; timestamp: string;
   ignition?: boolean | null; immobilizer?: boolean | null;
   voltageLevel?: number | null; gsmSignal?: number | null;
+  vehicleStatus?: 'moving' | 'idle' | 'parked' | 'offline';
 }
 interface DeviceInfo {
   imei: string; displayId: number;
@@ -70,6 +71,7 @@ function saveCollapsed(s: Set<string>) { try { localStorage.setItem(GK_COLLAPSED
 
 function isOffline(pt: LivePoint) { return Date.now() - new Date(pt.timestamp).getTime() > 10 * 60 * 1000; }
 function vehicleStatus(pt: LivePoint): Status {
+  if (pt.vehicleStatus) return pt.vehicleStatus;
   if (isOffline(pt)) return 'offline';
   if (pt.speedKmh >= MOVING_SPEED) return 'moving';
   if (pt.ignition === true) return 'idle';
@@ -1159,11 +1161,22 @@ function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFo
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
 }) {
+  const [vehicleStats, setVehicleStats] = useState<{ stopDuration: number | null; odometer: number; engineHours: number } | null>(null);
   const dv = deviceMap.get(imei);
   const vc = dv?.vehicleId ? vehicleDetails.get(dv.vehicleId) : undefined;
   const plate = fmtPlate(dv, imei);
   const vName = vc ? ([vc.make, vc.model].filter(Boolean).join(' ') || `#${vc.displayId}`) : plate;
   const status = pt ? vehicleStatus(pt) : 'offline';
+
+  useEffect(() => {
+    let active = true;
+    const load = () => api.get<{ stopDuration: number | null; odometer: number; engineHours: number }>(`/telemetry/${imei}/stats`)
+      .then(response => { if (active) setVehicleStats(response.data); })
+      .catch(() => { if (active) setVehicleStats(null); });
+    void load();
+    const timer = setInterval(() => { void load(); }, 30_000);
+    return () => { active = false; clearInterval(timer); };
+  }, [imei]);
 
   return (
     <div style={{ position: 'absolute', top: 10, right: 10, width: 220, background: '#fff', borderRadius: 10, boxShadow: '0 6px 24px rgba(0,0,0,.13)', border: '0.5px solid #e5e7eb', zIndex: 400 }}>
@@ -1186,6 +1199,7 @@ function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFo
             { label: 'Speed', value: status === 'moving' ? `${Math.round(pt.speedKmh)} km/h` : '—' },
             { label: 'Ignition', value: pt.ignition === true ? 'On' : pt.ignition === false ? 'Off' : '—', color: pt.ignition ? '#16a34a' : undefined },
             { label: 'Updated', value: formatAge(pt.timestamp) },
+            { label: 'Stop Duration', value: (status === 'idle' || status === 'parked') && vehicleStats?.stopDuration != null ? formatDuration(vehicleStats.stopDuration) : '—' },
             { label: 'Position', value: `${pt.latitude.toFixed(4)}, ${pt.longitude.toFixed(4)}` },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '0.5px solid #f5f5f5', fontSize: 11 }}>

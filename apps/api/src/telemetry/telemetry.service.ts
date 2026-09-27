@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, MoreThan, MoreThanOrEqual, Repository } from 'typeorm';
+import { Between, In, MoreThan, Repository } from 'typeorm';
 import { Telemetry } from './entities/telemetry.entity.js';
 import { DevicesService } from '../devices/devices.service.js';
 import { AlertsService } from '../alerts/alerts.service.js';
@@ -10,6 +10,7 @@ import type { CircleCoords, PolygonCoords } from '../geofences/entities/geofence
 import { SpeedZonesService } from '../speed-zones/speed-zones.service.js';
 import type { SZCircleCoords, SZPolygonCoords } from '../speed-zones/entities/speed-zone.entity.js';
 import { User } from '../users/entities/user.entity.js';
+import { resolveVehicleLiveStatus, type VehicleLiveStatus, type VehicleMotionSample } from './vehicle-state.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
@@ -241,19 +242,50 @@ export class TelemetryService {
     odometer: number;
     engineHours: number;
   }> {
-    const latest = await this.repo.findOne({ where: { imei }, order: { timestamp: 'DESC' } });
-
-    // Stop duration: time since last genuine movement (speed >= 5 km/h)
-    // Using 5 km/h threshold to filter GPS noise which commonly reads 1-3 km/h even when stopped
-    const MOVING_KMH = 5;
+    const latest = await this.repo.findOne({ where: { imei, gpsValid: true }, order: { timestamp: 'DESC' } });
     let stopDuration: number | null = null;
-    if (latest && latest.speedKmh < MOVING_KMH) {
-      const lastMoving = await this.repo.findOne({
-        where: { imei, speedKmh: MoreThanOrEqual(MOVING_KMH) },
-        order: { timestamp: 'DESC' },
-      });
-      if (lastMoving) {
-        stopDuration = Math.floor((Date.now() - new Date(lastMoving.timestamp).getTime()) / 1000);
+    const latestIsFresh = latest && Date.now() - new Date(latest.timestamp).getTime() <= 10 * 60_000;
+    if (latestIsFresh && latest.speedKmh <= 2) {
+      const stationaryRun = await this.repo.query<{ stop_started_at: Date | string | null; sample_count: string }[]>(`
+        WITH last_moving AS (
+          (
+          SELECT timestamp
+          FROM telemetry
+          WHERE imei = $1 AND gps_valid = true AND speed_kmh > 2
+          ORDER BY timestamp DESC
+          LIMIT 1
+          )
+          UNION ALL
+          SELECT MIN(timestamp) AS timestamp
+          FROM telemetry
+          WHERE imei = $1 AND gps_valid = true
+          HAVING NOT EXISTS (
+            SELECT 1 FROM telemetry
+            WHERE imei = $1 AND gps_valid = true AND speed_kmh > 2
+          )
+        ), stationary_points AS (
+          SELECT t.timestamp,
+            LAG(t.timestamp) OVER (ORDER BY t.timestamp) AS previous_timestamp
+          FROM telemetry t
+          CROSS JOIN last_moving m
+          WHERE t.imei = $1 AND t.gps_valid = true AND t.speed_kmh <= 2
+            AND t.timestamp > m.timestamp
+        ), stationary_segments AS (
+          SELECT timestamp,
+            SUM(CASE WHEN previous_timestamp IS NULL
+                       OR timestamp - previous_timestamp > INTERVAL '10 minutes'
+                     THEN 1 ELSE 0 END) OVER (ORDER BY timestamp) AS segment_id
+          FROM stationary_points
+        ), latest_segment AS (
+          SELECT segment_id FROM stationary_segments ORDER BY timestamp DESC LIMIT 1
+        )
+        SELECT MIN(timestamp) AS stop_started_at, COUNT(*)::text AS sample_count
+        FROM stationary_segments
+        WHERE segment_id = (SELECT segment_id FROM latest_segment)
+      `, [imei]);
+      const run = stationaryRun[0];
+      if (run?.stop_started_at && Number(run.sample_count) >= 2) {
+        stopDuration = Math.max(0, Math.floor((Date.now() - new Date(run.stop_started_at).getTime()) / 1000));
       }
     }
 
@@ -299,7 +331,7 @@ export class TelemetryService {
     return { stopDuration, odometer, engineHours };
   }
 
-  async getLiveLocations(user: User): Promise<Telemetry[]> {
+  async getLiveLocations(user: User): Promise<Array<Telemetry & { vehicleStatus: VehicleLiveStatus }>> {
     let imeis: string[] | null = null;
 
     if (!ADMIN_ROLES.includes(user.role) && user.organizationId) {
@@ -319,9 +351,35 @@ export class TelemetryService {
     const rows = await sub.getRawMany<{ imei: string; max_ts: string }>();
     if (!rows.length) return [];
 
-    const results = await Promise.all(
+    const results = (await Promise.all(
       rows.map(r => this.repo.findOne({ where: { imei: r.imei, timestamp: new Date(r.max_ts) } }))
-    );
-    return results.filter((r): r is Telemetry => r !== null);
+    )).filter((r): r is Telemetry => r !== null);
+    if (!results.length) return [];
+
+    // Only query status samples for devices already authorized above.
+    const statusRows = await this.repo.query<Array<{
+      imei: string; timestamp: Date | string; latitude: number; longitude: number;
+      speed_kmh: number; ignition: boolean | null;
+    }>>(`
+      SELECT live.imei, sample.timestamp, sample.latitude, sample.longitude, sample.speed_kmh, sample.ignition
+      FROM unnest($1::varchar[]) AS live(imei)
+      CROSS JOIN LATERAL (
+        SELECT timestamp, latitude, longitude, speed_kmh, ignition
+        FROM telemetry
+        WHERE imei = live.imei AND gps_valid = true
+        ORDER BY timestamp DESC
+        LIMIT 3
+      ) AS sample
+      ORDER BY live.imei, sample.timestamp DESC
+    `, [results.map(point => point.imei)]);
+
+    const samplesByImei = new Map<string, VehicleMotionSample[]>();
+    for (const row of statusRows) {
+      const samples = samplesByImei.get(row.imei) ?? [];
+      samples.push({ timestamp: row.timestamp, latitude: Number(row.latitude), longitude: Number(row.longitude), speedKmh: Number(row.speed_kmh), ignition: row.ignition });
+      samplesByImei.set(row.imei, samples);
+    }
+
+    return results.map(point => ({ ...point, vehicleStatus: resolveVehicleLiveStatus(samplesByImei.get(point.imei) ?? []) }));
   }
 }

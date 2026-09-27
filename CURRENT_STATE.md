@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-09-27 (Expo SDK 57.0.25 typecheck and Android export pass).
+Last verified: 2026-09-27 (API typecheck/build, admin and portal builds, Expo SDK 57 typecheck/Android export pass).
 
 ## Status
 
@@ -19,6 +19,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - Authentication with strict admin/client portal role separation.
 - Multi-tenant organizations, users, custom module permissions, and vehicle-level access.
 - Live tracking, map history, trip replay, vehicle groups, engine commands, and tracking-expiry badge.
+- Shared live status and confirmed stop-duration handling across API, admin, portal, and mobile; mobile map clustering, animated vehicle positions, and map-first vehicle detail.
 - Vehicles, devices, telemetry, alerts, geofences, POIs, speed zones, and driver behavior scoring.
 - Reports in admin and portal: 13 report types, vehicle groups, period/conditional filters, CSV/Excel/Print, saved reports.
 - Audit logs for internal operations.

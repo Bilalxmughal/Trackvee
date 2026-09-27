@@ -15,6 +15,9 @@
 - [Mobile] Session restoration now caches the validated client profile and keeps it through temporary API/network failures. Refresh-token failures clear the session only when the server definitively rejects the token; client/admin role separation remains enforced.
 - [Mobile] Corrected iPhone safe-area spacing on map and tabs, moved the login back control below the status bar, prevented bottom navigation clipping, and aligned map/report controls with Design 2.
 - [Mobile] Anchored the login back control to the top safe area, kept welcome actions toward the bottom, and clarified network/server login errors while preserving generic credential errors.
+- [API/Admin/Portal/Mobile] Unified live vehicle status from recent valid GPS samples with movement hysteresis and corrected stop duration to require a fresh confirmed stationary run.
+- [Mobile] Matched map markers to the admin car asset, added heading rotation, short position interpolation, zoomed-out clustering, and a map-first vehicle detail sheet without changing main-map top controls.
+- [API] Scoped telemetry stats, latest-position, and history endpoints to each client user's authorized devices.
 - [Documentation] Replaced duplicated agent instructions with canonical `AGENTS.md` plus a minimal `CLAUDE.md` pointer, added task-based context routing, feature/deployment references, and split shared patterns into domain files to reduce context usage.
 - [Documentation] Corrected stale current state: Reports and Audit Logs are complete, migrations are present through 021, and current product priorities are maintenance, device health, scheduled reports, and fuel monitoring.
 
