@@ -89,7 +89,7 @@ export class DevicesController {
     @CurrentUser() user: User,
     @Req() req: Request,
   ) {
-    const result = await this.devicesService.sendCommandByImei(imei, body.action);
+    const result = await this.devicesService.sendCommandByImei(user, imei, body.action);
     this.audit.log({ user, ip: getIp(req) }, { action: 'command', entityType: 'device', entityId: imei, details: { command: body.action } }).catch(() => {});
     return result;
   }

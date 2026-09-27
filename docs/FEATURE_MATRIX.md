@@ -1,6 +1,6 @@
 # Feature Matrix
 
-Last verified: 2026-09-27 (Expo SDK 57.0.25 typecheck and Android export pass).
+Last verified: 2026-09-28 (API/mobile typechecks, API build, Android and iOS Expo exports; native device interaction pending).
 
 | Feature | API | Admin | Portal | Permission key | Notes |
 |---|---|---|---|---|---|
@@ -21,6 +21,6 @@ Last verified: 2026-09-27 (Expo SDK 57.0.25 typecheck and Android export pass).
 | Fuel monitoring | Missing | Missing | Missing | future `fuel` | Planned |
 | Scheduled report delivery | Partial | Missing | Missing | `reports` | Saved reports exist; scheduler pending |
 | Device health center | Partial data | Missing | Missing | future key | Telemetry data exists; workflow pending |
-| Mobile app | Existing API | n/a | Foundation | role portal permissions | Expo 57 auth, live OSM map, vehicle list/detail, alerts, report generation; remaining native parity tracked in mobile pattern |
+| Mobile app | Existing API + vehicle-scoped alerts | n/a | Foundation | role portal + custom org permissions | Expo 57 auth, map/list, vehicle history/replay, vehicle-scoped alert CRUD, report generation; remaining native parity tracked in mobile pattern |
 
 Update this matrix when feature availability, permission wiring, or deployment scope changes. Keep implementation details in domain pattern documents.

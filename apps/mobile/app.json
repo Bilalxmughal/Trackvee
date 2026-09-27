@@ -23,7 +23,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      ["expo-location", { "locationWhenInUsePermission": "Allow Trackvee to resolve the address of a selected vehicle history point." }]
     ]
   }
 }

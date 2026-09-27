@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import MapView, { AnimatedRegion, Marker, UrlTile, type LatLng, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -55,11 +55,12 @@ export default function LiveMapScreen() {
   const { canDo } = usePortalPermissions();
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [mapStyle, setMapStyle] = useState<'street' | 'satellite'>('street');
+  const [mapStyle, setMapStyle] = useState<'street' | 'satellite' | 'hybrid' | 'terrain'>('street');
   const [styleOpen, setStyleOpen] = useState(false);
   const [fitted, setFitted] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
+  const regionRef = useRef<Region>(DEFAULT_REGION);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
   const filtered = useMemo(() => items.filter(item => {
     const text = `${item.vehicle?.licensePlate ?? ''} ${displayVehicleName(item.vehicle)}`.toLowerCase();
@@ -91,6 +92,16 @@ export default function LiveMapScreen() {
     const next: Region = { latitude, longitude, latitudeDelta: Math.max(region.latitudeDelta * 0.45, 0.002), longitudeDelta: Math.max(region.longitudeDelta * 0.45, 0.002) };
     mapRef.current?.animateToRegion(next, 350);
   }, [region]);
+  const zoom = useCallback((factor: number) => {
+    const current = regionRef.current;
+    const next = {
+      ...current,
+      latitudeDelta: Math.max(0.0006, Math.min(100, current.latitudeDelta * factor)),
+      longitudeDelta: Math.max(0.0006, Math.min(100, current.longitudeDelta * factor)),
+    };
+    regionRef.current = next;
+    mapRef.current?.animateToRegion(next, 250);
+  }, []);
 
   const fitFleet = useCallback(() => {
     const coords = filtered.filter(item => !!item.point?.gpsValid).map(item => ({ latitude: item.point!.latitude, longitude: item.point!.longitude }));
@@ -106,7 +117,7 @@ export default function LiveMapScreen() {
 
   return (
     <View style={styles.fill}>
-      <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={DEFAULT_REGION} mapType={mapStyle === 'street' ? 'none' : 'satellite'} showsCompass={false} showsUserLocation={false} toolbarEnabled={false} moveOnMarkerPress={false} onMapReady={() => setMapReady(true)} onLayout={event => setMapSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })} onRegionChangeComplete={setRegion}>
+      <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={DEFAULT_REGION} mapType={mapStyle === 'street' ? 'none' : mapStyle} showsCompass={false} showsUserLocation={false} toolbarEnabled={false} moveOnMarkerPress={false} onMapReady={() => setMapReady(true)} onLayout={event => setMapSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })} onRegionChangeComplete={next => { regionRef.current = next; setRegion(next); }}>
         {mapStyle === 'street' && <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256} zIndex={0} />}
         {clustered.map(group => group.items.length === 1 ? (
           <VehicleMarker key={group.items[0]!.device.imei} item={group.items[0]!} onPress={() => openVehicle(group.items[0]!.device.imei)} />
@@ -139,10 +150,10 @@ export default function LiveMapScreen() {
       <View style={[styles.mapActions, { top: Math.max(insets.top, 10) + (searchOpen ? 160 : 110) }]}>
         <Pressable onPress={() => setStyleOpen(value => !value)} style={styles.mapButton} accessibilityRole="button" accessibilityLabel="Map type"><TablerIcon name="layers" size={19} color={theme.ink} /></Pressable>
         {styleOpen && <View style={styles.styleMenu}>
-          {(['street', 'satellite'] as const).map(style => <Pressable key={style} onPress={() => { setMapStyle(style); setStyleOpen(false); }} style={styles.styleOption} accessibilityRole="button" accessibilityLabel={`${style === 'street' ? 'Street' : 'Satellite'} map`}><Text style={[styles.styleOptionText, mapStyle === style && styles.styleOptionSelected]}>{style === 'street' ? 'Street' : 'Satellite'}</Text></Pressable>)}
+          {(Platform.OS === 'ios' ? ['street', 'satellite', 'hybrid'] : ['street', 'satellite', 'hybrid', 'terrain']).map(style => <Pressable key={style} onPress={() => { setMapStyle(style as typeof mapStyle); setStyleOpen(false); }} style={styles.styleOption} accessibilityRole="button" accessibilityLabel={`${style[0]!.toUpperCase() + style.slice(1)} map`}><Text style={[styles.styleOptionText, mapStyle === style && styles.styleOptionSelected]}>{style[0]!.toUpperCase() + style.slice(1)}</Text></Pressable>)}
         </View>}
-        <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: (camera.zoom ?? 12) + 1 }))} style={styles.mapButton} accessibilityLabel="Zoom in"><Text style={styles.zoomInText}>+</Text></Pressable>
-        <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: Math.max(3, (camera.zoom ?? 12) - 1) }))} style={styles.mapButton} accessibilityLabel="Zoom out"><Text style={styles.zoomOutText}>−</Text></Pressable>
+        <Pressable onPress={() => zoom(0.5)} style={styles.mapButton} accessibilityLabel="Zoom in"><Text style={styles.zoomInText}>+</Text></Pressable>
+        <Pressable onPress={() => zoom(2)} style={styles.mapButton} accessibilityLabel="Zoom out"><Text style={styles.zoomOutText}>−</Text></Pressable>
         <Pressable onPress={fitFleet} style={styles.mapButton} accessibilityLabel="Fit vehicles"><TablerIcon name="locate" size={19} color={theme.ink} /></Pressable>
       </View>
 
@@ -154,7 +165,7 @@ export default function LiveMapScreen() {
         <View style={styles.statusRow}>
           {(['moving', 'idle', 'parked', 'offline'] as const).map(status => {
             const count = items.filter(item => getFleetStatus(item.point) === status).length;
-            return <View key={status} style={styles.statusItem}><View style={[styles.statusDot, { backgroundColor: STATUS[status] }]} /><Text style={styles.statusLabel}>{status[0]!.toUpperCase() + status.slice(1)}</Text><Text style={styles.statusValue}>{count}</Text></View>;
+            return <View key={status} style={styles.statusItem}><View style={[styles.statusDot, { backgroundColor: STATUS[status] }]} /><Text style={styles.statusValue}>{count}</Text><Text style={styles.statusLabel}>{status[0]!.toUpperCase() + status.slice(1)}</Text></View>;
           })}
         </View>
         {error ? <Pressable onPress={reload}><Text style={styles.errorText}>{error}  Retry</Text></Pressable> : null}
@@ -191,8 +202,8 @@ const styles = StyleSheet.create({
   fleetSummary: { backgroundColor: '#fff', minHeight: 38, borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   fleetSummaryTitle: { color: theme.ink, fontSize: 13, fontWeight: '700' }, viewList: { color: theme.secondary, fontSize: 11, fontWeight: '600' },
   bottomOverlay: { position: 'absolute', left: 12, right: 12 },
-  statusRow: { backgroundColor: '#fff', minHeight: 43, borderWidth: 1, borderColor: theme.border, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginBottom: 8 },
-  statusItem: { flexDirection: 'row', alignItems: 'center', gap: 5 }, statusDot: { height: 7, width: 7, borderRadius: 4 }, statusLabel: { fontSize: 10, color: theme.secondary }, statusValue: { fontSize: 11, color: theme.ink, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  statusRow: { flexDirection: 'row', gap: 5, marginBottom: 8 },
+  statusItem: { flex: 1, minHeight: 47, backgroundColor: '#fff', borderWidth: 1, borderColor: theme.border, borderRadius: 7, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', flexWrap: 'wrap', columnGap: 4 }, statusDot: { height: 6, width: 6, borderRadius: 3 }, statusLabel: { width: '100%', fontSize: 9, color: theme.secondary, textAlign: 'center' }, statusValue: { fontSize: 13, color: theme.ink, fontWeight: '700', fontVariant: ['tabular-nums'] },
   errorText: { color: theme.red, fontSize: 12, marginTop: 5 },
   attribution: { alignSelf: 'flex-end', fontSize: 9, color: '#475569', backgroundColor: 'rgba(255,255,255,0.86)', paddingHorizontal: 4, marginTop: 4 },
 });

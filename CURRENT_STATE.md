@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-09-27 (API typecheck/build, admin and portal builds, Expo SDK 57 typecheck/Android export pass).
+Last verified: 2026-09-28 (API/mobile typechecks, API build, Android and iOS Expo exports; native device interaction pending).
 
 ## Status
 
@@ -24,7 +24,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - Reports in admin and portal: 13 report types, vehicle groups, period/conditional filters, CSV/Excel/Print, saved reports.
 - Audit logs for internal operations.
 - Client portal topbar permission gating through DB-backed role portal permissions.
-- SQL migrations present through `021_org_tracking_expiry.sql` (18 migration files because numbering begins at 004).
+- SQL migrations present through `022_alert_vehicle_exclusions.sql`; migration 022 must be applied before deploying the new API build.
 
 ## Active constraints
 
@@ -44,6 +44,6 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 
 ## Blockers
 
-Mobile foundation is in progress. Native build/export is verified; full portal feature parity and store distribution setup remain.
+Mobile foundation is in progress. Native build/export is verified; physical iOS/Android interaction, production migration 022, full portal feature parity and store distribution setup remain.
 
 See `docs/FEATURE_MATRIX.md` for feature parity and `KNOWN_ISSUES.md` for operational/regression constraints.

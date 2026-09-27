@@ -116,3 +116,15 @@ Every new feature/page built in the same session must also be wired into `ORG_PO
 **Cause:** Native marker `title`/`description` opened a transient callout, while vehicle detail checked `vehicles` permission before the asynchronous role-permission request finished and redirected to Map.
 
 **Rule:** Navigating markers must use their press/select handler without a native callout. A live-map vehicle detail uses `map.view`; the Vehicles tab uses `vehicles.view`. Wait for permission loading before redirecting. Merge missing role-permission keys from defaults without overriding explicit denials.
+
+---
+
+## KI-009 — Vehicle-scoped alert actions and device commands
+
+**Status:** Code fix verified by API regression tests; production migration/deploy pending
+
+**Area:** API / Mobile vehicle detail
+
+**Cause:** Shared/global alert rules could affect other vehicles when edited or deleted for one IMEI. Device commands previously accepted an IMEI without checking the caller's vehicle access and engine-cut permission; an empty vehicle access list could be treated as all vehicles. The org-permissions route also accepted an arbitrary target user and organization.
+
+**Rule:** Apply migration 022 before the new API starts. Vehicle alert mutation must lock and split/exclude only the selected IMEI; tests must cover shared/global rules and cross-tenant access. Device commands and telemetry must derive permitted devices from the authenticated user; `vehicleIds: []` means no vehicles, while `null` means all organization vehicles. Permission reads/writes must validate the target user and tenant; never accept a client-supplied organization or record-owner field.

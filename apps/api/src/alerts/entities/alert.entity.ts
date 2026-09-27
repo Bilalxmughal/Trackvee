@@ -55,6 +55,9 @@ export class Alert {
   @Column({ name: 'vehicle_imeis', type: 'text', array: true, default: [] })
   vehicleImeis: string[];
 
+  @Column({ name: 'excluded_vehicle_imeis', type: 'text', array: true, default: [] })
+  excludedVehicleImeis: string[];
+
   @Column({ type: 'jsonb', nullable: true })
   schedule: AlertSchedule | null;
 

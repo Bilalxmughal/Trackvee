@@ -21,8 +21,13 @@ export class AlertsController {
   findAll(@CurrentUser() user: User, @Query('orgId') orgId?: string) { return this.svc.findAll(user, orgId); }
 
   @Get('logs')
-  getLogs(@Query('alertId') alertId?: string, @Query('limit') limit?: string) {
-    return this.svc.getLogs(alertId, limit ? +limit : 100);
+  getLogs(@CurrentUser() user: User, @Query('alertId') alertId?: string, @Query('limit') limit?: string) {
+    return this.svc.getLogs(user, alertId, limit ? +limit : 100);
+  }
+
+  @Get('vehicle/:imei')
+  findForVehicle(@CurrentUser() user: User, @Param('imei') imei: string) {
+    return this.svc.findForVehicle(user, imei);
   }
 
   @Post()
@@ -32,16 +37,31 @@ export class AlertsController {
     return result;
   }
 
+  @Post('vehicle/:imei')
+  createForVehicle(@CurrentUser() user: User, @Param('imei') imei: string, @Body() dto: Partial<Alert>) {
+    return this.svc.createForVehicle(user, imei, dto);
+  }
+
+  @Put(':id/vehicle/:imei')
+  updateForVehicle(@CurrentUser() user: User, @Param('id') id: string, @Param('imei') imei: string, @Body() dto: Partial<Alert>) {
+    return this.svc.updateForVehicle(user, id, imei, dto);
+  }
+
+  @Delete(':id/vehicle/:imei')
+  removeForVehicle(@CurrentUser() user: User, @Param('id') id: string, @Param('imei') imei: string) {
+    return this.svc.removeForVehicle(user, id, imei);
+  }
+
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: Partial<Alert>, @CurrentUser() user: User, @Req() req: Request) {
-    const result = await this.svc.update(id, dto);
+    const result = await this.svc.update(id, dto, user);
     this.audit.log({ user, ip: getIp(req) }, { action: 'update', entityType: 'alert', entityId: id, entityName: (dto as any).name ?? result.name }).catch(() => {});
     return result;
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: User, @Req() req: Request) {
-    await this.svc.remove(id);
+    await this.svc.remove(id, user);
     this.audit.log({ user, ip: getIp(req) }, { action: 'delete', entityType: 'alert', entityId: id }).catch(() => {});
   }
 }

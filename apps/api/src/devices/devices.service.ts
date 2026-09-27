@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Device } from './entities/device.entity.js';
 import { User } from '../users/entities/user.entity.js';
+import { OrgPermissionsService } from '../org-permissions/org-permissions.service.js';
+import { RolePortalPermissionsService } from '../role-portal-permissions/role-portal-permissions.service.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 const GATEWAY_CMD_URL = process.env['GATEWAY_CMD_URL'] ?? 'http://localhost:5024';
@@ -13,14 +15,23 @@ export class DevicesService {
   constructor(
     @InjectRepository(Device)
     private repo: Repository<Device>,
+    private orgPerms: OrgPermissionsService,
+    private rolePerms: RolePortalPermissionsService,
   ) {}
 
-  findAll(user?: User, cityId?: string): Promise<Device[]> {
+  async findAll(user?: User, cityId?: string): Promise<Device[]> {
     const cityFilter = cityId ? { cityId } : {};
     if (!user || ADMIN_ROLES.includes(user.role)) {
       return this.repo.find({ relations: { vehicle: true }, where: cityFilter });
     }
     if (user.organizationId) {
+      if (user.role !== 'client_owner' && user.role !== 'client_super_admin') {
+        const perm = await this.orgPerms.findByUser(user.id);
+        if (perm?.vehicleIds !== null && perm?.vehicleIds !== undefined) {
+          if (!perm.vehicleIds.length) return [];
+          return this.repo.find({ relations: { vehicle: true }, where: { vehicle: { organizationId: user.organizationId, id: In(perm.vehicleIds) }, ...cityFilter } });
+        }
+      }
       return this.repo.find({
         relations: { vehicle: true },
         where: { vehicle: { organizationId: user.organizationId }, ...cityFilter },
@@ -84,8 +95,18 @@ export class DevicesService {
     };
   }
 
-  async sendCommandByImei(imei: string, action: 'immobilize' | 'activate'): Promise<{ sent: boolean; connected: boolean }> {
-    const device = await this.repo.findOne({ where: { imei } });
+  async sendCommandByImei(user: User, imei: string, action: 'immobilize' | 'activate'): Promise<{ sent: boolean; connected: boolean }> {
+    if (action !== 'immobilize' && action !== 'activate') throw new BadRequestException('Invalid device command');
+    if (ADMIN_ROLES.includes(user.role)) {
+      if (!['super_admin', 'admin', 'ops'].includes(user.role)) throw new ForbiddenException('Engine command not permitted');
+    } else {
+      const rolePermissions = (await this.rolePerms.findAll())[user.role];
+      const permitted = rolePermissions && Object.prototype.hasOwnProperty.call(rolePermissions, 'engine_cut')
+        ? rolePermissions['engine_cut']?.includes('view')
+        : ['client_owner', 'client_super_admin'].includes(user.role);
+      if (!permitted) throw new ForbiddenException('Engine command not permitted');
+    }
+    const device = (await this.findAll(user)).find(item => item.imei === imei);
     if (!device) throw new BadRequestException('Device not found');
     const command = action === 'immobilize' ? 'DYD#' : 'HFYD#';
     const res = await fetch(`${GATEWAY_CMD_URL}/command`, {

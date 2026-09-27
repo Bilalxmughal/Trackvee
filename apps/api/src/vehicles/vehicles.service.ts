@@ -27,9 +27,10 @@ export class VehiclesService {
     }
     if (user.organizationId) {
       // org_user: check vehicle_ids restriction
-      if (user.role === 'client_admin') {
+      if (user.role !== 'client_owner' && user.role !== 'client_super_admin') {
         const perm = await this.orgPerms.findByUser(user.id);
-        if (perm?.vehicleIds && perm.vehicleIds.length > 0) {
+        if (perm?.vehicleIds !== null && perm?.vehicleIds !== undefined) {
+          if (!perm.vehicleIds.length) return [];
           return this.repo.find({
             where: { organizationId: user.organizationId, id: In(perm.vehicleIds), ...cityFilter },
           });
@@ -48,7 +49,7 @@ export class VehiclesService {
   async findOne(id: string, user: User): Promise<Vehicle> {
     const vehicle = await this.repo.findOne({ where: { id } });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
-    this.assertAccess(vehicle, user);
+    await this.assertAccess(vehicle, user);
     return vehicle;
   }
 
@@ -91,8 +92,12 @@ export class VehiclesService {
     return data;
   }
 
-  private assertAccess(vehicle: Vehicle, user: User): void {
+  private async assertAccess(vehicle: Vehicle, user: User): Promise<void> {
     if (ADMIN_ROLES.includes(user.role)) return;
+    if (user.role !== 'client_owner' && user.role !== 'client_super_admin') {
+      const perm = await this.orgPerms.findByUser(user.id);
+      if (perm?.vehicleIds !== null && perm?.vehicleIds !== undefined && !perm.vehicleIds.includes(vehicle.id)) throw new ForbiddenException();
+    }
     if (user.organizationId && vehicle.organizationId === user.organizationId) return;
     if (vehicle.ownerId === user.id) return;
     throw new ForbiddenException();

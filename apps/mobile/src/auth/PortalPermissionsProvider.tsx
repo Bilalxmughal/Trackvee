@@ -3,6 +3,7 @@ import api from '../lib/api';
 import { useAuth } from './AuthProvider';
 
 type RoleMap = Record<string, string[]>;
+type OrgPerm = Record<string, boolean | string[] | null>;
 const FALLBACK: Record<string, RoleMap> = {
   client_owner: { map: ['view'], vehicles: ['view'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit','delete'], engine_cut: ['view'] },
   client_super_admin: { map: ['view'], vehicles: ['view'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit'], engine_cut: ['view'] },
@@ -19,8 +20,24 @@ export function PortalPermissionsProvider({ children }: React.PropsWithChildren)
   useEffect(() => {
     if (!user) { setPermissions({ map: ['view'] }); setResolvedUserId(null); return; }
     let current = true;
-    api.get<Record<string, RoleMap>>('/role-portal-permissions')
-      .then(response => { if (current) { setPermissions({ ...(FALLBACK[user.role] ?? { map: ['view'] }), ...(response.data[user.role] ?? {}) }); setResolvedUserId(user.id); } })
+    Promise.allSettled([
+      api.get<Record<string, RoleMap>>('/role-portal-permissions'),
+      user.role === 'client_owner' || user.role === 'client_super_admin'
+        ? Promise.resolve(null)
+        : api.get<OrgPerm | null>(`/org-permissions/${user.id}`).then(r => r.data),
+    ])
+      .then(([rolesResult, orgResult]) => {
+        if (!current) return;
+        const roleMap = rolesResult.status === 'fulfilled' ? rolesResult.value.data[user.role] : undefined;
+        const orgPerm = orgResult.status === 'fulfilled' ? orgResult.value : null;
+        const next: RoleMap = { ...(FALLBACK[user.role] ?? { map: ['view'] }), ...(roleMap ?? {}) };
+        if (orgPerm) for (const feature of ['vehicles', 'alerts', 'geofences', 'pois']) {
+          const actions = ['view', 'add', 'edit', 'delete'];
+          next[feature] = actions.filter(action => orgPerm[`${feature}${action[0]!.toUpperCase()}${action.slice(1)}`] === true);
+        }
+        setPermissions(next);
+        setResolvedUserId(user.id);
+      })
       .catch(() => { if (current) { setPermissions(FALLBACK[user.role] ?? { map: ['view'] }); setResolvedUserId(user.id); } });
     return () => { current = false; };
   }, [user?.id, user?.role]);

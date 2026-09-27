@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-09-28
+
+### Added
+- [Mobile] Vehicle View history arrows with tap details and PKT time, on-map replay controls with play/pause/scrub and range presets, related telemetry cards, and vehicle-specific alert rule management.
+- [API] Migration 022 and vehicle-specific alert routes; shared/global alert rules split or exclude the selected IMEI during edit/delete.
+- [API] Regression tests for shared-rule isolation, cross-tenant alert access, command authorization, empty vehicle access lists, and org-permission self/cross-tenant edits.
+
+### Changed
+- [Mobile] Main map zoom uses map region deltas; supported map styles and compact status cards, plus searchable/filterable/sortable vehicle list with the shared Engine Cut confirmation dialog.
+- [API] Engine commands require role permission and access to the target vehicle; device/vehicle listings respect explicit empty vehicle access lists. Org-permission reads/writes now validate the target user, tenant and editable fields.
+
+---
+
 ## 2026-09-27
 
 ### Added

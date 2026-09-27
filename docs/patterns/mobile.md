@@ -7,7 +7,7 @@
 - Workspace: `apps/mobile`, Expo SDK `57.0.25`, React Native `0.86.3`, React `19.2.3`.
 - First native slice: client-role login with SecureStore and refresh, permission-aware Map/Vehicles/Alerts/Reports/More tabs, live tenant fleet map using OpenStreetMap tiles, vehicle list/detail, and report generation with report type, period, search, vehicle groups, select all/deselect all, and server preview.
 - Native app is not deployed by Vercel or PM2. Use Expo Go for development; use EAS for signed distribution builds.
-- Remaining parity work: trip history/replay, editable alerts/geofences/POIs, behavior leaderboard/settings, custom user permissions, notification delivery/preferences, and complete report exports/date filters.
+- Vehicle View now has native history direction points, PKT timestamps, on-device reverse geocoding, selected-vehicle replay controls on its existing map, and vehicle-scoped alert editing. Remaining parity work: geofences/POIs, behavior leaderboard/settings, custom user permissions, notification delivery/preferences, and complete report exports/date filters.
 - Reuse the existing NestJS API, refresh-token flow, client roles, tenant isolation, and portal permission keys.
 - Mobile is a client-facing product; internal admin users must not authenticate into it.
 - Keep the login back control pinned in the top safe area, and distinguish network/server failures from invalid credentials without revealing which portal a rejected account belongs to.
@@ -62,6 +62,9 @@ The exact visible navigation items are permission-controlled. Map remains the pr
 - Secure token storage and biometric/PIN protection for sensitive commands.
 - Cache only a validated client profile in SecureStore. Restore it immediately on launch and refresh it from `/auth/me`; preserve the session across network and server failures, and clear it only on explicit logout or a definitively invalid refresh token. Never relax the client-role allowlist.
 - Engine Cut/Restore retains IMEI confirmation and permission checks.
+- Device command authorization must check the authenticated role and selected vehicle at the API; an IMEI alone never grants command access. Vehicle alert edits/deletes split shared rules or exclude a single IMEI without changing other vehicles.
+- History-point timestamps are displayed in `Asia/Karachi` (PKT). Address lookup uses native device reverse geocoding on tap; Android requests foreground location permission for this platform API. Do not use the public Nominatim endpoint for tracker-app reverse geocoding.
+- Use Street/OpenStreetMap, Satellite and Hybrid on iOS; native Terrain is available only on Android with a supported map provider. Map-style changes preserve the active map view.
 - Respect safe areas, platform back behavior, keyboard handling and accessibility labels.
 - Do not silently broaden portal permissions on mobile.
 
