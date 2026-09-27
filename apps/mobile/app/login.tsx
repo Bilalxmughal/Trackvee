@@ -38,6 +38,9 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <Pressable onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Go back">
+        <TablerIcon name="back" size={22} color={theme.ink} />
+      </Pressable>
       <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Image source={logo} resizeMode="contain" style={styles.logo} accessibilityLabel="Trackvee" />
@@ -61,17 +64,14 @@ export default function LoginScreen() {
           <Text style={styles.privacy}>Your account is protected with secure sign-in.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
-      <Pressable onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Go back">
-        <TablerIcon name="back" size={22} color={theme.ink} />
-      </Pressable>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' }, fill: { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingTop: 56, paddingBottom: 28 },
-  back: { position: 'absolute', top: 2, left: 22, zIndex: 2, width: 42, height: 42, justifyContent: 'center' },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingTop: 12, paddingBottom: 28 },
+  back: { height: 42, width: 42, justifyContent: 'center', marginLeft: 22, flexShrink: 0 },
   logo: { width: 210, height: 60, alignSelf: 'center', marginBottom: 30 },
   title: { fontSize: 30, fontWeight: '700', color: theme.ink, letterSpacing: -0.6 },
   subtitle: { fontSize: 15, color: theme.secondary, marginTop: 8, marginBottom: 34 },

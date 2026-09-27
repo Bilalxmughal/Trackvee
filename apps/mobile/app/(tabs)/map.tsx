@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import MapView, { Marker, UrlTile, type Region } from 'react-native-maps';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useFleet, displayVehicleName, getFleetStatus, type FleetItem, type LivePoint } from '../../src/hooks/useFleet';
@@ -67,7 +67,7 @@ export default function LiveMapScreen() {
         {filtered.map(item => <VehicleMarker key={item.device.imei} item={item} selected={selected === item.device.imei} onPress={() => setSelected(item.device.imei)} />)}
       </MapView>
 
-      <SafeAreaView pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: Math.max(insets.top, 7) }]}>
+      <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
         <View style={styles.topRow}>
           <Image source={logo} resizeMode="contain" style={styles.logo} accessibilityLabel="Trackvee" />
           <Pressable accessibilityRole="button" accessibilityLabel="Open alerts" onPress={() => router.push('/alerts')} style={styles.iconButton}>
@@ -79,11 +79,11 @@ export default function LiveMapScreen() {
           <TextInput value={query} onChangeText={setQuery} placeholder="Search plate or vehicle" placeholderTextColor={theme.muted} style={styles.searchInput} returnKeyType="search" accessibilityLabel="Search vehicles" />
           <Text style={styles.vehicleCount}>{filtered.length}</Text>
         </View>
-      </SafeAreaView>
+      </View>
 
       <View style={[styles.mapActions, { top: Math.max(insets.top, 10) + 120 }]}>
-        <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: (camera.zoom ?? 12) + 1 }))} style={styles.mapButton} accessibilityLabel="Zoom in"><Text style={styles.zoomText}>+</Text></Pressable>
-        <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: Math.max(3, (camera.zoom ?? 12) - 1) }))} style={styles.mapButton} accessibilityLabel="Zoom out"><Text style={styles.zoomText}>−</Text></Pressable>
+        <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: (camera.zoom ?? 12) + 1 }))} style={styles.zoomInButton} accessibilityLabel="Zoom in"><Text style={styles.zoomInText}>+</Text></Pressable>
+        <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: Math.max(3, (camera.zoom ?? 12) - 1) }))} style={styles.mapButton} accessibilityLabel="Zoom out"><Text style={styles.zoomOutText}>−</Text></Pressable>
         <Pressable onPress={fitFleet} style={styles.mapButton} accessibilityLabel="Fit vehicles"><TablerIcon name="locate" size={19} color={theme.ink} /></Pressable>
       </View>
 
@@ -123,19 +123,21 @@ const styles = StyleSheet.create({
   topOverlay: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: 16 },
   topRow: { height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   logo: { height: 34, width: 135 },
-  iconButton: { width: 42, height: 42, borderRadius: 8, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.border },
-  searchBar: { height: 48, paddingHorizontal: 13, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  iconButton: { width: 42, height: 42, borderRadius: 10, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.border },
+  searchBar: { height: 48, paddingHorizontal: 13, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
   searchInput: { flex: 1, padding: 0, color: theme.ink, fontSize: 14 },
   vehicleCount: { fontSize: 12, color: theme.secondary, fontVariant: ['tabular-nums'] },
   mapActions: { position: 'absolute', right: 14, gap: 7 },
-  mapButton: { height: 42, width: 42, borderRadius: 8, borderWidth: 1, borderColor: theme.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  zoomText: { fontSize: 25, lineHeight: 28, color: theme.ink, fontWeight: '400' },
+  mapButton: { height: 42, width: 42, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  zoomInButton: { height: 42, width: 42, alignItems: 'center', justifyContent: 'center' },
+  zoomInText: { fontSize: 34, lineHeight: 38, color: theme.red, fontWeight: '400' },
+  zoomOutText: { fontSize: 25, lineHeight: 28, color: theme.ink, fontWeight: '400' },
   markerWrap: { alignItems: 'center' }, marker: { height: 38, width: 38, borderRadius: 20, borderWidth: 2, alignItems: 'center', justifyContent: 'center', elevation: 3 },
   markerSelected: { borderWidth: 3, transform: [{ scale: 1.08 }] },
   plateLabel: { backgroundColor: '#fff', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3, marginTop: 3, elevation: 2 },
   plateText: { color: theme.ink, fontSize: 10, fontWeight: '700' },
   bottomOverlay: { position: 'absolute', left: 12, right: 12 },
-  statusRow: { backgroundColor: '#fff', minHeight: 43, borderWidth: 1, borderColor: theme.border, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginBottom: 8 },
+  statusRow: { backgroundColor: '#fff', minHeight: 43, borderWidth: 1, borderColor: theme.border, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginBottom: 8 },
   statusItem: { flexDirection: 'row', alignItems: 'center', gap: 5 }, statusDot: { height: 7, width: 7, borderRadius: 4 }, statusLabel: { fontSize: 10, color: theme.secondary }, statusValue: { fontSize: 11, color: theme.ink, fontWeight: '700', fontVariant: ['tabular-nums'] },
   mapSummary: { backgroundColor: '#fff', paddingHorizontal: 15, paddingVertical: 13, borderRadius: 8, borderWidth: 1, borderColor: theme.border },
   mapSummaryTitle: { color: theme.ink, fontSize: 14, fontWeight: '700' }, mapSummaryHint: { color: theme.secondary, fontSize: 12, marginTop: 3 }, errorText: { color: theme.red, fontSize: 12, marginTop: 5 },
