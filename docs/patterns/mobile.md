@@ -4,7 +4,10 @@
 
 - Approved design name: **Trackvee Mobile Design 2 / Precision Map UI**.
 - Technical baseline: React Native + TypeScript + Expo SDK 57.
-- Workspace target: `apps/mobile` (not created yet).
+- Workspace: `apps/mobile`, Expo SDK `57.0.25`, React Native `0.86.3`, React `19.2.3`.
+- First native slice: client-role login with SecureStore and refresh, permission-aware Map/Vehicles/Alerts/Reports/More tabs, live tenant fleet map using OpenStreetMap tiles, vehicle list/detail, and report generation with report type, period, search, vehicle groups, select all/deselect all, and server preview.
+- Native app is not deployed by Vercel or PM2. Use Expo Go for development; use EAS for signed distribution builds.
+- Remaining parity work: trip history/replay, editable alerts/geofences/POIs, behavior leaderboard/settings, custom user permissions, notification delivery/preferences, and complete report exports/date filters.
 - Reuse the existing NestJS API, refresh-token flow, client roles, tenant isolation, and portal permission keys.
 - Mobile is a client-facing product; internal admin users must not authenticate into it.
 

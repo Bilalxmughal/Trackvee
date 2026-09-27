@@ -1,0 +1,34 @@
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { AuthProvider, useAuth } from '../src/auth/AuthProvider';
+import { PortalPermissionsProvider } from '../src/auth/PortalPermissionsProvider';
+import { theme } from '../src/theme';
+
+function NavigationRoot() {
+  const { user, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    const publicRoute = segments[0] === 'index' || segments[0] === 'login';
+    if (!user && !publicRoute) router.replace('/');
+    if (user && publicRoute) router.replace('/map');
+  }, [loading, user, segments, router]);
+
+  return (
+    <>
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.surface }, animation: 'fade' }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return <AuthProvider><PortalPermissionsProvider><NavigationRoot /></PortalPermissionsProvider></AuthProvider>;
+}

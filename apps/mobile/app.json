@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Trackvee",
+    "slug": "trackvee-mobile",
+    "scheme": "trackvee",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/trackvee-app-icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.trackvee.mobile"
+    },
+    "android": {
+      "package": "com.trackvee.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/trackvee-app-icon.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ]
+  }
+}

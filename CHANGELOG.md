@@ -8,6 +8,7 @@
 
 ### Added
 - [Mobile] Recorded the approved Trackvee Mobile Design 2, Expo SDK 57 baseline, primary navigation flow, mobile-specific requirements, and shared portal parity rules.
+- [Mobile] Added the Expo SDK 57 app foundation: client-only secure login, refresh-token handling, permission-aware navigation, live OpenStreetMap fleet map, vehicle list/detail, alert rules, and grouped vehicle selection with server-generated report previews.
 
 ### Changed
 - [Documentation] Replaced duplicated agent instructions with canonical `AGENTS.md` plus a minimal `CLAUDE.md` pointer, added task-based context routing, feature/deployment references, and split shared patterns into domain files to reduce context usage.

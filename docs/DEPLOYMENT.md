@@ -22,6 +22,8 @@ pnpm --filter portal build
 
 Frontend-only changes do not require PM2 restart. There is no PM2 process named `portal`.
 
+The native app at `apps/mobile` runs through Expo and is not deployed by Vercel or PM2. Local development: `pnpm --filter @yotrack/mobile start`. Signed Android/iOS distribution will use EAS after app identifiers, store credentials, and release configuration are finalized.
+
 ## API deployment on Oracle
 
 ```bash

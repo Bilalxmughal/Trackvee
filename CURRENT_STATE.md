@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-09-27, commit `505466d`.
+Last verified: 2026-09-27 (Expo SDK 57.0.25 typecheck and Android export pass).
 
 ## Status
 
@@ -35,7 +35,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 
 ## Next product priorities
 
-1. Trackvee mobile app foundation using Expo SDK 57 and approved Design 2.
+1. Complete Trackvee mobile parity: trip history/replay, alert and map-zone management, behavior, user permissions, and notification preferences.
 2. Maintenance reminders and service history.
 3. Device health center.
 4. Scheduled report delivery.
@@ -43,6 +43,6 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 
 ## Blockers
 
-None recorded.
+Mobile foundation is in progress. Native build/export is verified; full portal feature parity and store distribution setup remain.
 
 See `docs/FEATURE_MATRIX.md` for feature parity and `KNOWN_ISSUES.md` for operational/regression constraints.
