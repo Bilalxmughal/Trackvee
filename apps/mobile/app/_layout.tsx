@@ -6,16 +6,17 @@ import { PortalPermissionsProvider } from '../src/auth/PortalPermissionsProvider
 import { theme } from '../src/theme';
 
 function NavigationRoot() {
-  const { user, loading } = useAuth();
+  const { user, loading, sessionRestoreFailed } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
     const publicRoute = segments[0] === 'index' || segments[0] === 'login';
+    if (!user && sessionRestoreFailed && segments[0] !== 'login') { router.replace('/login'); return; }
     if (!user && !publicRoute) router.replace('/');
     if (user && publicRoute) router.replace('/map');
-  }, [loading, user, segments, router]);
+  }, [loading, user, sessionRestoreFailed, segments, router]);
 
   return (
     <>

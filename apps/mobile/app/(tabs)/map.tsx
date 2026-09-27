@@ -16,18 +16,25 @@ function VehicleMarker({ item, selected, onPress }: { item: FleetItem; selected:
   const point = item.point as LivePoint;
   const state = getFleetStatus(point);
   const color = STATUS[state] ?? theme.offline;
+  const [tracksViewChanges, setTracksViewChanges] = useState(true);
+  useEffect(() => {
+    setTracksViewChanges(true);
+    const timer = setTimeout(() => setTracksViewChanges(false), 450);
+    return () => clearTimeout(timer);
+  }, [color, point.heading, point.speedKmh, selected]);
   return (
-    <Marker coordinate={{ latitude: point.latitude, longitude: point.longitude }} onPress={onPress} tracksViewChanges={false} title={item.vehicle?.licensePlate || `#${item.vehicle?.displayId ?? item.device.displayId}`} description={`${displayVehicleName(item.vehicle)} · ${Math.round(point.speedKmh)} km/h`}>
+    <Marker coordinate={{ latitude: point.latitude, longitude: point.longitude }} onPress={onPress} tracksViewChanges={tracksViewChanges} title={item.vehicle?.licensePlate || `#${item.vehicle?.displayId ?? item.device.displayId}`} description={`${state[0]!.toUpperCase() + state.slice(1)} · ${point.speedKmh.toFixed(1)} km/h · ignition ${point.ignition ? 'on' : 'off'}`}>
       <View style={styles.markerWrap}>
         <View style={[styles.marker, { borderColor: color, backgroundColor: '#fff' }, selected && styles.markerSelected]}>
-          <View style={{ transform: [{ rotate: `${point.heading ?? 0}deg` }] }}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+          <View style={{ transform: [{ rotate: `${((point.heading ?? 0) + 180) % 360}deg` }] }}>
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
               <Path d="M7 17h10l1.4-5.2a2 2 0 0 0-1.94-2.52H7.54a2 2 0 0 0-1.94 2.52L7 17Z" />
               <Path d="M6 14h12M8 17v2m8-2v2M8 9l1-3h6l1 3" />
               <Path d="M5 12h1m12 0h1" />
             </Svg>
           </View>
         </View>
+        <View style={[styles.markerStatusDot, { backgroundColor: color }]} />
         <View style={styles.plateLabel}><Text style={styles.plateText}>{item.vehicle?.licensePlate || `#${item.vehicle?.displayId ?? item.device.displayId}`}</Text></View>
       </View>
     </Marker>
@@ -82,7 +89,7 @@ export default function LiveMapScreen() {
       </View>
 
       <View style={[styles.mapActions, { top: Math.max(insets.top, 10) + 120 }]}>
-        <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: (camera.zoom ?? 12) + 1 }))} style={styles.zoomInButton} accessibilityLabel="Zoom in"><Text style={styles.zoomInText}>+</Text></Pressable>
+        <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: (camera.zoom ?? 12) + 1 }))} style={styles.mapButton} accessibilityLabel="Zoom in"><Text style={styles.zoomInText}>+</Text></Pressable>
         <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: Math.max(3, (camera.zoom ?? 12) - 1) }))} style={styles.mapButton} accessibilityLabel="Zoom out"><Text style={styles.zoomOutText}>−</Text></Pressable>
         <Pressable onPress={fitFleet} style={styles.mapButton} accessibilityLabel="Fit vehicles"><TablerIcon name="locate" size={19} color={theme.ink} /></Pressable>
       </View>
@@ -102,7 +109,7 @@ export default function LiveMapScreen() {
                 <Text style={styles.selectedPlate}>{selectedItem.vehicle?.licensePlate || `#${selectedItem.vehicle?.displayId ?? selectedItem.device.displayId}`}</Text>
                 <Text style={styles.selectedName}>{displayVehicleName(selectedItem.vehicle)}</Text>
               </View>
-              <Text style={styles.speed}>{Math.round(selectedItem.point?.speedKmh ?? 0)} <Text style={styles.speedUnit}>km/h</Text></Text>
+              <Text style={styles.speed}>{(selectedItem.point?.speedKmh ?? 0).toFixed(1)} <Text style={styles.speedUnit}>km/h</Text></Text>
             </View>
             <Text style={styles.detailHint}>Tap for vehicle details</Text>
           </Pressable>
@@ -129,10 +136,10 @@ const styles = StyleSheet.create({
   vehicleCount: { fontSize: 12, color: theme.secondary, fontVariant: ['tabular-nums'] },
   mapActions: { position: 'absolute', right: 14, gap: 7 },
   mapButton: { height: 42, width: 42, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  zoomInButton: { height: 42, width: 42, alignItems: 'center', justifyContent: 'center' },
-  zoomInText: { fontSize: 34, lineHeight: 38, color: theme.red, fontWeight: '400' },
+  zoomInText: { fontSize: 25, lineHeight: 28, color: theme.red, fontWeight: '400' },
   zoomOutText: { fontSize: 25, lineHeight: 28, color: theme.ink, fontWeight: '400' },
-  markerWrap: { alignItems: 'center' }, marker: { height: 38, width: 38, borderRadius: 20, borderWidth: 2, alignItems: 'center', justifyContent: 'center', elevation: 3 },
+  markerWrap: { alignItems: 'center', position: 'relative' }, marker: { height: 32, width: 32, borderRadius: 16, borderWidth: 2, alignItems: 'center', justifyContent: 'center', elevation: 3 },
+  markerStatusDot: { position: 'absolute', top: -1, right: -3, height: 9, width: 9, borderRadius: 5, borderWidth: 1.5, borderColor: '#fff', zIndex: 2 },
   markerSelected: { borderWidth: 3, transform: [{ scale: 1.08 }] },
   plateLabel: { backgroundColor: '#fff', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3, marginTop: 3, elevation: 2 },
   plateText: { color: theme.ink, fontSize: 10, fontWeight: '700' },

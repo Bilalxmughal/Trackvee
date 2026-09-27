@@ -17,6 +17,7 @@ const CLIENT_ROLES = new Set(['client_owner', 'client_super_admin', 'client_admi
 interface AuthValue {
   user: MobileUser | null;
   loading: boolean;
+  sessionRestoreFailed: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -25,11 +26,14 @@ const AuthContext = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: React.PropsWithChildren) {
   const [user, setUser] = useState<MobileUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionRestoreFailed, setSessionRestoreFailed] = useState(false);
 
   const logout = useCallback(async () => {
     await SecureStore.deleteItemAsync('yt_token');
     await SecureStore.deleteItemAsync('yt_refresh');
+    await SecureStore.deleteItemAsync('yt_user');
     setUser(null);
+    setSessionRestoreFailed(false);
   }, []);
 
   useEffect(() => {
@@ -38,12 +42,27 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     (async () => {
       const token = await SecureStore.getItemAsync('yt_token');
       if (!token) { if (mounted) setLoading(false); return; }
+      const cachedUserText = await SecureStore.getItemAsync('yt_user');
+      let cachedUser: MobileUser | null = null;
+      try {
+        const parsed = cachedUserText ? JSON.parse(cachedUserText) as MobileUser : null;
+        if (parsed && CLIENT_ROLES.has(parsed.role) && typeof parsed.id === 'string') cachedUser = parsed;
+      } catch { cachedUser = null; }
+      if (mounted && cachedUser) {
+        setUser(cachedUser);
+        setLoading(false);
+      }
       try {
         const response = await api.get<MobileUser>('/auth/me');
-        if (mounted && CLIENT_ROLES.has(response.data.role)) setUser(response.data);
+        if (mounted && CLIENT_ROLES.has(response.data.role)) {
+          setUser(response.data);
+          setSessionRestoreFailed(false);
+          await SecureStore.setItemAsync('yt_user', JSON.stringify(response.data));
+        }
         else if (mounted) await logout();
       } catch {
-        if (mounted) await logout();
+        const tokenStillExists = await SecureStore.getItemAsync('yt_token');
+        if (mounted && tokenStillExists && !cachedUser) setSessionRestoreFailed(true);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -56,10 +75,12 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     if (!CLIENT_ROLES.has(response.data.user.role)) throw new Error('Invalid email or password');
     await SecureStore.setItemAsync('yt_token', response.data.accessToken);
     if (response.data.refreshToken) await SecureStore.setItemAsync('yt_refresh', response.data.refreshToken);
+    await SecureStore.setItemAsync('yt_user', JSON.stringify(response.data.user));
     setUser(response.data.user);
+    setSessionRestoreFailed(false);
   }, []);
 
-  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading, login, logout]);
+  const value = useMemo(() => ({ user, loading, sessionRestoreFailed, login, logout }), [user, loading, sessionRestoreFailed, login, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

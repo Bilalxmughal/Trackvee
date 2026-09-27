@@ -79,7 +79,7 @@ export function useFleet() {
       if (active) await load();
     };
     void poll();
-    const timer = setInterval(() => { void poll(); }, 10_000);
+    const timer = setInterval(() => { void poll(); }, 5_000);
     return () => { active = false; clearInterval(timer); };
   }, [load]));
 

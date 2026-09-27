@@ -9,7 +9,7 @@ import { theme } from '../src/theme';
 import logo from '../assets/trackvee-logo.png';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { login, sessionRestoreFailed } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [visible, setVisible] = useState(false);
@@ -47,6 +47,7 @@ export default function LoginScreen() {
           <Text style={styles.title}>Sign in</Text>
           <Text style={styles.subtitle}>Access your fleet, anytime, anywhere.</Text>
 
+          {sessionRestoreFailed && !error ? <Text accessibilityRole="alert" style={styles.error}>Unable to verify your saved session. Sign in again when your connection is available.</Text> : null}
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
 
           <Text style={styles.label}>Email</Text>

@@ -20,7 +20,7 @@
 - Inter, SF Pro, or the closest platform-native professional sans-serif.
 - Compact hierarchy and tabular numbers for telemetry.
 - Buttons have a modest corner radius (approximately 6–8px), not capsules.
-- Add/create action is a standalone red plus icon without a filled box.
+- Add/create action is a standalone red plus icon without a filled box. Map zoom controls are paired boxed controls with matching dimensions; keep the plus glyph red.
 - Flat lists and docked bottom panels; avoid floating decorative cards.
 - No pills, pill badges, gradients, glassmorphism, emoji, oversized headings, or generic AI dashboard visuals.
 - Status colors are reserved for real operational meaning.
@@ -55,6 +55,7 @@ The exact visible navigation items are permission-controlled. Map remains the pr
 - Foreground/background refresh behavior that respects battery usage.
 - Clear loading, empty, offline, stale-data and retry states.
 - Secure token storage and biometric/PIN protection for sensitive commands.
+- Cache only a validated client profile in SecureStore. Restore it immediately on launch and refresh it from `/auth/me`; preserve the session across network and server failures, and clear it only on explicit logout or a definitively invalid refresh token. Never relax the client-role allowlist.
 - Engine Cut/Restore retains IMEI confirmation and permission checks.
 - Respect safe areas, platform back behavior, keyboard handling and accessibility labels.
 - Do not silently broaden portal permissions on mobile.
