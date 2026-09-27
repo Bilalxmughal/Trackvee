@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isAxiosError } from 'axios';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -22,8 +23,14 @@ export default function LoginScreen() {
     try {
       await login(email.trim(), password);
       router.replace('/map');
-    } catch {
-      setError('Invalid email or password');
+    } catch (cause) {
+      if (isAxiosError(cause) && !cause.response) {
+        setError('Unable to connect. Check your internet connection and try again.');
+      } else if (isAxiosError(cause) && (cause.response?.status ?? 0) >= 500) {
+        setError('Trackvee is temporarily unavailable. Please try again shortly.');
+      } else {
+        setError('Invalid email or password');
+      }
     } finally {
       setBusy(false);
     }
@@ -33,9 +40,6 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Pressable onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Go back">
-            <TablerIcon name="back" size={22} color={theme.ink} />
-          </Pressable>
           <Image source={logo} resizeMode="contain" style={styles.logo} accessibilityLabel="Trackvee" />
           <Text style={styles.title}>Sign in</Text>
           <Text style={styles.subtitle}>Access your fleet, anytime, anywhere.</Text>
@@ -57,15 +61,18 @@ export default function LoginScreen() {
           <Text style={styles.privacy}>Your account is protected with secure sign-in.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
+      <Pressable onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Go back">
+        <TablerIcon name="back" size={22} color={theme.ink} />
+      </Pressable>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' }, fill: { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 28 },
-  back: { width: 42, height: 42, justifyContent: 'center', marginBottom: 18 },
-  logo: { width: 210, height: 60, marginBottom: 36 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingTop: 56, paddingBottom: 28 },
+  back: { position: 'absolute', top: 2, left: 22, zIndex: 2, width: 42, height: 42, justifyContent: 'center' },
+  logo: { width: 210, height: 60, alignSelf: 'center', marginBottom: 30 },
   title: { fontSize: 30, fontWeight: '700', color: theme.ink, letterSpacing: -0.6 },
   subtitle: { fontSize: 15, color: theme.secondary, marginTop: 8, marginBottom: 34 },
   label: { fontSize: 13, fontWeight: '600', color: theme.ink, marginBottom: 8 },

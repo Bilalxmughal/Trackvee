@@ -11,6 +11,7 @@
 - [Mobile] Added the Expo SDK 57 app foundation: client-only secure login, refresh-token handling, permission-aware navigation, live OpenStreetMap fleet map, vehicle list/detail, alert rules, and grouped vehicle selection with server-generated report previews.
 
 ### Changed
+- [Mobile] Anchored the login back control to the top safe area, kept welcome actions toward the bottom, and clarified network/server login errors while preserving generic credential errors.
 - [Documentation] Replaced duplicated agent instructions with canonical `AGENTS.md` plus a minimal `CLAUDE.md` pointer, added task-based context routing, feature/deployment references, and split shared patterns into domain files to reduce context usage.
 - [Documentation] Corrected stale current state: Reports and Audit Logs are complete, migrations are present through 021, and current product priorities are maintenance, device health, scheduled reports, and fuel monitoring.
 

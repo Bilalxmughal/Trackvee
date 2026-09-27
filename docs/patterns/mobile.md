@@ -10,6 +10,7 @@
 - Remaining parity work: trip history/replay, editable alerts/geofences/POIs, behavior leaderboard/settings, custom user permissions, notification delivery/preferences, and complete report exports/date filters.
 - Reuse the existing NestJS API, refresh-token flow, client roles, tenant isolation, and portal permission keys.
 - Mobile is a client-facing product; internal admin users must not authenticate into it.
+- Keep the login back control pinned in the top safe area, and distinguish network/server failures from invalid credentials without revealing which portal a rejected account belongs to.
 
 ## Visual direction
 
