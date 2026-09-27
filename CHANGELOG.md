@@ -11,6 +11,7 @@
 - [Mobile] Added the Expo SDK 57 app foundation: client-only secure login, refresh-token handling, permission-aware navigation, live OpenStreetMap fleet map, vehicle list/detail, alert rules, and grouped vehicle selection with server-generated report previews.
 
 ### Changed
+- [Mobile] Fixed vehicle-marker navigation by waiting for permissions and removing its native callout; moved search beside alerts, added Street/Satellite map types and right-side controls, and kept Vehicles after Map in navigation.
 - [Mobile] Matched the map zoom-in control to the boxed zoom-out control while keeping the plus red; corrected vehicle marker heading, reduced its size, and made its live status color/dot update with telemetry. Selected speed now shows tenths of km/h and fleet polling runs every five seconds.
 - [Mobile] Session restoration now caches the validated client profile and keeps it through temporary API/network failures. Refresh-token failures clear the session only when the server definitively rejects the token; client/admin role separation remains enforced.
 - [Mobile] Corrected iPhone safe-area spacing on map and tabs, moved the login back control below the status bar, prevented bottom navigation clipping, and aligned map/report controls with Design 2.

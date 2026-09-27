@@ -13,8 +13,8 @@ export default function AlertsScreen() {
   const [alerts, setAlerts] = useState<AlertRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { canDo } = usePortalPermissions();
-  useEffect(() => { if (!canDo('alerts')) router.replace('/map'); }, [canDo]);
+  const { canDo, loading: permissionsLoading } = usePortalPermissions();
+  useEffect(() => { if (!permissionsLoading && !canDo('alerts')) router.replace('/map'); }, [canDo, permissionsLoading]);
   const load = useCallback(async () => {
     setLoading(true);
     try { const result = await api.get<AlertRule[]>('/alerts'); setAlerts(result.data); setError(''); }

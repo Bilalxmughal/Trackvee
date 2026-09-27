@@ -49,8 +49,8 @@ export default function ReportsScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [picker, setPicker] = useState<'type' | 'vehicles' | 'period' | null>(null);
-  const { canDo } = usePortalPermissions();
-  useEffect(() => { if (!canDo('reports')) router.replace('/map'); }, [canDo]);
+  const { canDo, loading: permissionsLoading } = usePortalPermissions();
+  useEffect(() => { if (!permissionsLoading && !canDo('reports')) router.replace('/map'); }, [canDo, permissionsLoading]);
   const vehicleIds = useMemo(() => vehicles.map(item => item.id), [vehicles]);
   const chosen = selected ?? vehicleIds;
   const reportName = REPORTS.find(item => item.id === reportId)?.label ?? 'Travel Summary';

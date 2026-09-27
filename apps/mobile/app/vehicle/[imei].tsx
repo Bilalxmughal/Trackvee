@@ -31,7 +31,7 @@ export default function VehicleDetailScreen() {
   const insets = useSafeAreaInsets();
   const { imei } = useLocalSearchParams<{ imei: string }>();
   const { items, loading } = useFleet();
-  const { canDo } = usePortalPermissions();
+  const { canDo, loading: permissionsLoading } = usePortalPermissions();
   const mapRef = useRef<MapView>(null);
   const [stats, setStats] = useState<VehicleStats | null>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
@@ -42,7 +42,7 @@ export default function VehicleDetailScreen() {
   const [commandBusy, setCommandBusy] = useState(false);
   const [commandError, setCommandError] = useState('');
   const [immobilized, setImmobilized] = useState(false);
-  useEffect(() => { if (!canDo('vehicles')) router.replace('/map'); }, [canDo]);
+  useEffect(() => { if (!permissionsLoading && !canDo('vehicles')) router.replace('/map'); }, [canDo, permissionsLoading]);
   const item = items.find(entry => entry.device.imei === imei);
   const point = item?.point ?? null;
   useEffect(() => { if (point?.immobilizer != null) setImmobilized(point.immobilizer); }, [point?.immobilizer]);
@@ -79,7 +79,7 @@ export default function VehicleDetailScreen() {
     finally { setCommandBusy(false); }
   };
 
-  if (loading && !item) return <View style={styles.loading}><ActivityIndicator color={theme.red} /><Text style={styles.loadingText}>Loading vehicle…</Text></View>;
+  if (permissionsLoading || (loading && !item)) return <View style={styles.loading}><ActivityIndicator color={theme.red} /><Text style={styles.loadingText}>Loading vehicle…</Text></View>;
   if (!item) return <SafeAreaView style={styles.safe}><Pressable onPress={() => router.back()} style={styles.back}><TablerIcon name="back" /></Pressable><Text style={styles.notFound}>Vehicle not found</Text></SafeAreaView>;
   const plate = item.vehicle?.licensePlate || `#${item.vehicle?.displayId ?? item.device.displayId}`;
   const coordinate = point?.gpsValid ? { latitude: point.latitude, longitude: point.longitude } : null;

@@ -11,8 +11,8 @@ const STATUS_COLOR = { moving: theme.moving, idle: theme.idle, parked: theme.sec
 
 export default function VehiclesScreen() {
   const { items, loading, error, reload } = useFleet();
-  const { canDo } = usePortalPermissions();
-  useEffect(() => { if (!canDo('vehicles')) router.replace('/map'); }, [canDo]);
+  const { canDo, loading: permissionsLoading } = usePortalPermissions();
+  useEffect(() => { if (!permissionsLoading && !canDo('vehicles')) router.replace('/map'); }, [canDo, permissionsLoading]);
   const [query, setQuery] = useState('');
   const vehicles = useMemo(() => items.filter(item => `${item.vehicle?.licensePlate ?? ''} ${displayVehicleName(item.vehicle)}`.toLowerCase().includes(query.toLowerCase())), [items, query]);
   return (

@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import type { ColorValue } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
@@ -7,8 +8,9 @@ import { theme } from '../../src/theme';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const { canDo } = usePortalPermissions();
+  const { canDo, loading } = usePortalPermissions();
   const icon = (name: string) => ({ color, focused }: { color: ColorValue; focused: boolean; size: number }) => <TablerIcon name={name} size={22} color={focused ? theme.red : String(color)} />;
+  if (loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}><ActivityIndicator color={theme.red} /></View>;
   return (
     <Tabs screenOptions={{
       headerShown: false,

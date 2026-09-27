@@ -56,6 +56,9 @@ The exact visible navigation items are permission-controlled. Map remains the pr
 - Clear loading, empty, offline, stale-data and retry states.
 - Use the admin vehicle icon with heading rotation, animate between received fixes, and cluster nearby vehicles when zoomed out. Keep the main map top controls unchanged when adjusting map behavior.
 - Vehicle detail opens directly on map-marker tap and uses a map plus docked telemetry sheet. Refresh stop duration from the shared stats endpoint; do not invent movement samples when the tracker has not transmitted a new fix.
+- Keep Vehicles directly after Map in bottom navigation. Load role permissions before denying access to a vehicle detail; an unresolved permission request must not send the user back to Map.
+- Main-map markers that navigate to detail must not set native `title`/`description`, since those open the platform callout. Keep the logo at left and search immediately before the alert button; map type and zoom/fit controls stay on the right.
+- Street uses OpenStreetMap tiles; Satellite uses the device's native map provider. Configure the Android Google Maps key for signed distribution builds before relying on Satellite there.
 - Secure token storage and biometric/PIN protection for sensitive commands.
 - Cache only a validated client profile in SecureStore. Restore it immediately on launch and refresh it from `/auth/me`; preserve the session across network and server failures, and clear it only on explicit logout or a definitively invalid refresh token. Never relax the client-role allowlist.
 - Engine Cut/Restore retains IMEI confirmation and permission checks.

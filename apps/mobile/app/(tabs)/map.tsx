@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useFleet, displayVehicleName, getFleetStatus, type FleetItem, type LivePoint } from '../../src/hooks/useFleet';
 import { TablerIcon } from '../../src/components/TablerIcon';
+import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
 import { theme } from '../../src/theme';
 import logo from '../../assets/trackvee-logo.png';
 import carIcon from '../../assets/car-icon.png';
@@ -13,7 +14,7 @@ import carIcon from '../../assets/car-icon.png';
 const STATUS: Record<string, string> = { moving: theme.moving, idle: theme.idle, parked: theme.secondary, offline: theme.offline };
 const DEFAULT_REGION: Region = { latitude: 24.8607, longitude: 67.0011, latitudeDelta: 0.14, longitudeDelta: 0.14 };
 
-function VehicleMarker({ item, selected, onPress }: { item: FleetItem; selected: boolean; onPress: () => void }) {
+function VehicleMarker({ item, onPress }: { item: FleetItem; onPress: () => void }) {
   const point = item.point as LivePoint;
   const coordinate = useRef(new AnimatedRegion({ latitude: point.latitude, longitude: point.longitude, latitudeDelta: 0, longitudeDelta: 0 })).current;
   const state = getFleetStatus(point);
@@ -23,15 +24,15 @@ function VehicleMarker({ item, selected, onPress }: { item: FleetItem; selected:
     setTracksViewChanges(true);
     const timer = setTimeout(() => setTracksViewChanges(false), 450);
     return () => clearTimeout(timer);
-  }, [color, point.heading, point.speedKmh, selected]);
+  }, [color, point.heading, point.speedKmh]);
   useEffect(() => {
     coordinate.timing({ toValue: 0, latitude: point.latitude, longitude: point.longitude, latitudeDelta: 0, longitudeDelta: 0, duration: 4200, useNativeDriver: false }).start();
   }, [coordinate, point.latitude, point.longitude]);
   return (
-    <Marker.Animated coordinate={coordinate as unknown as LatLng} onPress={onPress} tracksViewChanges={tracksViewChanges} title={item.vehicle?.licensePlate || `#${item.vehicle?.displayId ?? item.device.displayId}`} description={`${state[0]!.toUpperCase() + state.slice(1)} · ${point.speedKmh.toFixed(1)} km/h · Ignition ${point.ignition === true ? 'On' : point.ignition === false ? 'Off' : '—'}`}>
+    <Marker.Animated coordinate={coordinate as unknown as LatLng} onPress={onPress} tracksViewChanges={tracksViewChanges} stopPropagation>
       <View style={styles.markerWrap}>
         <Image source={carIcon} resizeMode="contain" style={[styles.carImage, { transform: [{ rotate: `${((point.heading ?? 0) + 180) % 360}deg` }] }]} />
-        <View style={[styles.plateLabel, selected && styles.plateLabelSelected]}>
+        <View style={styles.plateLabel}>
           <View style={[styles.plateStatusBar, { backgroundColor: color }]} />
           <Text style={styles.plateText}>{item.vehicle?.licensePlate || `#${item.vehicle?.displayId ?? item.device.displayId}`}</Text>
         </View>
@@ -43,9 +44,12 @@ function VehicleMarker({ item, selected, onPress }: { item: FleetItem; selected:
 export default function LiveMapScreen() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView | null>(null);
-  const { items, loading, error, reload } = useFleet();
+  const { items, error, reload } = useFleet();
+  const { canDo } = usePortalPermissions();
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [mapStyle, setMapStyle] = useState<'street' | 'satellite'>('street');
+  const [styleOpen, setStyleOpen] = useState(false);
   const [fitted, setFitted] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
@@ -73,7 +77,6 @@ export default function LiveMapScreen() {
   }, [filtered, mapSize, region]);
 
   const openVehicle = useCallback((imei: string) => {
-    setSelected(imei);
     router.push({ pathname: '/vehicle/[imei]', params: { imei } });
   }, []);
 
@@ -96,10 +99,10 @@ export default function LiveMapScreen() {
 
   return (
     <View style={styles.fill}>
-      <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={DEFAULT_REGION} mapType="none" showsCompass={false} showsUserLocation={false} toolbarEnabled={false} onMapReady={() => setMapReady(true)} onLayout={event => setMapSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })} onRegionChangeComplete={setRegion}>
-        <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256} zIndex={0} />
+      <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={DEFAULT_REGION} mapType={mapStyle === 'street' ? 'none' : 'satellite'} showsCompass={false} showsUserLocation={false} toolbarEnabled={false} moveOnMarkerPress={false} onMapReady={() => setMapReady(true)} onLayout={event => setMapSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })} onRegionChangeComplete={setRegion}>
+        {mapStyle === 'street' && <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256} zIndex={0} />}
         {clustered.map(group => group.items.length === 1 ? (
-          <VehicleMarker key={group.items[0]!.device.imei} item={group.items[0]!} selected={selected === group.items[0]!.device.imei} onPress={() => openVehicle(group.items[0]!.device.imei)} />
+          <VehicleMarker key={group.items[0]!.device.imei} item={group.items[0]!} onPress={() => openVehicle(group.items[0]!.device.imei)} />
         ) : (
           <Marker key={`cluster-${group.key}`} coordinate={{ latitude: group.latitude, longitude: group.longitude }} onPress={() => zoomCluster(group.latitude, group.longitude)} tracksViewChanges={false} accessibilityLabel={`${group.items.length} vehicles; zoom in`}>
             <View style={styles.clusterMarker}><Text style={styles.clusterCount}>{group.items.length}</Text></View>
@@ -110,28 +113,37 @@ export default function LiveMapScreen() {
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
         <View style={styles.topRow}>
           <Image source={logo} resizeMode="contain" style={styles.logo} accessibilityLabel="Trackvee" />
-          <Pressable accessibilityRole="button" accessibilityLabel="Open alerts" onPress={() => router.push('/alerts')} style={styles.iconButton}>
-            <TablerIcon name="bell" size={21} color={theme.ink} />
-          </Pressable>
+          <View style={styles.topActions}>
+            <Pressable accessibilityRole="button" accessibilityLabel={searchOpen ? 'Close search' : 'Search vehicles'} onPress={() => { if (searchOpen) setQuery(''); setSearchOpen(value => !value); }} style={styles.iconButton}>
+              <TablerIcon name={searchOpen ? 'close' : 'search'} size={20} color={theme.ink} />
+            </Pressable>
+            {canDo('alerts') && <Pressable accessibilityRole="button" accessibilityLabel="Open alerts" onPress={() => router.push('/alerts')} style={styles.iconButton}>
+              <TablerIcon name="bell" size={21} color={theme.ink} />
+            </Pressable>}
+          </View>
         </View>
-        <View style={styles.searchBar}>
+        {searchOpen && <View style={styles.searchBar}>
           <TablerIcon name="search" size={19} color={theme.secondary} />
-          <TextInput value={query} onChangeText={setQuery} placeholder="Search plate or vehicle" placeholderTextColor={theme.muted} style={styles.searchInput} returnKeyType="search" accessibilityLabel="Search vehicles" />
+          <TextInput autoFocus value={query} onChangeText={setQuery} placeholder="Search plate or vehicle" placeholderTextColor={theme.muted} style={styles.searchInput} returnKeyType="search" accessibilityLabel="Search vehicles" />
           <Text style={styles.vehicleCount}>{filtered.length}</Text>
-        </View>
+        </View>}
       </View>
 
-      <View style={[styles.mapActions, { top: Math.max(insets.top, 10) + 120 }]}>
+      <View style={[styles.mapActions, { top: Math.max(insets.top, 10) + (searchOpen ? 160 : 110) }]}>
+        <Pressable onPress={() => setStyleOpen(value => !value)} style={styles.mapButton} accessibilityRole="button" accessibilityLabel="Map type"><TablerIcon name="layers" size={19} color={theme.ink} /></Pressable>
+        {styleOpen && <View style={styles.styleMenu}>
+          {(['street', 'satellite'] as const).map(style => <Pressable key={style} onPress={() => { setMapStyle(style); setStyleOpen(false); }} style={styles.styleOption} accessibilityRole="button" accessibilityLabel={`${style === 'street' ? 'Street' : 'Satellite'} map`}><Text style={[styles.styleOptionText, mapStyle === style && styles.styleOptionSelected]}>{style === 'street' ? 'Street' : 'Satellite'}</Text></Pressable>)}
+        </View>}
         <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: (camera.zoom ?? 12) + 1 }))} style={styles.mapButton} accessibilityLabel="Zoom in"><Text style={styles.zoomInText}>+</Text></Pressable>
         <Pressable onPress={() => mapRef.current?.getCamera().then(camera => mapRef.current?.animateCamera({ zoom: Math.max(3, (camera.zoom ?? 12) - 1) }))} style={styles.mapButton} accessibilityLabel="Zoom out"><Text style={styles.zoomOutText}>−</Text></Pressable>
         <Pressable onPress={fitFleet} style={styles.mapButton} accessibilityLabel="Fit vehicles"><TablerIcon name="locate" size={19} color={theme.ink} /></Pressable>
       </View>
 
       <View style={[styles.bottomOverlay, { bottom: 8 }]}>
-        <Pressable onPress={() => router.push('/vehicles')} style={styles.fleetSummary}>
+        {canDo('vehicles') && <Pressable onPress={() => router.push('/vehicles')} style={styles.fleetSummary}>
           <Text style={styles.fleetSummaryTitle}>{items.length} {items.length === 1 ? 'Vehicle' : 'Vehicles'}</Text>
           <Text style={styles.viewList}>View list ›</Text>
-        </Pressable>
+        </Pressable>}
         <View style={styles.statusRow}>
           {(['moving', 'idle', 'parked', 'offline'] as const).map(status => {
             const count = items.filter(item => getFleetStatus(item.point) === status).length;
@@ -139,7 +151,7 @@ export default function LiveMapScreen() {
           })}
         </View>
         {error ? <Pressable onPress={reload}><Text style={styles.errorText}>{error}  Retry</Text></Pressable> : null}
-        <Text style={styles.attribution}>© OpenStreetMap contributors</Text>
+        {mapStyle === 'street' && <Text style={styles.attribution}>© OpenStreetMap contributors</Text>}
       </View>
     </View>
   );
@@ -149,18 +161,22 @@ const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: '#e9edf0' },
   topOverlay: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: 16 },
   topRow: { height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logo: { height: 34, width: 135 },
   iconButton: { width: 42, height: 42, borderRadius: 10, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.border },
   searchBar: { height: 48, paddingHorizontal: 13, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
   searchInput: { flex: 1, padding: 0, color: theme.ink, fontSize: 14 },
   vehicleCount: { fontSize: 12, color: theme.secondary, fontVariant: ['tabular-nums'] },
-  mapActions: { position: 'absolute', right: 14, gap: 7 },
+  mapActions: { position: 'absolute', right: 14, alignItems: 'flex-end', gap: 7 },
+  styleMenu: { position: 'absolute', right: 50, top: 0, width: 110, backgroundColor: '#fff', borderWidth: 1, borderColor: theme.border, borderRadius: 8, elevation: 4, overflow: 'hidden' },
+  styleOption: { minHeight: 40, paddingHorizontal: 12, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: theme.border },
+  styleOptionText: { fontSize: 12, color: theme.ink },
+  styleOptionSelected: { color: theme.red, fontWeight: '700' },
   mapButton: { height: 42, width: 42, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   zoomInText: { fontSize: 25, lineHeight: 28, color: theme.red, fontWeight: '400' },
   zoomOutText: { fontSize: 25, lineHeight: 28, color: theme.ink, fontWeight: '400' },
   markerWrap: { alignItems: 'center' }, carImage: { width: 23, height: 30 },
   plateLabel: { backgroundColor: '#fff', borderRadius: 4, paddingRight: 5, flexDirection: 'row', alignItems: 'stretch', marginTop: 2, elevation: 2, overflow: 'hidden' },
-  plateLabelSelected: { borderWidth: 1, borderColor: theme.ink },
   plateStatusBar: { width: 3, marginRight: 4 },
   plateText: { color: theme.ink, fontSize: 9, fontWeight: '700', paddingVertical: 3 },
   clusterMarker: { height: 38, minWidth: 38, paddingHorizontal: 7, borderRadius: 20, backgroundColor: theme.red, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', elevation: 4 },

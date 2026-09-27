@@ -104,3 +104,15 @@ Every new feature/page built in the same session must also be wired into `ORG_PO
 **Cause:** Each client classified the latest raw speed independently, so a single noisy/deceleration fix could change Moving to Idle/Parked. Stop duration was also vulnerable to stale or unconfirmed samples.
 
 **Rule:** Use the API's shared `vehicleStatus` from recent valid GPS fixes. Keep the 5 km/h movement entry threshold, confirm stopped state with consecutive low-speed fixes, and only calculate stop duration from a fresh confirmed stationary run. Keep status and stop-duration regression checks aligned across API, admin, portal, and mobile.
+
+---
+
+## KI-008 — Mobile marker tap returned to Map
+
+**Status:** Resolved; regression rule retained
+
+**Area:** Mobile navigation / map markers
+
+**Cause:** Native marker `title`/`description` opened a transient callout, while vehicle detail checked `vehicles` permission before the asynchronous role-permission request finished and redirected to Map.
+
+**Rule:** Navigating markers must use their press handler without a native callout. Detail screens must wait for permission loading to finish before redirecting unauthorized users.
