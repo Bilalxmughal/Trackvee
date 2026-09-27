@@ -6,6 +6,9 @@
 
 ## 2026-09-27
 
+### Added
+- [Mobile] Recorded the approved Trackvee Mobile Design 2, Expo SDK 57 baseline, primary navigation flow, mobile-specific requirements, and shared portal parity rules.
+
 ### Changed
 - [Documentation] Replaced duplicated agent instructions with canonical `AGENTS.md` plus a minimal `CLAUDE.md` pointer, added task-based context routing, feature/deployment references, and split shared patterns into domain files to reduce context usage.
 - [Documentation] Corrected stale current state: Reports and Audit Logs are complete, migrations are present through 021, and current product priorities are maintenance, device health, scheduled reports, and fuel monitoring.

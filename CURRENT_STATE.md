@@ -35,10 +35,11 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 
 ## Next product priorities
 
-1. Maintenance reminders and service history.
-2. Device health center.
-3. Scheduled report delivery.
-4. Fuel monitoring and cost analytics.
+1. Trackvee mobile app foundation using Expo SDK 57 and approved Design 2.
+2. Maintenance reminders and service history.
+3. Device health center.
+4. Scheduled report delivery.
+5. Fuel monitoring and cost analytics.
 
 ## Blockers
 

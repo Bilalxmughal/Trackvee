@@ -21,5 +21,6 @@ Last verified: 2026-09-27, commit `505466d`.
 | Fuel monitoring | Missing | Missing | Missing | future `fuel` | Planned |
 | Scheduled report delivery | Partial | Missing | Missing | `reports` | Saved reports exist; scheduler pending |
 | Device health center | Partial data | Missing | Missing | future key | Telemetry data exists; workflow pending |
+| Mobile app | Existing API | n/a | Planned | reuse portal permissions | Expo SDK 57, approved Design 2 |
 
 Update this matrix when feature availability, permission wiring, or deployment scope changes. Keep implementation details in domain pattern documents.

@@ -170,3 +170,22 @@ Driver score is recalculated continuously as telemetry arrives. Without a cooldo
 
 **Rule:**
 Cooldown map lives at module level in `driver-behavior.service.ts`. It resets on server restart (daily PM2 restarts are acceptable for this use case).
+
+---
+
+## DEC-013 — Mobile baseline and approved Design 2
+
+**Status:** Accepted
+
+**Decision:**
+The Trackvee client mobile app will be created in `apps/mobile` with React Native, TypeScript, and Expo SDK 57. It will reuse the existing NestJS API, client roles, tenant isolation, and portal permission model.
+
+The approved visual direction is **Trackvee Mobile Design 2 / Precision Map UI**: map-first Clean Light UI, compact professional typography, flat information rows, thin separators, restrained Trackvee red, and docked map panels.
+
+Buttons use a modest corner radius rather than sharp corners. Add/create actions use a standalone red plus icon without a filled square box. Product UI must not use pills, gradients, glassmorphism, decorative cards, emoji, or generic AI dashboard styling.
+
+**Reason:**
+This direction keeps live tracking primary, carries the existing Trackvee identity into mobile, and supports dense operational information without visual clutter.
+
+**Rule:**
+Implement screens and reusable mobile components against `docs/patterns/mobile.md`. Client-visible modules and actions must remain permission-controlled and behaviorally aligned with the portal.
