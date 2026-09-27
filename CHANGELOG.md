@@ -4,6 +4,12 @@
 
 ---
 
+## 2026-09-27
+
+### Changed
+- [Documentation] Replaced duplicated agent instructions with canonical `AGENTS.md` plus a minimal `CLAUDE.md` pointer, added task-based context routing, feature/deployment references, and split shared patterns into domain files to reduce context usage.
+- [Documentation] Corrected stale current state: Reports and Audit Logs are complete, migrations are present through 021, and current product priorities are maintenance, device health, scheduled reports, and fuel monitoring.
+
 ## 2026-09-26 (Session 3)
 
 ### Added
