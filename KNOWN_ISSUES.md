@@ -115,4 +115,4 @@ Every new feature/page built in the same session must also be wired into `ORG_PO
 
 **Cause:** Native marker `title`/`description` opened a transient callout, while vehicle detail checked `vehicles` permission before the asynchronous role-permission request finished and redirected to Map.
 
-**Rule:** Navigating markers must use their press handler without a native callout. Detail screens must wait for permission loading to finish before redirecting unauthorized users.
+**Rule:** Navigating markers must use their press/select handler without a native callout. A live-map vehicle detail uses `map.view`; the Vehicles tab uses `vehicles.view`. Wait for permission loading before redirecting. Merge missing role-permission keys from defaults without overriding explicit denials.

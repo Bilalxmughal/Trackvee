@@ -20,6 +20,13 @@ function VehicleMarker({ item, onPress }: { item: FleetItem; onPress: () => void
   const state = getFleetStatus(point);
   const color = STATUS[state] ?? theme.offline;
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
+  const lastPress = useRef(0);
+  const handlePress = () => {
+    const now = Date.now();
+    if (now - lastPress.current < 700) return;
+    lastPress.current = now;
+    onPress();
+  };
   useEffect(() => {
     setTracksViewChanges(true);
     const timer = setTimeout(() => setTracksViewChanges(false), 450);
@@ -29,7 +36,7 @@ function VehicleMarker({ item, onPress }: { item: FleetItem; onPress: () => void
     coordinate.timing({ toValue: 0, latitude: point.latitude, longitude: point.longitude, latitudeDelta: 0, longitudeDelta: 0, duration: 4200, useNativeDriver: false }).start();
   }, [coordinate, point.latitude, point.longitude]);
   return (
-    <Marker.Animated coordinate={coordinate as unknown as LatLng} onPress={onPress} tracksViewChanges={tracksViewChanges} stopPropagation>
+    <Marker.Animated coordinate={coordinate as unknown as LatLng} onPress={handlePress} onSelect={handlePress} tracksViewChanges={tracksViewChanges} stopPropagation>
       <View style={styles.markerWrap}>
         <Image source={carIcon} resizeMode="contain" style={[styles.carImage, { transform: [{ rotate: `${((point.heading ?? 0) + 180) % 360}deg` }] }]} />
         <View style={styles.plateLabel}>
@@ -175,7 +182,7 @@ const styles = StyleSheet.create({
   mapButton: { height: 42, width: 42, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   zoomInText: { fontSize: 25, lineHeight: 28, color: theme.red, fontWeight: '400' },
   zoomOutText: { fontSize: 25, lineHeight: 28, color: theme.ink, fontWeight: '400' },
-  markerWrap: { alignItems: 'center' }, carImage: { width: 23, height: 30 },
+  markerWrap: { alignItems: 'center' }, carImage: { width: 27, height: 35 },
   plateLabel: { backgroundColor: '#fff', borderRadius: 4, paddingRight: 5, flexDirection: 'row', alignItems: 'stretch', marginTop: 2, elevation: 2, overflow: 'hidden' },
   plateStatusBar: { width: 3, marginRight: 4 },
   plateText: { color: theme.ink, fontSize: 9, fontWeight: '700', paddingVertical: 3 },

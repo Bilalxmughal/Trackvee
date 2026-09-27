@@ -42,7 +42,7 @@ export default function VehicleDetailScreen() {
   const [commandBusy, setCommandBusy] = useState(false);
   const [commandError, setCommandError] = useState('');
   const [immobilized, setImmobilized] = useState(false);
-  useEffect(() => { if (!permissionsLoading && !canDo('vehicles')) router.replace('/map'); }, [canDo, permissionsLoading]);
+  useEffect(() => { if (!permissionsLoading && !canDo('map')) router.replace('/map'); }, [canDo, permissionsLoading]);
   const item = items.find(entry => entry.device.imei === imei);
   const point = item?.point ?? null;
   useEffect(() => { if (point?.immobilizer != null) setImmobilized(point.immobilizer); }, [point?.immobilizer]);

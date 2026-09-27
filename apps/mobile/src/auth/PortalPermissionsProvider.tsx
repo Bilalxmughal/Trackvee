@@ -20,7 +20,7 @@ export function PortalPermissionsProvider({ children }: React.PropsWithChildren)
     if (!user) { setPermissions({ map: ['view'] }); setResolvedUserId(null); return; }
     let current = true;
     api.get<Record<string, RoleMap>>('/role-portal-permissions')
-      .then(response => { if (current) { setPermissions(response.data[user.role] ?? FALLBACK[user.role] ?? { map: ['view'] }); setResolvedUserId(user.id); } })
+      .then(response => { if (current) { setPermissions({ ...(FALLBACK[user.role] ?? { map: ['view'] }), ...(response.data[user.role] ?? {}) }); setResolvedUserId(user.id); } })
       .catch(() => { if (current) { setPermissions(FALLBACK[user.role] ?? { map: ['view'] }); setResolvedUserId(user.id); } });
     return () => { current = false; };
   }, [user?.id, user?.role]);
