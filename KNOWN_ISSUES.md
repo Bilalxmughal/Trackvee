@@ -188,3 +188,15 @@ Every new feature/page built in the same session must also be wired into `ORG_PO
 **Cause:** Role-gating a mobile screen alone does not prevent direct API access to another tenant's vehicle data or scores outside a user's custom vehicle grant.
 
 **Rule:** Enforce `driver-behavior` role access in the API, scope every client vehicle/group/settings lookup to the authenticated organization, apply custom `vehicleIds` to leaderboard and detail routes, whitelist editable settings, and keep score deletion internal-admin-only.
+
+---
+
+## KI-015 — Mobile push tokens and event links must stay scoped
+
+**Status:** Active deployment prerequisite; source implemented
+
+**Area:** API / Mobile notifications
+
+**Problem:** Push-token ownership, alert delivery, or a notification event lookup could expose another user's or tenant's vehicle activity if recipient and deep-link access are not revalidated.
+
+**Rule:** Apply migration `024_mobile_push_tokens.sql` before deploying the API. Bind token registration/removal to the authenticated user and organization. Send only to active client users with effective `alerts.view` and access to the triggering vehicle; recheck the same scope on event detail fetch. Never rely on the notification payload as authorization. Native push also requires the configured EAS project and APNs/FCM credentials.

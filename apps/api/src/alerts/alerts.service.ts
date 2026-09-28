@@ -7,6 +7,7 @@ import { User } from '../users/entities/user.entity.js';
 import { DevicesService } from '../devices/devices.service.js';
 import { OrgPermissionsService } from '../org-permissions/org-permissions.service.js';
 import { RolePortalPermissionsService } from '../role-portal-permissions/role-portal-permissions.service.js';
+import { MobilePushToken } from './entities/mobile-push-token.entity.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
@@ -19,6 +20,8 @@ export class AlertsService {
     private devices: DevicesService,
     private orgPerms: OrgPermissionsService,
     private rolePerms: RolePortalPermissionsService,
+    @InjectRepository(MobilePushToken) private pushTokenRepo: Repository<MobilePushToken>,
+    @InjectRepository(User) private usersRepo: Repository<User>,
   ) {}
 
   findAll(user: User, orgId?: string): Promise<Alert[]> {
@@ -174,8 +177,115 @@ export class AlertsService {
     return this.logRepo.find({ where: { alertId: In(rules.map(rule => rule.id)), imei: In(imeis) }, order: { triggeredAt: 'DESC' }, take });
   }
 
+  async registerPushToken(user: User, rawToken: unknown, rawPlatform: unknown): Promise<{ registered: true }> {
+    await this.assertMobileAlertsView(user);
+    if (typeof rawToken !== 'string' || !/^(Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/.test(rawToken)) {
+      throw new BadRequestException('A valid Expo push token is required');
+    }
+    if (rawPlatform !== 'ios' && rawPlatform !== 'android') throw new BadRequestException('Unsupported mobile platform');
+    const orgId = user.organizationId;
+    if (!orgId) throw new ForbiddenException();
+    const existing = await this.pushTokenRepo.findOne({ where: { token: rawToken } });
+    if (existing) {
+      existing.userId = user.id;
+      existing.organizationId = orgId;
+      existing.platform = rawPlatform;
+      await this.pushTokenRepo.save(existing);
+    } else {
+      await this.pushTokenRepo.save(this.pushTokenRepo.create({ userId: user.id, organizationId: orgId, token: rawToken, platform: rawPlatform }));
+    }
+    return { registered: true };
+  }
+
+  async removePushToken(user: User, rawToken: unknown): Promise<{ removed: true }> {
+    if (ADMIN_ROLES.includes(user.role) || !user.organizationId) throw new ForbiddenException('Client account is required');
+    if (typeof rawToken !== 'string' || !/^(Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/.test(rawToken)) {
+      throw new BadRequestException('A valid Expo push token is required');
+    }
+    await this.pushTokenRepo.delete({ userId: user.id, token: rawToken });
+    return { removed: true };
+  }
+
+  async getLogDetail(user: User, id: string) {
+    if (!ADMIN_ROLES.includes(user.role)) await this.assertMobileAlertsView(user);
+    const log = await this.logRepo.findOne({ where: { id } });
+    if (!log) throw new NotFoundException('Alert event not found');
+    const rule = await this.repo.findOne({ where: ADMIN_ROLES.includes(user.role) ? { id: log.alertId } : { id: log.alertId, orgId: user.organizationId ?? undefined } });
+    if (!rule) throw new NotFoundException('Alert event not found');
+    let vehicle: { id: string; name: string; licensePlate: string | null; make: string | null; model: string | null } | null = null;
+    if (!ADMIN_ROLES.includes(user.role)) {
+      const device = (await this.devices.findAll(user)).find(item => item.imei === log.imei);
+      if (!device?.vehicle) throw new NotFoundException('Alert event not found');
+      vehicle = { id: device.vehicle.id, name: device.vehicle.name, licensePlate: device.vehicle.licensePlate, make: device.vehicle.make, model: device.vehicle.model };
+    } else {
+      const device = await this.devices.findByImei(log.imei);
+      if (device?.vehicle) vehicle = { id: device.vehicle.id, name: device.vehicle.name, licensePlate: device.vehicle.licensePlate, make: device.vehicle.make, model: device.vehicle.model };
+    }
+    return {
+      id: log.id,
+      alert: { id: rule.id, name: rule.name, type: rule.type },
+      vehicle,
+      imei: log.imei,
+      triggeredAt: log.triggeredAt,
+      payload: log.payload,
+    };
+  }
+
+  private async assertMobileAlertsView(user: User): Promise<void> {
+    if (ADMIN_ROLES.includes(user.role) || !user.organizationId) throw new ForbiddenException('Alerts access is required');
+    const roleActions = (await this.rolePerms.findAll())[user.role]?.alerts;
+    const orgPerm = await this.orgPerms.findByUser(user.id);
+    const allowed = orgPerm ? orgPerm.alertsView : (roleActions?.includes('view') ?? ['client_owner', 'client_super_admin'].includes(user.role));
+    if (!allowed) throw new ForbiddenException('Alerts access is required');
+  }
+
+  private async sendMobilePush(alert: Alert, log: AlertLog): Promise<void> {
+    if (alert.notifications?.appPush !== true || !alert.orgId) return;
+    try {
+      const device = await this.devices.findByImei(log.imei);
+      if (!device?.vehicle || device.vehicle.organizationId !== alert.orgId) return;
+      const users = await this.usersRepo.find({ where: { organizationId: alert.orgId, isActive: true } });
+      const rolePermissions = await this.rolePerms.findAll();
+      const messages: Array<{ to: string; title: string; body: string; sound: string; priority: 'high'; channelId: string; data: Record<string, string> }> = [];
+      for (const recipient of users) {
+        if (ADMIN_ROLES.includes(recipient.role)) continue;
+        const roleCanView = rolePermissions[recipient.role]?.alerts?.includes('view') ?? ['client_owner', 'client_super_admin'].includes(recipient.role);
+        const permission = await this.orgPerms.findByUser(recipient.id);
+        if (permission ? !permission.alertsView : !roleCanView) continue;
+        if (permission?.vehicleIds && !permission.vehicleIds.includes(device.vehicle.id)) continue;
+        const registrations = await this.pushTokenRepo.find({ where: { userId: recipient.id, organizationId: alert.orgId } });
+        for (const registration of registrations) messages.push({
+          to: registration.token,
+          title: alert.name,
+          body: `${device.vehicle.licensePlate || device.vehicle.name} · ${alert.type.replaceAll('_', ' ')}`,
+          sound: 'default',
+          priority: 'high',
+          channelId: 'trackvee-alerts',
+          data: { path: `/notification/${log.id}`, logId: log.id },
+        });
+      }
+      for (let start = 0; start < messages.length; start += 100) {
+        const response = await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Accept-Encoding': 'gzip, deflate', 'Content-Type': 'application/json' },
+          body: JSON.stringify(messages.slice(start, start + 100)),
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!response.ok) continue;
+        const result = await response.json() as { data?: Array<{ status?: string; details?: { error?: string } }> };
+        const receipts = result.data ?? [];
+        const invalid = receipts.flatMap((receipt, index) => receipt.status === 'error' && receipt.details?.error === 'DeviceNotRegistered' ? [messages[start + index]?.to] : []).filter((token): token is string => !!token);
+        if (invalid.length) await this.pushTokenRepo.delete({ token: In(invalid) });
+      }
+    } catch {
+      // Push delivery must never interrupt telemetry ingestion or event persistence.
+    }
+  }
+
   async logTrigger(alertId: string, imei: string, payload: Record<string, unknown>): Promise<void> {
     const log = this.logRepo.create({ alertId, imei, payload });
-    await this.logRepo.save(log).catch(() => {});
+    const saved = await this.logRepo.save(log).catch(() => null);
+    const alert = saved ? await this.repo.findOne({ where: { id: alertId } }).catch(() => null) : null;
+    if (alert && saved) void this.sendMobilePush(alert, saved);
   }
 }

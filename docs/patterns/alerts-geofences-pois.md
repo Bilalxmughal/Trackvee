@@ -6,6 +6,8 @@
 - Vehicle selection supports groups and defensive null guards.
 - Vehicle menu can pre-seed alert creation by IMEI.
 - Active/inactive filtering, edit/delete menu, English validation.
+- Mobile push is opt-in per device and per rule. Deliver only to active client users in the alert organization who have effective `alerts.view` and access to the triggering vehicle; notification taps fetch the event through the authenticated, tenant-scoped detail endpoint.
+- Push-token rows are bound to the authenticated user and organization. Remove only the caller's token; never accept owner or organization IDs from the client.
 
 ## Geofences
 

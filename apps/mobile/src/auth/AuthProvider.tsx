@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import api, { setSessionExpiredHandler } from '../lib/api';
+import { unregisterPushToken } from '../lib/pushNotifications';
 
 export interface MobileUser {
   id: string;
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   const [sessionRestoreFailed, setSessionRestoreFailed] = useState(false);
 
   const logout = useCallback(async () => {
+    await unregisterPushToken();
     await SecureStore.deleteItemAsync('yt_token');
     await SecureStore.deleteItemAsync('yt_refresh');
     await SecureStore.deleteItemAsync('yt_user');

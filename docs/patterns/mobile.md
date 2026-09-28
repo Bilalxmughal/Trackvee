@@ -11,7 +11,8 @@
 - Implemented: client-only authentication and session restoration; permission-aware Map/Vehicles/Alerts/Reports/More tabs; live fleet map and vehicle list/detail; vehicle-scoped alert CRUD; separate History and Replay routes; grouped vehicle selection and report preview.
 - Implemented: permission-gated Geofence and POI management from More; circles and polygons are drawn on a native map, geofences support editable color/radius/triggers, and POIs support map placement, radius, group, description, and shared icon search. API reads and CRUD enforce authenticated organization scope and View/Add/Edit/Delete permissions.
 - Implemented: Driver Behavior in More, guarded by `driver-behavior` role permissions; compact 30-day average fleet-score line chart above the leaderboard, per-vehicle score history/events, and editable organization thresholds/deductions when `edit` is granted. API scopes client trend/leaderboard/detail data to the authenticated organization and custom vehicle access; score deletion remains internal-admin-only.
-- Still pending: Users and custom-permission management UI; push notifications, preferences, deep links and background refresh; full fleet-wide alert-rule CRUD in the Alerts tab; report custom date/time and conditional filters, grouping and exports; device health and maintenance workflows. Native-device QA, signed EAS builds and store release setup are also pending. See `docs/FEATURE_MATRIX.md` for the concise parity list.
+- Implemented: opt-in mobile push registration on the Alerts screen, per-rule mobile-push switch, foreground notifications, authenticated alert-event deep links, and an event detail route. API delivery targets only active same-organization users with effective `alerts.view` and access to the triggering vehicle. Token ownership is derived from the authenticated account; alert-event detail rechecks organization and vehicle scope.
+- Still pending: EAS project ID and APNs/FCM credentials, signed native build and device delivery QA; notification preferences and background refresh; full fleet-wide alert-rule CRUD in the Alerts tab; report custom date/time and conditional filters, grouping and exports; device health and maintenance workflows. Apply migration `024_mobile_push_tokens.sql` before deploying the API. See `docs/FEATURE_MATRIX.md` for the concise parity list.
 - Reuse the existing NestJS API, refresh-token flow, client roles, tenant isolation, and portal permission keys.
 - Mobile is a client-facing product; internal admin users must not authenticate into it.
 - Keep the login back control pinned in the top safe area, and distinguish network/server failures from invalid credentials without revealing which portal a rejected account belongs to.
@@ -56,7 +57,7 @@ The exact visible navigation items are permission-controlled. Map remains the pr
 
 ## Mobile-specific product requirements
 
-- Push notifications with deep links to the relevant vehicle/event.
+- Push notifications with deep links to the relevant vehicle/event. Do not prompt at app launch; request permission from Alerts. Register Expo tokens only for authenticated client users with effective `alerts.view`. Include the event log ID in notification data and revalidate tenant and vehicle access on detail fetch. Send push only for rules with `notifications.appPush === true`.
 - Foreground/background refresh behavior that respects battery usage.
 - Clear loading, empty, offline, stale-data and retry states.
 - Use the admin vehicle icon with heading rotation, animate between received fixes, and cluster nearby vehicles when zoomed out. Keep the main map top controls unchanged when adjusting map behavior.

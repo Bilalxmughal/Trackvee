@@ -25,6 +25,21 @@ export class AlertsController {
     return this.svc.getLogs(user, alertId, limit ? +limit : 100);
   }
 
+  @Get('logs/:id')
+  getLogDetail(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.svc.getLogDetail(user, id);
+  }
+
+  @Post('push-token')
+  registerPushToken(@CurrentUser() user: User, @Body() body: { token?: unknown; platform?: unknown }) {
+    return this.svc.registerPushToken(user, body?.token, body?.platform);
+  }
+
+  @Delete('push-token')
+  removePushToken(@CurrentUser() user: User, @Body() body: { token?: unknown }) {
+    return this.svc.removePushToken(user, body?.token);
+  }
+
   @Get('vehicle/:imei')
   findForVehicle(@CurrentUser() user: User, @Param('imei') imei: string) {
     return this.svc.findForVehicle(user, imei);

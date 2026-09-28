@@ -7,6 +7,7 @@
 ## 2026-09-28
 
 ### Added
+- [Mobile/API] Added opt-in Expo push registration, per-rule mobile-push delivery scoped by tenant, alert-view permission and vehicle access, and authenticated notification deep links to alert event details. Added migration 024 and push/event-access regression tests. Signed EAS credentials/build and device QA remain release prerequisites.
 - [Mobile] Added permission-gated Geofence circle/polygon and POI management with map drawing, shared POI icon search, group filtering and CRUD. API Geofence/POI operations now enforce tenant scope and per-user permissions; added migration 023 for persisted Geofence enter/exit options and regression tests.
 - [Mobile] Added dedicated selected-vehicle History and Replay routes with PKT custom date/time filters, route map controls, direction/stop markers, point details, virtualized history list, timeline scrubbing, replay seek and speed controls.
 - [Mobile] Added a dedicated vehicle-scoped Alert page; vehicle alerts remain isolated through the selected-IMEI API routes.
