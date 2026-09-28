@@ -4,33 +4,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import api from '../../src/lib/api';
 import { TablerIcon } from '../../src/components/TablerIcon';
-import { FleetAlertForm, type AlertVehicle, type AlertVehicleGroup, type AlertZone, type FleetAlertRule } from '../../src/components/FleetAlertForm';
+import type { FleetAlertRule } from '../../src/components/FleetAlertForm';
 import { theme } from '../../src/theme';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
-import { useAuth } from '../../src/auth/AuthProvider';
 import { syncPushRegistration } from '../../src/lib/pushNotifications';
 
-interface Device { imei: string; vehicle: { id: string; name: string; licensePlate: string | null; make?: string | null; model?: string | null } | null; }
-interface OrgPerm { vehicleIds?: string[] | null; }
 type Filter = 'all' | 'active' | 'inactive';
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 
 export default function AlertsScreen() {
   const [alerts, setAlerts] = useState<FleetAlertRule[]>([]);
-  const [vehicles, setVehicles] = useState<AlertVehicle[]>([]);
-  const [groups, setGroups] = useState<AlertVehicleGroup[]>([]);
-  const [geofences, setGeofences] = useState<AlertZone[]>([]);
-  const [allowFleetWide, setAllowFleetWide] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const [editing, setEditing] = useState<FleetAlertRule | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
   const [pushState, setPushState] = useState<'unknown' | 'enabled' | 'denied' | 'unconfigured' | 'unsupported'>('unknown');
   const [pushBusy, setPushBusy] = useState(false);
   const { canDo, loading: permissionsLoading } = usePortalPermissions();
-  const { user } = useAuth();
 
   useEffect(() => { if (!permissionsLoading && !canDo('alerts')) router.replace('/map'); }, [canDo, permissionsLoading]);
 
@@ -38,32 +28,11 @@ export default function AlertsScreen() {
     setLoading(true);
     setError('');
     try {
-      const [alertResult, deviceResult, groupResult, geofenceResult, permissionResult] = await Promise.all([
-        api.get<FleetAlertRule[]>('/alerts'),
-        api.get<Device[]>('/devices').catch(() => ({ data: [] as Device[] })),
-        api.get<AlertVehicleGroup[]>('/vehicle-groups').catch(() => ({ data: [] as AlertVehicleGroup[] })),
-        api.get<AlertZone[]>('/geofences').catch(() => ({ data: [] as AlertZone[] })),
-        user && !['client_owner', 'client_super_admin'].includes(user.role)
-          ? api.get<OrgPerm | null>(`/org-permissions/${user.id}`).then(result => ({ data: result.data, failed: false })).catch(() => ({ data: null, failed: true }))
-          : Promise.resolve({ data: null, failed: false }),
-      ]);
-      const nextVehicles = deviceResult.data.flatMap(device => device.vehicle ? [{
-        id: device.vehicle.id,
-        imei: device.imei,
-        plate: device.vehicle.licensePlate || device.vehicle.name,
-        name: [device.vehicle.make, device.vehicle.model].filter(Boolean).join(' ') || device.vehicle.name,
-      }] : []);
-      const orgPerm = permissionResult.data;
-      const allVehiclesAllowed = ['client_owner', 'client_super_admin'].includes(user?.role ?? '')
-        || (!permissionResult.failed && orgPerm?.vehicleIds == null);
+      const alertResult = await api.get<FleetAlertRule[]>('/alerts');
       setAlerts(alertResult.data ?? []);
-      setVehicles(nextVehicles);
-      setGroups(groupResult.data ?? []);
-      setGeofences(geofenceResult.data ?? []);
-      setAllowFleetWide(allVehiclesAllowed);
     } catch { setError('Alerts could not be loaded. Check your connection and try again.'); }
     finally { setLoading(false); }
-  }, [user?.id, user?.role]);
+  }, []);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -86,9 +55,8 @@ export default function AlertsScreen() {
     finally { setPushBusy(false); }
   };
 
-  const openNew = () => { setEditing(null); setFormOpen(true); };
-  const openEdit = (rule: FleetAlertRule) => { setEditing(rule); setFormOpen(true); };
-  const closeForm = () => { setFormOpen(false); setEditing(null); };
+  const openNew = () => router.push('/alert-rule');
+  const openEdit = (rule: FleetAlertRule) => router.push({ pathname: '/alert-rule', params: { ruleId: rule.id } });
   const remove = (rule: FleetAlertRule) => Alert.alert('Delete alert rule?', `Delete “${rule.name}” for its selected vehicles?`, [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Delete', style: 'destructive', onPress: () => { void (async () => {
@@ -106,9 +74,7 @@ export default function AlertsScreen() {
   const canManage = (rule: FleetAlertRule, action: 'edit' | 'delete') => {
     const field = action === 'edit' ? rule.canEdit : rule.canDelete;
     if (typeof field === 'boolean') return field && canDo('alerts', action);
-    if (rule.fleetWide || !rule.vehicleImeis.length) return allowFleetWide && canDo('alerts', action);
-    const accessible = new Set(vehicles.map(vehicle => vehicle.imei));
-    return rule.vehicleImeis.every(imei => accessible.has(imei)) && canDo('alerts', action);
+    return false;
   };
 
   return <SafeAreaView style={s.container} edges={['top']}>
@@ -138,7 +104,6 @@ export default function AlertsScreen() {
         ])}><TablerIcon name="more-vertical" size={18} color={theme.secondary}/></Pressable> : null}
       </View>;
     }} ListEmptyComponent={<View style={s.emptyCopy}><TablerIcon name="bell" size={28} color={theme.muted} /><Text style={s.emptyTitle}>{loading ? 'Loading alerts…' : 'No alert rules'}</Text><Text style={s.emptySubtitle}>{loading ? '' : query ? 'Try another search.' : 'Create an alert rule to monitor your fleet.'}</Text>{!loading && !alerts.length && canDo('alerts','add') ? <Pressable onPress={openNew} style={s.emptyAction}><TablerIcon name="plus" size={16} color={theme.red}/><Text style={s.emptyActionText}>New alert rule</Text></Pressable> : null}</View>} />
-    <FleetAlertForm key={editing?.id ?? (formOpen ? 'new-alert' : 'closed')} visible={formOpen} initial={editing} vehicles={vehicles} groups={groups} geofences={geofences} allowFleetWide={allowFleetWide} onClose={closeForm} onSaved={rule => { setFormOpen(false); setEditing(null); setAlerts(current => editing ? current.map(item => item.id === rule.id ? { ...item, ...rule } : item) : [rule, ...current]); void load(); }} />
   </SafeAreaView>;
 }
 
