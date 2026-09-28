@@ -34,12 +34,13 @@ function SoundPreview({ source, onFinish }: { source: AudioSource; onFinish: () 
           player.play();
         }
       } catch {
-        onFinishRef.current();
+        if (mounted) onFinishRef.current();
       }
     })();
     return () => {
       mounted = false;
-      player.pause();
+      // useAudioPlayer releases the native shared object on unmount and pauses it
+      // during native teardown. Calling pause here can run after that release.
     };
   }, [player]);
 
