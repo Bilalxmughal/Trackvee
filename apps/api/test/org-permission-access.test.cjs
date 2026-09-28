@@ -5,10 +5,11 @@ const { OrgPermissionsController } = require('../dist/org-permissions/org-permis
 
 function fixture(target) {
   const saved = [];
-  const svc = { findByUser: async () => ({ userId: target.id }), upsert: async (...args) => { saved.push(args); return args; } };
-  const roles = { findAll: async () => ({ client_admin: { users: ['edit'] } }) };
+  const svc = { findByUser: async () => null, upsert: async (...args) => { saved.push(args); return args; } };
+  const roles = { findAll: async () => ({ client_admin: { users: ['view', 'add', 'edit'] } }) };
   const users = { findOne: async () => target };
-  return { controller: new OrgPermissionsController(svc, roles, users), saved };
+  const vehicles = { find: async () => [] };
+  return { controller: new OrgPermissionsController(svc, roles, users, vehicles), saved };
 }
 
 test('an org admin cannot grant permissions to itself', async () => {
@@ -29,6 +30,15 @@ test('a permitted edit uses the target org and only recognized permission fields
   const target = { id: 'b', role: 'client_user', organizationId: 'org-1' };
   const caller = { id: 'a', role: 'client_admin', organizationId: 'org-1' };
   const { controller, saved } = fixture(target);
-  await controller.upsert(caller, target.id, { orgId: 'other-org', userId: 'attacker', alertsAdd: true, vehicleIds: [] });
-  assert.deepEqual(saved[0], ['b', 'org-1', { alertsAdd: true, vehicleIds: [] }]);
+  await assert.rejects(() => controller.upsert(caller, target.id, { orgId: 'other-org', vehiclesView: true }));
+  await controller.upsert(caller, target.id, { orgId: 'org-1', userId: 'attacker', vehiclesView: true, vehicleIds: [] });
+  assert.deepEqual(saved[0], ['b', 'org-1', { vehiclesView: true, vehicleIds: [] }]);
+});
+
+test('a manager cannot grant an action they do not have themselves', async () => {
+  const target = { id: 'b', role: 'client_user', organizationId: 'org-1' };
+  const caller = { id: 'a', role: 'client_admin', organizationId: 'org-1' };
+  const { controller, saved } = fixture(target);
+  await assert.rejects(() => controller.upsert(caller, target.id, { vehiclesAdd: true }));
+  assert.equal(saved.length, 0);
 });

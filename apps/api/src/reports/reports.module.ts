@@ -10,9 +10,11 @@ import { Geofence }     from '../geofences/entities/geofence.entity.js';
 import { SavedReport }       from './entities/saved-report.entity.js';
 import { ReportsService }    from './reports.service.js';
 import { ReportsController } from './reports.controller.js';
+import { OrgPermissionsModule } from '../org-permissions/org-permissions.module.js';
+import { RolePortalPermissionsModule } from '../role-portal-permissions/role-portal-permissions.module.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Telemetry, Device, Vehicle, AlertLog, Alert, DriverEvent, Geofence, SavedReport])],
+  imports: [TypeOrmModule.forFeature([Telemetry, Device, Vehicle, AlertLog, Alert, DriverEvent, Geofence, SavedReport]), OrgPermissionsModule, RolePortalPermissionsModule],
   providers: [ReportsService],
   controllers: [ReportsController],
 })

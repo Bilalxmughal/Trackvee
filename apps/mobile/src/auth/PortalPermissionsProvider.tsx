@@ -7,8 +7,8 @@ type OrgPerm = Record<string, boolean | string[] | null>;
 const FALLBACK: Record<string, RoleMap> = {
   client_owner: { map: ['view'], vehicles: ['view'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit','delete'], engine_cut: ['view'] },
   client_super_admin: { map: ['view'], vehicles: ['view'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit'], engine_cut: ['view'] },
-  client_admin: { map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'] },
-  client_user: { map: ['view'], vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'] },
+  client_admin: { map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'], reports: ['view'], users: ['view','add','edit'] },
+  client_user: { map: ['view'], vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'], reports: ['view'] },
 };
 interface PermissionValue { canDo: (feature: string, action?: string) => boolean; loading: boolean; }
 const Context = createContext<PermissionValue | null>(null);
@@ -22,7 +22,7 @@ export function PortalPermissionsProvider({ children }: React.PropsWithChildren)
     let current = true;
     Promise.allSettled([
       api.get<Record<string, RoleMap>>('/role-portal-permissions'),
-      user.role === 'client_owner' || user.role === 'client_super_admin'
+      user.role === 'client_owner'
         ? Promise.resolve(null)
         : api.get<OrgPerm | null>(`/org-permissions/${user.id}`).then(r => r.data),
     ])
@@ -31,11 +31,14 @@ export function PortalPermissionsProvider({ children }: React.PropsWithChildren)
         const roleMap = rolesResult.status === 'fulfilled' ? rolesResult.value.data[user.role] : undefined;
         const orgPerm = orgResult.status === 'fulfilled' ? orgResult.value : null;
         const next: RoleMap = { ...(FALLBACK[user.role] ?? { map: ['view'] }), ...(roleMap ?? {}) };
-        if (orgPerm) for (const feature of ['vehicles', 'alerts', 'geofences', 'pois']) {
-          const actions = ['view', 'add', 'edit', 'delete'];
+        if (orgPerm) for (const [feature, prefix] of Object.entries({
+          vehicles: 'vehicles', alerts: 'alerts', geofences: 'geofences', pois: 'pois',
+          'driver-behavior': 'driverBehavior', reports: 'reports', users: 'users',
+        })) {
+          const actions = feature === 'reports' ? ['view'] : feature === 'driver-behavior' ? ['view', 'edit'] : ['view', 'add', 'edit', 'delete'];
           const roleActions = next[feature] ?? [];
           next[feature] = actions.filter(action => {
-            const override = orgPerm[`${feature}${action[0]!.toUpperCase()}${action.slice(1)}`];
+            const override = orgPerm[`${prefix}${action[0]!.toUpperCase()}${action.slice(1)}`];
             return typeof override === 'boolean' ? override : roleActions.includes(action);
           });
         }

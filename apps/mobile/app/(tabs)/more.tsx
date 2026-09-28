@@ -19,11 +19,12 @@ export default function MoreScreen() {
         <View style={styles.avatar}><Text style={styles.avatarText}>{name[0]?.toUpperCase() ?? 'U'}</Text></View>
         <View style={styles.profileText}><Text style={styles.name}>{name}</Text><Text style={styles.email}>{user?.organizationName || user?.email}</Text></View>
       </View>
-      {(canDo('geofences') || canDo('pois') || canDo('driver-behavior')) ? <>
+      {(canDo('geofences') || canDo('pois') || canDo('driver-behavior') || canDo('users')) ? <>
         <Text style={[styles.sectionLabel, styles.accountLabel]}>FLEET TOOLS</Text>
         {canDo('driver-behavior') ? <Pressable onPress={() => router.push('/behavior')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="activity" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Driver Behavior</Text><Text style={styles.toolSubtitle}>Safety scores, events and settings</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
         {canDo('geofences') ? <Pressable onPress={() => router.push('/geofences')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="geofence" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Geofences</Text><Text style={styles.toolSubtitle}>Manage circle and polygon zones</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
         {canDo('pois') ? <Pressable onPress={() => router.push('/pois')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="map-pin" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Points of Interest</Text><Text style={styles.toolSubtitle}>Manage saved locations</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
+        {canDo('users') ? <Pressable onPress={() => router.push('/users')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="user" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Users</Text><Text style={styles.toolSubtitle}>Manage accounts and access</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
       </> : null}
       <Text style={[styles.sectionLabel, styles.accountLabel]}>ACCOUNT</Text>
       <View style={styles.infoRow}><Text style={styles.infoLabel}>Organization</Text><Text style={styles.infoValue} numberOfLines={1}>{user?.organizationName || '—'}</Text></View>

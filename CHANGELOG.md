@@ -7,6 +7,7 @@
 ## 2026-09-28
 
 ### Added
+- [Mobile/API] Added permission-gated organization user management in More, including profile CRUD, group-aware vehicle access, custom module permissions and bounded templates. API user/permission routes now enforce tenant scope, role hierarchy, grant limits and self-protection; migration 027 adds nullable Behavior/Reports/Users overrides.
 - [Admin/Portal/API/Mobile] Added a shared WAV notification-sound library: authorized internal users upload and activate sounds, alert rules select/play shared tones, and the API sends each installed tone to capable mobile devices with a built-in fallback. Migration 026 and one EAS native-module release are required; future uploads do not need app rebuilds.
 - [Mobile] Added in-app Play/Stop previews for all five selectable alert notification tones; audio playback requests no microphone permission.
 - [API/Admin/Portal/Mobile] Added per-alert mobile push sound controls with sound on/off and five bundled tone choices; Android uses versioned sound channels and legacy devices retain the existing Trackvee channel. Migration 025 and a new EAS binary are required.

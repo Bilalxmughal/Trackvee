@@ -6,9 +6,10 @@ import { VehiclesService } from './vehicles.service.js';
 import { VehiclesController } from './vehicles.controller.js';
 import { OrgPermissionsModule } from '../org-permissions/org-permissions.module.js';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module.js';
+import { RolePortalPermissionsModule } from '../role-portal-permissions/role-portal-permissions.module.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Vehicle, Device]), OrgPermissionsModule, AuditLogsModule],
+  imports: [TypeOrmModule.forFeature([Vehicle, Device]), OrgPermissionsModule, RolePortalPermissionsModule, AuditLogsModule],
   providers: [VehiclesService],
   controllers: [VehiclesController],
   exports: [VehiclesService],

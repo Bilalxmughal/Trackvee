@@ -19,6 +19,15 @@ Tabs: Profile, Vehicles, Permissions.
 
 Per-user access uses `GET /org-permissions/:userId` and `PUT /org-permissions/:userId`; vehicle IDs are stored in the same permission record.
 
+## Mobile organization users
+
+- The More > Users screen is available only with effective `users.view`; create, edit, and delete actions require their matching `users` action.
+- User management is limited to the caller's organization and strictly lower roles. A user can update their own profile but cannot change their own role, permissions, active state, or delete themselves. `client_owner` is fixed and cannot be managed.
+- The editor has Profile, Vehicles, and Permissions sections. Vehicle choices come from `/users/vehicle-access-options`, are limited to the caller's vehicle scope, and retain searchable, collapsible group selection. `vehicleIds: null` means all organization vehicles; `[]` means none.
+- Permission templates are bounded by the caller's own effective grants. Custom module actions are enforced by the API as well as the UI; granting Add/Edit/Delete also grants View. Users, Reports, and Driver Behavior overrides inherit role defaults when their per-user columns are `NULL`.
+- `/users/org-users`, `/users/vehicle-access-options`, user CRUD, and `/org-permissions/:userId` derive organization scope from the authenticated client. Never trust a submitted organization ID or allow grants outside the caller's vehicle/action scope.
+- Migration `027_extended_user_permissions.sql` adds nullable per-user Driver Behavior, Reports, and Users grants and backfills missing Reports:view role defaults. Apply it before deploying the updated API.
+
 ## Role-level portal gating
 
 Flow: admin role configuration -> `role_portal_permissions` -> portal permission context -> `canDo(feature, action)` -> UI visibility/action guard.
@@ -40,3 +49,6 @@ Every new client-facing feature must update definitions/defaults, role access UI
 - `apps/admin/src/pages/RoleAccessPage.tsx`
 - `apps/portal/src/contexts/PortalPermsContext.tsx`
 - `apps/portal/src/components/UsersModal.tsx`
+- `apps/mobile/app/users.tsx`
+- `apps/api/src/users/users.controller.ts`
+- `apps/api/src/org-permissions/client-feature-access.ts`

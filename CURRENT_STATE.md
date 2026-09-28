@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-09-28 (API build and 18 alert/sound tests pass; admin/portal Vite builds, mobile typecheck, and Android Expo export pass; physical-device push-tone testing remains pending; migrations 025/026 and one EAS build containing the dynamic sound module are release prerequisites).
+Last verified: 2026-09-28 (API build and authorization regression suite pass; portal Vite build, mobile typecheck and Android Expo export pass; physical-device push-tone testing remains pending. Production API rollout requires migrations 025–027; one EAS build containing the dynamic sound module is also required.)
 
 ## Status
 
@@ -19,14 +19,14 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - Authentication with strict admin/client portal role separation.
 - Multi-tenant organizations, users, custom module permissions, and vehicle-level access.
 - Live tracking, map history, trip replay, vehicle groups, engine commands, and tracking-expiry badge.
-- Mobile includes client-only authentication, permission-aware Map/Vehicles/Alerts/Reports/More navigation, grouped/searchable Vehicles with permission-gated CRUD and menu actions, live map, vehicle detail, vehicle-scoped and fleet-wide alert rule management with custom vehicle scope enforced by API list responses, PKT History/Replay, grouped report preview, permission-gated Geofence/POI management, and Driver Behavior with a compact 30-day fleet trend, leaderboard, detail/chart and settings. New mobile alert rules default to mobile push enabled; Add/Edit Alert is a safe-area-aware router screen with native back gestures and a keyboard-safe action. Mobile push registration, per-rule push delivery, and tenant/vehicle-scoped notification event deep links are implemented in source. Remaining parity and release gaps are listed in `docs/FEATURE_MATRIX.md`.
+- Mobile includes client-only authentication, permission-aware Map/Vehicles/Alerts/Reports/More navigation, grouped/searchable Vehicles with permission-gated CRUD and menu actions, live map, vehicle detail, vehicle-scoped and fleet-wide alert rule management with custom vehicle scope enforced by API list responses, PKT History/Replay, grouped report preview, permission-gated Geofence/POI management, Driver Behavior with a compact 30-day fleet trend, leaderboard, detail/chart and settings, and organization Users with scoped CRUD, vehicle restrictions and custom permissions. New mobile alert rules default to mobile push enabled; Add/Edit Alert is a safe-area-aware router screen with native back gestures and a keyboard-safe action. Mobile push registration, per-rule push delivery, and tenant/vehicle-scoped notification event deep links are implemented in source. Remaining parity and release gaps are listed in `docs/FEATURE_MATRIX.md`.
 - Shared live status and confirmed stop-duration handling across API, admin, portal, and mobile; mobile map clustering, animated vehicle positions, and map-first vehicle detail.
 - GT06 valid GPS ACK now follows confirmed API persistence with bounded retry; admin/mobile polling reject stale overlapping results. Production gateway behavior still needs Oracle deployment and timestamp/log verification.
 - Vehicles, devices, telemetry, alerts, geofences, POIs, speed zones, and driver behavior scoring.
 - Reports in admin and portal: 13 report types, vehicle groups, period/conditional filters, CSV/Excel/Print, saved reports.
 - Audit logs for internal operations.
 - Client portal topbar permission gating through DB-backed role portal permissions.
-- SQL migrations present through `026_notification_sound_library.sql`; migration 025 must already be applied, then 026 must be applied before deploying the updated API. Shared alert sounds can be uploaded/activated in Admin and selected in Admin, Portal, and Mobile. One EAS build containing the local native dynamic-sound module is required; later catalogue uploads do not require a rebuild. Android signing/FCM and iOS APNs credentials, native build, and physical-device delivery QA remain release prerequisites.
+- SQL migrations present through `027_extended_user_permissions.sql`; migrations 025, 026, and 027 must be applied before deploying the updated API. Shared alert sounds can be uploaded/activated in Admin and selected in Admin, Portal, and Mobile. One EAS build containing the local native dynamic-sound module is required; later catalogue uploads do not require a rebuild. Android signing/FCM and iOS APNs credentials, native build, and physical-device delivery QA remain release prerequisites.
 
 ## Active constraints
 

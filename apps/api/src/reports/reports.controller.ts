@@ -1,19 +1,24 @@
-import { Controller, Get, Post, Delete, Param, Body, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, Query, Res, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
+import { OrgPermissionsService } from '../org-permissions/org-permissions.service.js';
+import { RolePortalPermissionsService } from '../role-portal-permissions/role-portal-permissions.service.js';
+import { assertClientFeatureAccess, INTERNAL_ROLES } from '../org-permissions/client-feature-access.js';
 import { ReportsService, ReportType } from './reports.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { User } from '../users/entities/user.entity.js';
-
-const INTERNAL_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
 @ApiTags('reports')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('reports')
 export class ReportsController {
-  constructor(private svc: ReportsService) {}
+  constructor(
+    private svc: ReportsService,
+    private orgPermissions: OrgPermissionsService,
+    private rolePermissions: RolePortalPermissionsService,
+  ) {}
 
   @Get()
   async generate(
@@ -28,7 +33,7 @@ export class ReportsController {
     @Query('geofenceIds') geofenceIds?: string,
     @Query('groupBy')     groupBy?: string,
   ) {
-    const orgId = INTERNAL_ROLES.includes(user.role) ? undefined : (user.organizationId ?? undefined);
+    const orgId = await this.assertReportScope(user, vehicleIds);
     return this.svc.generate({
       type,
       vehicleIds:     vehicleIds ? vehicleIds.split(',').filter(Boolean) : [],
@@ -57,7 +62,7 @@ export class ReportsController {
     @Query('groupBy')     groupBy?: string,
     @Res() res?: Response,
   ) {
-    const orgId = INTERNAL_ROLES.includes(user.role) ? undefined : (user.organizationId ?? undefined);
+    const orgId = await this.assertReportScope(user, vehicleIds);
     const result = await this.svc.generate({
       type,
       vehicleIds:     vehicleIds ? vehicleIds.split(',').filter(Boolean) : [],
@@ -78,8 +83,10 @@ export class ReportsController {
 
   @Get('saved')
   listSaved(@CurrentUser() user: User) {
-    const orgId = INTERNAL_ROLES.includes(user.role) ? null : (user.organizationId ?? null);
-    return this.svc.listSaved(user.id, orgId);
+    return this.assertClientFeatureAccess(user).then(() => {
+      const orgId = INTERNAL_ROLES.has(user.role) ? null : (user.organizationId ?? null);
+      return this.svc.listSaved(user.id, orgId);
+    });
   }
 
   @Post('saved')
@@ -87,14 +94,30 @@ export class ReportsController {
     @CurrentUser() user: User,
     @Body() body: { title: string; type: string; params: Record<string, unknown> },
   ) {
-    const orgId    = INTERNAL_ROLES.includes(user.role) ? null : (user.organizationId ?? null);
+    const orgId    = INTERNAL_ROLES.has(user.role) ? null : (user.organizationId ?? null);
     const userName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
-    return this.svc.saveReport(body, user.id, userName, orgId);
+    return this.assertClientFeatureAccess(user).then(() => this.svc.saveReport(body, user.id, userName, orgId));
   }
 
   @Delete('saved/:id')
   deleteSaved(@CurrentUser() user: User, @Param('id') id: string) {
-    const orgId = INTERNAL_ROLES.includes(user.role) ? null : (user.organizationId ?? null);
-    return this.svc.deleteSaved(id, user.id, orgId);
+    const orgId = INTERNAL_ROLES.has(user.role) ? null : (user.organizationId ?? null);
+    return this.assertClientFeatureAccess(user).then(() => this.svc.deleteSaved(id, user.id, orgId));
+  }
+
+  private async assertClientFeatureAccess(user: User): Promise<void> {
+    await assertClientFeatureAccess(user, 'reports', 'view', this.orgPermissions, this.rolePermissions);
+  }
+
+  private async assertReportScope(user: User, vehicleIds: string): Promise<string | undefined> {
+    if (INTERNAL_ROLES.has(user.role)) return undefined;
+    await this.assertClientFeatureAccess(user);
+    if (!user.organizationId) throw new ForbiddenException('Organization access required');
+    const grant = await this.orgPermissions.findByUser(user.id);
+    if (grant && grant.orgId !== user.organizationId) throw new ForbiddenException();
+    const selected = vehicleIds ? [...new Set(vehicleIds.split(',').filter(Boolean))] : [];
+    const allowed = grant?.vehicleIds ?? null;
+    if (allowed !== null && selected.some(id => !allowed.includes(id))) throw new ForbiddenException('Report vehicle access is not permitted');
+    return user.organizationId;
   }
 }

@@ -73,6 +73,7 @@ function NavigationRoot() {
         <Stack.Screen name="login" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="alert-rule" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
+        <Stack.Screen name="users" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
         <Stack.Screen name="vehicle/[imei]" />
         <Stack.Screen name="vehicle/[imei]/history" />
         <Stack.Screen name="vehicle/[imei]/replay" />

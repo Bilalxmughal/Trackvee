@@ -19,7 +19,7 @@ test('a user without engine-cut permission cannot send the command', async () =>
 
 test('an explicitly empty vehicle access list grants no devices', async () => {
   const repo = { find: async () => { throw new Error('The broad device query must not execute'); } };
-  const service = new DevicesService(repo, { findByUser: async () => ({ vehicleIds: [] }) }, { findAll: async () => ({}) });
+  const service = new DevicesService(repo, { findByUser: async () => ({ orgId: 'org-1', vehicleIds: [] }) }, { findAll: async () => ({}) });
   assert.deepEqual(await service.findAll({ id: 'u', organizationId: 'org-1', role: 'client_admin' }), []);
 });
 

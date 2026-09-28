@@ -8,6 +8,9 @@ export interface OrgPermDto {
   alertsView?: boolean;   alertsAdd?: boolean;   alertsEdit?: boolean;   alertsDelete?: boolean;
   geofencesView?: boolean; geofencesAdd?: boolean; geofencesEdit?: boolean; geofencesDelete?: boolean;
   poisView?: boolean; poisAdd?: boolean; poisEdit?: boolean; poisDelete?: boolean;
+  driverBehaviorView?: boolean | null; driverBehaviorEdit?: boolean | null;
+  reportsView?: boolean | null;
+  usersView?: boolean | null; usersAdd?: boolean | null; usersEdit?: boolean | null; usersDelete?: boolean | null;
   vehicleIds?: string[] | null;
 }
 
@@ -44,6 +47,8 @@ export class OrgPermissionsService {
       alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: true,
       geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: true,
       poisView: true, poisAdd: true, poisEdit: true, poisDelete: true,
+      driverBehaviorView: null, driverBehaviorEdit: null, reportsView: null,
+      usersView: null, usersAdd: null, usersEdit: null, usersDelete: null,
       vehicleIds: null,
       createdAt: new Date(), updatedAt: new Date(),
     };

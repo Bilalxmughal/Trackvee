@@ -238,3 +238,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Cause:** Android notification channel sound is immutable, and older app builds only register the original Trackvee channel. Sending a newly selected sound to an old channel silently plays the old sound or no sound.
 
 **Rule:** Apply migrations 025 and 026 before deploying the API. The mobile app must create built-in channels and install active uploaded tones before registering sound capability and installed IDs. Keep legacy fallback for tokens without that capability or an uploaded sound. Uploaded tones are global catalogue records managed only by internal sound managers; client reads require effective `alerts.view`. One EAS build is needed to install the native runtime module; subsequent tone uploads do not require a rebuild. Validate Android and iOS custom-tone delivery on physical devices.
+
+---
+
+## KI-019 — Mobile organization user grants require migration 027
+
+**Status:** Active deployment prerequisite
+
+**Area:** API / Mobile Users / Client permissions
+
+**Problem:** Mobile Users adds nullable per-user grants for Driver Behavior, Reports, and Users. The API entity expects these columns, so deploying the API before the production database migration can fail permission queries.
+
+**Rule:** Apply `apps/api/migrations/027_extended_user_permissions.sql` to production before rebuilding/restarting `yotrack-api`. Keep `NULL` as role-default inheritance; `false` is an explicit denial. User CRUD and permission writes must continue enforcing organization, role hierarchy, action grant bounds, and vehicle scope in the API.

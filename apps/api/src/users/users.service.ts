@@ -61,7 +61,7 @@ export class UsersService {
     return this.repo.find({ where: Object.keys(where).length ? where : {} });
   }
 
-  async update(id: string, data: Partial<{ email: string; password: string; firstName: string; lastName: string; role: UserRole; isActive: boolean; organizationId: string | null }>): Promise<User> {
+  async update(id: string, data: Partial<{ email: string; password: string; firstName: string | null; lastName: string | null; role: UserRole; isActive: boolean; organizationId: string | null; cityId: string | null }>): Promise<User> {
     const user = await this.repo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     if (data.password) {

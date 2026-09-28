@@ -25,8 +25,9 @@ export class DevicesService {
       return this.repo.find({ relations: { vehicle: true }, where: cityFilter });
     }
     if (user.organizationId) {
-      if (user.role !== 'client_owner' && user.role !== 'client_super_admin') {
+      if (user.role !== 'client_owner') {
         const perm = await this.orgPerms.findByUser(user.id);
+        if (perm && perm.orgId !== user.organizationId) throw new ForbiddenException();
         if (perm?.vehicleIds !== null && perm?.vehicleIds !== undefined) {
           if (!perm.vehicleIds.length) return [];
           return this.repo.find({ relations: { vehicle: true }, where: { vehicle: { organizationId: user.organizationId, id: In(perm.vehicleIds) }, ...cityFilter } });

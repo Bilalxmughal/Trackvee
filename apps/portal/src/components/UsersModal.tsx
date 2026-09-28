@@ -10,9 +10,9 @@ interface OrgPerm {
   alertsView: boolean; alertsAdd: boolean; alertsEdit: boolean; alertsDelete: boolean;
   geofencesView: boolean; geofencesAdd: boolean; geofencesEdit: boolean; geofencesDelete: boolean;
   poisView: boolean; poisAdd: boolean; poisEdit: boolean; poisDelete: boolean;
-  driverBehaviorView: boolean; driverBehaviorEdit: boolean;
-  reportsView: boolean;
-  usersView: boolean; usersAdd: boolean; usersEdit: boolean; usersDelete: boolean;
+  driverBehaviorView: boolean | null; driverBehaviorEdit: boolean | null;
+  reportsView: boolean | null;
+  usersView: boolean | null; usersAdd: boolean | null; usersEdit: boolean | null; usersDelete: boolean | null;
   vehicleIds: string[] | null;
 }
 
@@ -83,7 +83,10 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
   const [activeTab, setActiveTab] = useState<'profile' | 'vehicles' | 'perms'>('profile');
 
   const isSelf = !!initial?.id && initial.id === currentUserId;
-  const canEditPerms = (currentUserRole === 'client_owner' || currentUserRole === 'client_super_admin' || currentUserRole === 'client_admin') && !isSelf && role !== 'client_owner';
+  const canManageUser = isSelf || (initial?.id ? canDo('users', 'edit') : canDo('users', 'add'));
+  const roleLevel: Record<string, number> = { client_owner: 4, client_super_admin: 3, client_admin: 2, client_user: 1 };
+  const assignableRoles = Object.keys(roleLevel).filter(r => r !== 'client_owner' && roleLevel[r]! < (roleLevel[currentUserRole] ?? 0));
+  const canEditPerms = canManageUser && !isSelf && role !== 'client_owner';
 
   // Modules visible to current user (dynamic — only what they have access to)
   const visibleModules = ALL_MODULES.filter(m => canDo(m.portalKey, 'view')).map(m => ({
@@ -184,10 +187,7 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
                   </div>
                 ) : (
                   <select value={role} onChange={e => handleRoleChange(e.target.value)} style={{ ...inpSt, cursor: 'pointer' }}>
-                    <option value="client_user">User</option>
-                    <option value="client_admin">Admin</option>
-                    <option value="client_super_admin">Super Admin</option>
-                    <option value="client_owner">Owner</option>
+                    {assignableRoles.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
                   </select>
                 )}
               </div>
@@ -324,6 +324,7 @@ function UserFormModal({ initial, organizationId, currentUserId, currentUserRole
 
 export default function UsersModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth();
+  const { canDo } = usePortalPerms();
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -370,10 +371,10 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
           <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: '#111' }}>
             Users <span style={{ fontSize: 12, fontWeight: 400, color: '#bbb' }}>{users.length}</span>
           </span>
-          <button onClick={() => { setEditing(null); setFormOpen(true); }}
+          {canDo('users', 'add') && <button onClick={() => { setEditing(null); setFormOpen(true); }}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
             <IconPlus size={12} strokeWidth={2.5} /> New User
-          </button>
+          </button>}
           <button onClick={onClose} style={{ background: '#f5f5f5', border: 'none', cursor: 'pointer', color: '#666', padding: '6px 7px', borderRadius: 6, display: 'flex', marginLeft: 4 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -423,13 +424,13 @@ export default function UsersModal({ onClose }: { onClose: () => void }) {
                   </td>
                   <td style={{ padding: '11px 16px' }}>
                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                      <button onClick={() => { setEditing(u); setFormOpen(true); }}
+                      {(u.id === currentUserId || canDo('users', 'edit')) && <button onClick={() => { setEditing(u); setFormOpen(true); }}
                         style={{ padding: 5, border: 'none', background: '#f5f5f5', cursor: 'pointer', color: '#555', borderRadius: 5, display: 'flex' }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#e5e7eb'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = '#f5f5f5'; }}>
                         <IconPencil size={13} />
-                      </button>
-                      {u.id !== currentUserId && (
+                      </button>}
+                      {u.id !== currentUserId && canDo('users', 'delete') && (
                         <button onClick={() => setDeleting(u)}
                           style={{ padding: 5, border: 'none', background: '#f5f5f5', cursor: 'pointer', color: '#dc2626', borderRadius: 5, display: 'flex' }}
                           onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}

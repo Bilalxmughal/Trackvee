@@ -12,14 +12,9 @@ import { Vehicle } from '../vehicles/entities/vehicle.entity.js';
 import { VehicleGroup } from '../vehicle-groups/entities/vehicle-group.entity.js';
 import { VehicleGroupMembership } from '../vehicle-groups/entities/vehicle-group-membership.entity.js';
 import { OrgPermissionsService } from '../org-permissions/org-permissions.service.js';
+import { assertClientFeatureAccess } from '../org-permissions/client-feature-access.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
-const CLIENT_DEFAULTS: Record<string, string[]> = {
-  client_owner: ['view', 'edit'],
-  client_super_admin: ['view', 'edit'],
-  client_admin: ['view'],
-  client_user: ['view'],
-};
 const SETTINGS_FIELDS = [
   'overspeedThreshold', 'harshBrakeDeceleration', 'rapidAccelThreshold', 'sharpTurnAngle', 'sharpTurnMinSpeed',
   'deductionHarshBrake', 'deductionRapidAccel', 'deductionSharpTurn', 'deductionOverspeed',
@@ -161,11 +156,7 @@ export class DriverBehaviorController {
   }
 
   private async assertPermission(user: User, action: 'view' | 'edit'): Promise<void> {
-    if (ADMIN_ROLES.includes(user.role)) return;
-    if (!user.organizationId) throw new ForbiddenException('Organization access required');
-    const roleMap = await this.rolePermissions.findAll();
-    const actions = roleMap[user.role]?.['driver-behavior'] ?? CLIENT_DEFAULTS[user.role] ?? [];
-    if (!actions.includes(action)) throw new ForbiddenException(`Driver Behavior ${action} permission required`);
+    await assertClientFeatureAccess(user, 'driver-behavior', action, this.orgPermissions, this.rolePermissions);
   }
 
   private async assertVehicleInOrg(vehicleId: string, user: User): Promise<void> {
