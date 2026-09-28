@@ -21,6 +21,7 @@
 - [API] Enforced Driver Behavior role permissions and tenant/custom vehicle scope, whitelisted settings fields, kept score deletion internal-admin-only, and added authorization regression tests.
 
 ### Changed
+- [Mobile] Moved alert trigger values above the alert-type list with clear context and matching initialized defaults; removed the border around the Mobile Push setting.
 - [Mobile] Moved the fleet Add/Edit Alert wizard into the Expo Router stack with status-bar safe-area spacing, a raised bottom action and native swipe/hardware back navigation.
 - [Mobile] Improved alert-form keyboard layout on iOS and Android, keeping form controls reachable while typing; mobile push now defaults on for newly created fleet and vehicle alert rules while edits preserve their existing setting.
 - [Gateway] Valid GT06 GPS frames are acknowledged only after API persistence succeeds, with bounded retries/timeouts and serialized socket processing; reconnect cleanup no longer drops a newer socket. Admin and mobile live polling now reject stale overlapping results.
