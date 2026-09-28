@@ -22,6 +22,7 @@ const PAGES: PageRow[] = [
   { key: 'audit-logs',  label: 'Audit Logs',      group: 'Administration', actions: ['view'] },
   { key: 'reports',     label: 'Reports',          group: 'Administration', actions: ['view'] },
   { key: 'settings',    label: 'Settings',        group: 'Administration', actions: ['view', 'edit'] },
+  { key: 'notification-sounds', label: 'Notification Sounds', group: 'Administration', actions: ['view', 'add', 'edit'] },
 ];
 
 // Imported from roles.ts — ORG_PORTAL_PAGES is the single source of truth

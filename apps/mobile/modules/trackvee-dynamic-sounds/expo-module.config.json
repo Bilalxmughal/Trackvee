@@ -1,0 +1,10 @@
+{
+  "platforms": ["apple", "android"],
+  "android": {
+    "modules": ["expo.modules.trackveedynamicsounds.TrackveeDynamicSoundsModule"]
+  },
+  "apple": {
+    "modules": ["TrackveeDynamicSoundsModule"],
+    "podspecPath": "ios/TrackveeDynamicSounds.podspec"
+  }
+}

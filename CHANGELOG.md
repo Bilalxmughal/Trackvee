@@ -7,6 +7,7 @@
 ## 2026-09-28
 
 ### Added
+- [Admin/Portal/API/Mobile] Added a shared WAV notification-sound library: authorized internal users upload and activate sounds, alert rules select/play shared tones, and the API sends each installed tone to capable mobile devices with a built-in fallback. Migration 026 and one EAS native-module release are required; future uploads do not need app rebuilds.
 - [Mobile] Added in-app Play/Stop previews for all five selectable alert notification tones; audio playback requests no microphone permission.
 - [API/Admin/Portal/Mobile] Added per-alert mobile push sound controls with sound on/off and five bundled tone choices; Android uses versioned sound channels and legacy devices retain the existing Trackvee channel. Migration 025 and a new EAS binary are required.
 - [Mobile/API] Added permission-scoped fleet alert-rule CRUD in the mobile Alerts tab, with searchable group selection, three-step setup, schedules and per-rule mobile push. Alert list responses now redact inaccessible vehicle targets and expose mutation capability only for complete permitted scope; added regression tests.

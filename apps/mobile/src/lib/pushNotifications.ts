@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import api from './api';
+import { getDynamicNotificationSounds, installDynamicNotificationSounds, supportsDynamicNotificationSounds } from './dynamicNotificationSounds';
 
 const TOKEN_KEY = 'yt_expo_push_token';
 
@@ -51,11 +52,21 @@ export async function syncPushRegistration(requestPermission: boolean): Promise<
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) return 'unconfigured';
+  const supportsDynamicSounds = supportsDynamicNotificationSounds();
+  let dynamicSoundIds: string[] = [];
+  if (supportsDynamicSounds) {
+    try {
+      const sounds = await getDynamicNotificationSounds();
+      dynamicSoundIds = await installDynamicNotificationSounds(sounds);
+    } catch {
+      // Existing bundled tones continue to work when the shared catalog is temporarily unavailable.
+    }
+  }
   const result = await Notifications.getExpoPushTokenAsync({ projectId });
   const token = result.data;
   const previous = await SecureStore.getItemAsync(TOKEN_KEY);
   if (previous && previous !== token) await api.delete('/alerts/push-token', { data: { token: previous } }).catch(() => {});
-  await api.post('/alerts/push-token', { token, platform: Platform.OS, supportsCustomSounds: true });
+  await api.post('/alerts/push-token', { token, platform: Platform.OS, supportsCustomSounds: true, supportsDynamicSounds, dynamicSoundIds });
   await SecureStore.setItemAsync(TOKEN_KEY, token);
   return 'enabled';
 }

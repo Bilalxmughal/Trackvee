@@ -5,7 +5,7 @@ import {
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
   IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
-  IconBell, IconUsersGroup, IconUserScan, IconChartBar, IconList,
+  IconBell, IconUsersGroup, IconUserScan, IconChartBar, IconList, IconMusic,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -57,6 +57,7 @@ const NAV_SECTIONS: Section[] = [
       { to: '/audit-logs', icon: IconList,   label: 'Audit Logs' },
       { to: '/reports',    icon: IconChartBar, label: 'Reports' },
       { to: '/settings',   icon: IconSettings, label: 'Settings' },
+      { to: '/notification-sounds', icon: IconMusic, label: 'Notification Sounds' },
       { to: '/setup',      icon: IconBook,   label: 'Setup Guide' },
     ],
   },

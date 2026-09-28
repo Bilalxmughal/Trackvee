@@ -28,7 +28,7 @@ export interface AlertSchedule {
 export interface AlertNotifications {
   appPush?: boolean;
   appSound?: boolean;
-  appSoundId?: 'trackvee' | 'chime' | 'pulse' | 'bell' | 'soft';
+  appSoundId?: string;
   webPush?: boolean;
   webSound?: boolean;
   email?: boolean;

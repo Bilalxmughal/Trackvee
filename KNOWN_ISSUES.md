@@ -231,10 +231,10 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 
 ## KI-018 — Per-alert mobile sounds require provisioned native channels
 
-**Status:** Source implemented; migration and EAS release required
+**Status:** Shared sound catalogue implemented; migrations, one EAS release and device QA required
 
 **Area:** API / Mobile push notifications
 
 **Cause:** Android notification channel sound is immutable, and older app builds only register the original Trackvee channel. Sending a newly selected sound to an old channel silently plays the old sound or no sound.
 
-**Rule:** Apply migration `025_mobile_push_sound_support.sql` before deploying the API. The mobile app must create all five versioned tone channels and the silent channel before registering `supportsCustomSounds: true`. Keep server tone IDs in a fixed allowlist. Preserve the legacy channel for tokens without that capability. Validate with an EAS build and real-device push tests; app config/asset changes do not update already-installed binaries.
+**Rule:** Apply migrations 025 and 026 before deploying the API. The mobile app must create built-in channels and install active uploaded tones before registering sound capability and installed IDs. Keep legacy fallback for tokens without that capability or an uploaded sound. Uploaded tones are global catalogue records managed only by internal sound managers; client reads require effective `alerts.view`. One EAS build is needed to install the native runtime module; subsequent tone uploads do not require a rebuild. Validate Android and iOS custom-tone delivery on physical devices.

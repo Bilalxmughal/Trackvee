@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.trackveedynamicsounds'
+version = '1.0.0'
+
+android {
+  namespace 'expo.modules.trackveedynamicsounds'
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+  compileOptions {
+    targetCompatibility JavaVersion.VERSION_1_8
+  }
+}
+
+repositories {
+  mavenCentral()
+}

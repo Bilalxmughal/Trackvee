@@ -20,6 +20,7 @@ import MapPage from './pages/MapPage';
 import SettingsPage from './pages/SettingsPage';
 import ClientUsersPage from './pages/ClientUsersPage';
 import DriverBehaviorPage from './pages/DriverBehaviorPage';
+import NotificationSoundsPage from './pages/NotificationSoundsPage';
 import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';;
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/reports" element={<RoleRoute page="reports"><ReportsPage /></RoleRoute>} />
         <Route path="/setup" element={<RoleRoute page="setup"><SetupGuidePage /></RoleRoute>} />
         <Route path="/settings" element={<RoleRoute page="settings"><SettingsPage /></RoleRoute>} />
+        <Route path="/notification-sounds" element={<RoleRoute page="notification-sounds"><NotificationSoundsPage /></RoleRoute>} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

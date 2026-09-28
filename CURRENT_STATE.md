@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-09-28 (mobile typecheck and Android Expo export pass with Expo Audio 57; Android native prebuild succeeds and confirms no microphone permission is added; migration 025 and a new EAS binary are required before real-device push-tone testing; Android signing/FCM credentials and device QA remain).
+Last verified: 2026-09-28 (API build and 18 alert/sound tests pass; admin/portal Vite builds, mobile typecheck, and Android Expo export pass; physical-device push-tone testing remains pending; migrations 025/026 and one EAS build containing the dynamic sound module are release prerequisites).
 
 ## Status
 
@@ -26,7 +26,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - Reports in admin and portal: 13 report types, vehicle groups, period/conditional filters, CSV/Excel/Print, saved reports.
 - Audit logs for internal operations.
 - Client portal topbar permission gating through DB-backed role portal permissions.
-- SQL migrations present through `025_mobile_push_sound_support.sql`; migration 025 must be applied before deploying the updated API. EAS project ID is configured; Android signing/FCM and iOS APNs credentials, native build, and device delivery QA remain release prerequisites.
+- SQL migrations present through `026_notification_sound_library.sql`; migration 025 must already be applied, then 026 must be applied before deploying the updated API. Shared alert sounds can be uploaded/activated in Admin and selected in Admin, Portal, and Mobile. One EAS build containing the local native dynamic-sound module is required; later catalogue uploads do not require a rebuild. Android signing/FCM and iOS APNs credentials, native build, and physical-device delivery QA remain release prerequisites.
 
 ## Active constraints
 

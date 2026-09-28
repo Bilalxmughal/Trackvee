@@ -22,6 +22,12 @@ export class MobilePushToken {
   @Column({ name: 'supports_custom_sounds', type: 'boolean', default: false })
   supportsCustomSounds: boolean;
 
+  @Column({ name: 'supports_dynamic_sounds', type: 'boolean', default: false })
+  supportsDynamicSounds: boolean;
+
+  @Column({ name: 'dynamic_sound_ids', type: 'uuid', array: true, default: () => "'{}'" })
+  dynamicSoundIds: string[];
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

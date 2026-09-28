@@ -48,6 +48,21 @@ pm2 restart yotrack-gateway
 
 Schema changes require a numbered SQL migration in `apps/api/migrations/`. Apply the exact new migration before restarting code that depends on it. Never enable TypeORM synchronization.
 
+The shared notification sound catalogue requires migration `026_notification_sound_library.sql`; migration 025 must already be applied because it adds the base push-sound capability fields. Apply 026 on Oracle before deploying the API:
+
+```bash
+cd ~/yotrack
+set -a
+. ./.env
+set +a
+: "${DATABASE_URL:?DATABASE_URL is not set in .env}"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/api/migrations/026_notification_sound_library.sql
+pnpm --filter api build
+pm2 restart yotrack-api
+```
+
+The mobile dynamic sound module needs one signed EAS build after it is first added. Once that version is installed, adding or deactivating uploaded catalogue sounds is server-side and does not require another app build. Use device QA for Android and iOS push playback.
+
 ## Nginx
 
 Reload Nginx only when its configuration or static routing changed:

@@ -4,6 +4,7 @@ import { IconBell, IconSearch, IconPlus, IconAlertTriangle, IconGauge, IconBolt,
   IconCar, IconParking, IconChevronRight, IconChevronLeft, IconCheck } from '@tabler/icons-react';
 import api from '../api/client';
 import { usePortalPanel } from '../contexts/PortalPanelContext';
+import AlertSoundPicker from './AlertSoundPicker';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ export interface AlertSchedule {
 }
 
 export interface AlertNotifications {
-  appPush?: boolean; appSound?: boolean; appSoundId?: 'trackvee' | 'chime' | 'pulse' | 'bell' | 'soft'; webPush?: boolean; webSound?: boolean; email?: boolean;
+  appPush?: boolean; appSound?: boolean; appSoundId?: string; webPush?: boolean; webSound?: boolean; email?: boolean;
 }
 
 export interface AlertRecord {
@@ -494,9 +495,7 @@ function AlertFormWizard({
                             <div style={{ flex: 1 }}><div style={{ fontSize: 11.5, color: '#555' }}>Notification sound</div><div style={{ fontSize: 10.5, color: '#9ca3af' }}>Choose a sound for mobile alerts</div></div>
                             <Toggle value={notif.appSound !== false} onChange={v => setNotif(n => ({ ...n, appSound: v, appSoundId: n.appSoundId ?? 'trackvee' }))}/>
                           </div>
-                          {notif.appSound !== false && <select value={notif.appSoundId ?? 'trackvee'} onChange={e => setNotif(n => ({ ...n, appSoundId: e.target.value as AlertNotifications['appSoundId'] }))} aria-label="Mobile alert sound" style={{ marginTop: 7, width: '100%', height: 32, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', color: '#333', padding: '0 8px', fontSize: 11 }}>
-                            <option value="trackvee">Trackvee</option><option value="chime">Chime</option><option value="pulse">Pulse</option><option value="bell">Bell</option><option value="soft">Soft</option>
-                          </select>}
+                          {notif.appSound !== false && <AlertSoundPicker value={notif.appSoundId ?? 'trackvee'} onChange={appSoundId => setNotif(n => ({ ...n, appSoundId }))}/>}
                         </div>
                       )}
                       {item.key === 'webPush' && notif.webPush && (

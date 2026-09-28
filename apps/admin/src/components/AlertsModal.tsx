@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
 import { ORG_ROLES } from '../config/roles';
 import type { UserRole } from '@yotrack/types';
+import AlertSoundPicker from './AlertSoundPicker';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ export interface AlertSchedule {
 }
 
 export interface AlertNotifications {
-  appPush?: boolean; appSound?: boolean; appSoundId?: 'trackvee' | 'chime' | 'pulse' | 'bell' | 'soft'; webPush?: boolean; webSound?: boolean; email?: boolean;
+  appPush?: boolean; appSound?: boolean; appSoundId?: string; webPush?: boolean; webSound?: boolean; email?: boolean;
 }
 
 export interface AlertRecord {
@@ -503,9 +504,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, speedZones, dark, on
                             <div style={{ flex: 1 }}><div style={{ fontSize: 11.5, color: dark ? '#aaa' : '#555' }}>Notification sound</div><div style={{ fontSize: 10.5, color: dark ? '#555' : '#9ca3af' }}>Choose a sound for mobile alerts</div></div>
                             <Toggle value={notif.appSound !== false} onChange={v => setNotif(n => ({ ...n, appSound: v, appSoundId: n.appSoundId ?? 'trackvee' }))}/>
                           </div>
-                          {notif.appSound !== false && <select value={notif.appSoundId ?? 'trackvee'} onChange={e => setNotif(n => ({ ...n, appSoundId: e.target.value as AlertNotifications['appSoundId'] }))} aria-label="Mobile alert sound" style={{ marginTop: 8, width: '100%', height: 32, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 6, background: dark ? '#161616' : '#fff', color: dark ? '#ddd' : '#333', padding: '0 8px', fontSize: 11 }}>
-                            <option value="trackvee">Trackvee</option><option value="chime">Chime</option><option value="pulse">Pulse</option><option value="bell">Bell</option><option value="soft">Soft</option>
-                          </select>}
+                          {notif.appSound !== false && <AlertSoundPicker value={notif.appSoundId ?? 'trackvee'} dark={dark} onChange={appSoundId => setNotif(n => ({ ...n, appSoundId }))}/>}
                         </div>
                       )}
                       {/* Web sound sub-option */}

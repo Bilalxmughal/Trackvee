@@ -7,9 +7,9 @@
 - Vehicle menu can pre-seed alert creation by IMEI.
 - Active/inactive filtering, edit/delete menu, English validation.
 - Mobile push is opt-in per device and per rule. Deliver only to active client users in the alert organization who have effective `alerts.view` and access to the triggering vehicle; notification taps fetch the event through the authenticated, tenant-scoped detail endpoint.
-- When per-alert mobile push is enabled, expose a separate sound toggle and a tone selector (Trackvee, Chime, Pulse, Bell, Soft). Keep `appSound`/`appSoundId` in alert `notifications` JSON; default missing legacy sound fields to enabled/Trackvee. API must map IDs through a fixed allowlist and select a pre-created Android channel per sound, with a separate silent channel.
+- When per-alert mobile push is enabled, expose a separate sound toggle and a tone selector populated from the shared active sound catalogue, alongside the five built-in tones. Keep `appSound`/`appSoundId` in alert `notifications` JSON; default missing legacy sound fields to enabled/Trackvee. Uploaded sounds use opaque catalogue UUIDs and validated PCM WAV files. Mobile clients advertise only sounds installed on that device; Android uses a stable per-sound notification channel, while clients without the installed tone fall back to the built-in Trackvee tone.
 - Push-token rows are bound to the authenticated user and organization. Remove only the caller's token; never accept owner or organization IDs from the client.
-- `supports_custom_sounds` on a push-token row is a client capability flag, not an authorization flag. Apply migration `025_mobile_push_sound_support.sql`; legacy tokens keep the original channel until refreshed by the updated app.
+- `supports_custom_sounds`, `supports_dynamic_sounds`, and installed sound IDs on a push-token row are device capability fields, not authorization flags. Apply migrations 025 and 026 before deploying the API. Only internal sound managers may upload or activate catalogue items; client users may list active sounds and fetch active audio only when they have effective `alerts.view` access. A native app update is needed once to install the runtime sound module; later catalogue uploads do not require another EAS build.
 
 ## Geofences
 

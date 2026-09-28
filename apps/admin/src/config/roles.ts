@@ -32,6 +32,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     'audit-logs':      ['view'],
     reports:           ['view'],
     settings:          ['view', 'edit'],
+    'notification-sounds': ['view', 'add', 'edit'],
     setup:             ['view'],
   },
   admin: {
@@ -48,6 +49,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     'audit-logs':      ['view'],
     reports:           ['view'],
     settings:          ['view', 'edit'],
+    'notification-sounds': ['view', 'add', 'edit'],
     setup:             ['view'],
   },
   ops: {
@@ -62,6 +64,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     'audit-logs':      ['view'],
     reports:           ['view'],
     setup:             ['view'],
+    'notification-sounds': ['view', 'add', 'edit'],
   },
   live_ops: {
     dashboard: ['view'],
