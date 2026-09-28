@@ -65,7 +65,9 @@ class ConnectionManager {
     if (conn) conn.lastSeen = new Date();
   }
 
-  remove(imei: string): void {
+  remove(imei: string, socket?: Socket): void {
+    const existing = this.connections.get(imei);
+    if (socket && existing?.socket !== socket) return;
     this.connections.delete(imei);
     logger.info(`Device disconnected: ${imei} (total: ${this.connections.size})`);
   }

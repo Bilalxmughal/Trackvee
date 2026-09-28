@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import api from '../lib/api';
 
@@ -50,7 +50,9 @@ export function useFleet() {
   const [items, setItems] = useState<FleetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const requestSequence = useRef(0);
   const load = useCallback(async () => {
+    const sequence = ++requestSequence.current;
     try {
       const [deviceResponse, pointResponse, vehicleResponse] = await Promise.all([
         api.get<FleetDevice[]>('/devices'),
@@ -67,23 +69,28 @@ export function useFleet() {
           const point = points.get(device.imei) ?? null;
           return { vehicle, device, point };
         });
-      setItems(next);
-      setError('');
+      if (sequence === requestSequence.current) {
+        setItems(next);
+        setError('');
+      }
     } catch {
-      setError('Fleet data could not be loaded. Check your connection and try again.');
+      if (sequence === requestSequence.current) setError('Fleet data could not be loaded. Check your connection and try again.');
     } finally {
-      setLoading(false);
+      if (sequence === requestSequence.current) setLoading(false);
     }
   }, []);
 
   useFocusEffect(useCallback(() => {
     let active = true;
+    let inFlight = false;
     const poll = async () => {
-      if (active) await load();
+      if (!active || inFlight) return;
+      inFlight = true;
+      try { await load(); } finally { inFlight = false; }
     };
     void poll();
     const timer = setInterval(() => { void poll(); }, 5_000);
-    return () => { active = false; clearInterval(timer); };
+    return () => { active = false; clearInterval(timer); requestSequence.current++; };
   }, [load]));
 
   return { items, loading, error, reload: load };

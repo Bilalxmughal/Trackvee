@@ -2241,6 +2241,7 @@ export default function MapPage() {
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 768);
   const [points, setPoints] = useState<LivePoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const livePollRequestId = useRef(0);
   const [deviceMap, setDeviceMap] = useState<DMap>(new Map());
   const [vehicleDetails, setVehicleDetails] = useState<Map<string, VehicleDetail>>(new Map());
   const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; ts: number } | null>(null);
@@ -2342,8 +2343,10 @@ export default function MapPage() {
   };
 
   const load = async () => {
+    const requestId = ++livePollRequestId.current;
     try {
       const { data } = await api.get<LivePoint[]>('/telemetry/live');
+      if (requestId !== livePollRequestId.current) return;
       const valid = data.filter(p => p.gpsValid);
       setTrails(prev => {
         const next = new Map(prev);
@@ -2359,10 +2362,19 @@ export default function MapPage() {
         return next;
       });
       setPoints(valid);
-    } catch {} finally { setLoading(false); }
+    } catch {} finally { if (requestId === livePollRequestId.current) setLoading(false); }
   };
 
-  useEffect(() => { load(); const t = setInterval(load, POLL_MS); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      await load();
+      if (active) timer = setTimeout(poll, POLL_MS);
+    };
+    void poll();
+    return () => { active = false; clearTimeout(timer); livePollRequestId.current++; };
+  }, []);
 
   useEffect(() => {
     if (mapIsAdmin) {

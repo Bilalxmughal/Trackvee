@@ -9,6 +9,7 @@
 - The API derives Moving/Idle/Parked/Offline from the last three valid GPS fixes and returns `vehicleStatus` so admin, portal, and mobile show one shared state. Moving starts at 5 km/h; tolerate a single low/noisy deceleration fix, confirm a stop after two consecutive fixes at or below 2 km/h, and use consistent displacement to recognize crawling movement. Offline begins when the newest valid GPS fix is older than 10 minutes.
 - Stop duration is available only for a fresh vehicle with at least two consecutive valid GPS fixes at or below 2 km/h after the last fix above 2 km/h. Calculate from the first fix in that stationary run; show no duration when the current fix is stale or a stop is not confirmed.
 - A five-second UI refresh is only a request cadence. It cannot make a tracker transmit more often; device acquisition and sending intervals are configured on the tracker.
+- For GT06 live ingestion, persist each valid GPS frame through the API before acknowledging it to the device. Bound request retries/timeouts and serialize socket parsing; on exhausted persistence retries close the connection without ACK so the tracker can reconnect/retry. Client polling must never allow an older response to replace a newer live point.
 - Vehicle row: 3px state-colored left border, plate, speed, power/battery/signal, three-dot menu.
 
 ## Vehicle menu order
