@@ -7,6 +7,7 @@
 ## 2026-09-28
 
 ### Added
+- [Mobile/API] Added More > Notifications & refresh preferences for per-device push and sound, plus configurable fleet refresh on app resume; foreground polling pauses in background. Migration 028 stores push sound preference on the owner-scoped device token.
 - [Mobile] Matched Reports to the admin/portal report contract: all 13 types, group-aware multi-select, PKT custom date/time, conditional filters, grouping, searchable previews, saved filters and shareable CSV export.
 - [Mobile/API] Added permission-gated organization user management in More, including profile CRUD, group-aware vehicle access, custom module permissions and bounded templates. API user/permission routes now enforce tenant scope, role hierarchy, grant limits and self-protection; migration 027 adds nullable Behavior/Reports/Users overrides.
 - [Admin/Portal/API/Mobile] Added a shared WAV notification-sound library: authorized internal users upload and activate sounds, alert rules select/play shared tones, and the API sends each installed tone to capable mobile devices with a built-in fallback. Migration 026 and one EAS native-module release are required; future uploads do not need app rebuilds.

@@ -250,3 +250,13 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Problem:** Mobile Users adds nullable per-user grants for Driver Behavior, Reports, and Users. The API entity expects these columns, so deploying the API before the production database migration can fail permission queries.
 
 **Rule:** Apply `apps/api/migrations/027_extended_user_permissions.sql` to production before rebuilding/restarting `yotrack-api`. Keep `NULL` as role-default inheritance; `false` is an explicit denial. User CRUD and permission writes must continue enforcing organization, role hierarchy, action grant bounds, and vehicle scope in the API.
+
+---
+
+## KI-020 — Mobile push preferences must remain device- and tenant-scoped
+
+**Area:** API / Mobile notifications
+
+**Problem:** A client may change sound behavior only for its own registered push token. A caller-supplied token must never allow changing another account's notification preferences.
+
+**Rule:** Require effective `alerts.view`, validate the Expo token, and update only the row matching authenticated user ID, organization ID, and token. Combine the per-device sound preference with the alert rule's sound setting. Default existing registrations to sound enabled through migration `028_mobile_push_preferences.sql`.

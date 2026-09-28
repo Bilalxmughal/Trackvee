@@ -18,7 +18,7 @@ export default function AlertsScreen() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const [pushState, setPushState] = useState<'unknown' | 'enabled' | 'denied' | 'unconfigured' | 'unsupported'>('unknown');
+  const [pushState, setPushState] = useState<'unknown' | 'enabled' | 'disabled' | 'denied' | 'unconfigured' | 'unsupported'>('unknown');
   const [pushBusy, setPushBusy] = useState(false);
   const { canDo, loading: permissionsLoading } = usePortalPermissions();
 
@@ -43,7 +43,7 @@ export default function AlertsScreen() {
         if (active && cachedRegistration) setPushState('enabled');
         try {
           const value = await syncPushRegistration(false);
-          if (active && (value === 'enabled' || value === 'denied' || !cachedRegistration)) setPushState(value);
+          if (active && (value === 'enabled' || value === 'disabled' || value === 'denied' || !cachedRegistration)) setPushState(value);
         } catch {
           if (active) setPushState(current => current === 'enabled' ? current : 'unconfigured');
         }

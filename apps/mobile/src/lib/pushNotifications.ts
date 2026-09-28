@@ -6,6 +6,30 @@ import api from './api';
 import { getDynamicNotificationSounds, installDynamicNotificationSounds, supportsDynamicNotificationSounds } from './dynamicNotificationSounds';
 
 const TOKEN_KEY = 'yt_expo_push_token';
+const PUSH_ENABLED_KEY = 'yt_mobile_push_enabled';
+const SOUND_ENABLED_KEY = 'yt_mobile_alert_sound_enabled';
+const RESUME_REFRESH_KEY = 'yt_fleet_refresh_on_resume';
+
+export async function getAlertSoundEnabled(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(SOUND_ENABLED_KEY)) !== 'false';
+}
+
+export async function setAlertSoundEnabled(enabled: boolean): Promise<void> {
+  await SecureStore.setItemAsync(SOUND_ENABLED_KEY, String(enabled));
+}
+
+export async function syncAlertSoundPreference(enabled: boolean): Promise<void> {
+  const token = await SecureStore.getItemAsync(TOKEN_KEY);
+  if (token) await api.patch('/alerts/push-token/preferences', { token, soundEnabled: enabled });
+}
+
+export async function getFleetRefreshOnResume(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(RESUME_REFRESH_KEY)) !== 'false';
+}
+
+export async function setFleetRefreshOnResume(enabled: boolean): Promise<void> {
+  await SecureStore.setItemAsync(RESUME_REFRESH_KEY, String(enabled));
+}
 
 export const MOBILE_ALERT_SOUNDS = [
   { id: 'trackvee', label: 'Trackvee', file: 'trackvee_alert.wav', channelId: 'trackvee-alerts-tone-trackvee-v1' },
@@ -19,8 +43,14 @@ export async function hasCachedPushRegistration(): Promise<boolean> {
   return !!(await SecureStore.getItemAsync(TOKEN_KEY));
 }
 
-export async function syncPushRegistration(requestPermission: boolean): Promise<'enabled' | 'denied' | 'unconfigured' | 'unsupported'> {
+export async function isPushNotificationsEnabled(): Promise<boolean> {
+  const preference = await SecureStore.getItemAsync(PUSH_ENABLED_KEY);
+  return preference === null ? hasCachedPushRegistration() : preference === 'true';
+}
+
+export async function syncPushRegistration(requestPermission: boolean, preferredSoundEnabled?: boolean): Promise<'enabled' | 'disabled' | 'denied' | 'unconfigured' | 'unsupported'> {
   if (Platform.OS !== 'ios' && Platform.OS !== 'android') return 'unsupported';
+  if (!requestPermission && !(await isPushNotificationsEnabled())) return 'disabled';
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('trackvee-alerts-custom-v1', {
       name: 'Trackvee alerts',
@@ -64,18 +94,25 @@ export async function syncPushRegistration(requestPermission: boolean): Promise<
   }
   const result = await Notifications.getExpoPushTokenAsync({ projectId });
   const token = result.data;
+  const soundEnabled = preferredSoundEnabled ?? await getAlertSoundEnabled();
   const previous = await SecureStore.getItemAsync(TOKEN_KEY);
   if (previous && previous !== token) await api.delete('/alerts/push-token', { data: { token: previous } }).catch(() => {});
-  await api.post('/alerts/push-token', { token, platform: Platform.OS, supportsCustomSounds: true, supportsDynamicSounds, dynamicSoundIds });
+  await api.post('/alerts/push-token', { token, platform: Platform.OS, supportsCustomSounds: true, supportsDynamicSounds, dynamicSoundIds, soundEnabled });
   await SecureStore.setItemAsync(TOKEN_KEY, token);
+  await SecureStore.setItemAsync(PUSH_ENABLED_KEY, 'true');
   return 'enabled';
 }
 
-export async function unregisterPushToken(): Promise<void> {
+export async function unregisterPushToken(requireServerConfirmation = false): Promise<void> {
   const token = await SecureStore.getItemAsync(TOKEN_KEY);
-  if (!token) return;
-  await api.delete('/alerts/push-token', { data: { token } }).catch(() => {});
+  if (!token) { await SecureStore.setItemAsync(PUSH_ENABLED_KEY, 'false'); return; }
+  if (requireServerConfirmation) {
+    await api.delete('/alerts/push-token', { data: { token } });
+  } else {
+    await api.delete('/alerts/push-token', { data: { token } }).catch(() => {});
+  }
   await SecureStore.deleteItemAsync(TOKEN_KEY);
+  await SecureStore.setItemAsync(PUSH_ENABLED_KEY, 'false');
 }
 
 export function getPushTokenListener() {

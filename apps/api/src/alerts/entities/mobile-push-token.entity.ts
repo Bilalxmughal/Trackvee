@@ -22,6 +22,9 @@ export class MobilePushToken {
   @Column({ name: 'supports_custom_sounds', type: 'boolean', default: false })
   supportsCustomSounds: boolean;
 
+  @Column({ name: 'sound_enabled', type: 'boolean', default: true })
+  soundEnabled: boolean;
+
   @Column({ name: 'supports_dynamic_sounds', type: 'boolean', default: false })
   supportsDynamicSounds: boolean;
 

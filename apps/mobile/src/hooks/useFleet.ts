@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import api from '../lib/api';
+import { getFleetRefreshOnResume } from '../lib/pushNotifications';
 
 export interface LivePoint {
   id: string;
@@ -83,14 +85,31 @@ export function useFleet() {
   useFocusEffect(useCallback(() => {
     let active = true;
     let inFlight = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
     const poll = async () => {
-      if (!active || inFlight) return;
+      if (!active || AppState.currentState !== 'active' || inFlight) return;
       inFlight = true;
       try { await load(); } finally { inFlight = false; }
     };
-    void poll();
-    const timer = setInterval(() => { void poll(); }, 5_000);
-    return () => { active = false; clearInterval(timer); requestSequence.current++; };
+    const startPolling = () => {
+      if (!timer) timer = setInterval(() => { void poll(); }, 5_000);
+    };
+    const stopPolling = () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+    };
+    if (AppState.currentState === 'active') { void poll(); startPolling(); }
+    let previousState = AppState.currentState;
+    const appStateSubscription = AppState.addEventListener('change', nextState => {
+      const returningToForeground = nextState === 'active' && previousState !== 'active';
+      previousState = nextState;
+      if (nextState !== 'active') { stopPolling(); return; }
+      startPolling();
+      if (returningToForeground) {
+        void getFleetRefreshOnResume().then(enabled => { if (enabled) return poll(); }).catch(() => { void poll(); });
+      }
+    });
+    return () => { active = false; stopPolling(); appStateSubscription.remove(); requestSequence.current++; };
   }, [load]));
 
   return { items, loading, error, reload: load };

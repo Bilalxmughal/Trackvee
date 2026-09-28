@@ -1,0 +1,2 @@
+ALTER TABLE mobile_push_tokens
+  ADD COLUMN IF NOT EXISTS sound_enabled BOOLEAN NOT NULL DEFAULT TRUE;

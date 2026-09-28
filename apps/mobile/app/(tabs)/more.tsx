@@ -26,6 +26,12 @@ export default function MoreScreen() {
         {canDo('pois') ? <Pressable onPress={() => router.push('/pois')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="map-pin" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Points of Interest</Text><Text style={styles.toolSubtitle}>Manage saved locations</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
         {canDo('users') ? <Pressable onPress={() => router.push('/users')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="user" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Users</Text><Text style={styles.toolSubtitle}>Manage accounts and access</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
       </> : null}
+      <Text style={[styles.sectionLabel, styles.accountLabel]}>PREFERENCES</Text>
+      <Pressable onPress={() => router.push('/settings')} style={styles.toolRow}>
+        <View style={styles.toolIcon}><TablerIcon name="settings" size={19} color={theme.red}/></View>
+        <View style={styles.toolText}><Text style={styles.toolTitle}>Notifications & refresh</Text><Text style={styles.toolSubtitle}>Push alerts and fleet update behavior</Text></View>
+        <TablerIcon name="forward" size={17} color={theme.muted}/>
+      </Pressable>
       <Text style={[styles.sectionLabel, styles.accountLabel]}>ACCOUNT</Text>
       <View style={styles.infoRow}><Text style={styles.infoLabel}>Organization</Text><Text style={styles.infoValue} numberOfLines={1}>{user?.organizationName || '—'}</Text></View>
       <View style={styles.infoRow}><Text style={styles.infoLabel}>Account role</Text><Text style={styles.infoValue}>{user?.role.replace('client_', '').replaceAll('_', ' ') || '—'}</Text></View>

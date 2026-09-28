@@ -227,6 +227,7 @@ export class AlertsService {
     rawSupportsCustomSounds?: unknown,
     rawSupportsDynamicSounds?: unknown,
     rawDynamicSoundIds?: unknown,
+    rawSoundEnabled?: unknown,
   ): Promise<{ registered: true }> {
     await this.assertMobileAlertsView(user);
     if (typeof rawToken !== 'string' || !/^(Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/.test(rawToken)) {
@@ -252,9 +253,10 @@ export class AlertsService {
       existing.supportsCustomSounds = supportsCustomSounds;
       existing.supportsDynamicSounds = supportsDynamicSounds;
       existing.dynamicSoundIds = activeSoundIds;
+      existing.soundEnabled = rawSoundEnabled !== false;
       await this.pushTokenRepo.save(existing);
     } else {
-      await this.pushTokenRepo.save(this.pushTokenRepo.create({ userId: user.id, organizationId: orgId, token: rawToken, platform: rawPlatform, supportsCustomSounds, supportsDynamicSounds, dynamicSoundIds: activeSoundIds }));
+      await this.pushTokenRepo.save(this.pushTokenRepo.create({ userId: user.id, organizationId: orgId, token: rawToken, platform: rawPlatform, supportsCustomSounds, supportsDynamicSounds, dynamicSoundIds: activeSoundIds, soundEnabled: rawSoundEnabled !== false }));
     }
     return { registered: true };
   }
@@ -266,6 +268,19 @@ export class AlertsService {
     }
     await this.pushTokenRepo.delete({ userId: user.id, token: rawToken });
     return { removed: true };
+  }
+
+  async updatePushTokenPreferences(user: User, rawToken: unknown, rawSoundEnabled: unknown): Promise<{ updated: true }> {
+    await this.assertMobileAlertsView(user);
+    if (typeof rawToken !== 'string' || !/^(Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/.test(rawToken)) {
+      throw new BadRequestException('A valid Expo push token is required');
+    }
+    if (typeof rawSoundEnabled !== 'boolean' || !user.organizationId) throw new BadRequestException('A valid sound preference is required');
+    const registration = await this.pushTokenRepo.findOne({ where: { userId: user.id, organizationId: user.organizationId, token: rawToken } });
+    if (!registration) throw new NotFoundException('Push registration not found');
+    registration.soundEnabled = rawSoundEnabled;
+    await this.pushTokenRepo.save(registration);
+    return { updated: true };
   }
 
   async getLogDetail(user: User, id: string) {
@@ -328,7 +343,7 @@ export class AlertsService {
         if (permission?.vehicleIds && !permission.vehicleIds.includes(device.vehicle.id)) continue;
         const registrations = await this.pushTokenRepo.find({ where: { userId: recipient.id, organizationId: alert.orgId } });
         for (const registration of registrations) {
-          const soundEnabled = alert.notifications?.appSound !== false;
+          const soundEnabled = alert.notifications?.appSound !== false && registration.soundEnabled !== false;
           const selected = soundOptions[selectedSoundId as keyof typeof soundOptions] ?? soundOptions.trackvee;
           const modern = registration.supportsCustomSounds === true;
           const dynamicAvailable = modern && registration.supportsDynamicSounds === true && !!dynamicSound && registration.dynamicSoundIds?.includes(dynamicSound.id);
@@ -336,15 +351,17 @@ export class AlertsService {
             to: registration.token,
             title: alert.name,
             body: `${device.vehicle.licensePlate || device.vehicle.name} · ${alert.type.replaceAll('_', ' ')}`,
-            ...(modern
-              ? soundEnabled && dynamicAvailable
+            ...(soundEnabled
+              ? modern && dynamicAvailable
                 ? registration.platform === 'ios'
                   ? { sound: dynamicSound.fileName }
                   : { sound: dynamicSound.fileName, channelId: `trackvee-alerts-dyn-${dynamicSound.id.replaceAll('-', '')}` }
-                : soundEnabled
+                : modern
                   ? { sound: selected.file, channelId: selected.channel }
-                  : { sound: null, channelId: 'trackvee-alerts-silent-v1' }
-              : { sound: 'trackvee_alert.wav', channelId: 'trackvee-alerts-custom-v1' }),
+                  : { sound: 'trackvee_alert.wav', channelId: 'trackvee-alerts-custom-v1' }
+              : modern
+                ? { sound: null, channelId: 'trackvee-alerts-silent-v1' }
+                : { sound: 'trackvee_alert.wav', channelId: 'trackvee-alerts-custom-v1' }),
             priority: 'high',
             data: { path: `/notification/${log.id}`, logId: log.id },
           });

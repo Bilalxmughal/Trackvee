@@ -69,13 +69,18 @@ export class AlertsController {
   }
 
   @Post('push-token')
-  registerPushToken(@CurrentUser() user: User, @Body() body: { token?: unknown; platform?: unknown; supportsCustomSounds?: unknown; supportsDynamicSounds?: unknown; dynamicSoundIds?: unknown }) {
-    return this.svc.registerPushToken(user, body?.token, body?.platform, body?.supportsCustomSounds, body?.supportsDynamicSounds, body?.dynamicSoundIds);
+  registerPushToken(@CurrentUser() user: User, @Body() body: { token?: unknown; platform?: unknown; supportsCustomSounds?: unknown; supportsDynamicSounds?: unknown; dynamicSoundIds?: unknown; soundEnabled?: unknown }) {
+    return this.svc.registerPushToken(user, body?.token, body?.platform, body?.supportsCustomSounds, body?.supportsDynamicSounds, body?.dynamicSoundIds, body?.soundEnabled);
   }
 
   @Delete('push-token')
   removePushToken(@CurrentUser() user: User, @Body() body: { token?: unknown }) {
     return this.svc.removePushToken(user, body?.token);
+  }
+
+  @Patch('push-token/preferences')
+  updatePushTokenPreferences(@CurrentUser() user: User, @Body() body: { token?: unknown; soundEnabled?: unknown }) {
+    return this.svc.updatePushTokenPreferences(user, body?.token, body?.soundEnabled);
   }
 
   @Get('vehicle/:imei')

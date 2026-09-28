@@ -5,13 +5,13 @@ import * as Notifications from 'expo-notifications';
 import { AuthProvider, useAuth } from '../src/auth/AuthProvider';
 import { PortalPermissionsProvider } from '../src/auth/PortalPermissionsProvider';
 import { theme } from '../src/theme';
-import { getPushTokenListener } from '../src/lib/pushNotifications';
+import { getAlertSoundEnabled, getPushTokenListener } from '../src/lib/pushNotifications';
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
+  handleNotification: async notification => ({
     shouldShowBanner: true,
     shouldShowList: true,
-    shouldPlaySound: true,
+    shouldPlaySound: (await getAlertSoundEnabled().catch(() => true)) && notification.request.content.sound !== null,
     shouldSetBadge: false,
   }),
 });
@@ -79,6 +79,7 @@ function NavigationRoot() {
         <Stack.Screen name="vehicle/[imei]/replay" />
         <Stack.Screen name="vehicle/[imei]/alerts" />
         <Stack.Screen name="notification/[logId]" />
+        <Stack.Screen name="settings" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
       </Stack>
     </>
   );
