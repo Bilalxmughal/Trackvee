@@ -11,6 +11,8 @@ import { MobilePushToken } from './entities/mobile-push-token.entity.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
+type AlertWithAccess = Alert & { fleetWide?: boolean; canEdit?: boolean; canDelete?: boolean };
+
 @Injectable()
 export class AlertsService {
   constructor(
@@ -24,14 +26,52 @@ export class AlertsService {
     @InjectRepository(User) private usersRepo: Repository<User>,
   ) {}
 
-  findAll(user: User, orgId?: string): Promise<Alert[]> {
+  async findAll(user: User, orgId?: string): Promise<AlertWithAccess[]> {
     if (ADMIN_ROLES.includes(user.role)) {
       if (orgId) return this.repo.find({ where: { orgId }, order: { createdAt: 'DESC' } });
       return this.repo.find({ order: { createdAt: 'DESC' } });
     }
-    const resolvedOrgId = user.organizationId;
-    if (!resolvedOrgId) return Promise.resolve([]);
-    return this.repo.find({ where: { orgId: resolvedOrgId }, order: { createdAt: 'DESC' } });
+    if (!user.organizationId) throw new ForbiddenException();
+    const [rolePermissions, orgPerm] = await Promise.all([
+      this.rolePerms.findAll(),
+      this.orgPerms.findByUser(user.id),
+    ]);
+    const roleActions = rolePermissions[user.role]?.alerts;
+    const canView = orgPerm
+      ? orgPerm.alertsView
+      : (roleActions?.includes('view') ?? ['client_owner', 'client_super_admin'].includes(user.role));
+    if (!canView) throw new ForbiddenException('Alert view not permitted');
+
+    const [rules, devices] = await Promise.all([
+      this.repo.find({ where: { orgId: user.organizationId }, order: { createdAt: 'DESC' } }),
+      this.devices.findAll(user),
+    ]);
+    const visibleImeis = new Set(devices.map(device => device.imei));
+    const hasAllVehicleAccess = ['client_owner', 'client_super_admin'].includes(user.role)
+      || orgPerm?.vehicleIds == null;
+    const hasAction = (action: 'edit' | 'delete') => {
+      if (['client_owner', 'client_super_admin'].includes(user.role)) return roleActions ? roleActions.includes(action) : true;
+      const key = action === 'edit' ? 'alertsEdit' : 'alertsDelete';
+      return orgPerm ? orgPerm[key] : !!roleActions?.includes(action);
+    };
+
+    return rules.flatMap(rule => {
+      const fleetWide = rule.vehicleImeis.length === 0;
+      const excluded = new Set(rule.excludedVehicleImeis ?? []);
+      const visibleTargets = fleetWide
+        ? [...visibleImeis].filter(imei => !excluded.has(imei))
+        : rule.vehicleImeis.filter(imei => visibleImeis.has(imei) && !excluded.has(imei));
+      if (!visibleTargets.length) return [];
+      const completeTargetScope = fleetWide ? hasAllVehicleAccess : visibleTargets.length === rule.vehicleImeis.length;
+      return [{
+        ...rule,
+        vehicleImeis: fleetWide ? [] : visibleTargets,
+        excludedVehicleImeis: [],
+        fleetWide,
+        canEdit: completeTargetScope && hasAction('edit'),
+        canDelete: completeTargetScope && hasAction('delete'),
+      }];
+    });
   }
 
   // Returns active alerts for a given IMEI (used during telemetry evaluation)

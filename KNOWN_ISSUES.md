@@ -129,6 +129,8 @@ Every new feature/page built in the same session must also be wired into `ORG_PO
 
 **Rule:** Apply migration 022 before the new API starts. Vehicle alert mutation must lock and split/exclude only the selected IMEI; tests must cover shared/global rules and cross-tenant access. Device commands and telemetry must derive permitted devices from the authenticated user; `vehicleIds: []` means no vehicles, while `null` means all organization vehicles. Permission reads/writes must validate the target user and tenant; never accept a client-supplied organization or record-owner field.
 
+Alert-rule list responses must also be organization- and vehicle-scoped: remove inaccessible IMEIs, and advertise edit/delete only when the caller can manage the rule's full target scope. A restricted vehicle user must never receive a fleet-wide write capability.
+
 ---
 
 ## KI-010 — Stop duration needs the first stationary sample
