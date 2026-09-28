@@ -24,6 +24,7 @@
 - [API] Enforced Driver Behavior role permissions and tenant/custom vehicle scope, whitelisted settings fields, kept score deletion internal-admin-only, and added authorization regression tests.
 
 ### Changed
+- [Admin] Kept the Settings side menu stable while switching between Cities and Notifications in place.
 - [Admin] Moved Notification Sounds under Settings, directly below Cities, while preserving its existing role-based access and legacy URL.
 - [Mobile] Prevented authenticated back navigation from returning to onboarding, made alert push status persist visually across Alerts visits, kept push enabled for legacy rules with no saved preference, and flattened the notifications row.
 - [Mobile] Moved alert trigger values above the alert-type list with clear context and matching initialized defaults; removed the border around the Mobile Push setting.

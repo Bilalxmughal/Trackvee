@@ -17,6 +17,11 @@
 - Header: functional icon, 15px bold title, close button.
 - Close via explicit close control; do not add outside-click closing unless the existing flow uses it.
 
+## Settings navigation
+
+- Keep the Settings side menu mounted while switching its sections. Use local selected-section state to replace only the right content pane; do not navigate between section URLs on menu clicks, which remounts the page and visibly shifts the layout.
+- Deep links may initialize the selected section, but normal menu selection stays within the Settings page.
+
 ## Vehicle selection
 
 Use existing `VehicleMultiSelect`/`VehicleGroupSelect`. Required behavior: search, groups, individual selection, group toggle, Select All/Deselect All, partial-state dash, defensive `?? []` guards.

@@ -1,5 +1,5 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { IconPlus, IconEdit, IconTrash, IconMapPin, IconBellRinging } from '@tabler/icons-react';
 import type { UserRole } from '@yotrack/types';
 import api from '../api/client';
@@ -25,13 +25,12 @@ export default function SettingsPage() {
   const { dark } = useTheme();
   const { user } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const role = (user?.role ?? 'viewer') as UserRole;
   const canViewCities = canAccessPage(role, 'settings');
   const canViewSounds = canAccessPage(role, 'notification-sounds');
-  const activeTab: Tab = location.pathname.endsWith('/notifications') || (!canViewCities && canViewSounds)
-    ? 'notifications'
-    : 'cities';
+  const [activeTab, setActiveTab] = useState<Tab>(() =>
+    location.pathname.endsWith('/notifications') || (!canViewCities && canViewSounds) ? 'notifications' : 'cities'
+  );
 
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +76,7 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title={activeTab === 'notifications' ? 'Notification Sounds' : 'Settings'} count={activeTab === 'cities' ? cities.length : undefined} action={
+      <PageHeader title="Settings" count={activeTab === 'cities' ? cities.length : undefined} action={
         activeTab === 'cities' ? (
           <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
             <IconPlus size={13} /> Add City
@@ -97,7 +96,7 @@ export default function SettingsPage() {
             return (
               <button
                 key={tab.key}
-                onClick={() => navigate(tab.key === 'notifications' ? '/settings/notifications' : '/settings')}
+                onClick={() => setActiveTab(tab.key)}
                 role="tab"
                 aria-selected={on}
                 style={{
