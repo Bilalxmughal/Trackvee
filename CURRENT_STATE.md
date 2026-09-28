@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-09-28 (API/mobile/admin/portal typechecks and builds pass; API sound-capability and alert-access tests pass; Android Expo export and native prebuild include all five WAV tones; migration 025 and a new EAS binary are required before real-device tone testing; Android signing/FCM credentials and device QA remain).
+Last verified: 2026-09-28 (mobile typecheck and Android Expo export pass with Expo Audio 57; Android native prebuild succeeds and confirms no microphone permission is added; migration 025 and a new EAS binary are required before real-device push-tone testing; Android signing/FCM credentials and device QA remain).
 
 ## Status
 
