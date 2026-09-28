@@ -52,7 +52,8 @@
         {
           "locationWhenInUsePermission": "Allow Trackvee to resolve the address of a selected vehicle history point."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "router": {},
