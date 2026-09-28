@@ -49,7 +49,7 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
   const openForm = (rule: Rule | null) => {
     setEditing(rule); setName(rule?.name ?? ''); setType(rule?.type ?? 'over_speed');
     setActive(rule?.active ?? true); setConfig(rule?.config ?? { speedLimit: 80 });
-    setSchedule(rule?.schedule ?? null); setNotifications(rule ? rule.notifications ?? {} : { appPush: true });
+    setSchedule(rule?.schedule ?? null); setNotifications(rule ? { ...rule.notifications, appPush: rule.notifications?.appPush ?? true } : { appPush: true });
     setFormOpen(true); setError('');
   };
   const save = async () => {

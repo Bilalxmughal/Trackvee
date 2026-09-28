@@ -59,7 +59,10 @@ function NavigationRoot() {
     const publicRoute = segments[0] === 'index' || segments[0] === 'login';
     if (!user && sessionRestoreFailed && segments[0] !== 'login') { router.replace('/login'); return; }
     if (!user && !publicRoute) router.replace('/');
-    if (user && publicRoute) router.replace('/map');
+    if (user && publicRoute) {
+      router.dismissAll();
+      router.replace('/map');
+    }
   }, [loading, user, sessionRestoreFailed, segments, router]);
 
   return (

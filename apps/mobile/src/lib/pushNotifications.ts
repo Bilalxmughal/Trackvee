@@ -6,6 +6,10 @@ import api from './api';
 
 const TOKEN_KEY = 'yt_expo_push_token';
 
+export async function hasCachedPushRegistration(): Promise<boolean> {
+  return !!(await SecureStore.getItemAsync(TOKEN_KEY));
+}
+
 export async function syncPushRegistration(requestPermission: boolean): Promise<'enabled' | 'denied' | 'unconfigured' | 'unsupported'> {
   if (Platform.OS !== 'ios' && Platform.OS !== 'android') return 'unsupported';
   if (Platform.OS === 'android') {

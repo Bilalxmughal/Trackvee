@@ -73,7 +73,7 @@ export function FleetAlertForm({ initial, vehicles, groups, geofences, allowFlee
   const [config, setConfig] = useState<Record<string, string | number>>(initial?.config ?? { speedLimit: 80 });
   const [scheduled, setScheduled] = useState(!!initial?.schedule);
   const [schedule, setSchedule] = useState<FleetAlertRule['schedule']>(initial?.schedule ?? { days: [] });
-  const [notifications, setNotifications] = useState<FleetAlertRule['notifications']>(initial ? initial.notifications ?? {} : { appPush: true });
+  const [notifications, setNotifications] = useState<FleetAlertRule['notifications']>(initial ? { ...initial.notifications, appPush: initial.notifications?.appPush ?? true } : { appPush: true });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 

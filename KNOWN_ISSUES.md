@@ -214,3 +214,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Cause:** Expo's Android notification config plugin turns bundled sound filenames into Android resource names, which reject hyphens.
 
 **Rule:** Name custom Android notification sound files with lowercase letters, digits, and underscores only (for example, `trackvee_alert.wav`). Keep the filename identical in the Expo plugin config, Android notification channel, and push payload; verify with `expo prebuild --platform android` before starting an EAS build.
+
+---
+
+## KI-017 — Authenticated back navigation must not reveal onboarding
+
+**Status:** Resolved; regression rule retained
+
+**Area:** Mobile authentication / navigation
+
+**Cause:** The public Get Started route remained in the root stack after login, so native back navigation could reveal onboarding while the user was authenticated.
+
+**Rule:** On successful sign-in or authenticated startup from a public route, dismiss the public stack history before replacing the route with `/map`. Test Android hardware back and iOS swipe-back from the authenticated root.
