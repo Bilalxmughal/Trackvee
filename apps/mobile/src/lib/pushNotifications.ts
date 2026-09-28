@@ -9,11 +9,12 @@ const TOKEN_KEY = 'yt_expo_push_token';
 export async function syncPushRegistration(requestPermission: boolean): Promise<'enabled' | 'denied' | 'unconfigured' | 'unsupported'> {
   if (Platform.OS !== 'ios' && Platform.OS !== 'android') return 'unsupported';
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('trackvee-alerts', {
+    await Notifications.setNotificationChannelAsync('trackvee-alerts-custom-v1', {
       name: 'Trackvee alerts',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#dc2626',
+      sound: 'trackvee_alert.wav',
     });
   }
   let permission = await Notifications.getPermissionsAsync();

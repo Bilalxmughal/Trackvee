@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-09-28 (API/mobile typechecks and API build pass; Android Expo export and API authorization regression tests pass; mobile push source is ready, migration 024 and EAS credentials/build/device test remain).
+Last verified: 2026-09-28 (API/mobile typechecks and API build pass; Android Expo export, Android native prebuild and API authorization regression tests pass; migration 024 is deployed; custom mobile push sound and EAS preview/production profiles are configured, and the Expo project is linked; Android signing/FCM credentials, native build and device test remain).
 
 ## Status
 

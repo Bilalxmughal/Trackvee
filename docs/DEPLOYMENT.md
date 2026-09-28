@@ -22,7 +22,7 @@ pnpm --filter portal build
 
 Frontend-only changes do not require PM2 restart. There is no PM2 process named `portal`.
 
-The native app at `apps/mobile` runs through Expo and is not deployed by Vercel or PM2. Local development: `pnpm --filter @yotrack/mobile start`. Signed Android/iOS distribution will use EAS after app identifiers, store credentials, and release configuration are finalized.
+The native app at `apps/mobile` runs through Expo and is not deployed by Vercel or PM2. Local development: `pnpm --filter @yotrack/mobile start`. EAS profiles are in `apps/mobile/eas.json`: `preview` creates an internally distributed Android APK for device testing, and `production` creates an Android App Bundle. Link the Expo-owned project with `npx eas-cli@latest init` from `apps/mobile`, then use `npx eas-cli@latest build --profile preview --platform android` for a device test. EAS-managed Android app-signing credentials can be generated at the first build; configure the Firebase FCM v1 service-account key in the linked Expo project's credentials for remote Android push delivery. iOS builds additionally require Apple Developer credentials and APNs push credentials. Never commit signing keys or service-account files. Bundled Android notification sound resources must use valid lowercase resource names such as `trackvee_alert.wav`.
 
 ## API deployment on Oracle
 

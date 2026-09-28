@@ -8,7 +8,7 @@ Last verified: 2026-09-28 (API/mobile typechecks, API build/tests, Android Expo 
 | Live map and history | Complete | Complete | Complete | `map` | Portal map is the background workspace |
 | Vehicles and groups | Complete | Complete | Map panel/groups | `vehicles` | Plate first; display name is Make/Model |
 | Devices and telemetry | Complete | Complete | Map-derived | admin-only pages | Device health workflow pending |
-| Alerts | Complete | Complete | Complete | `alerts` | Rules, schedules, notifications, vehicle targeting; mobile push delivery |
+| Alerts | Complete | Complete | Complete | `alerts` | Rules, schedules, notifications, vehicle targeting; mobile push delivery with Trackvee custom chime |
 | Geofences | Complete | Complete | Complete | `geofences` | Circle and polygon drawing; mobile CRUD is permission-gated and organization-scoped |
 | POIs | Complete | Complete | Complete | `pois` | Shared icons and map picking; mobile CRUD is permission-gated and organization-scoped |
 | Speed zones | Complete | Complete | Map integration | related alert access | Migration 018 |

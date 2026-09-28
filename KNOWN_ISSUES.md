@@ -200,3 +200,15 @@ Every new feature/page built in the same session must also be wired into `ORG_PO
 **Problem:** Push-token ownership, alert delivery, or a notification event lookup could expose another user's or tenant's vehicle activity if recipient and deep-link access are not revalidated.
 
 **Rule:** Apply migration `024_mobile_push_tokens.sql` before deploying the API. Bind token registration/removal to the authenticated user and organization. Send only to active client users with effective `alerts.view` and access to the triggering vehicle; recheck the same scope on event detail fetch. Never rely on the notification payload as authorization. Native push also requires the configured EAS project and APNs/FCM credentials.
+
+---
+
+## KI-016 — Android notification sound resources cannot contain hyphens
+
+**Status:** Resolved; regression rule retained
+
+**Area:** Mobile / Android EAS prebuild
+
+**Cause:** Expo's Android notification config plugin turns bundled sound filenames into Android resource names, which reject hyphens.
+
+**Rule:** Name custom Android notification sound files with lowercase letters, digits, and underscores only (for example, `trackvee_alert.wav`). Keep the filename identical in the Expo plugin config, Android notification channel, and push payload; verify with `expo prebuild --platform android` before starting an EAS build.

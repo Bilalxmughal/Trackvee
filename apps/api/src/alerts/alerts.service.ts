@@ -258,9 +258,9 @@ export class AlertsService {
           to: registration.token,
           title: alert.name,
           body: `${device.vehicle.licensePlate || device.vehicle.name} · ${alert.type.replaceAll('_', ' ')}`,
-          sound: 'default',
+          sound: 'trackvee_alert.wav',
           priority: 'high',
-          channelId: 'trackvee-alerts',
+          channelId: 'trackvee-alerts-custom-v1',
           data: { path: `/notification/${log.id}`, logId: log.id },
         });
       }
