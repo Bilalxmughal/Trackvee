@@ -171,6 +171,33 @@ export class DriverBehaviorService {
     `, [cutoff]);
   }
 
+  async getScoreTrend(organizationId: string | null, days = 30, permittedVehicleIds?: string[] | null): Promise<{
+    date: string; score: number | null; vehicleCount: number;
+  }[]> {
+    if (permittedVehicleIds && permittedVehicleIds.length === 0) return [];
+    const cutoff = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+    const params: unknown[] = [cutoff];
+    const filters: string[] = [];
+    if (organizationId) {
+      params.push(organizationId);
+      filters.push(`ds.organization_id = $${params.length}`);
+    }
+    if (permittedVehicleIds) {
+      params.push(permittedVehicleIds);
+      filters.push(`ds.vehicle_id = ANY($${params.length}::uuid[])`);
+    }
+    const joinFilters = filters.length ? `AND ${filters.join(' AND ')}` : '';
+    return this.scoreRepo.query(`
+      SELECT TO_CHAR(days.day, 'YYYY-MM-DD') AS date,
+             ROUND(AVG(ds.score)::numeric, 1)::float AS score,
+             COUNT(DISTINCT ds.vehicle_id)::int AS "vehicleCount"
+      FROM generate_series($1::date, CURRENT_DATE, INTERVAL '1 day') AS days(day)
+      LEFT JOIN driver_scores ds ON ds.date = days.day::date ${joinFilters}
+      GROUP BY days.day
+      ORDER BY days.day ASC
+    `, params);
+  }
+
   async deleteScore(id: string): Promise<void> {
     await this.scoreRepo.delete(id);
   }

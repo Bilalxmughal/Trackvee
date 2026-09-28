@@ -67,6 +67,16 @@ export class DriverBehaviorController {
     return this.svc.getLeaderboard(user.organizationId, vehicleIds);
   }
 
+  @Get('score-trend')
+  async getScoreTrend(@CurrentUser() user: User, @Query('days') days: string | undefined, @Query('orgId') orgId?: string) {
+    await this.assertPermission(user, 'view');
+    const boundedDays = Math.max(1, Math.min(365, Number(days) || 30));
+    if (ADMIN_ROLES.includes(user.role)) return this.svc.getScoreTrend(orgId ?? null, boundedDays);
+    if (!user.organizationId) return [];
+    const vehicleIds = await this.permittedVehicleIds(user);
+    return this.svc.getScoreTrend(user.organizationId, boundedDays, vehicleIds);
+  }
+
   @Delete('scores/:id')
   @HttpCode(204)
   deleteScore(@Param('id') id: string, @CurrentUser() user: User) {

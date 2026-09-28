@@ -9,6 +9,7 @@ function fixture({ permissions = {}, orgPermission = null, vehicle = { id: 'v-1'
     getSettings: async (...args) => { calls.push(['getSettings', ...args]); return {}; },
     updateSettings: async (...args) => { calls.push(['updateSettings', ...args]); return args; },
     getLeaderboard: async (...args) => { calls.push(['getLeaderboard', ...args]); return []; },
+    getScoreTrend: async (...args) => { calls.push(['getScoreTrend', ...args]); return []; },
     getVehicleScoreHistory: async (...args) => { calls.push(['scores', ...args]); return []; },
     getVehicleEvents: async (...args) => { calls.push(['events', ...args]); return []; },
     getGroupSettings: async (...args) => args,
@@ -36,6 +37,22 @@ test('client leaderboard access requires the role page permission and stays with
   const allowed = fixture({ permissions: { client_admin: { 'driver-behavior': ['view'] } } });
   await allowed.controller.getLeaderboard(orgAdmin, 'org-b');
   assert.deepEqual(allowed.calls[0], ['getLeaderboard', 'org-a', null]);
+});
+
+test('score trend clamps client organization and custom vehicle access', async () => {
+  const allowed = fixture({
+    permissions: { client_admin: { 'driver-behavior': ['view'] } },
+    orgPermission: { orgId: 'org-a', vehicleIds: ['v-1'] },
+  });
+  await allowed.controller.getScoreTrend(orgAdmin, '500', 'org-other');
+  assert.deepEqual(allowed.calls[0], ['getScoreTrend', 'org-a', 365, ['v-1']]);
+
+  const deniedVehicles = fixture({
+    permissions: { client_admin: { 'driver-behavior': ['view'] } },
+    orgPermission: { orgId: 'org-a', vehicleIds: [] },
+  });
+  assert.deepEqual(await deniedVehicles.controller.getScoreTrend(orgAdmin), []);
+  assert.deepEqual(deniedVehicles.calls[0], ['getScoreTrend', 'org-a', 30, []]);
 });
 
 test('client vehicle detail endpoints reject cross-organization IDs and scope the score query', async () => {

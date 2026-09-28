@@ -12,7 +12,7 @@ Last verified: 2026-09-28 (API/mobile typechecks, API build/tests, Android Expo 
 | Geofences | Complete | Complete | Complete | `geofences` | Circle and polygon drawing; mobile CRUD is permission-gated and organization-scoped |
 | POIs | Complete | Complete | Complete | `pois` | Shared icons and map picking; mobile CRUD is permission-gated and organization-scoped |
 | Speed zones | Complete | Complete | Map integration | related alert access | Migration 018 |
-| Driver behavior | Complete | Complete | Complete | `driver-behavior` | Admin/portal parity; mobile More entry, leaderboard, vehicle detail/events, 30-day chart and role-gated organization settings. Client API requests enforce tenant and custom vehicle access. |
+| Driver behavior | Complete | Complete | Complete | `driver-behavior` | Admin/portal parity; mobile More entry, compact 30-day fleet trend above leaderboard, vehicle detail/events/chart and role-gated organization settings. Client API requests enforce tenant and custom vehicle access. |
 | Reports | Complete | Complete | Complete | `reports` | 13 types, grouped vehicles, exports, saved reports |
 | Users/custom access | Complete | Complete | Complete | `users` | Module and vehicle permissions |
 | Audit logs | Complete | Complete | Not exposed | `audit-logs` | Internal operational feature |

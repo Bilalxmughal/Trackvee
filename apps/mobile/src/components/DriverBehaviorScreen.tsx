@@ -18,6 +18,7 @@ interface ScoreHistory {
   id: string; vehicleId: string; date: string; score: number; harshBrakeCount: number;
   rapidAccelCount: number; sharpTurnCount: number; overspeedCount: number;
 }
+interface FleetScoreTrendPoint { date: string; score: number | null; vehicleCount: number; }
 interface DriverEvent {
   id: string; vehicleId: string; type: 'harsh_brake' | 'rapid_accel' | 'sharp_turn' | 'overspeed';
   severity: 'low' | 'medium' | 'high'; speedKmh: number; latitude: number | null; longitude: number | null; timestamp: string;
@@ -70,6 +71,8 @@ export default function DriverBehaviorScreen() {
   const canEdit = canDo('driver-behavior', 'edit');
   const [tab, setTab] = useState<Tab>('scores');
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [fleetTrend, setFleetTrend] = useState<FleetScoreTrendPoint[]>([]);
+  const [trendLoading, setTrendLoading] = useState(true);
   const [listLoading, setListLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -88,15 +91,21 @@ export default function DriverBehaviorScreen() {
   const loadLeaderboard = useCallback(async (showSpinner = true) => {
     if (showSpinner) setListLoading(true);
     setError('');
-    try {
-      const response = await api.get<LeaderboardRow[]>('/driver-behavior/leaderboard');
-      setRows(Array.isArray(response.data) ? response.data : []);
-    } catch {
+    setTrendLoading(true);
+    const [leaderboardResult, trendResult] = await Promise.allSettled([
+      api.get<LeaderboardRow[]>('/driver-behavior/leaderboard'),
+      api.get<FleetScoreTrendPoint[]>('/driver-behavior/score-trend?days=30'),
+    ]);
+    if (leaderboardResult.status === 'fulfilled') {
+      setRows(Array.isArray(leaderboardResult.value.data) ? leaderboardResult.value.data : []);
+    } else {
       setError('Driver Behavior scores could not be loaded. Check your connection and try again.');
-    } finally {
-      setListLoading(false);
-      setRefreshing(false);
     }
+    if (trendResult.status === 'fulfilled') setFleetTrend(Array.isArray(trendResult.value.data) ? trendResult.value.data : []);
+    else setFleetTrend([]);
+    setListLoading(false);
+    setTrendLoading(false);
+    setRefreshing(false);
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -184,6 +193,7 @@ export default function DriverBehaviorScreen() {
     {canEdit ? <View style={s.tabs}>{(['scores', 'settings'] as const).map(item => <Pressable key={item} onPress={() => setTab(item)} style={[s.tab, tab === item && s.tabSelected]}><Text style={[s.tabText, tab === item && s.tabTextSelected]}>{item === 'scores' ? 'Driver Scores' : 'Settings'}</Text></Pressable>)}</View> : null}
     {!canEdit || tab === 'scores' ? <>
       {listLoading ? <View style={s.center}><ActivityIndicator color={theme.red}/><Text style={s.secondary}>Loading driver scores…</Text></View> : error ? <Pressable onPress={() => void loadLeaderboard()} style={s.errorBox}><Text style={s.errorText}>{error} Tap to retry.</Text></Pressable> : <ScrollView contentContainerStyle={s.listContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void loadLeaderboard(false); }} tintColor={theme.red}/> }>
+        <FleetScoreTrend points={fleetTrend} loading={trendLoading}/>
         <View style={s.listIntro}><Text style={s.sectionTitle}>LAST 7 DAYS</Text><Text style={s.secondary}>{rows.length} {rows.length === 1 ? 'vehicle' : 'vehicles'}</Text></View>
         {!rows.length ? <View style={s.emptyScores}><TablerIcon name="activity" size={26} color={theme.muted}/><Text style={s.emptyTitle}>No driver scores yet</Text><Text style={s.secondary}>Scores appear after driving events are recorded.</Text></View> : rows.map((row, index) => <Pressable key={row.vehicleId} onPress={() => void openVehicle(row)} style={s.vehicleRow} accessibilityRole="button" accessibilityLabel={`View driver behavior for ${vehicleTitle(row)}`}>
           <Text style={s.rank}>{String(index + 1).padStart(2, '0')}</Text>
@@ -201,6 +211,34 @@ export default function DriverBehaviorScreen() {
       </>}
     </ScrollView>}
   </SafeAreaView>;
+}
+
+function FleetScoreTrend({ points, loading }: { points: FleetScoreTrendPoint[]; loading: boolean }) {
+  const [width, setWidth] = useState(320);
+  const chartWidth = Math.max(width, 260), chartHeight = 72, padX = 4, padY = 8;
+  const scores = points.map(point => point.score == null ? null : Number(point.score));
+  const validScores = scores.filter((value): value is number => value != null && Number.isFinite(value));
+  const latest = validScores.at(-1);
+  const x = (index: number) => padX + index / Math.max(points.length - 1, 1) * (chartWidth - padX * 2);
+  const y = (value: number) => padY + (100 - Math.max(0, Math.min(100, value))) / 100 * (chartHeight - padY * 2);
+  let path = '';
+  let segmentOpen = false;
+  points.forEach((point, index) => {
+    const value = point.score == null ? null : Number(point.score);
+    if (value == null || !Number.isFinite(value)) { segmentOpen = false; return; }
+    path += `${segmentOpen ? 'L' : 'M'}${x(index).toFixed(1)},${y(value).toFixed(1)} `;
+    segmentOpen = true;
+  });
+  return <View style={s.fleetTrend} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
+    <View style={s.fleetTrendHeader}><View><Text style={s.sectionTitle}>30-DAY FLEET SCORE</Text><Text style={s.fleetTrendCaption}>Average daily score across your vehicles</Text></View><Text style={[s.fleetTrendScore, latest == null && s.secondary, latest != null && { color: scoreColor(latest) }]}>{loading ? '—' : latest == null ? '—' : Math.round(latest)}</Text></View>
+    {loading ? <View style={s.fleetTrendEmpty}><ActivityIndicator size="small" color={theme.red}/></View> : latest == null ? <View style={s.fleetTrendEmpty}><Text style={s.secondary}>No score history available yet.</Text></View> : <Svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+      <Line x1={padX} x2={chartWidth-padX} y1={chartHeight-padY} y2={chartHeight-padY} stroke={theme.border} strokeWidth={1}/>
+      <Path d={path.trim()} fill="none" stroke={theme.red} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>
+      {points.map((point, index) => point.score == null ? null : <Circle key={point.date} cx={x(index)} cy={y(Number(point.score))} r={index === points.length - 1 ? 3 : 1.8} fill={index === points.length - 1 ? scoreColor(Number(point.score)) : theme.red}/>)}
+      <SvgText x={padX} y={chartHeight-1} fill={theme.muted} fontSize={8}>{points[0]?.date.slice(5)}</SvgText>
+      <SvgText x={chartWidth-padX} y={chartHeight-1} fill={theme.muted} fontSize={8} textAnchor="end">{points.at(-1)?.date.slice(5)}</SvgText>
+    </Svg>}
+  </View>;
 }
 
 function ScoreTrend({ scores }: { scores: ScoreHistory[] }) {
@@ -257,7 +295,7 @@ const s = StyleSheet.create({
   backButton: { width: 32, height: 42, justifyContent: 'center' }, refreshButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   scoreHeader: { flexDirection: 'row', alignItems: 'baseline', gap: 2 }, scoreValue: { fontSize: 21, fontWeight: '700' }, scoreCaption: { color: theme.muted, fontSize: 9 },
   tabs: { flexDirection: 'row', height: 43, borderBottomWidth: 1, borderColor: theme.border }, tab: { flex: 1, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 2, borderColor: 'transparent' }, tabSelected: { borderColor: theme.red }, tabText: { color: theme.secondary, fontSize: 12 }, tabTextSelected: { color: theme.red, fontWeight: '700' },
-  listContent: { paddingHorizontal: 14, paddingBottom: 30, flexGrow: 1 }, listIntro: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, sectionTitle: { color: theme.secondary, fontSize: 10, fontWeight: '700', letterSpacing: 0.55 },
+  listContent: { paddingHorizontal: 14, paddingBottom: 30, flexGrow: 1 }, fleetTrend: { paddingTop: 13, paddingBottom: 7, borderBottomWidth: 1, borderColor: theme.border }, fleetTrendHeader: { minHeight: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, fleetTrendCaption: { color: theme.muted, fontSize: 9, marginTop: 3 }, fleetTrendScore: { fontSize: 21, fontWeight: '700' }, fleetTrendEmpty: { height: 72, alignItems: 'center', justifyContent: 'center' }, listIntro: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, sectionTitle: { color: theme.secondary, fontSize: 10, fontWeight: '700', letterSpacing: 0.55 },
   vehicleRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderColor: theme.border }, rank: { width: 26, color: theme.muted, fontSize: 11, fontVariant: ['tabular-nums'] }, vehicleCopy: { flex: 1, minWidth: 0 }, vehicleTitle: { color: theme.ink, fontSize: 13, fontWeight: '700' }, vehicleSub: { color: theme.secondary, fontSize: 10, marginTop: 2 }, eventCounts: { color: theme.secondary, fontSize: 9, marginTop: 5 }, scoreCol: { minWidth: 42, alignItems: 'center' }, rowScore: { fontSize: 18, fontWeight: '700' },
   emptyScores: { flex: 1, minHeight: 230, alignItems: 'center', justifyContent: 'center', gap: 8 }, emptyTitle: { color: theme.ink, fontSize: 14, fontWeight: '600' }, secondary: { color: theme.secondary, fontSize: 11 }, errorBox: { margin: 15, paddingVertical: 16, borderBottomWidth: 1, borderColor: theme.border }, errorText: { color: theme.red, fontSize: 12 },
   detailContent: { paddingHorizontal: 14, paddingTop: 15, paddingBottom: 32 }, summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 9 }, summaryCell: { width: '50%', minHeight: 82, padding: 11, borderWidth: 0.5, borderColor: theme.border }, summaryHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 }, summaryLabel: { color: theme.secondary, fontSize: 10 }, summaryValue: { color: theme.ink, fontSize: 22, fontWeight: '700', marginTop: 7 }, trendHeading: { marginTop: 23 }, chartWrap: { marginTop: 10, height: 164, borderBottomWidth: 1, borderColor: theme.border }, chartEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' }, eventsHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 21, marginBottom: 7 }, emptyEvents: { minHeight: 64, justifyContent: 'center', borderBottomWidth: 1, borderColor: theme.border }, eventRow: { minHeight: 63, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: 1, borderColor: theme.border }, eventIcon: { width: 24, alignItems: 'center' }, eventCopy: { flex: 1, minWidth: 0 }, eventTitle: { color: theme.ink, fontSize: 11, fontWeight: '600' }, eventTime: { color: theme.secondary, fontSize: 9, marginTop: 4 }, severity: { fontSize: 9, fontWeight: '600' }, mapAction: { width: 34, height: 42, alignItems: 'center', justifyContent: 'center' },

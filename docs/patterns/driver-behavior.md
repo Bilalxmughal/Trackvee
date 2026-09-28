@@ -4,6 +4,8 @@
 
 Driver Behavior provides a leaderboard and settings. Selecting a leaderboard row opens an inline vehicle detail view within the same modal.
 
+The mobile leaderboard starts with a compact 30-day fleet trend. Plot daily average scores across accessible vehicles, retain calendar gaps instead of connecting missing-score days, and apply the authenticated tenant plus custom vehicle access in the API.
+
 Vehicle detail includes:
 
 - Summary counts for harsh brake, rapid acceleration, sharp turn and overspeed.

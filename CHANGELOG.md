@@ -14,6 +14,7 @@
 - [API] Migration 022 and vehicle-specific alert routes; shared/global alert rules split or exclude the selected IMEI during edit/delete.
 - [API] Regression tests for shared-rule isolation, cross-tenant alert access, command authorization, empty vehicle access lists, and org-permission self/cross-tenant edits.
 - [Mobile] Added permission-gated Driver Behavior leaderboard, vehicle event/score detail with 30-day chart, and editable organization settings.
+- [Mobile] Added a compact 30-day daily-average fleet score line chart above Driver Behavior scores; API trend results honor tenant and custom vehicle access.
 - [API] Enforced Driver Behavior role permissions and tenant/custom vehicle scope, whitelisted settings fields, kept score deletion internal-admin-only, and added authorization regression tests.
 
 ### Changed
