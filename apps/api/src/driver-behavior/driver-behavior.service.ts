@@ -69,12 +69,12 @@ export class DriverBehaviorService {
   }
 
   // Group settings: get override or null
-  async getGroupSettings(groupId: string): Promise<DriverBehaviorSettings | null> {
-    return this.settingsRepo.findOne({ where: { groupId } }) ?? null;
+  async getGroupSettings(groupId: string, organizationId?: string): Promise<DriverBehaviorSettings | null> {
+    return this.settingsRepo.findOne({ where: { groupId, ...(organizationId ? { organizationId } : {}) } }) ?? null;
   }
 
   async setGroupSettings(groupId: string, orgId: string, dto: Partial<DriverBehaviorSettings>): Promise<DriverBehaviorSettings> {
-    const existing = await this.settingsRepo.findOne({ where: { groupId } });
+    const existing = await this.settingsRepo.findOne({ where: { groupId, organizationId: orgId } });
     if (existing) {
       Object.assign(existing, dto);
       return this.settingsRepo.save(existing);
@@ -84,17 +84,17 @@ export class DriverBehaviorService {
     return this.settingsRepo.save(created);
   }
 
-  async clearGroupSettings(groupId: string): Promise<void> {
-    await this.settingsRepo.delete({ groupId });
+  async clearGroupSettings(groupId: string, organizationId?: string): Promise<void> {
+    await this.settingsRepo.delete({ groupId, ...(organizationId ? { organizationId } : {}) });
   }
 
   // Vehicle settings: get override or null
-  async getVehicleSettings(vehicleId: string): Promise<DriverBehaviorSettings | null> {
-    return this.settingsRepo.findOne({ where: { vehicleId } }) ?? null;
+  async getVehicleSettings(vehicleId: string, organizationId?: string): Promise<DriverBehaviorSettings | null> {
+    return this.settingsRepo.findOne({ where: { vehicleId, ...(organizationId ? { organizationId } : {}) } }) ?? null;
   }
 
   async setVehicleSettings(vehicleId: string, orgId: string, dto: Partial<DriverBehaviorSettings>): Promise<DriverBehaviorSettings> {
-    const existing = await this.settingsRepo.findOne({ where: { vehicleId } });
+    const existing = await this.settingsRepo.findOne({ where: { vehicleId, organizationId: orgId } });
     if (existing) {
       Object.assign(existing, dto);
       return this.settingsRepo.save(existing);
@@ -104,8 +104,8 @@ export class DriverBehaviorService {
     return this.settingsRepo.save(created);
   }
 
-  async clearVehicleSettings(vehicleId: string): Promise<void> {
-    await this.settingsRepo.delete({ vehicleId });
+  async clearVehicleSettings(vehicleId: string, organizationId?: string): Promise<void> {
+    await this.settingsRepo.delete({ vehicleId, ...(organizationId ? { organizationId } : {}) });
   }
 
   async updateSettings(organizationId: string, dto: Partial<DriverBehaviorSettings>): Promise<DriverBehaviorSettings> {
@@ -114,13 +114,16 @@ export class DriverBehaviorService {
     return this.settingsRepo.save(settings);
   }
 
-  async getLeaderboard(organizationId: string | null): Promise<{
+  async getLeaderboard(organizationId: string | null, permittedVehicleIds?: string[] | null): Promise<{
     scoreId: string; vehicleId: string; organizationId: string | null; orgName: string | null;
     vehicleLicensePlate: string | null; vehicleName: string | null; vehicleMake: string | null; vehicleModel: string | null;
     score: number; date: string; harshBrakeCount: number; rapidAccelCount: number; sharpTurnCount: number; overspeedCount: number;
   }[]> {
     const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    if (permittedVehicleIds && permittedVehicleIds.length === 0) return [];
     if (organizationId) {
+      const vehicleFilter = permittedVehicleIds ? ' AND ds.vehicle_id = ANY($3::uuid[])' : '';
+      const params = permittedVehicleIds ? [organizationId, cutoff, permittedVehicleIds] : [organizationId, cutoff];
       return this.scoreRepo.query(`
         SELECT DISTINCT ON (ds.vehicle_id)
           ds.id                AS "scoreId",
@@ -140,9 +143,9 @@ export class DriverBehaviorService {
         FROM driver_scores ds
         LEFT JOIN organizations o ON o.id = ds.organization_id
         LEFT JOIN vehicles v ON v.id = ds.vehicle_id
-        WHERE ds.organization_id = $1 AND ds.date >= $2
+        WHERE ds.organization_id = $1 AND ds.date >= $2${vehicleFilter}
         ORDER BY ds.vehicle_id, ds.date DESC
-      `, [organizationId, cutoff]);
+      `, params);
     }
     return this.scoreRepo.query(`
       SELECT DISTINCT ON (ds.vehicle_id)
@@ -172,22 +175,24 @@ export class DriverBehaviorService {
     await this.scoreRepo.delete(id);
   }
 
-  async getVehicleScoreHistory(vehicleId: string, days = 30): Promise<DriverScore[]> {
+  async getVehicleScoreHistory(vehicleId: string, days = 30, organizationId?: string): Promise<DriverScore[]> {
     const cutoff = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-    return this.scoreRepo
+    const qb = this.scoreRepo
       .createQueryBuilder('s')
       .where('s.vehicle_id = :vehicleId', { vehicleId })
       .andWhere('s.date >= :cutoff', { cutoff })
-      .orderBy('s.date', 'ASC')
-      .getMany();
+      .orderBy('s.date', 'ASC');
+    if (organizationId) qb.andWhere('s.organization_id = :organizationId', { organizationId });
+    return qb.getMany();
   }
 
-  async getVehicleEvents(vehicleId: string, from?: string, to?: string): Promise<DriverEvent[]> {
+  async getVehicleEvents(vehicleId: string, from?: string, to?: string, organizationId?: string): Promise<DriverEvent[]> {
     const qb = this.eventRepo
       .createQueryBuilder('e')
       .where('e.vehicle_id = :vehicleId', { vehicleId })
       .orderBy('e.timestamp', 'DESC')
       .take(200);
+    if (organizationId) qb.andWhere('e.organization_id = :organizationId', { organizationId });
     if (from) qb.andWhere('e.timestamp >= :from', { from: new Date(from) });
     if (to) qb.andWhere('e.timestamp <= :to', { to: new Date(to) });
     return qb.getMany();

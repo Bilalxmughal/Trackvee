@@ -26,6 +26,7 @@ export default function TabLayout() {
       <Tabs.Screen name="more" options={{ title: 'More', tabBarIcon: icon('more') }} />
       <Tabs.Screen name="geofences" options={{ href: null }} />
       <Tabs.Screen name="pois" options={{ href: null }} />
+      <Tabs.Screen name="behavior" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -13,6 +13,8 @@
 - [Mobile] Vehicle View history arrows with tap details and PKT time, on-map replay controls with play/pause/scrub and range presets, related telemetry cards, and vehicle-specific alert rule management.
 - [API] Migration 022 and vehicle-specific alert routes; shared/global alert rules split or exclude the selected IMEI during edit/delete.
 - [API] Regression tests for shared-rule isolation, cross-tenant alert access, command authorization, empty vehicle access lists, and org-permission self/cross-tenant edits.
+- [Mobile] Added permission-gated Driver Behavior leaderboard, vehicle event/score detail with 30-day chart, and editable organization settings.
+- [API] Enforced Driver Behavior role permissions and tenant/custom vehicle scope, whitelisted settings fields, kept score deletion internal-admin-only, and added authorization regression tests.
 
 ### Changed
 - [Gateway] Valid GT06 GPS frames are acknowledged only after API persistence succeeds, with bounded retries/timeouts and serialized socket processing; reconnect cleanup no longer drops a newer socket. Admin and mobile live polling now reject stale overlapping results.

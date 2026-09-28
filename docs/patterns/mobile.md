@@ -10,7 +10,8 @@
 - Native app is not deployed by Vercel or PM2. Use Expo Go for development; use EAS for signed distribution builds.
 - Implemented: client-only authentication and session restoration; permission-aware Map/Vehicles/Alerts/Reports/More tabs; live fleet map and vehicle list/detail; vehicle-scoped alert CRUD; separate History and Replay routes; grouped vehicle selection and report preview.
 - Implemented: permission-gated Geofence and POI management from More; circles and polygons are drawn on a native map, geofences support editable color/radius/triggers, and POIs support map placement, radius, group, description, and shared icon search. API reads and CRUD enforce authenticated organization scope and View/Add/Edit/Delete permissions.
-- Still pending: Driver Behavior leaderboard/detail/settings; Users and custom-permission management UI; push notifications, preferences, deep links and background refresh; full fleet-wide alert-rule CRUD in the Alerts tab; report custom date/time and conditional filters, grouping and exports; device health and maintenance workflows. Native-device QA, signed EAS builds and store release setup are also pending. See `docs/FEATURE_MATRIX.md` for the concise parity list.
+- Implemented: Driver Behavior in More, guarded by `driver-behavior` role permissions; leaderboard, per-vehicle score history and events, 30-day chart, and editable organization thresholds/deductions when `edit` is granted. API scopes client data to the authenticated organization and custom vehicle access; score deletion remains internal-admin-only.
+- Still pending: Users and custom-permission management UI; push notifications, preferences, deep links and background refresh; full fleet-wide alert-rule CRUD in the Alerts tab; report custom date/time and conditional filters, grouping and exports; device health and maintenance workflows. Native-device QA, signed EAS builds and store release setup are also pending. See `docs/FEATURE_MATRIX.md` for the concise parity list.
 - Reuse the existing NestJS API, refresh-token flow, client roles, tenant isolation, and portal permission keys.
 - Mobile is a client-facing product; internal admin users must not authenticate into it.
 - Keep the login back control pinned in the top safe area, and distinguish network/server failures from invalid credentials without revealing which portal a rejected account belongs to.
@@ -84,4 +85,5 @@ The exact visible navigation items are permission-controlled. Map remains the pr
 - Vehicle status threshold and colors match `docs/patterns/map.md`.
 - Vehicle labels and selection match `docs/patterns/ui.md`.
 - Reports, alerts, geofences, POIs, behavior, users and permissions follow their domain pattern documents.
+- Driver Behavior mobile/API access uses the `driver-behavior` role permission; client vehicle detail and leaderboard results must also honor organization and per-user `vehicleIds` scope. Settings payloads are field-whitelisted and score deletion remains internal-admin-only.
 - UI copy is English only.

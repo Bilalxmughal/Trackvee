@@ -176,3 +176,15 @@ Every new feature/page built in the same session must also be wired into `ORG_PO
 **Cause:** Client Geofence and POI list/mutation handlers did not consistently enforce organization scope and per-user View/Add/Edit/Delete permissions. Create/update bodies could also include record ownership fields.
 
 **Rule:** Derive a client user's organization only from the authenticated user, scope every client lookup and mutation by that organization, and enforce role defaults plus explicit OrgPerm overrides for each action. Whitelist editable fields and never accept client-supplied `id` or `orgId` as ownership. Keep regression tests for denial, cross-tenant access and ownership spoofing.
+
+---
+
+## KI-014 — Driver Behavior APIs must honor tenant and vehicle access
+
+**Status:** Resolved; API regression tests added
+
+**Area:** API / Mobile / Driver Behavior
+
+**Cause:** Role-gating a mobile screen alone does not prevent direct API access to another tenant's vehicle data or scores outside a user's custom vehicle grant.
+
+**Rule:** Enforce `driver-behavior` role access in the API, scope every client vehicle/group/settings lookup to the authenticated organization, apply custom `vehicleIds` to leaderboard and detail routes, whitelist editable settings, and keep score deletion internal-admin-only.
