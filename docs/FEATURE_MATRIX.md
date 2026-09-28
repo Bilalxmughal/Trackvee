@@ -1,6 +1,6 @@
 # Feature Matrix
 
-Last verified: 2026-09-28 (API/mobile typechecks, API build, Android and iOS Expo exports; native device interaction pending).
+Last verified: 2026-09-28 (API/mobile typechecks, API build/tests, Android Expo export; native device interaction pending).
 
 | Feature | API | Admin | Portal | Permission key | Notes |
 |---|---|---|---|---|---|
@@ -9,8 +9,8 @@ Last verified: 2026-09-28 (API/mobile typechecks, API build, Android and iOS Exp
 | Vehicles and groups | Complete | Complete | Map panel/groups | `vehicles` | Plate first; display name is Make/Model |
 | Devices and telemetry | Complete | Complete | Map-derived | admin-only pages | Device health workflow pending |
 | Alerts | Complete | Complete | Complete | `alerts` | Rules, schedules, notifications, vehicle targeting |
-| Geofences | Complete | Complete | Complete | `geofences` | Circle and polygon drawing |
-| POIs | Complete | Complete | Complete | `pois` | Shared icons and map picking |
+| Geofences | Complete | Complete | Complete | `geofences` | Circle and polygon drawing; mobile CRUD is permission-gated and organization-scoped |
+| POIs | Complete | Complete | Complete | `pois` | Shared icons and map picking; mobile CRUD is permission-gated and organization-scoped |
 | Speed zones | Complete | Complete | Map integration | related alert access | Migration 018 |
 | Driver behavior | Complete | Complete | Complete | `driver-behavior` | Leaderboard, detail, chart, settings |
 | Reports | Complete | Complete | Complete | `reports` | 13 types, grouped vehicles, exports, saved reports |
@@ -21,6 +21,6 @@ Last verified: 2026-09-28 (API/mobile typechecks, API build, Android and iOS Exp
 | Fuel monitoring | Missing | Missing | Missing | future `fuel` | Planned |
 | Scheduled report delivery | Partial | Missing | Missing | `reports` | Saved reports exist; scheduler pending |
 | Device health center | Partial data | Missing | Missing | future key | Telemetry data exists; workflow pending |
-| Mobile app | Existing API + vehicle-scoped alerts | n/a | Foundation | role portal + custom org permissions | Expo 57 auth, map/list, vehicle history/replay, vehicle-scoped alert CRUD, report generation; remaining native parity tracked in mobile pattern |
+| Mobile app | Existing API + vehicle-scoped alerts and groups | n/a | Client app | role portal + custom org permissions | Expo 57: client auth, permission-aware Map/Vehicles/Alerts/Reports/More tabs; searchable/status-filtered Vehicles list with grouped vehicles, permission-guarded group create/edit/delete, and Follow/Replay/History/Alert/Engine actions; live map, vehicle detail, vehicle-scoped alert CRUD, PKT History/Replay, Geofence circle/polygon CRUD and POI CRUD with map picking, POI groups/icons, role/custom permission checks, 13 report types, grouped vehicle selection and report preview. Gaps: Driver Behavior; Users/custom-permission management UI; push notification delivery/preferences/deep links/background refresh; fleet-wide alert-rule CRUD in Alerts tab; report custom date/time and conditional filters/grouping/exports; device health and maintenance. Native device QA and signed EAS/store release also pending. |
 
 Update this matrix when feature availability, permission wiring, or deployment scope changes. Keep implementation details in domain pattern documents.

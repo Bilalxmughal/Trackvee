@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import { TablerIcon } from './TablerIcon';
 import { theme } from '../theme';
@@ -10,7 +11,7 @@ type Zone = { id: string; name: string };
 const TYPES = ['over_speed', 'idle', 'ignition_on', 'ignition_off', 'power_cut', 'low_battery', 'no_gps', 'offline', 'tow', 'over_parking', 'geofence', 'poi', 'low_score', 'speed_zone'] as const;
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-export function VehicleAlertsPanel({ visible, imei, onClose }: { visible: boolean; imei: string; onClose: () => void }) {
+export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false }: { visible: boolean; imei: string; onClose: () => void; fullScreen?: boolean }) {
   const { canDo } = usePortalPermissions();
   const [rules, setRules] = useState<Rule[]>([]);
   const [geofences, setGeofences] = useState<Zone[]>([]);
@@ -77,8 +78,7 @@ export function VehicleAlertsPanel({ visible, imei, onClose }: { visible: boolea
   const numericField = type === 'over_speed' || type === 'speed_zone' ? 'speedLimit' : ['idle', 'no_gps', 'offline', 'over_parking'].includes(type) ? 'minutes' : type === 'low_battery' ? 'level' : type === 'low_score' ? 'scoreThreshold' : null;
   const zoneField = type === 'geofence' || type === 'speed_zone' ? 'geofenceId' : type === 'poi' ? 'poiId' : null;
   const zoneItems = zoneField === 'poiId' ? pois : geofences;
-  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-    <View style={s.container}>
+  const content = <View style={s.container}>
       <View style={s.header}><Pressable onPress={formOpen ? () => setFormOpen(false) : onClose} accessibilityLabel="Back"><TablerIcon name="back" size={21} /></Pressable><Text style={s.title}>{formOpen ? (editing ? 'Edit Vehicle Alert' : 'New Vehicle Alert') : 'Vehicle Alerts'}</Text>{!formOpen && canDo('alerts', 'add') ? <Pressable onPress={() => openForm(null)} accessibilityLabel="New alert"><TablerIcon name="plus" size={23} color={theme.red} /></Pressable> : <View style={{ width: 23 }} />}</View>
       {error ? <Pressable onPress={() => void load()}><Text style={s.error}>{error}</Text></Pressable> : null}
       {formOpen ? <ScrollView contentContainerStyle={s.form} keyboardShouldPersistTaps="handled">
@@ -91,7 +91,8 @@ export function VehicleAlertsPanel({ visible, imei, onClose }: { visible: boolea
         <View style={s.activeRow}><Text style={s.label}>Active</Text><Switch value={active} onValueChange={setActive} trackColor={{ true: theme.red }} /></View>
         <Pressable disabled={saving} style={s.primary} onPress={() => void save()}><Text style={s.primaryText}>{saving ? 'Saving…' : 'Save for this vehicle'}</Text></Pressable>
       </ScrollView> : loading ? <ActivityIndicator style={{ marginTop: 32 }} color={theme.red} /> : <FlatList data={rules} keyExtractor={rule => rule.id} ListEmptyComponent={<Text style={s.empty}>No alerts for this vehicle.</Text>} renderItem={({ item }) => <View style={s.rule}><View style={{ flex: 1 }}><Text style={s.ruleName}>{item.name}</Text><Text style={s.ruleMeta}>{label(item.type)} · {item.active ? 'Active' : 'Inactive'}</Text></View>{canDo('alerts', 'edit') && <Pressable onPress={() => openForm(item)} style={s.link}><Text style={s.linkText}>Edit</Text></Pressable>}{canDo('alerts', 'delete') && <Pressable onPress={() => Alert.alert('Remove vehicle alert?', `Remove ${item.name} for this vehicle only?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => { void remove(item); } }])} style={s.link} disabled={saving}><Text style={s.linkText}>Delete</Text></Pressable>}</View>} />}
-    </View>
-  </Modal>;
+    </View>;
+  if (fullScreen) return <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>{content}</SafeAreaView>;
+  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>{content}</Modal>;
 }
 const s = StyleSheet.create({ container: { flex: 1, backgroundColor: '#fff' }, header: { height: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: theme.border }, title: { color: theme.ink, fontSize: 17, fontWeight: '700' }, error: { color: theme.red, padding: 16, fontSize: 12 }, form: { padding: 18, paddingBottom: 36 }, label: { color: theme.ink, fontSize: 12, fontWeight: '600', marginTop: 16, marginBottom: 7 }, input: { minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 7, paddingHorizontal: 12, justifyContent: 'center', fontSize: 14, color: theme.ink }, value: { color: theme.ink, fontSize: 13 }, options: { borderWidth: 1, borderColor: theme.border, borderRadius: 7, maxHeight: 260, overflow: 'hidden' }, option: { padding: 10, borderBottomWidth: 1, borderBottomColor: theme.border }, activeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, primary: { backgroundColor: theme.red, minHeight: 44, marginTop: 25, borderRadius: 7, justifyContent: 'center', alignItems: 'center' }, primaryText: { color: '#fff', fontWeight: '700' }, eventRow: { flexDirection: 'row', gap: 7 }, eventButton: { flex: 1, alignItems: 'center', padding: 10, borderWidth: 1, borderColor: theme.border, borderRadius: 7 }, eventSelected: { borderColor: theme.red, backgroundColor: '#fff5f5' }, empty: { color: theme.secondary, textAlign: 'center', marginTop: 36 }, rule: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 9, borderBottomWidth: 1, borderColor: theme.border }, ruleName: { color: theme.ink, fontWeight: '700', fontSize: 14 }, ruleMeta: { color: theme.secondary, marginTop: 4, fontSize: 11 }, link: { padding: 5 }, linkText: { color: theme.red, fontSize: 11, fontWeight: '600' } });

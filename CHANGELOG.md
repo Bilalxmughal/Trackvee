@@ -7,11 +7,28 @@
 ## 2026-09-28
 
 ### Added
+- [Mobile] Added permission-gated Geofence circle/polygon and POI management with map drawing, shared POI icon search, group filtering and CRUD. API Geofence/POI operations now enforce tenant scope and per-user permissions; added migration 023 for persisted Geofence enter/exit options and regression tests.
+- [Mobile] Added dedicated selected-vehicle History and Replay routes with PKT custom date/time filters, route map controls, direction/stop markers, point details, virtualized history list, timeline scrubbing, replay seek and speed controls.
+- [Mobile] Added a dedicated vehicle-scoped Alert page; vehicle alerts remain isolated through the selected-IMEI API routes.
 - [Mobile] Vehicle View history arrows with tap details and PKT time, on-map replay controls with play/pause/scrub and range presets, related telemetry cards, and vehicle-specific alert rule management.
 - [API] Migration 022 and vehicle-specific alert routes; shared/global alert rules split or exclude the selected IMEI during edit/delete.
 - [API] Regression tests for shared-rule isolation, cross-tenant alert access, command authorization, empty vehicle access lists, and org-permission self/cross-tenant edits.
 
 ### Changed
+- [Gateway] Valid GT06 GPS frames are acknowledged only after API persistence succeeds, with bounded retries/timeouts and serialized socket processing; reconnect cleanup no longer drops a newer socket. Admin and mobile live polling now reject stale overlapping results.
+- [Mobile] Matched vehicle-group creation/edit selection to the client portal with searchable, collapsible Unassigned and existing-group sections, group-level checkboxes, per-vehicle selection, Select All and Deselect All. Moving a selected vehicle mirrors the portal's single-group membership behavior.
+- [Mobile] Added permission-gated vehicle-group create, edit, membership selection and delete actions to Vehicles. Group edits retain memberships for vehicles outside the user's visible vehicle scope.
+- [Mobile] Replay speed selection is now a flat borderless control. Vehicle list now groups vehicles from `/vehicle-groups`, filters by status and search, shows plate/name plus live telemetry, and provides Follow, Trip Replay, Last Hour/Today/Yesterday History, permission-gated Edit Alert and Engine Cut/Restore actions. The existing permission-gated Vehicles tab remains immediately after Map; History shortcuts apply Pakistan-time presets.
+- [Documentation] Updated mobile status and parity matrix to distinguish implemented screens from missing mobile features and device/release verification.
+- [Mobile] Centered the four live-map status metrics against their separators; zoom now derives the visible region from native map bounds for iOS and Android. Replay/History date and Load controls use one flat row, and History event details show one address, From/To times, and driving-consistent ignition.
+- [Mobile] Added top spacing to the live-map fleet status cards, red active Follow state, screen-fitted Replay/History filters, centered speed-menu chevron, taller Replay controls and History rows, and camera-based live-map zoom.
+- [Mobile] Prevented initial live-map zoom from using the stale Karachi default while the fleet fit is animating; restyled the four fleet status summaries as one docked band with short dividers.
+- [Mobile] Increased Vehicle View sheet/action area and tightened its bottom inset. Removed Replay/History vehicle search, put Today/Yesterday/Last Week and From/To controls on one row, and added 12-hour AM/PM date-time selection.
+- [Mobile] Replay car now shows speed; widened the speed menu. History event selection highlights driving paths green, uses red Parked markers, and shows From/To addresses/times and stop duration in content-sized details.
+- [Mobile] Vehicle detail telemetry dividers, Google Maps coordinate action, non-banner Follow behavior, formatted odometer, taller action row, and Engine Cut icon action; corrected stop-duration lower-bound query when no moving sample exists.
+- [Mobile] History and Replay now share vehicle search, PKT custom date/time pickers and Today/Last 24H/Yesterday/Week/Month presets. History groups route samples into Start/Driving/Idle/Parked/End events with times and stop durations; Replay uses larger media controls, track navigation, a speed dropdown, and an edge-safe seek bar.
+- [Mobile] Removed the direction arrow's white background and removed Replay's 10s/30s controls.
+- [Mobile] Reworked Vehicle View into a compact non-scrolling telemetry sheet with a coordinate-to-map action and separate Follow, Replay, History, Alert and Engine Cut actions; preserved its existing top bar.
 - [Mobile] Main map zoom uses map region deltas; supported map styles and compact status cards, plus searchable/filterable/sortable vehicle list with the shared Engine Cut confirmation dialog.
 - [API] Engine commands require role permission and access to the target vehicle; device/vehicle listings respect explicit empty vehicle access lists. Org-permission reads/writes now validate the target user, tenant and editable fields.
 

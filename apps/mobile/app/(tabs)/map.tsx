@@ -59,6 +59,7 @@ export default function LiveMapScreen() {
   const [styleOpen, setStyleOpen] = useState(false);
   const [fitted, setFitted] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const fittingRef = useRef(false);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
   const regionRef = useRef<Region>(DEFAULT_REGION);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -89,25 +90,41 @@ export default function LiveMapScreen() {
   }, []);
 
   const zoomCluster = useCallback((latitude: number, longitude: number) => {
-    const next: Region = { latitude, longitude, latitudeDelta: Math.max(region.latitudeDelta * 0.45, 0.002), longitudeDelta: Math.max(region.longitudeDelta * 0.45, 0.002) };
-    mapRef.current?.animateToRegion(next, 350);
-  }, [region]);
-  const zoom = useCallback((factor: number) => {
-    const current = regionRef.current;
-    const next = {
-      ...current,
-      latitudeDelta: Math.max(0.0006, Math.min(100, current.latitudeDelta * factor)),
-      longitudeDelta: Math.max(0.0006, Math.min(100, current.longitudeDelta * factor)),
-    };
+    const next: Region = { latitude, longitude, latitudeDelta: Math.max(regionRef.current.latitudeDelta * 0.45, 0.002), longitudeDelta: Math.max(regionRef.current.longitudeDelta * 0.45, 0.002) };
     regionRef.current = next;
-    mapRef.current?.animateToRegion(next, 250);
+    mapRef.current?.animateToRegion(next, 350);
+  }, []);
+  const zoom = useCallback(async (factor: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    try {
+      const bounds = await map.getMapBoundaries();
+      const current = {
+        latitude: (bounds.northEast.latitude + bounds.southWest.latitude) / 2,
+        longitude: (bounds.northEast.longitude + bounds.southWest.longitude) / 2,
+        latitudeDelta: Math.abs(bounds.northEast.latitude - bounds.southWest.latitude),
+        longitudeDelta: Math.abs(bounds.northEast.longitude - bounds.southWest.longitude),
+      };
+      const next = { ...current, latitudeDelta: Math.max(0.0006, Math.min(100, current.latitudeDelta * factor)), longitudeDelta: Math.max(0.0006, Math.min(100, current.longitudeDelta * factor)) };
+      regionRef.current = next;
+      map.animateToRegion(next, 250);
+    } catch {
+      const current = regionRef.current;
+      const next = { ...current, latitudeDelta: Math.max(0.0006, Math.min(100, current.latitudeDelta * factor)), longitudeDelta: Math.max(0.0006, Math.min(100, current.longitudeDelta * factor)) };
+      regionRef.current = next;
+      map.animateToRegion(next, 250);
+    }
   }, []);
 
   const fitFleet = useCallback(() => {
     const coords = filtered.filter(item => !!item.point?.gpsValid).map(item => ({ latitude: item.point!.latitude, longitude: item.point!.longitude }));
     if (!coords.length) return;
-    if (coords.length === 1) mapRef.current?.animateToRegion({ ...coords[0]!, latitudeDelta: 0.035, longitudeDelta: 0.035 }, 450);
-    else mapRef.current?.fitToCoordinates(coords, { edgePadding: { top: 130, right: 52, bottom: 210, left: 52 }, animated: true });
+    fittingRef.current = true;
+    if (coords.length === 1) {
+      const next = { ...coords[0]!, latitudeDelta: 0.035, longitudeDelta: 0.035 };
+      regionRef.current = next;
+      mapRef.current?.animateToRegion(next, 450);
+    } else mapRef.current?.fitToCoordinates(coords, { edgePadding: { top: 130, right: 52, bottom: 210, left: 52 }, animated: true });
     setFitted(true);
   }, [filtered]);
 
@@ -117,7 +134,7 @@ export default function LiveMapScreen() {
 
   return (
     <View style={styles.fill}>
-      <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={DEFAULT_REGION} mapType={mapStyle === 'street' ? 'none' : mapStyle} showsCompass={false} showsUserLocation={false} toolbarEnabled={false} moveOnMarkerPress={false} onMapReady={() => setMapReady(true)} onLayout={event => setMapSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })} onRegionChangeComplete={next => { regionRef.current = next; setRegion(next); }}>
+      <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={DEFAULT_REGION} mapType={mapStyle === 'street' ? 'none' : mapStyle} showsCompass={false} showsUserLocation={false} toolbarEnabled={false} moveOnMarkerPress={false} onMapReady={() => setMapReady(true)} onLayout={event => setMapSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })} onRegionChange={next => { regionRef.current = next; }} onRegionChangeComplete={next => { regionRef.current = next; setRegion(next); fittingRef.current = false; }}>
         {mapStyle === 'street' && <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256} zIndex={0} />}
         {clustered.map(group => group.items.length === 1 ? (
           <VehicleMarker key={group.items[0]!.device.imei} item={group.items[0]!} onPress={() => openVehicle(group.items[0]!.device.imei)} />
@@ -152,12 +169,12 @@ export default function LiveMapScreen() {
         {styleOpen && <View style={styles.styleMenu}>
           {(Platform.OS === 'ios' ? ['street', 'satellite', 'hybrid'] : ['street', 'satellite', 'hybrid', 'terrain']).map(style => <Pressable key={style} onPress={() => { setMapStyle(style as typeof mapStyle); setStyleOpen(false); }} style={styles.styleOption} accessibilityRole="button" accessibilityLabel={`${style[0]!.toUpperCase() + style.slice(1)} map`}><Text style={[styles.styleOptionText, mapStyle === style && styles.styleOptionSelected]}>{style[0]!.toUpperCase() + style.slice(1)}</Text></Pressable>)}
         </View>}
-        <Pressable onPress={() => zoom(0.5)} style={styles.mapButton} accessibilityLabel="Zoom in"><Text style={styles.zoomInText}>+</Text></Pressable>
-        <Pressable onPress={() => zoom(2)} style={styles.mapButton} accessibilityLabel="Zoom out"><Text style={styles.zoomOutText}>−</Text></Pressable>
+        <Pressable onPress={() => void zoom(0.5)} style={styles.mapButton} accessibilityLabel="Zoom in"><Text style={styles.zoomInText}>+</Text></Pressable>
+        <Pressable onPress={() => void zoom(2)} style={styles.mapButton} accessibilityLabel="Zoom out"><Text style={styles.zoomOutText}>−</Text></Pressable>
         <Pressable onPress={fitFleet} style={styles.mapButton} accessibilityLabel="Fit vehicles"><TablerIcon name="locate" size={19} color={theme.ink} /></Pressable>
       </View>
 
-      <View style={[styles.bottomOverlay, { bottom: 8 }]}>
+      <View style={[styles.bottomOverlay, { bottom: 3 }]}>
         {canDo('vehicles') && <Pressable onPress={() => router.push('/vehicles')} style={styles.fleetSummary}>
           <Text style={styles.fleetSummaryTitle}>{items.length} {items.length === 1 ? 'Vehicle' : 'Vehicles'}</Text>
           <Text style={styles.viewList}>View list ›</Text>
@@ -165,7 +182,7 @@ export default function LiveMapScreen() {
         <View style={styles.statusRow}>
           {(['moving', 'idle', 'parked', 'offline'] as const).map(status => {
             const count = items.filter(item => getFleetStatus(item.point) === status).length;
-            return <View key={status} style={styles.statusItem}><View style={[styles.statusDot, { backgroundColor: STATUS[status] }]} /><Text style={styles.statusValue}>{count}</Text><Text style={styles.statusLabel}>{status[0]!.toUpperCase() + status.slice(1)}</Text></View>;
+            return <View key={status} style={styles.statusItem}><View style={styles.statusMetric}><View style={[styles.statusDot, { backgroundColor: STATUS[status] }]} /><Text style={styles.statusValue}>{count}</Text></View><Text style={styles.statusLabel}>{status[0]!.toUpperCase() + status.slice(1)}</Text>{status !== 'offline' && <View pointerEvents="none" style={styles.statusDivider}/>}</View>;
           })}
         </View>
         {error ? <Pressable onPress={reload}><Text style={styles.errorText}>{error}  Retry</Text></Pressable> : null}
@@ -202,8 +219,9 @@ const styles = StyleSheet.create({
   fleetSummary: { backgroundColor: '#fff', minHeight: 38, borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   fleetSummaryTitle: { color: theme.ink, fontSize: 13, fontWeight: '700' }, viewList: { color: theme.secondary, fontSize: 11, fontWeight: '600' },
   bottomOverlay: { position: 'absolute', left: 12, right: 12 },
-  statusRow: { flexDirection: 'row', gap: 5, marginBottom: 8 },
-  statusItem: { flex: 1, minHeight: 47, backgroundColor: '#fff', borderWidth: 1, borderColor: theme.border, borderRadius: 7, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', flexWrap: 'wrap', columnGap: 4 }, statusDot: { height: 6, width: 6, borderRadius: 3 }, statusLabel: { width: '100%', fontSize: 9, color: theme.secondary, textAlign: 'center' }, statusValue: { fontSize: 13, color: theme.ink, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  statusRow: { flexDirection: 'row', marginBottom: 5, minHeight: 62, backgroundColor: '#fff', borderWidth: 1, borderColor: theme.border, borderRadius: 8, overflow:'hidden' },
+  statusItem: { flex: 1, minHeight: 60, paddingVertical: 7, alignItems: 'center', justifyContent: 'center', position:'relative' }, statusMetric: { minHeight: 22, flexDirection:'row', alignItems:'center', justifyContent:'center', columnGap:5 }, statusDot: { height: 6, width: 6, borderRadius: 3 }, statusLabel: { fontSize: 9, lineHeight: 13, color: theme.secondary, textAlign: 'center', marginTop: 2 }, statusValue: { fontSize: 13, color: theme.ink, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  statusDivider:{position:'absolute',right:0,height:30,width:1,backgroundColor:theme.border,top:'50%',marginTop:-15},
   errorText: { color: theme.red, fontSize: 12, marginTop: 5 },
   attribution: { alignSelf: 'flex-end', fontSize: 9, color: '#475569', backgroundColor: 'rgba(255,255,255,0.86)', paddingHorizontal: 4, marginTop: 4 },
 });

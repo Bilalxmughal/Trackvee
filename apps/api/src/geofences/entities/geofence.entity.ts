@@ -25,6 +25,12 @@ export class Geofence {
   @Column({ type: 'varchar', length: 7, default: '#dc2626' })
   color: string;
 
+  @Column({ name: 'trigger_on_enter', type: 'boolean', default: true })
+  triggerOnEnter: boolean;
+
+  @Column({ name: 'trigger_on_exit', type: 'boolean', default: false })
+  triggerOnExit: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

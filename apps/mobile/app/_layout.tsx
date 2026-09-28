@@ -26,6 +26,9 @@ function NavigationRoot() {
         <Stack.Screen name="login" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="vehicle/[imei]" />
+        <Stack.Screen name="vehicle/[imei]/history" />
+        <Stack.Screen name="vehicle/[imei]/replay" />
+        <Stack.Screen name="vehicle/[imei]/alerts" />
       </Stack>
     </>
   );

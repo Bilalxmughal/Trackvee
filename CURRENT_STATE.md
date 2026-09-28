@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-09-28 (API/mobile typechecks, API build, Android and iOS Expo exports; native device interaction pending).
+Last verified: 2026-09-28 (API/mobile typechecks and API build pass; Android Expo export and API authorization regression tests pass; live tracking gateway ACK/persistence reliability fix is in source and awaits deployment verification).
 
 ## Status
 
@@ -19,12 +19,14 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - Authentication with strict admin/client portal role separation.
 - Multi-tenant organizations, users, custom module permissions, and vehicle-level access.
 - Live tracking, map history, trip replay, vehicle groups, engine commands, and tracking-expiry badge.
+- Mobile includes client-only authentication, permission-aware Map/Vehicles/Alerts/Reports/More navigation, grouped/searchable Vehicles with permission-gated CRUD and menu actions, live map, vehicle detail, vehicle-scoped alert management, PKT History/Replay, grouped report preview, and permission-gated Geofence circle/polygon and POI CRUD with map picking. Geofence/POI API reads and writes enforce tenant and module permissions. Remaining parity and release gaps are listed in `docs/FEATURE_MATRIX.md`.
 - Shared live status and confirmed stop-duration handling across API, admin, portal, and mobile; mobile map clustering, animated vehicle positions, and map-first vehicle detail.
+- GT06 valid GPS ACK now follows confirmed API persistence with bounded retry; admin/mobile polling reject stale overlapping results. Production gateway behavior still needs Oracle deployment and timestamp/log verification.
 - Vehicles, devices, telemetry, alerts, geofences, POIs, speed zones, and driver behavior scoring.
 - Reports in admin and portal: 13 report types, vehicle groups, period/conditional filters, CSV/Excel/Print, saved reports.
 - Audit logs for internal operations.
 - Client portal topbar permission gating through DB-backed role portal permissions.
-- SQL migrations present through `022_alert_vehicle_exclusions.sql`; migration 022 must be applied before deploying the new API build.
+- SQL migrations present through `023_geofence_trigger_options.sql`; migration 023 must be applied before deploying the updated API.
 
 ## Active constraints
 
@@ -36,7 +38,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 
 ## Next product priorities
 
-1. Complete Trackvee mobile parity: trip history/replay, alert and map-zone management, behavior, user permissions, and notification preferences.
+1. Complete Trackvee mobile parity and release readiness; see `docs/FEATURE_MATRIX.md` for exact gaps.
 2. Maintenance reminders and service history.
 3. Device health center.
 4. Scheduled report delivery.
@@ -44,6 +46,6 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 
 ## Blockers
 
-Mobile foundation is in progress. Native build/export is verified; physical iOS/Android interaction, production migration 022, full portal feature parity and store distribution setup remain.
+Mobile foundation is in progress. Android export is verified; native-device interaction, remaining mobile parity, signed EAS builds, and store distribution setup remain.
 
 See `docs/FEATURE_MATRIX.md` for feature parity and `KNOWN_ISSUES.md` for operational/regression constraints.

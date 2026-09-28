@@ -29,14 +29,14 @@ export class GeofencesController {
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: Partial<Geofence>, @CurrentUser() user: User, @Req() req: Request) {
-    const result = await this.svc.update(id, dto);
+    const result = await this.svc.update(id, dto, user);
     this.audit.log({ user, ip: getIp(req) }, { action: 'update', entityType: 'geofence', entityId: id, entityName: (dto as any).name ?? result.name }).catch(() => {});
     return result;
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: User, @Req() req: Request) {
-    await this.svc.remove(id);
+    await this.svc.remove(id, user);
     this.audit.log({ user, ip: getIp(req) }, { action: 'delete', entityType: 'geofence', entityId: id }).catch(() => {});
   }
 }

@@ -121,10 +121,58 @@ Every new feature/page built in the same session must also be wired into `ORG_PO
 
 ## KI-009 — Vehicle-scoped alert actions and device commands
 
-**Status:** Code fix verified by API regression tests; production migration/deploy pending
+**Status:** Resolved; API regression tests passed and migration 022 was applied in production
 
 **Area:** API / Mobile vehicle detail
 
 **Cause:** Shared/global alert rules could affect other vehicles when edited or deleted for one IMEI. Device commands previously accepted an IMEI without checking the caller's vehicle access and engine-cut permission; an empty vehicle access list could be treated as all vehicles. The org-permissions route also accepted an arbitrary target user and organization.
 
 **Rule:** Apply migration 022 before the new API starts. Vehicle alert mutation must lock and split/exclude only the selected IMEI; tests must cover shared/global rules and cross-tenant access. Device commands and telemetry must derive permitted devices from the authenticated user; `vehicleIds: []` means no vehicles, while `null` means all organization vehicles. Permission reads/writes must validate the target user and tenant; never accept a client-supplied organization or record-owner field.
+
+---
+
+## KI-010 — Stop duration needs the first stationary sample
+
+**Status:** Resolved; regression rule retained
+
+**Area:** API / Vehicle detail / Mobile
+
+**Cause:** When a vehicle had no prior moving sample, the stationary query used the first valid GPS timestamp as an exclusive lower bound. That dropped the first stationary fix and could leave a genuine stop with too few samples to calculate a duration.
+
+**Rule:** When no moving fix exists, make the lower bound precede the first valid sample. Continue requiring at least two fresh stationary samples and break stationary runs across gaps greater than ten minutes; never infer a stop duration from stale or unconfirmed data.
+
+---
+
+## KI-011 — Live map zoom used a stale region during fleet fit
+
+**Status:** Resolved; regression rule retained
+
+**Area:** Mobile live map
+
+**Cause:** Zooming from `camera.zoom` did not work with the iOS native map provider, while cached region values could be stale during fleet fitting.
+
+**Rule:** Read the visible native map boundaries and zoom with `animateToRegion`; keep region refs synchronized from native callbacks and use the cached region only as an error fallback. Never depend on Google-only camera zoom for iOS.
+
+---
+
+## KI-012 — Gateway acknowledged GPS before persistence
+
+**Status:** Resolved in source; production verification pending
+
+**Area:** Gateway / API / Live tracking
+
+**Cause:** The GT06 gateway sent a GPS ACK immediately and persisted asynchronously. A transient API/database failure after the ACK could silently discard that fix. Admin polling could also overlap and let an older response replace a newer point.
+
+**Rule:** Await bounded API persistence before ACKing valid GPS frames; serialize socket parsing and close without ACK after persistence retries fail. Keep client poll requests serial or discard stale responses. Confirm Oracle gateway deployment and inspect live telemetry timestamps after release; UI polling cannot compensate for a tracker configured to report infrequently.
+
+---
+
+## KI-013 — Geofence and POI CRUD must enforce tenant and module access
+
+**Status:** Resolved; API regression tests added
+
+**Area:** API / Mobile / Admin / Client Portal
+
+**Cause:** Client Geofence and POI list/mutation handlers did not consistently enforce organization scope and per-user View/Add/Edit/Delete permissions. Create/update bodies could also include record ownership fields.
+
+**Rule:** Derive a client user's organization only from the authenticated user, scope every client lookup and mutation by that organization, and enforce role defaults plus explicit OrgPerm overrides for each action. Whitelist editable fields and never accept client-supplied `id` or `orgId` as ownership. Keep regression tests for denial, cross-tenant access and ownership spoofing.

@@ -256,7 +256,7 @@ export class TelemetryService {
           LIMIT 1
           )
           UNION ALL
-          SELECT MIN(timestamp) AS timestamp
+          SELECT MIN(timestamp) - INTERVAL '1 microsecond' AS timestamp
           FROM telemetry
           WHERE imei = $1 AND gps_valid = true
           HAVING NOT EXISTS (

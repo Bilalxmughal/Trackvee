@@ -13,6 +13,7 @@
 - Circle supports center picking and exact/slider radius.
 - Polygon supports point list, removal, clear and valid >= 3 point submission.
 - Enter/exit/both triggers and color picker follow the existing admin implementation.
+- Persist enter and exit trigger preferences in `geofences`; migration 023 adds the columns.
 - Filter invalid stored points before rendering.
 
 ## POIs

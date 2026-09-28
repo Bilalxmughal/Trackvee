@@ -24,6 +24,8 @@ export default function TabLayout() {
       <Tabs.Screen name="alerts" options={{ title: 'Alerts', tabBarIcon: icon('bell'), href: canDo('alerts') ? '/alerts' : null }} />
       <Tabs.Screen name="reports" options={{ title: 'Reports', tabBarIcon: icon('report'), href: canDo('reports') ? '/reports' : null }} />
       <Tabs.Screen name="more" options={{ title: 'More', tabBarIcon: icon('more') }} />
+      <Tabs.Screen name="geofences" options={{ href: null }} />
+      <Tabs.Screen name="pois" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -33,7 +33,11 @@ export function PortalPermissionsProvider({ children }: React.PropsWithChildren)
         const next: RoleMap = { ...(FALLBACK[user.role] ?? { map: ['view'] }), ...(roleMap ?? {}) };
         if (orgPerm) for (const feature of ['vehicles', 'alerts', 'geofences', 'pois']) {
           const actions = ['view', 'add', 'edit', 'delete'];
-          next[feature] = actions.filter(action => orgPerm[`${feature}${action[0]!.toUpperCase()}${action.slice(1)}`] === true);
+          const roleActions = next[feature] ?? [];
+          next[feature] = actions.filter(action => {
+            const override = orgPerm[`${feature}${action[0]!.toUpperCase()}${action.slice(1)}`];
+            return typeof override === 'boolean' ? override : roleActions.includes(action);
+          });
         }
         setPermissions(next);
         setResolvedUserId(user.id);
