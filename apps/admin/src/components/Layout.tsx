@@ -5,7 +5,7 @@ import {
   IconCpu, IconMap, IconLogout, IconSearch, IconChevronDown,
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
   IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
-  IconBell, IconUsersGroup, IconUserScan, IconChartBar, IconList, IconMusic,
+  IconBell, IconUsersGroup, IconUserScan, IconChartBar, IconList,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -57,7 +57,6 @@ const NAV_SECTIONS: Section[] = [
       { to: '/audit-logs', icon: IconList,   label: 'Audit Logs' },
       { to: '/reports',    icon: IconChartBar, label: 'Reports' },
       { to: '/settings',   icon: IconSettings, label: 'Settings' },
-      { to: '/notification-sounds', icon: IconMusic, label: 'Notification Sounds' },
       { to: '/setup',      icon: IconBook,   label: 'Setup Guide' },
     ],
   },
@@ -167,7 +166,11 @@ function LayoutInner() {
             const feature = ORG_NAV_TO_FEATURE[pageKey];
             return feature ? canOrgDo(role, feature, 'view') : false;
           }
-          return canAccessPage(role as Parameters<typeof canAccessPage>[0], pageKey);
+          const internalRole = role as Parameters<typeof canAccessPage>[0];
+          if (pageKey === 'settings') {
+            return canAccessPage(internalRole, 'settings') || canAccessPage(internalRole, 'notification-sounds');
+          }
+          return canAccessPage(internalRole, pageKey);
         })
         .map(i => (isOrgRole && i.to === '/client-users') ? { ...i, label: 'Users' } : i),
     }))

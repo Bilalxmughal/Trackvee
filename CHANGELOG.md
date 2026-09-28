@@ -24,6 +24,7 @@
 - [API] Enforced Driver Behavior role permissions and tenant/custom vehicle scope, whitelisted settings fields, kept score deletion internal-admin-only, and added authorization regression tests.
 
 ### Changed
+- [Admin] Moved Notification Sounds under Settings, directly below Cities, while preserving its existing role-based access and legacy URL.
 - [Mobile] Prevented authenticated back navigation from returning to onboarding, made alert push status persist visually across Alerts visits, kept push enabled for legacy rules with no saved preference, and flattened the notifications row.
 - [Mobile] Moved alert trigger values above the alert-type list with clear context and matching initialized defaults; removed the border around the Mobile Push setting.
 - [Mobile] Moved the fleet Add/Edit Alert wizard into the Expo Router stack with status-bar safe-area spacing, a raised bottom action and native swipe/hardware back navigation.

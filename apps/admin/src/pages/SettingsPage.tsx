@@ -1,6 +1,9 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { IconPlus, IconEdit, IconTrash, IconMapPin } from '@tabler/icons-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { IconPlus, IconEdit, IconTrash, IconMapPin, IconBellRinging } from '@tabler/icons-react';
+import type { UserRole } from '@yotrack/types';
 import api from '../api/client';
+import { canAccessPage } from '../config/roles';
 import { fmtDate } from '../utils/date';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
@@ -9,16 +12,26 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import NotificationSoundsPage from './NotificationSoundsPage';
 
 interface City { id: string; displayId: number; name: string; province: string | null; isActive: boolean; createdAt: string; }
 
-type Tab = 'cities';
+type Tab = 'cities' | 'notifications';
 
 const empty = { name: '', province: '', isActive: true };
 
 export default function SettingsPage() {
   const { dark } = useTheme();
-  const [activeTab, setActiveTab] = useState<Tab>('cities');
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const role = (user?.role ?? 'viewer') as UserRole;
+  const canViewCities = canAccessPage(role, 'settings');
+  const canViewSounds = canAccessPage(role, 'notification-sounds');
+  const activeTab: Tab = location.pathname.endsWith('/notifications') || (!canViewCities && canViewSounds)
+    ? 'notifications'
+    : 'cities';
 
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +43,10 @@ export default function SettingsPage() {
   const [deletingId, setDeletingId] = useState(false);
 
   const load = () => api.get<City[]>('/cities').then(r => setCities(r.data)).catch(() => {}).finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!canViewCities) { setLoading(false); return; }
+    void api.get<City[]>('/cities').then(r => setCities(r.data)).catch(() => {}).finally(() => setLoading(false));
+  }, [canViewCities]);
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (c: City) => { setEditing(c); setForm({ name: c.name, province: c.province ?? '', isActive: c.isActive }); setModal(true); };
@@ -54,13 +70,14 @@ export default function SettingsPage() {
     } catch {} finally { setDeletingId(false); }
   };
 
-  const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
-    { key: 'cities', label: 'Cities', icon: IconMapPin },
+  const TABS = [
+    ...(canViewCities ? [{ key: 'cities' as const, label: 'Cities', icon: IconMapPin }] : []),
+    ...(canViewSounds ? [{ key: 'notifications' as const, label: 'Notifications', icon: IconBellRinging }] : []),
   ];
 
   return (
     <div>
-      <PageHeader title="Settings" count={activeTab === 'cities' ? cities.length : undefined} action={
+      <PageHeader title={activeTab === 'notifications' ? 'Notification Sounds' : 'Settings'} count={activeTab === 'cities' ? cities.length : undefined} action={
         activeTab === 'cities' ? (
           <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
             <IconPlus size={13} /> Add City
@@ -80,7 +97,9 @@ export default function SettingsPage() {
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => navigate(tab.key === 'notifications' ? '/settings/notifications' : '/settings')}
+                role="tab"
+                aria-selected={on}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 16px', border: 0, textAlign: 'left', cursor: 'pointer',
@@ -100,6 +119,7 @@ export default function SettingsPage() {
 
         {/* Right panel */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
+          {activeTab === 'notifications' && canViewSounds && <NotificationSoundsPage embedded />}
           {activeTab === 'cities' && (
             loading ? <SkeletonTable cols={6} /> : (
               <div className="tbl-wrap">

@@ -20,7 +20,6 @@ import MapPage from './pages/MapPage';
 import SettingsPage from './pages/SettingsPage';
 import ClientUsersPage from './pages/ClientUsersPage';
 import DriverBehaviorPage from './pages/DriverBehaviorPage';
-import NotificationSoundsPage from './pages/NotificationSoundsPage';
 import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';;
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -34,6 +33,15 @@ function RoleRoute({ page, children }: { page: string; children: React.ReactNode
   const { user } = useAuth();
   const role = (user?.role ?? 'client_user') as UserRole;
   if (!canAccessPage(role, page)) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
+function SettingsRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const role = (user?.role ?? 'client_user') as UserRole;
+  if (!canAccessPage(role, 'settings') && !canAccessPage(role, 'notification-sounds')) {
+    return <Navigate to="/dashboard" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -64,8 +72,9 @@ export default function App() {
         <Route path="/audit-logs" element={<RoleRoute page="audit-logs"><AuditLogsPage /></RoleRoute>} />
         <Route path="/reports" element={<RoleRoute page="reports"><ReportsPage /></RoleRoute>} />
         <Route path="/setup" element={<RoleRoute page="setup"><SetupGuidePage /></RoleRoute>} />
-        <Route path="/settings" element={<RoleRoute page="settings"><SettingsPage /></RoleRoute>} />
-        <Route path="/notification-sounds" element={<RoleRoute page="notification-sounds"><NotificationSoundsPage /></RoleRoute>} />
+        <Route path="/settings" element={<SettingsRoute><SettingsPage /></SettingsRoute>} />
+        <Route path="/settings/notifications" element={<SettingsRoute><RoleRoute page="notification-sounds"><SettingsPage /></RoleRoute></SettingsRoute>} />
+        <Route path="/notification-sounds" element={<RoleRoute page="notification-sounds"><Navigate to="/settings/notifications" replace /></RoleRoute>} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

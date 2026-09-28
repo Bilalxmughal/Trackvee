@@ -16,7 +16,7 @@ interface Sound {
 
 const MAX_UPLOAD_BYTES = 900 * 1024;
 
-export default function NotificationSoundsPage() {
+export default function NotificationSoundsPage({ embedded = false }: { embedded?: boolean }) {
   const { dark } = useTheme();
   const [sounds, setSounds] = useState<Sound[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,8 +90,8 @@ export default function NotificationSoundsPage() {
   }
 
   return <div>
-    <PageHeader title="Notification Sounds" count={sounds.length} />
-    <div style={{ padding: '0 24px 24px', maxWidth: 1100 }}>
+    {!embedded && <PageHeader title="Notification Sounds" count={sounds.length} />}
+    <div style={{ padding: embedded ? '20px 24px 24px' : '0 24px 24px', maxWidth: 1100 }}>
       <div style={{ color: secondary, fontSize: 12.5, lineHeight: 1.6, marginBottom: 18 }}>
         Upload a shared alert tone once. Active sounds become available in admin, client portal, and the mobile app. Use 16-bit PCM WAV, up to 30 seconds and 900 KB.
       </div>
