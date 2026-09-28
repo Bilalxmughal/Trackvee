@@ -27,7 +27,7 @@ export interface AlertSchedule {
 }
 
 export interface AlertNotifications {
-  appPush?: boolean; webPush?: boolean; webSound?: boolean; email?: boolean;
+  appPush?: boolean; appSound?: boolean; appSoundId?: 'trackvee' | 'chime' | 'pulse' | 'bell' | 'soft'; webPush?: boolean; webSound?: boolean; email?: boolean;
 }
 
 export interface AlertRecord {
@@ -495,8 +495,19 @@ function AlertFormModal({ alert: init, vehicles, geofences, speedZones, dark, on
                           <div style={{ fontSize: 12.5, fontWeight: 600, color: dark ? '#e5e5e5' : '#111' }}>{item.label}</div>
                           <div style={{ fontSize: 10.5, color: dark ? '#555' : '#9ca3af' }}>{item.sub}</div>
                         </div>
-                        <Toggle value={!!(notif as Record<string, boolean>)[item.key]} onChange={v => setNotif(n => ({ ...n, [item.key]: v, ...(item.key === 'webPush' && !v ? { webSound: false } : {}) }))}/>
+                        <Toggle value={!!(notif as Record<string, boolean>)[item.key]} onChange={v => setNotif(n => ({ ...n, [item.key]: v, ...(item.key === 'webPush' && !v ? { webSound: false } : {}), ...(item.key === 'appPush' && v ? { appSound: n.appSound ?? true, appSoundId: n.appSoundId ?? 'trackvee' } : {}) }))}/>
                       </div>
+                      {item.key === 'appPush' && notif.appPush && (
+                        <div style={{ padding: '8px 14px 10px 54px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`, background: dark ? '#0d0d0d' : '#fafafa' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ flex: 1 }}><div style={{ fontSize: 11.5, color: dark ? '#aaa' : '#555' }}>Notification sound</div><div style={{ fontSize: 10.5, color: dark ? '#555' : '#9ca3af' }}>Choose a sound for mobile alerts</div></div>
+                            <Toggle value={notif.appSound !== false} onChange={v => setNotif(n => ({ ...n, appSound: v, appSoundId: n.appSoundId ?? 'trackvee' }))}/>
+                          </div>
+                          {notif.appSound !== false && <select value={notif.appSoundId ?? 'trackvee'} onChange={e => setNotif(n => ({ ...n, appSoundId: e.target.value as AlertNotifications['appSoundId'] }))} aria-label="Mobile alert sound" style={{ marginTop: 8, width: '100%', height: 32, border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 6, background: dark ? '#161616' : '#fff', color: dark ? '#ddd' : '#333', padding: '0 8px', fontSize: 11 }}>
+                            <option value="trackvee">Trackvee</option><option value="chime">Chime</option><option value="pulse">Pulse</option><option value="bell">Bell</option><option value="soft">Soft</option>
+                          </select>}
+                        </div>
+                      )}
                       {/* Web sound sub-option */}
                       {item.key === 'webPush' && notif.webPush && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px 10px 54px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`, background: dark ? '#0d0d0d' : '#fafafa' }}>

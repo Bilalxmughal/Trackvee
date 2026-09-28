@@ -32,7 +32,11 @@
         "expo-notifications",
         {
           "sounds": [
-            "./assets/trackvee_alert.wav"
+            "./assets/trackvee_alert.wav",
+            "./assets/trackvee_chime.wav",
+            "./assets/trackvee_pulse.wav",
+            "./assets/trackvee_bell.wav",
+            "./assets/trackvee_soft.wav"
           ]
         }
       ],

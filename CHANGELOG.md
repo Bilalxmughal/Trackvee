@@ -7,6 +7,7 @@
 ## 2026-09-28
 
 ### Added
+- [API/Admin/Portal/Mobile] Added per-alert mobile push sound controls with sound on/off and five bundled tone choices; Android uses versioned sound channels and legacy devices retain the existing Trackvee channel. Migration 025 and a new EAS binary are required.
 - [Mobile/API] Added permission-scoped fleet alert-rule CRUD in the mobile Alerts tab, with searchable group selection, three-step setup, schedules and per-rule mobile push. Alert list responses now redact inaccessible vehicle targets and expose mutation capability only for complete permitted scope; added regression tests.
 - [Mobile/API] Added opt-in Expo push registration, per-rule mobile-push delivery scoped by tenant, alert-view permission and vehicle access, and authenticated notification deep links to alert event details. Added migration 024 and push/event-access regression tests. Signed EAS credentials/build and device QA remain release prerequisites.
 - [Mobile] Added the bundled Trackvee notification chime for Android channels and iOS push alerts; changing notification sound requires a new native build.

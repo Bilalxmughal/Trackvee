@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-09-28 (API/mobile typechecks and API build pass; Android Expo export, Android native prebuild and API authorization regression tests pass; migration 024 is deployed; custom mobile push sound and EAS preview/production profiles are configured, and the Expo project is linked; Android signing/FCM credentials, native build and device test remain).
+Last verified: 2026-09-28 (API/mobile/admin/portal typechecks and builds pass; API sound-capability and alert-access tests pass; Android Expo export and native prebuild include all five WAV tones; migration 025 and a new EAS binary are required before real-device tone testing; Android signing/FCM credentials and device QA remain).
 
 ## Status
 
@@ -26,7 +26,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - Reports in admin and portal: 13 report types, vehicle groups, period/conditional filters, CSV/Excel/Print, saved reports.
 - Audit logs for internal operations.
 - Client portal topbar permission gating through DB-backed role portal permissions.
-- SQL migrations present through `024_mobile_push_tokens.sql`; migration 024 must be applied before deploying the updated API. EAS project ID and APNs/FCM credentials are still needed for native push delivery.
+- SQL migrations present through `025_mobile_push_sound_support.sql`; migration 025 must be applied before deploying the updated API. EAS project ID is configured; Android signing/FCM and iOS APNs credentials, native build, and device delivery QA remain release prerequisites.
 
 ## Active constraints
 

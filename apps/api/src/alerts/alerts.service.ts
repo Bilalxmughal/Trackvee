@@ -217,12 +217,13 @@ export class AlertsService {
     return this.logRepo.find({ where: { alertId: In(rules.map(rule => rule.id)), imei: In(imeis) }, order: { triggeredAt: 'DESC' }, take });
   }
 
-  async registerPushToken(user: User, rawToken: unknown, rawPlatform: unknown): Promise<{ registered: true }> {
+  async registerPushToken(user: User, rawToken: unknown, rawPlatform: unknown, rawSupportsCustomSounds?: unknown): Promise<{ registered: true }> {
     await this.assertMobileAlertsView(user);
     if (typeof rawToken !== 'string' || !/^(Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/.test(rawToken)) {
       throw new BadRequestException('A valid Expo push token is required');
     }
     if (rawPlatform !== 'ios' && rawPlatform !== 'android') throw new BadRequestException('Unsupported mobile platform');
+    const supportsCustomSounds = rawSupportsCustomSounds === true;
     const orgId = user.organizationId;
     if (!orgId) throw new ForbiddenException();
     const existing = await this.pushTokenRepo.findOne({ where: { token: rawToken } });
@@ -230,9 +231,10 @@ export class AlertsService {
       existing.userId = user.id;
       existing.organizationId = orgId;
       existing.platform = rawPlatform;
+      existing.supportsCustomSounds = supportsCustomSounds;
       await this.pushTokenRepo.save(existing);
     } else {
-      await this.pushTokenRepo.save(this.pushTokenRepo.create({ userId: user.id, organizationId: orgId, token: rawToken, platform: rawPlatform }));
+      await this.pushTokenRepo.save(this.pushTokenRepo.create({ userId: user.id, organizationId: orgId, token: rawToken, platform: rawPlatform, supportsCustomSounds }));
     }
     return { registered: true };
   }
@@ -286,7 +288,14 @@ export class AlertsService {
       if (!device?.vehicle || device.vehicle.organizationId !== alert.orgId) return;
       const users = await this.usersRepo.find({ where: { organizationId: alert.orgId, isActive: true } });
       const rolePermissions = await this.rolePerms.findAll();
-      const messages: Array<{ to: string; title: string; body: string; sound: string; priority: 'high'; channelId: string; data: Record<string, string> }> = [];
+      const soundOptions = {
+        trackvee: { file: 'trackvee_alert.wav', channel: 'trackvee-alerts-tone-trackvee-v1' },
+        chime: { file: 'trackvee_chime.wav', channel: 'trackvee-alerts-tone-chime-v1' },
+        pulse: { file: 'trackvee_pulse.wav', channel: 'trackvee-alerts-tone-pulse-v1' },
+        bell: { file: 'trackvee_bell.wav', channel: 'trackvee-alerts-tone-bell-v1' },
+        soft: { file: 'trackvee_soft.wav', channel: 'trackvee-alerts-tone-soft-v1' },
+      } as const;
+      const messages: Array<{ to: string; title: string; body: string; sound?: string | null; priority: 'high'; channelId?: string; data: Record<string, string> }> = [];
       for (const recipient of users) {
         if (ADMIN_ROLES.includes(recipient.role)) continue;
         const roleCanView = rolePermissions[recipient.role]?.alerts?.includes('view') ?? ['client_owner', 'client_super_admin'].includes(recipient.role);
@@ -294,15 +303,23 @@ export class AlertsService {
         if (permission ? !permission.alertsView : !roleCanView) continue;
         if (permission?.vehicleIds && !permission.vehicleIds.includes(device.vehicle.id)) continue;
         const registrations = await this.pushTokenRepo.find({ where: { userId: recipient.id, organizationId: alert.orgId } });
-        for (const registration of registrations) messages.push({
-          to: registration.token,
-          title: alert.name,
-          body: `${device.vehicle.licensePlate || device.vehicle.name} · ${alert.type.replaceAll('_', ' ')}`,
-          sound: 'trackvee_alert.wav',
-          priority: 'high',
-          channelId: 'trackvee-alerts-custom-v1',
-          data: { path: `/notification/${log.id}`, logId: log.id },
-        });
+        for (const registration of registrations) {
+          const soundEnabled = alert.notifications?.appSound !== false;
+          const selected = soundOptions[alert.notifications?.appSoundId as keyof typeof soundOptions] ?? soundOptions.trackvee;
+          const modern = registration.supportsCustomSounds === true;
+          messages.push({
+            to: registration.token,
+            title: alert.name,
+            body: `${device.vehicle.licensePlate || device.vehicle.name} · ${alert.type.replaceAll('_', ' ')}`,
+            ...(modern
+              ? soundEnabled
+                ? { sound: selected.file, channelId: selected.channel }
+                : { sound: null, channelId: 'trackvee-alerts-silent-v1' }
+              : { sound: 'trackvee_alert.wav', channelId: 'trackvee-alerts-custom-v1' }),
+            priority: 'high',
+            data: { path: `/notification/${log.id}`, logId: log.id },
+          });
+        }
       }
       for (let start = 0; start < messages.length; start += 100) {
         const response = await fetch('https://exp.host/--/api/v2/push/send', {

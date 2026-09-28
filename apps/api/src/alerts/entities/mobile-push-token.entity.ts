@@ -19,6 +19,9 @@ export class MobilePushToken {
   @Column({ type: 'varchar', length: 10 })
   platform: 'ios' | 'android';
 
+  @Column({ name: 'supports_custom_sounds', type: 'boolean', default: false })
+  supportsCustomSounds: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

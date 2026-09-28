@@ -31,8 +31,8 @@ export class AlertsController {
   }
 
   @Post('push-token')
-  registerPushToken(@CurrentUser() user: User, @Body() body: { token?: unknown; platform?: unknown }) {
-    return this.svc.registerPushToken(user, body?.token, body?.platform);
+  registerPushToken(@CurrentUser() user: User, @Body() body: { token?: unknown; platform?: unknown; supportsCustomSounds?: unknown }) {
+    return this.svc.registerPushToken(user, body?.token, body?.platform, body?.supportsCustomSounds);
   }
 
   @Delete('push-token')

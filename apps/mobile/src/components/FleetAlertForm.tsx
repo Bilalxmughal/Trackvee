@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import { TablerIcon } from './TablerIcon';
 import { theme } from '../theme';
+import { AlertSoundSettings, MobileAlertSoundId } from './AlertSoundSettings';
 
 export type FleetAlertType = 'over_speed' | 'idle' | 'ignition_on' | 'ignition_off' | 'power_cut' | 'low_battery' | 'no_gps' | 'offline' | 'tow' | 'over_parking' | 'geofence' | 'low_score' | 'speed_zone';
 export interface FleetAlertRule {
@@ -18,7 +19,7 @@ export interface FleetAlertRule {
   canEdit?: boolean;
   canDelete?: boolean;
   schedule?: { from?: string; to?: string; days?: string[]; timeFrom?: string; timeTo?: string } | null;
-  notifications?: { appPush?: boolean; webPush?: boolean; webSound?: boolean; email?: boolean };
+  notifications?: { appPush?: boolean; appSound?: boolean; appSoundId?: MobileAlertSoundId; webPush?: boolean; webSound?: boolean; email?: boolean };
 }
 export interface AlertVehicle { id: string; imei: string; plate: string; name: string; }
 export interface AlertVehicleGroup { id: string; name: string; vehicleIds: string[]; }
@@ -73,7 +74,7 @@ export function FleetAlertForm({ initial, vehicles, groups, geofences, allowFlee
   const [config, setConfig] = useState<Record<string, string | number>>(initial?.config ?? { speedLimit: 80 });
   const [scheduled, setScheduled] = useState(!!initial?.schedule);
   const [schedule, setSchedule] = useState<FleetAlertRule['schedule']>(initial?.schedule ?? { days: [] });
-  const [notifications, setNotifications] = useState<FleetAlertRule['notifications']>(initial ? { ...initial.notifications, appPush: initial.notifications?.appPush ?? true } : { appPush: true });
+  const [notifications, setNotifications] = useState<FleetAlertRule['notifications']>(initial ? { ...initial.notifications, appPush: initial.notifications?.appPush ?? true, appSound: initial.notifications?.appSound ?? true, appSoundId: initial.notifications?.appSoundId ?? 'trackvee' } : { appPush: true, appSound: true, appSoundId: 'trackvee' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -204,7 +205,7 @@ export function FleetAlertForm({ initial, vehicles, groups, geofences, allowFlee
               <Text style={s.fieldLabel}>Time window (optional)</Text><View style={s.inlineFields}><TextInput value={schedule?.timeFrom ?? ''} onChangeText={value => setSchedule(current => ({ ...current, timeFrom: value }))} placeholder="Start · HH:MM" placeholderTextColor={theme.muted} style={[s.input, s.halfInput]}/><TextInput value={schedule?.timeTo ?? ''} onChangeText={value => setSchedule(current => ({ ...current, timeTo: value }))} placeholder="End · HH:MM" placeholderTextColor={theme.muted} style={[s.input, s.halfInput]}/></View>
             </> : null}
           </View>
-          <View style={s.notificationCard}><View style={s.settingRow}><View style={{ flex: 1 }}><Text style={s.rowTitle}>Mobile push</Text><Text style={s.hint}>Send this alert to devices that enabled notifications.</Text></View><Switch value={notifications?.appPush === true} onValueChange={value => setNotifications(current => ({ ...current, appPush: value }))} trackColor={{ true: theme.red }}/></View></View>
+          <View style={s.notificationCard}><View style={s.settingRow}><View style={{ flex: 1 }}><Text style={s.rowTitle}>Mobile push</Text><Text style={s.hint}>Send this alert to devices that enabled notifications.</Text></View><Switch value={notifications?.appPush === true} onValueChange={value => setNotifications(current => ({ ...current, appPush: value, ...(value ? { appSound: current?.appSound ?? true, appSoundId: current?.appSoundId ?? 'trackvee' } : {}) }))} trackColor={{ true: theme.red }}/></View><AlertSoundSettings enabled={notifications?.appPush === true} soundEnabled={notifications?.appSound ?? true} soundId={notifications?.appSoundId ?? 'trackvee'} onSoundEnabledChange={value => setNotifications(current => ({ ...current, appSound: value }))} onSoundIdChange={value => setNotifications(current => ({ ...current, appSoundId: value }))}/></View>
         </>}
         {error ? <Text style={s.error}>{error}</Text> : null}
       </ScrollView>

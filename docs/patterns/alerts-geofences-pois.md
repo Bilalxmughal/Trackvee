@@ -7,7 +7,9 @@
 - Vehicle menu can pre-seed alert creation by IMEI.
 - Active/inactive filtering, edit/delete menu, English validation.
 - Mobile push is opt-in per device and per rule. Deliver only to active client users in the alert organization who have effective `alerts.view` and access to the triggering vehicle; notification taps fetch the event through the authenticated, tenant-scoped detail endpoint.
+- When per-alert mobile push is enabled, expose a separate sound toggle and a tone selector (Trackvee, Chime, Pulse, Bell, Soft). Keep `appSound`/`appSoundId` in alert `notifications` JSON; default missing legacy sound fields to enabled/Trackvee. API must map IDs through a fixed allowlist and select a pre-created Android channel per sound, with a separate silent channel.
 - Push-token rows are bound to the authenticated user and organization. Remove only the caller's token; never accept owner or organization IDs from the client.
+- `supports_custom_sounds` on a push-token row is a client capability flag, not an authorization flag. Apply migration `025_mobile_push_sound_support.sql`; legacy tokens keep the original channel until refreshed by the updated app.
 
 ## Geofences
 

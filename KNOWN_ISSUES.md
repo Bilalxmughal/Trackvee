@@ -226,3 +226,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Cause:** The public Get Started route remained in the root stack after login, so native back navigation could reveal onboarding while the user was authenticated.
 
 **Rule:** On successful sign-in or authenticated startup from a public route, dismiss the public stack history before replacing the route with `/map`. Test Android hardware back and iOS swipe-back from the authenticated root.
+
+---
+
+## KI-018 — Per-alert mobile sounds require provisioned native channels
+
+**Status:** Source implemented; migration and EAS release required
+
+**Area:** API / Mobile push notifications
+
+**Cause:** Android notification channel sound is immutable, and older app builds only register the original Trackvee channel. Sending a newly selected sound to an old channel silently plays the old sound or no sound.
+
+**Rule:** Apply migration `025_mobile_push_sound_support.sql` before deploying the API. The mobile app must create all five versioned tone channels and the silent channel before registering `supportsCustomSounds: true`. Keep server tone IDs in a fixed allowlist. Preserve the legacy channel for tokens without that capability. Validate with an EAS build and real-device push tests; app config/asset changes do not update already-installed binaries.

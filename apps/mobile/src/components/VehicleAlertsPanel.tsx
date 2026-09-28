@@ -5,8 +5,9 @@ import api from '../lib/api';
 import { TablerIcon } from './TablerIcon';
 import { theme } from '../theme';
 import { usePortalPermissions } from '../auth/PortalPermissionsProvider';
+import { AlertSoundSettings, MobileAlertSoundId } from './AlertSoundSettings';
 
-type Rule = { id: string; name: string; type: string; active: boolean; config: Record<string, string | number>; schedule?: Record<string, unknown> | null; notifications?: Record<string, boolean>; vehicleImeis: string[]; excludedVehicleImeis?: string[] };
+type Rule = { id: string; name: string; type: string; active: boolean; config: Record<string, string | number>; schedule?: Record<string, unknown> | null; notifications?: { appPush?: boolean; appSound?: boolean; appSoundId?: MobileAlertSoundId; webPush?: boolean; webSound?: boolean; email?: boolean }; vehicleImeis: string[]; excludedVehicleImeis?: string[] };
 type Zone = { id: string; name: string };
 const TYPES = ['over_speed', 'idle', 'ignition_on', 'ignition_off', 'power_cut', 'low_battery', 'no_gps', 'offline', 'tow', 'over_parking', 'geofence', 'poi', 'low_score', 'speed_zone'] as const;
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -49,7 +50,7 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
   const openForm = (rule: Rule | null) => {
     setEditing(rule); setName(rule?.name ?? ''); setType(rule?.type ?? 'over_speed');
     setActive(rule?.active ?? true); setConfig(rule?.config ?? { speedLimit: 80 });
-    setSchedule(rule?.schedule ?? null); setNotifications(rule ? { ...rule.notifications, appPush: rule.notifications?.appPush ?? true } : { appPush: true });
+    setSchedule(rule?.schedule ?? null); setNotifications(rule ? { ...rule.notifications, appPush: rule.notifications?.appPush ?? true, appSound: rule.notifications?.appSound ?? true, appSoundId: rule.notifications?.appSoundId ?? 'trackvee' } : { appPush: true, appSound: true, appSoundId: 'trackvee' });
     setFormOpen(true); setError('');
   };
   const save = async () => {
@@ -89,7 +90,8 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
         {zoneField && <><Text style={s.label}>{zoneField === 'poiId' ? 'POI' : 'Geofence'}</Text><Pressable style={s.input} onPress={() => setZoneOpen(v => !v)}><Text style={s.value}>{zoneItems.find(zone => zone.id === config[zoneField])?.name ?? 'Select zone'} ▾</Text></Pressable>{zoneOpen && <View style={s.options}>{zoneItems.map(zone => <Pressable key={zone.id} style={s.option} onPress={() => { setConfig(previous => ({ ...previous, [zoneField]: zone.id })); setZoneOpen(false); }}><Text style={s.value}>{zone.name}</Text></Pressable>)}</View>}</>}
         {(type === 'geofence' || type === 'poi') && <><Text style={s.label}>Event</Text><View style={s.eventRow}>{(['enter', 'exit', 'both'] as const).map(event => <Pressable key={event} onPress={() => setConfig(previous => ({ ...previous, [type === 'poi' ? 'poiEvent' : 'geofenceEvent']: event }))} style={[s.eventButton, config[type === 'poi' ? 'poiEvent' : 'geofenceEvent'] === event && s.eventSelected]}><Text style={s.value}>{label(event)}</Text></Pressable>)}</View></>}
         <View style={s.activeRow}><Text style={s.label}>Active</Text><Switch value={active} onValueChange={setActive} trackColor={{ true: theme.red }} /></View>
-        <View style={s.activeRow}><View style={{ flex: 1, paddingRight: 12 }}><Text style={s.label}>Mobile push</Text><Text style={s.hint}>Send this alert to devices with notifications enabled.</Text></View><Switch value={notifications?.appPush === true} onValueChange={value => setNotifications(previous => ({ ...previous, appPush: value }))} trackColor={{ true: theme.red }} /></View>
+        <View style={s.activeRow}><View style={{ flex: 1, paddingRight: 12 }}><Text style={s.label}>Mobile push</Text><Text style={s.hint}>Send this alert to devices with notifications enabled.</Text></View><Switch value={notifications?.appPush === true} onValueChange={value => setNotifications(previous => ({ ...previous, appPush: value, ...(value ? { appSound: previous?.appSound ?? true, appSoundId: previous?.appSoundId ?? 'trackvee' } : {}) }))} trackColor={{ true: theme.red }} /></View>
+        <AlertSoundSettings enabled={notifications?.appPush === true} soundEnabled={notifications?.appSound ?? true} soundId={notifications?.appSoundId ?? 'trackvee'} onSoundEnabledChange={value => setNotifications(previous => ({ ...previous, appSound: value }))} onSoundIdChange={value => setNotifications(previous => ({ ...previous, appSoundId: value }))}/>
         <Pressable disabled={saving} style={s.primary} onPress={() => void save()}><Text style={s.primaryText}>{saving ? 'Saving…' : 'Save for this vehicle'}</Text></Pressable>
       </ScrollView> : loading ? <ActivityIndicator style={{ marginTop: 32 }} color={theme.red} /> : <FlatList data={rules} keyExtractor={rule => rule.id} ListEmptyComponent={<Text style={s.empty}>No alerts for this vehicle.</Text>} renderItem={({ item }) => <View style={s.rule}><View style={{ flex: 1 }}><Text style={s.ruleName}>{item.name}</Text><Text style={s.ruleMeta}>{label(item.type)} · {item.active ? 'Active' : 'Inactive'}</Text></View>{canDo('alerts', 'edit') && <Pressable onPress={() => openForm(item)} style={s.link}><Text style={s.linkText}>Edit</Text></Pressable>}{canDo('alerts', 'delete') && <Pressable onPress={() => Alert.alert('Remove vehicle alert?', `Remove ${item.name} for this vehicle only?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => { void remove(item); } }])} style={s.link} disabled={saving}><Text style={s.linkText}>Delete</Text></Pressable>}</View>} />}
     </View>;
