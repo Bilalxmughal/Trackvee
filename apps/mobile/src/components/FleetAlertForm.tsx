@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import { TablerIcon } from './TablerIcon';
@@ -62,7 +62,7 @@ export function FleetAlertForm({ visible, initial, vehicles, groups, geofences, 
   const [config, setConfig] = useState<Record<string, string | number>>(initial?.config ?? { speedLimit: 80 });
   const [scheduled, setScheduled] = useState(!!initial?.schedule);
   const [schedule, setSchedule] = useState<FleetAlertRule['schedule']>(initial?.schedule ?? { days: [] });
-  const [notifications, setNotifications] = useState<FleetAlertRule['notifications']>(initial?.notifications ?? {});
+  const [notifications, setNotifications] = useState<FleetAlertRule['notifications']>(initial ? initial.notifications ?? {} : { appPush: true });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -154,6 +154,7 @@ export function FleetAlertForm({ visible, initial, vehicles, groups, geofences, 
   };
 
   return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
     <SafeAreaView style={s.container} edges={['top', 'bottom']}>
       <View style={s.header}>
         <Pressable onPress={step > 1 ? () => { setError(''); setStep(value => value - 1); } : onClose} accessibilityLabel={step > 1 ? 'Previous step' : 'Close alert form'}><TablerIcon name="back" size={21} color={theme.ink}/></Pressable>
@@ -161,7 +162,7 @@ export function FleetAlertForm({ visible, initial, vehicles, groups, geofences, 
         <Pressable onPress={onClose} accessibilityLabel="Close"><TablerIcon name="close" size={20} color={theme.secondary}/></Pressable>
       </View>
       <View style={s.progress}>{[1, 2, 3].map(number => <View key={number} style={[s.progressSegment, number <= step && s.progressActive]}/>)}</View>
-      <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}>
         {step === 1 && <>
           <Text style={s.sectionTitle}>Rule name</Text>
           <TextInput value={name} onChangeText={setName} placeholder="For example, Main Fleet Speed" placeholderTextColor={theme.muted} style={s.input} accessibilityLabel="Alert rule name" />
@@ -201,6 +202,7 @@ export function FleetAlertForm({ visible, initial, vehicles, groups, geofences, 
           : <Pressable disabled={saving} onPress={() => void save()} style={[s.primary, saving && s.disabled]}>{saving ? <ActivityIndicator size="small" color="#fff"/> : null}<Text style={s.primaryText}>{saving ? 'Saving…' : initial ? 'Save changes' : 'Create alert rule'}</Text></Pressable>}
       </View>
     </SafeAreaView>
+    </KeyboardAvoidingView>
   </Modal>;
 }
 

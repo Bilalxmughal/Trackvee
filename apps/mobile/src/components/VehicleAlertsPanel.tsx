@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import { TablerIcon } from './TablerIcon';
@@ -49,7 +49,7 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
   const openForm = (rule: Rule | null) => {
     setEditing(rule); setName(rule?.name ?? ''); setType(rule?.type ?? 'over_speed');
     setActive(rule?.active ?? true); setConfig(rule?.config ?? { speedLimit: 80 });
-    setSchedule(rule?.schedule ?? null); setNotifications(rule?.notifications ?? {});
+    setSchedule(rule?.schedule ?? null); setNotifications(rule ? rule.notifications ?? {} : { appPush: true });
     setFormOpen(true); setError('');
   };
   const save = async () => {
@@ -93,7 +93,7 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
         <Pressable disabled={saving} style={s.primary} onPress={() => void save()}><Text style={s.primaryText}>{saving ? 'Saving…' : 'Save for this vehicle'}</Text></Pressable>
       </ScrollView> : loading ? <ActivityIndicator style={{ marginTop: 32 }} color={theme.red} /> : <FlatList data={rules} keyExtractor={rule => rule.id} ListEmptyComponent={<Text style={s.empty}>No alerts for this vehicle.</Text>} renderItem={({ item }) => <View style={s.rule}><View style={{ flex: 1 }}><Text style={s.ruleName}>{item.name}</Text><Text style={s.ruleMeta}>{label(item.type)} · {item.active ? 'Active' : 'Inactive'}</Text></View>{canDo('alerts', 'edit') && <Pressable onPress={() => openForm(item)} style={s.link}><Text style={s.linkText}>Edit</Text></Pressable>}{canDo('alerts', 'delete') && <Pressable onPress={() => Alert.alert('Remove vehicle alert?', `Remove ${item.name} for this vehicle only?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => { void remove(item); } }])} style={s.link} disabled={saving}><Text style={s.linkText}>Delete</Text></Pressable>}</View>} />}
     </View>;
-  if (fullScreen) return <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>{content}</SafeAreaView>;
-  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>{content}</Modal>;
+  if (fullScreen) return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>{content}</SafeAreaView></KeyboardAvoidingView>;
+  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>{content}</KeyboardAvoidingView></Modal>;
 }
 const s = StyleSheet.create({ container: { flex: 1, backgroundColor: '#fff' }, header: { height: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: theme.border }, title: { color: theme.ink, fontSize: 17, fontWeight: '700' }, error: { color: theme.red, padding: 16, fontSize: 12 }, form: { padding: 18, paddingBottom: 36 }, label: { color: theme.ink, fontSize: 12, fontWeight: '600', marginTop: 16, marginBottom: 7 }, hint: { color: theme.secondary, fontSize: 11, lineHeight: 16 }, input: { minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 7, paddingHorizontal: 12, justifyContent: 'center', fontSize: 14, color: theme.ink }, value: { color: theme.ink, fontSize: 13 }, options: { borderWidth: 1, borderColor: theme.border, borderRadius: 7, maxHeight: 260, overflow: 'hidden' }, option: { padding: 10, borderBottomWidth: 1, borderBottomColor: theme.border }, activeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }, primary: { backgroundColor: theme.red, minHeight: 44, marginTop: 25, borderRadius: 7, justifyContent: 'center', alignItems: 'center' }, primaryText: { color: '#fff', fontWeight: '700' }, eventRow: { flexDirection: 'row', gap: 7 }, eventButton: { flex: 1, alignItems: 'center', padding: 10, borderWidth: 1, borderColor: theme.border, borderRadius: 7 }, eventSelected: { borderColor: theme.red, backgroundColor: '#fff5f5' }, empty: { color: theme.secondary, textAlign: 'center', marginTop: 36 }, rule: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 9, borderBottomWidth: 1, borderColor: theme.border }, ruleName: { color: theme.ink, fontWeight: '700', fontSize: 14 }, ruleMeta: { color: theme.secondary, marginTop: 4, fontSize: 11 }, link: { padding: 5 }, linkText: { color: theme.red, fontSize: 11, fontWeight: '600' } });
