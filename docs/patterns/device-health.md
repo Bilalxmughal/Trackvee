@@ -3,6 +3,7 @@
 ## Scope and data sources
 
 - The admin Device Health page and client-portal Device Health panel use `GET /telemetry/device-health`.
+- The mobile `More > Device Health` screen uses the same endpoint and refreshes only while focused; mobile access is gated by `vehicles.view`.
 - The response combines device `last_seen_at` (server receipt), heartbeat fields, and the newest telemetry point. Use telemetry `created_at` for GPS freshness and tracker `timestamp` for device-clock lag; do not treat the tracker clock as server receipt time.
 - No database columns are added for computed health states. Keep derived thresholds centralized in the API response.
 
@@ -26,3 +27,4 @@
 - `apps/api/src/telemetry/telemetry.controller.ts`
 - `apps/admin/src/pages/DeviceHealthPage.tsx`
 - `apps/portal/src/components/DeviceHealthPanel.tsx`
+- `apps/mobile/app/device-health.tsx`
