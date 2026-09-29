@@ -4,8 +4,6 @@ import api from '../api/client';
 
 interface DeviceHealth {
   deviceId: string;
-  imei: string;
-  deviceName: string | null;
   connection: 'online' | 'delayed' | 'offline' | 'never_seen';
   lastPacketAt: string | null;
   lastGpsAt: string | null;
@@ -79,7 +77,7 @@ export default function DeviceHealthPanel({ onClose }: { onClose: () => void }) 
   }), [rows]);
   const visible = useMemo(() => rows.filter(row => {
     const q = query.trim().toLowerCase();
-    if (q && ![row.imei, row.deviceName ?? '', row.vehicle?.licensePlate ?? '', row.vehicle?.name ?? ''].some(value => value.toLowerCase().includes(q))) return false;
+    if (q && ![row.vehicle?.licensePlate ?? '', row.vehicle?.name ?? ''].some(value => value.toLowerCase().includes(q))) return false;
     if (filter === 'attention' && row.connection === 'online' && row.issues.length === 0) return false;
     return true;
   }).sort((a, b) => ({ offline: 0, never_seen: 1, delayed: 2, online: 3 }[a.connection] - ({ offline: 0, never_seen: 1, delayed: 2, online: 3 }[b.connection]))), [rows, query, filter]);
@@ -100,7 +98,7 @@ export default function DeviceHealthPanel({ onClose }: { onClose: () => void }) 
       </div>
       <div style={{ padding: '10px 12px 6px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, height: 34, padding: '0 9px', border: '1px solid #e5e7eb', borderRadius: 6 }}>
-          <IconSearch size={14} color="#9ca3af" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search vehicle or IMEI" style={{ minWidth: 0, flex: 1, border: 'none', outline: 'none', fontSize: 12, color: '#111' }} />
+          <IconSearch size={14} color="#9ca3af" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search vehicles" style={{ minWidth: 0, flex: 1, border: 'none', outline: 'none', fontSize: 12, color: '#111' }} />
         </div>
         <div style={{ display: 'flex', gap: 14, borderBottom: '1px solid #f0f0f0', marginTop: 7 }}>
           {(['all', 'attention'] as const).map(value => <button key={value} onClick={() => setFilter(value)} style={{ border: 'none', borderBottom: `2px solid ${filter === value ? '#dc2626' : 'transparent'}`, background: 'transparent', padding: '8px 2px 7px', fontSize: 11.5, color: filter === value ? '#dc2626' : '#6b7280', cursor: 'pointer' }}>{value === 'all' ? `All (${rows.length})` : 'Needs attention'}</button>)}
@@ -118,7 +116,6 @@ export default function DeviceHealthPanel({ onClose }: { onClose: () => void }) 
                 <span style={{ fontSize: 12.5, color: '#111', fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.vehicle?.licensePlate || row.vehicle?.name || 'Unassigned'}</span>
                 <span style={{ fontSize: 10.5, color: status.color, fontWeight: 600, whiteSpace: 'nowrap' }}>{status.label}</span>
               </div>
-              <div style={{ ...lightText, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{row.deviceName ? `${row.deviceName} · ` : ''}{row.imei}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 12px', marginTop: 8, fontSize: 10.5, color: '#4b5563' }}>
                 <span>GPS: {GPS[row.gps]}{row.satellites == null ? '' : ` · ${row.satellites} sats`} · {age(row.lastGpsReceivedAt)}</span>
                 <span>GSM: {row.gsmSignal == null ? '—' : `${row.gsmSignal}/4`}</span>

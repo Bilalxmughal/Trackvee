@@ -79,8 +79,8 @@ function vehicleStatus(pt: LivePoint): Status {
   if (pt.ignition === true) return 'idle';
   return 'parked';
 }
-function fmtPlate(dv: { plate: string | null; displayId: number | null } | undefined, imei: string): string {
-  return dv?.plate || (dv?.displayId != null ? `#${dv.displayId}` : imei.slice(-4));
+function fmtPlate(dv: { plate: string | null; displayId: number | null } | undefined, _imei: string): string {
+  return dv?.plate || (dv?.displayId != null ? `#${dv.displayId}` : 'Vehicle');
 }
 function formatTs(ts: string) {
   const d = new Date(ts);
@@ -498,7 +498,7 @@ function EngineCutConfirm({ imei, plate, isImmobilized, onClose }: { imei: strin
         </div>
         <div style={{ fontSize: 12.5, color: '#666', marginBottom: 16, lineHeight: 1.5 }}>
           Vehicle: <strong style={{ color: '#111' }}>{plate}</strong><br/>
-          Enter the <strong>last 4 digits</strong> of the device IMEI to confirm:
+          Enter the <strong>last 4 digits</strong> printed on the device label to confirm:
         </div>
         <input
           autoFocus
@@ -732,7 +732,7 @@ function GroupModal({ title, name, setName, points, deviceMap, sel, setSel, grou
   const [q, setQ] = useState('');
   const toggle = (imei: string) => { const n = new Set(sel); n.has(imei) ? n.delete(imei) : n.add(imei); setSel(n); };
   const allImeis = points.map(p => p.imei);
-  const filtered = q.trim() ? allImeis.filter(i => (deviceMap.get(i)?.plate ?? i).toLowerCase().includes(q.toLowerCase())) : allImeis;
+  const filtered = q.trim() ? allImeis.filter(i => fmtPlate(deviceMap.get(i), i).toLowerCase().includes(q.toLowerCase())) : allImeis;
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#111', fontSize: 13, marginBottom: 14, boxSizing: 'border-box', outline: 'none' };
   const btnStyle: React.CSSProperties = { padding: '4px 10px', borderRadius: 5, border: '1px solid #e5e7eb', background: 'transparent', color: '#555', fontSize: 11, cursor: 'pointer' };
   return (
@@ -1569,7 +1569,7 @@ export default function PortalMapPage() {
   const matches = (imei: string) => {
     if (!q) return true;
     const plate = fmtPlate(deviceMap.get(imei), imei);
-    return plate.toLowerCase().includes(q) || imei.includes(q);
+    return plate.toLowerCase().includes(q);
   };
   const filteredPoints = points.filter(p => matches(p.imei));
   const groupedImeis = new Set(groups.flatMap(g => g.imeis));

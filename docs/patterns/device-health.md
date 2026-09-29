@@ -20,6 +20,7 @@
 - Internal staff access is controlled by the `device-health` page permission. Client access requires effective `vehicles.view` and returns only devices available through the existing organization and per-user vehicle scope.
 - Never accept client-supplied organization IDs or IMEI lists as the authorization scope. City filtering is internal-admin-only UI context.
 - UI refreshes every 30 seconds with overlapping requests suppressed. Keep health reads as one device list plus one latest-telemetry query scoped to those authorized IMEIs.
+- Client portal and mobile may use IMEI internally to correlate device-health data, but must never render it, search it, or expose it in exports. Show the assigned vehicle plate/name or a generic device label instead; do not show a device-provided name if it could contain the IMEI.
 
 ## Primary sources
 

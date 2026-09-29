@@ -64,7 +64,7 @@ export default function ReportsPage() {
   const filteredDevices = q.trim()
     ? devices.filter(d => {
         const label = d.vehicle?.licensePlate || `#${d.vehicle?.displayId ?? d.displayId}`;
-        return label.toLowerCase().includes(q.toLowerCase()) || d.imei.includes(q);
+        return label.toLowerCase().includes(q.toLowerCase());
       })
     : devices;
 
@@ -166,7 +166,7 @@ export default function ReportsPage() {
     const csvRows = [cols.join(','), ...rows.map(r => cols.map(c => `"${r[c] ?? ''}"`).join(','))];
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `${reportType}-report-${selectedImei.slice(-6)}.csv`; a.click();
+    a.download = `${reportType}-report.csv`; a.click();
   };
 
   const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none' };

@@ -32,8 +32,8 @@ export function EngineCutDialog({ visible, imei, plate, immobilized, onClose, on
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={styles.shade}><View style={styles.card}>
       <Text style={styles.title}>{immobilized ? 'Engine Restore Confirm' : 'Engine Cut Confirm'}</Text>
-      <Text style={styles.body}>Vehicle: <Text style={styles.plate}>{plate}</Text>{'\n'}Enter the last 4 digits of the device IMEI to confirm:</Text>
-      <TextInput autoFocus value={digits} onChangeText={value => { setDigits(value.replace(/\D/g, '').slice(0, 4)); setError(''); }} keyboardType="number-pad" maxLength={4} placeholder="_ _ _ _" placeholderTextColor={theme.muted} style={[styles.input, error ? styles.inputError : null]} accessibilityLabel="Last four IMEI digits" onSubmitEditing={() => void submit()} />
+      <Text style={styles.body}>Vehicle: <Text style={styles.plate}>{plate}</Text>{'\n'}Enter the last 4 digits printed on the device label to confirm:</Text>
+      <TextInput autoFocus value={digits} onChangeText={value => { setDigits(value.replace(/\D/g, '').slice(0, 4)); setError(''); }} keyboardType="number-pad" maxLength={4} placeholder="_ _ _ _" placeholderTextColor={theme.muted} style={[styles.input, error ? styles.inputError : null]} accessibilityLabel="Last four digits on the device label" onSubmitEditing={() => void submit()} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={styles.actions}>
         <Pressable onPress={onClose} style={styles.cancel}><Text style={styles.cancelText}>Cancel</Text></Pressable>

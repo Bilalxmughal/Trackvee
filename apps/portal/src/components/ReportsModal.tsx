@@ -24,6 +24,17 @@ interface ReportResult {
   to?: string;
 }
 
+function hideDeviceIdentifiers(report: ReportResult): ReportResult {
+  const visibleIndexes = report.columns.flatMap((column, index) => /imei/i.test(column) ? [] : [index]);
+  const safeCell = (value: string | number | null) => /^\d{14,16}$/.test(String(value ?? '').trim()) ? '—' : value;
+  return {
+    ...report,
+    columns: visibleIndexes.map(index => report.columns[index]!),
+    rows: report.rows.map(row => visibleIndexes.map(index => safeCell(row[index] ?? null))),
+    summary: report.summary ? visibleIndexes.map(index => safeCell(report.summary![index] ?? null)) : report.summary,
+  };
+}
+
 interface SavedReport {
   id: string;
   title: string;
@@ -155,7 +166,7 @@ export default function ReportsModal({ onClose }: { onClose: () => void }) {
     setError(''); setLoading(true); setResult(null); setQ('');
     try {
       const { data } = await api.get<ReportResult>(`/reports?${new URLSearchParams(buildParams())}`);
-      setResult(data);
+      setResult(hideDeviceIdentifiers(data));
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? 'Could not generate report');

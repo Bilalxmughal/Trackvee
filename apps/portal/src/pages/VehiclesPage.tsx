@@ -69,7 +69,7 @@ export default function VehiclesPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
-                {['#', 'Plate', 'Make / Model', 'Year', 'Color', 'Device (IMEI)'].map(h => (
+                {['#', 'Plate', 'Make / Model', 'Year', 'Color', 'Tracker'].map(h => (
                   <th key={h} style={{ padding: '9px 16px', fontSize: 11, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -89,8 +89,8 @@ export default function VehiclesPage() {
                     <td style={{ padding: '10px 16px', fontSize: 12.5, color: '#444' }}>{name}</td>
                     <td style={{ padding: '10px 16px', fontSize: 12.5, color: '#666' }}>{v.year ?? '—'}</td>
                     <td style={{ padding: '10px 16px', fontSize: 12.5, color: '#666' }}>{v.color ?? '—'}</td>
-                    <td style={{ padding: '10px 16px', fontSize: 12, color: '#888', fontVariantNumeric: 'tabular-nums' }}>
-                      {dev ? dev.imei : <span style={{ color: '#e5e7eb' }}>No device</span>}
+                    <td style={{ padding: '10px 16px', fontSize: 12, color: dev ? '#16a34a' : '#9ca3af' }}>
+                      {dev ? 'Assigned' : 'No device'}
                     </td>
                   </tr>
                 );

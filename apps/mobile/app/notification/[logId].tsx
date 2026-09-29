@@ -39,7 +39,8 @@ export default function NotificationEventScreen() {
   const lat = Number(payload.lat ?? payload.latitude);
   const lng = Number(payload.lng ?? payload.longitude);
   const hasLocation = Number.isFinite(lat) && Number.isFinite(lng);
-  const vehicleName = event?.vehicle?.licensePlate || event?.vehicle?.name || event?.imei || 'Vehicle';
+  const reportedVehicle = event?.vehicle?.licensePlate || event?.vehicle?.name;
+  const vehicleName = reportedVehicle && !/^\d{14,16}$/.test(reportedVehicle.trim()) ? reportedVehicle : 'Vehicle';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

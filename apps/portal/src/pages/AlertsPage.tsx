@@ -93,7 +93,7 @@ export default function AlertsPage() {
             <tbody>
               {filtered.map(a => {
                 const sev = SEV_COLOR[a.severity?.toLowerCase()] ?? SEV_COLOR['info']!;
-                const plate = a.vehicle?.licensePlate || (a.vehicle ? `#${a.vehicle.displayId}` : a.deviceImei.slice(-4));
+                const plate = a.vehicle?.licensePlate || (a.vehicle ? `#${a.vehicle.displayId}` : 'Vehicle');
                 return (
                   <tr key={a.id} style={{ borderBottom: '1px solid #f7f7f7' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fafafa'; }}

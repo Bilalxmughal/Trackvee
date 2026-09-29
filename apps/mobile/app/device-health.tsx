@@ -12,8 +12,6 @@ type Gps = 'good' | 'weak' | 'no_fix' | 'stale' | 'unknown';
 type Signal = 'good' | 'fair' | 'weak' | 'unknown';
 interface DeviceHealth {
   deviceId: string;
-  imei: string;
-  deviceName: string | null;
   vehicle: { id: string; displayId: number; licensePlate: string | null; name: string } | null;
   connection: Connection;
   lastPacketAt: string | null;
@@ -108,7 +106,7 @@ export default function DeviceHealthScreen() {
 
   const visibleRows = useMemo(() => rows.filter(row => {
     const term = query.trim().toLowerCase();
-    if (term && ![row.imei, row.deviceName ?? '', row.vehicle?.licensePlate ?? '', row.vehicle?.name ?? ''].some(value => value.toLowerCase().includes(term))) return false;
+    if (term && ![row.vehicle?.licensePlate ?? '', row.vehicle?.name ?? ''].some(value => value.toLowerCase().includes(term))) return false;
     if (filter === 'offline' && row.connection !== 'offline' && row.connection !== 'never_seen') return false;
     if (filter === 'attention' && row.connection === 'online' && row.issues.length === 0) return false;
     return true;
@@ -153,7 +151,7 @@ export default function DeviceHealthScreen() {
 
         <View style={styles.searchBox}>
           <TablerIcon name="search" size={17} color={theme.muted} />
-          <TextInput value={query} onChangeText={setQuery} placeholder="Search vehicle or IMEI" placeholderTextColor={theme.muted} autoCapitalize="none" autoCorrect={false} returnKeyType="search" style={styles.searchInput} />
+          <TextInput value={query} onChangeText={setQuery} placeholder="Search vehicles" placeholderTextColor={theme.muted} autoCapitalize="none" autoCorrect={false} returnKeyType="search" style={styles.searchInput} />
           {query.length > 0 ? <Pressable onPress={() => setQuery('')} accessibilityRole="button" accessibilityLabel="Clear search"><TablerIcon name="close" size={17} color={theme.secondary} /></Pressable> : null}
         </View>
 
@@ -188,7 +186,7 @@ function DeviceRow({ row }: { row: DeviceHealth }) {
   return (
     <View style={[styles.deviceRow, { borderLeftColor: connectionColor }]}>
       <View style={styles.deviceHeading}>
-        <View style={styles.deviceTitleBlock}><Text style={styles.vehicleName} numberOfLines={1}>{vehicleLabel(row)}</Text><Text style={styles.deviceId} numberOfLines={1}>{row.deviceName ? `${row.deviceName} · ` : ''}{row.imei}</Text></View>
+        <View style={styles.deviceTitleBlock}><Text style={styles.vehicleName} numberOfLines={1}>{vehicleLabel(row)}</Text></View>
         <View style={styles.connectionBlock}><Text style={[styles.connection, { color: connectionColor }]}>{CONNECTION_LABEL[row.connection]}</Text><Text style={styles.ignition}>Ignition: {row.ignition == null ? 'Unknown' : row.ignition ? 'On' : 'Off'}</Text></View>
       </View>
       <View style={styles.metrics}>
