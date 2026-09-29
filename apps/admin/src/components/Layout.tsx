@@ -48,6 +48,7 @@ const NAV_SECTIONS: Section[] = [
       { to: '/map', icon: IconMap, label: 'Live Map' },
       { to: '/telemetry', icon: IconDatabase, label: 'Telemetry' },
       { to: '/devices', icon: IconCpu, label: 'Devices' },
+      { to: '/device-health', icon: IconCpu, label: 'Device Health' },
     ],
   },
   {

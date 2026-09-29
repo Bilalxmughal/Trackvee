@@ -7,7 +7,7 @@ Last verified: 2026-09-29 (API and mobile TypeScript checks and Android Expo exp
 | Authentication | Complete | Complete | Complete | n/a | Admin/client role login separation |
 | Live map and history | Complete | Complete | Complete | `map` | Portal map is the background workspace |
 | Vehicles and groups | Complete | Complete | Map panel/groups | `vehicles` | Plate first; display name is Make/Model |
-| Devices and telemetry | Complete | Complete | Map-derived | admin-only pages | Device health workflow pending |
+| Devices and telemetry | Complete | Complete | Device Health panel | `device-health` (admin); `vehicles.view` (client) | Shared connection/GPS/GSM/power diagnostics; client results honor assigned vehicle scope. Mobile device-health view remains pending. |
 | Alerts | Complete | Complete | Complete | `alerts` | Rules, schedules, notifications, vehicle targeting, mobile push and shared sounds |
 | Notification sound catalogue | Complete | Complete | Read active choices | `alerts` | Internal upload/activation; client selection; dynamic mobile install requires EAS release |
 | Geofences | Complete | Complete | Complete | `geofences` | Circle and polygon drawing; mobile CRUD is tenant- and permission-scoped |

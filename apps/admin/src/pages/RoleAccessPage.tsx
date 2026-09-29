@@ -17,6 +17,7 @@ const PAGES: PageRow[] = [
   { key: 'vehicles',  label: 'Vehicles',        group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'maintenance', label: 'Maintenance', group: 'Management', actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'devices',   label: 'Devices',         group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'device-health', label: 'Device Health', group: 'Management', actions: ['view'] },
   { key: 'setup',     label: 'Setup Guide',     group: 'Management',     actions: ['view'] },
   { key: 'users',       label: 'User Management', group: 'Administration', actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'roles',       label: 'Role Access',     group: 'Administration', actions: ['view'] },

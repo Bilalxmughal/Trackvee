@@ -21,6 +21,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - Live tracking, map history, trip replay, vehicle groups, engine commands, and tracking-expiry badge.
 - Mobile includes client-only authentication, permission-aware Map/Vehicles/Alerts/Reports/More navigation, grouped/searchable Vehicles with permission-gated CRUD and menu actions, live map, vehicle detail, vehicle-scoped and fleet-wide alert rule management with custom vehicle scope enforced by API list responses, PKT History/Replay, all 13 report types with grouped vehicle selection, custom PKT dates, conditional filters, grouping, saved filters and CSV sharing, permission-gated Geofence/POI management, Driver Behavior with a compact 30-day fleet trend, leaderboard, detail/chart and settings, and organization Users with scoped CRUD, vehicle restrictions and custom permissions. More now includes per-device push/sound preferences and optional refresh on foreground return; fleet polling pauses in background. New mobile alert rules default to mobile push enabled; Add/Edit Alert is a safe-area-aware router screen with native back gestures and a keyboard-safe action. Mobile push registration, per-rule push delivery, and tenant/vehicle-scoped notification event deep links are implemented in source. Remaining parity and release gaps are listed in `docs/FEATURE_MATRIX.md`.
 - Shared live status and confirmed stop-duration handling across API, admin, portal, and mobile; mobile map clustering, animated vehicle positions, and map-first vehicle detail.
+- Device Health Center is implemented in API/admin/client portal source. Oracle API deployment and live tenant/vehicle-scope verification remain pending; mobile view is not included yet.
 - GT06 CRC-ITU/X-25 verified against 109 captured production frames; valid GPS ACK follows confirmed API persistence with bounded retry. Oracle gateway still needs the CRC fix deployed and live logs checked.
 - Vehicles, devices, telemetry, alerts, geofences, POIs, speed zones, driver behavior scoring, and vehicle service history with due-date and estimated-distance reminders.
 - Reports in admin and portal: 13 report types, vehicle groups, period/conditional filters, CSV/Excel/Print, saved reports.
@@ -39,12 +40,13 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 ## Next product priorities
 
 1. Complete Trackvee mobile parity and release readiness; see `docs/FEATURE_MATRIX.md` for exact gaps.
-2. Device health center.
-3. Scheduled report delivery.
-4. Fuel monitoring and cost analytics.
+2. Scheduled report delivery.
+3. Fuel monitoring and cost analytics.
 
 ## Blockers
 
 Mobile foundation is in progress. Android export is verified; native-device interaction, remaining mobile parity, signed EAS builds, and store distribution setup remain. Production maintenance also requires migration 029 before the API restart.
+
+Gateway CRC-ITU/X-25 fix is pushed in commit `33f4685`. Pending production follow-up: pull/build/restart `yotrack-gateway` on Oracle, verify new GT06 packets no longer log CRC mismatch and still persist/ACK, then close KI-024. No additional drive test is required unless GPS persistence or ACK behavior regresses.
 
 See `docs/FEATURE_MATRIX.md` for feature parity and `KNOWN_ISSUES.md` for operational/regression constraints.

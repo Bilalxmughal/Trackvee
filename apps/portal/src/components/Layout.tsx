@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
-  IconBell, IconMap2, IconMapPin, IconChartBar, IconLogout, IconChevronDown, IconActivity, IconUsers, IconTool,
+  IconBell, IconMap2, IconMapPin, IconChartBar, IconLogout, IconChevronDown, IconActivity, IconUsers, IconTool, IconCpu,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePortalPanel } from '../contexts/PortalPanelContext';
@@ -11,7 +11,7 @@ function PanelButton({
   label, icon: Icon, panelKey, badge,
 }: {
   label: string; icon: React.ElementType;
-  panelKey: 'alerts' | 'geofences' | 'pois' | 'reports' | 'behavior' | 'users' | 'maintenance';
+  panelKey: 'alerts' | 'geofences' | 'pois' | 'reports' | 'behavior' | 'users' | 'maintenance' | 'device-health';
   badge?: number;
 }) {
   const { activePanel, openPanel } = usePortalPanel();
@@ -91,6 +91,7 @@ export default function Layout() {
           {canDo('driver-behavior', 'view') && <PanelButton panelKey="behavior"  icon={IconActivity} label="Behavior" />}
           {canDo('reports',         'view') && <PanelButton panelKey="reports"   icon={IconChartBar} label="Reports" />}
           {canDo('maintenance',     'view') && <PanelButton panelKey="maintenance" icon={IconTool} label="Maintenance" />}
+          {canDo('vehicles',        'view') && <PanelButton panelKey="device-health" icon={IconCpu} label="Device Health" />}
           {canDo('users',           'view') && (
             <>
               <div style={{ width: 1, height: 16, background: '#ebebeb', margin: '0 6px', flexShrink: 0 }} />

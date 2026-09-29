@@ -5,6 +5,9 @@ import { DevicesService } from '../devices/devices.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { User } from '../users/entities/user.entity.js';
+import { OrgPermissionsService } from '../org-permissions/org-permissions.service.js';
+import { RolePortalPermissionsService } from '../role-portal-permissions/role-portal-permissions.service.js';
+import { assertClientFeatureAccess } from '../org-permissions/client-feature-access.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
@@ -14,6 +17,8 @@ export class TelemetryController {
   constructor(
     private telemetryService: TelemetryService,
     private devicesService: DevicesService,
+    private orgPermissions: OrgPermissionsService,
+    private rolePermissions: RolePortalPermissionsService,
   ) {}
 
   // Internal endpoint called by TCP gateway — protected by shared API key
@@ -87,6 +92,16 @@ export class TelemetryController {
   @Get('live')
   getLive(@CurrentUser() user: User) {
     return this.telemetryService.getLiveLocations(user);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('device-health')
+  async getDeviceHealth(@CurrentUser() user: User, @Query('cityId') cityId?: string) {
+    if (!ADMIN_ROLES.includes(user.role)) {
+      await assertClientFeatureAccess(user, 'vehicles', 'view', this.orgPermissions, this.rolePermissions);
+    }
+    return this.telemetryService.getDeviceHealth(user, cityId);
   }
 
   @ApiBearerAuth()

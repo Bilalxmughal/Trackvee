@@ -14,6 +14,30 @@ import { User } from '../users/entities/user.entity.js';
 import { resolveVehicleLiveStatus, type VehicleLiveStatus, type VehicleMotionSample } from './vehicle-state.js';
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
+const DEVICE_ONLINE_MS = 2 * 60 * 1000;
+const DEVICE_OFFLINE_MS = 10 * 60 * 1000;
+const GPS_STALE_MS = 10 * 60 * 1000;
+const VOLTAGE_LABELS = ['No Power', 'Critical', 'Low', 'Medium', 'High', 'Full'];
+
+export interface DeviceHealthRow {
+  deviceId: string;
+  imei: string;
+  deviceName: string | null;
+  vehicle: { id: string; displayId: number; licensePlate: string | null; name: string } | null;
+  connection: 'online' | 'delayed' | 'offline' | 'never_seen';
+  lastPacketAt: Date | null;
+  lastGpsAt: Date | null;
+  lastGpsReceivedAt: Date | null;
+  trackerLagSeconds: number | null;
+  gps: 'good' | 'weak' | 'no_fix' | 'stale' | 'unknown';
+  satellites: number | null;
+  gsm: 'good' | 'fair' | 'weak' | 'unknown';
+  gsmSignal: number | null;
+  externalPower: 'connected' | 'disconnected' | 'unknown';
+  voltageLevel: string | null;
+  ignition: boolean | null;
+  issues: string[];
+}
 
 // Geospatial helpers
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -397,5 +421,88 @@ export class TelemetryService {
     }
 
     return results.map(point => ({ ...point, vehicleStatus: resolveVehicleLiveStatus(samplesByImei.get(point.imei) ?? []) }));
+  }
+
+  async getDeviceHealth(user: User, cityId?: string): Promise<DeviceHealthRow[]> {
+    const devices = await this.devicesService.findAll(user, cityId);
+    if (!devices.length) return [];
+
+    const imeis = devices.map(device => device.imei);
+    const latestRows = await this.repo.query<Array<{
+      imei: string; timestamp: Date | string; gps_valid: boolean; satellites: number;
+      gsm_signal: number | null; voltage_level: number | null; external_power: boolean | null;
+      ignition: boolean | null; created_at: Date | string;
+    }>>(`
+      SELECT DISTINCT ON (imei)
+        imei, timestamp, gps_valid, satellites, gsm_signal, voltage_level, external_power, ignition, created_at
+      FROM telemetry
+      WHERE imei = ANY($1::varchar[])
+      ORDER BY imei, timestamp DESC
+    `, [imeis]);
+    const latestByImei = new Map(latestRows.map(row => [row.imei, row]));
+    const now = Date.now();
+
+    return devices.map(device => {
+      const latest = latestByImei.get(device.imei);
+      const lastPacketAt = device.lastSeenAt;
+      const lastGpsAt = latest ? new Date(latest.timestamp) : null;
+      const lastGpsReceivedAt = latest ? new Date(latest.created_at) : null;
+      const trackerLagSeconds = latest && lastGpsReceivedAt && lastGpsAt
+        ? Math.round((lastGpsReceivedAt.getTime() - lastGpsAt.getTime()) / 1000) : null;
+      const packetAge = lastPacketAt ? Math.max(0, now - new Date(lastPacketAt).getTime()) : null;
+      const gpsAge = lastGpsReceivedAt ? Math.max(0, now - lastGpsReceivedAt.getTime()) : null;
+      const connection: DeviceHealthRow['connection'] = packetAge == null ? 'never_seen'
+        : packetAge <= DEVICE_ONLINE_MS ? 'online'
+        : packetAge <= DEVICE_OFFLINE_MS ? 'delayed' : 'offline';
+      const gps: DeviceHealthRow['gps'] = !latest ? 'unknown'
+        : gpsAge != null && gpsAge > GPS_STALE_MS ? 'stale'
+        : !latest.gps_valid ? 'no_fix'
+        : Number(latest.satellites) < 4 ? 'weak' : 'good';
+      const gsmSignal = latest?.gsm_signal ?? device.lastGsmSignal;
+      const gsm: DeviceHealthRow['gsm'] = gsmSignal == null ? 'unknown'
+        : gsmSignal <= 1 ? 'weak' : gsmSignal <= 3 ? 'fair' : 'good';
+      const externalPowerValue = latest?.external_power ?? device.lastExternalPower;
+      const externalPower: DeviceHealthRow['externalPower'] = externalPowerValue == null ? 'unknown'
+        : externalPowerValue ? 'connected' : 'disconnected';
+      const voltageValue = latest?.voltage_level ?? device.lastVoltageLevel;
+      const voltageLevel = voltageValue == null ? null : (VOLTAGE_LABELS[voltageValue] ?? `Level ${voltageValue}`);
+      const issues: string[] = [];
+
+      if (connection === 'never_seen') issues.push('Never connected');
+      else if (connection === 'offline') issues.push('No recent packets');
+      else if (connection === 'delayed') issues.push('Packets delayed');
+      if (gps === 'stale') issues.push('GPS data stale');
+      else if (gps === 'no_fix') issues.push('No GPS fix');
+      else if (gps === 'weak') issues.push('Weak GPS fix');
+      if (gsm === 'weak') issues.push('Weak GSM signal');
+      if (externalPower === 'disconnected') issues.push('External power off');
+      if (voltageValue != null && voltageValue <= 1) issues.push('Critical tracker voltage');
+      if (trackerLagSeconds != null && trackerLagSeconds > 120) issues.push(`Tracker timestamp is ${Math.round(trackerLagSeconds / 60)} min behind receipt`);
+
+      return {
+        deviceId: device.id,
+        imei: device.imei,
+        deviceName: device.name,
+        vehicle: device.vehicle ? {
+          id: device.vehicle.id,
+          displayId: device.vehicle.displayId,
+          licensePlate: device.vehicle.licensePlate,
+          name: device.vehicle.name,
+        } : null,
+        connection,
+        lastPacketAt,
+        lastGpsAt,
+        lastGpsReceivedAt,
+        trackerLagSeconds,
+        gps,
+        satellites: latest ? Number(latest.satellites) : null,
+        gsm,
+        gsmSignal,
+        externalPower,
+        voltageLevel,
+        ignition: latest?.ignition ?? device.lastIgnition,
+        issues,
+      };
+    });
   }
 }

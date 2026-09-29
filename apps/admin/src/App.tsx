@@ -11,6 +11,7 @@ import ClientsPage from './pages/ClientsPage';
 import ClientDetailPage from './pages/ClientDetailPage';
 import VehiclesPage from './pages/VehiclesPage';
 import DevicesPage from './pages/DevicesPage';
+import DeviceHealthPage from './pages/DeviceHealthPage';
 import TelemetryPage from './pages/TelemetryPage';
 import RoleAccessPage from './pages/RoleAccessPage';
 import AuditLogsPage from './pages/AuditLogsPage';
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="/vehicles" element={<RoleRoute page="vehicles"><VehiclesPage /></RoleRoute>} />
         <Route path="/maintenance" element={<RoleRoute page="maintenance"><MaintenancePage /></RoleRoute>} />
         <Route path="/devices" element={<RoleRoute page="devices"><DevicesPage /></RoleRoute>} />
+        <Route path="/device-health" element={<RoleRoute page="device-health"><DeviceHealthPage /></RoleRoute>} />
         <Route path="/telemetry" element={<RoleRoute page="telemetry"><TelemetryPage /></RoleRoute>} />
         <Route path="/map" element={<RoleRoute page="map"><MapPage /></RoleRoute>} />
         <Route path="/client-users" element={<RoleRoute page="client-users"><ClientUsersPage /></RoleRoute>} />

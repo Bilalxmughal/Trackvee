@@ -6,7 +6,16 @@ import { useTheme } from '../contexts/ThemeContext';
 
 interface Stats { users: number; organizations: number; vehicles: number; devices: number; }
 interface LivePoint { imei: string; speedKmh: number; ignition?: boolean | null; timestamp: string; }
-interface DeviceRow { id: string; imei: string; lastSeenAt: string | null; lastGsmSignal: number | null; lastVoltageLevel: number | null; status: string; vehicle?: { licensePlate: string | null } | null; }
+interface DeviceHealthRow {
+  deviceId: string;
+  imei: string;
+  connection: 'online' | 'delayed' | 'offline' | 'never_seen';
+  lastPacketAt: string | null;
+  gsmSignal: number | null;
+  voltageLevel: string | null;
+  issues: string[];
+  vehicle?: { licensePlate: string | null } | null;
+}
 interface AlertRow { id: string; name: string; type: string; active: boolean; }
 
 function getGreeting(): { text: string; sub: string } {
@@ -97,7 +106,7 @@ function SignalBars({ level, color }: { level: number; color: string }) {
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [livePoints, setLivePoints] = useState<LivePoint[]>([]);
-  const [devices, setDevices] = useState<DeviceRow[]>([]);
+  const [devices, setDevices] = useState<DeviceHealthRow[]>([]);
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const { user } = useAuth();
   const { selectedCityId } = useCityFilter();
@@ -113,7 +122,7 @@ export default function DashboardPage() {
       api.get<{ id: string }[]>(`/vehicles${p}`),
       api.get<{ id: string }[]>(`/devices${p}`),
       api.get<LivePoint[]>('/telemetry/live'),
-      api.get<DeviceRow[]>(`/devices${p}`),
+      api.get<DeviceHealthRow[]>(`/telemetry/device-health${p}`),
       api.get<AlertRow[]>('/alerts'),
     ]).then(([u, o, v, d, live, devFull, al]) => {
       setStats({ users: Array.isArray(u.data) ? u.data.length : 0, organizations: Array.isArray(o.data) ? o.data.length : 0, vehicles: Array.isArray(v.data) ? v.data.length : 0, devices: Array.isArray(d.data) ? d.data.length : 0 });
@@ -146,13 +155,12 @@ export default function DashboardPage() {
   })).sort((a, b) => b.value - a.value);
 
   // Device health
-  const now = Date.now();
   const deviceHealth = useMemo(() => {
-    const online = devices.filter(d => d.lastSeenAt && (now - new Date(d.lastSeenAt).getTime()) < 60 * 60 * 1000).length;
-    const offline = devices.length - online;
-    const weakSignal = devices.filter(d => d.lastGsmSignal !== null && d.lastGsmSignal <= 1).length;
-    const lowBattery = devices.filter(d => d.lastVoltageLevel !== null && d.lastVoltageLevel <= 1).length;
-    return { online, offline, weakSignal, lowBattery };
+    const online = devices.filter(d => d.connection === 'online').length;
+    const delayed = devices.filter(d => d.connection === 'delayed').length;
+    const offline = devices.filter(d => d.connection === 'offline' || d.connection === 'never_seen').length;
+    const issues = devices.filter(d => d.issues.length > 0).length;
+    return { online, delayed, offline, issues };
   }, [devices]);
 
   const cardStyle = { padding: '18px 20px', background: 'var(--bg2)', borderRadius: 10 };
@@ -219,9 +227,9 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
               { label: 'Online', value: deviceHealth.online },
-              { label: 'Offline (>1hr)', value: deviceHealth.offline },
-              { label: 'Weak Signal', value: deviceHealth.weakSignal },
-              { label: 'Low Battery', value: deviceHealth.lowBattery },
+              { label: 'Delayed (2–10 min)', value: deviceHealth.delayed },
+              { label: 'Offline / Never connected', value: deviceHealth.offline },
+              { label: 'With health issues', value: deviceHealth.issues },
             ].map(item => (
               <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${dark ? '#222' : '#f3f4f6'}` }}>
                 <span style={{ fontSize: 12, color: dark ? '#ccc' : '#555' }}>{item.label}</span>
@@ -233,9 +241,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent offline devices */}
-      {devices.filter(d => d.lastSeenAt && (now - new Date(d.lastSeenAt).getTime()) > 60 * 60 * 1000).length > 0 && (
+      {devices.filter(d => d.connection === 'offline' || d.connection === 'never_seen').length > 0 && (
         <div style={cardStyle}>
-          <div style={labelStyle}>Offline Devices (&gt;1 hour)</div>
+          <div style={labelStyle}>Offline / Never Connected Devices</div>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
@@ -246,21 +254,21 @@ export default function DashboardPage() {
             </thead>
             <tbody>
               {devices
-                .filter(d => d.lastSeenAt && (now - new Date(d.lastSeenAt).getTime()) > 60 * 60 * 1000)
+                .filter(d => d.connection === 'offline' || d.connection === 'never_seen')
                 .slice(0, 8)
                 .map(d => {
-                  const age = d.lastSeenAt ? Math.round((now - new Date(d.lastSeenAt).getTime()) / 60000) : null;
-                  const ageStr = age === null ? '—' : age < 60 ? `${age}m ago` : `${Math.floor(age / 60)}h ${age % 60}m ago`;
-                  const sig = d.lastGsmSignal ?? 0;
+                  const age = d.lastPacketAt ? Math.max(0, Math.floor((Date.now() - new Date(d.lastPacketAt).getTime()) / 60000)) : null;
+                  const ageStr = age === null ? 'Never' : age < 60 ? `${age}m ago` : `${Math.floor(age / 60)}h ${age % 60}m ago`;
+                  const sig = d.gsmSignal ?? 0;
                   const sigColor = sig <= 1 ? '#dc2626' : sig <= 2 ? '#f59e0b' : '#16a34a';
                   return (
-                    <tr key={d.id} style={{ borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}` }}>
+                    <tr key={d.deviceId} style={{ borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}` }}>
                       <td style={{ padding: '9px 0', fontSize: 11.5, fontFamily: 'monospace', color: 'var(--text2)' }}>{d.imei}</td>
                       <td style={{ padding: '9px 0', fontSize: 12, color: 'var(--text)' }}>{d.vehicle?.licensePlate ?? '—'}</td>
                       <td style={{ padding: '9px 0', fontSize: 11.5, color: '#dc2626' }}>{ageStr}</td>
                       <td style={{ padding: '9px 0' }}><SignalBars level={sig} color={sigColor}/></td>
-                      <td style={{ padding: '9px 0', fontSize: 11.5, color: d.lastVoltageLevel !== null && d.lastVoltageLevel <= 1 ? '#dc2626' : 'var(--text2)' }}>
-                        {d.lastVoltageLevel !== null ? `L${d.lastVoltageLevel}` : '—'}
+                      <td style={{ padding: '9px 0', fontSize: 11.5, color: d.issues.includes('Critical tracker voltage') ? '#dc2626' : 'var(--text2)' }}>
+                        {d.voltageLevel ?? '—'}
                       </td>
                     </tr>
                   );

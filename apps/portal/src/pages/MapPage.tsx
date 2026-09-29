@@ -13,6 +13,7 @@ import POIsPanel, { type POI } from '../components/POIsPanel';
 import ReportsModal from '../components/ReportsModal';
 import DriverBehaviorModal from '../components/DriverBehaviorModal';
 import MaintenancePanel from '../components/MaintenancePanel';
+import DeviceHealthPanel from '../components/DeviceHealthPanel';
 import UsersModal from '../components/UsersModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1643,7 +1644,9 @@ export default function PortalMapPage() {
         border: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', zIndex: 400,
         overflow: 'hidden',
       }}>
-        {activePanel === 'maintenance' ? (
+        {activePanel === 'device-health' ? (
+          <DeviceHealthPanel onClose={closePanel} />
+        ) : activePanel === 'maintenance' ? (
           <MaintenancePanel onClose={closePanel} />
         ) : activePanel === 'alerts' ? (
           <AlertsPanel alerts={alerts} loading={alertsLoading}
