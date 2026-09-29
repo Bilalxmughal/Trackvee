@@ -300,3 +300,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Problem:** The mobile service form offers 500–10,000 km steps. Persisting the selected step as an absolute due odometer makes a vehicle whose current estimated odometer is already higher appear overdue even when its due date is in the future.
 
 **Rule:** Treat the selected value as distance after service. Require the entered service odometer and persist `serviceOdometerKm + selectedIntervalKm` as `nextDueOdometerKm`. The API correctly marks a record overdue when either its due date has passed or its estimated current odometer has reached the absolute due odometer.
+
+---
+
+## KI-024 — GT06 CRC warnings from the wrong checksum variant
+
+**Status:** Fixed in source; Oracle deployment verification pending
+
+**Area:** Gateway / GT06 protocol
+
+**Cause:** The parser calculated CRC-16/IBM (`0xA001`), but captured GT06 login, heartbeat, and GPS frames use CRC-ITU/X-25 (`0x8408`, init/final XOR `0xFFFF`). It logged false non-fatal mismatch warnings while still processing packets.
+
+**Rule:** Keep checksum coverage from the length byte through the serial number and keep the captured frames' big-endian checksum byte order. Do not reject frames or alter GPS ACK behavior for this fix. After deployment, verify CRC warnings stop while GPS persistence and tracker ACKs continue.

@@ -28,12 +28,12 @@ PostgreSQL remains the persistent source of truth.
 
 ---
 
-## DEC-003 — AT06 over TCP on port 5023
+## DEC-003 — GT06 over TCP on port 5023
 
 **Status:** Accepted
 
 **Decision:**
-ATS-GO / AOT06 devices communicate with the YoTrack gateway using the AT06 TCP protocol on port 5023.
+The deployed tracker communicates with the YoTrack gateway using binary GT06 frames over TCP port 5023. Captured production login, heartbeat, and GPS frames verify GT06 framing and CRC-ITU/X-25.
 
 **Rule:**
 Protocol changes must be deliberate and tested against actual device packets.

@@ -37,22 +37,20 @@ Organizations have multiple users/roles and strict tenant isolation. One organiz
 |---|---|
 | Brand | Auto Telematics Pvt. Ltd. |
 | Model Label | ATS-GO |
-| Protocol Model | AOT06 / AT06 |
+| Protocol Model | GT06 (verified against captured production frames) |
 | Test IMEI | 352312094973289 |
 | SIM Operator | Ufone (Postpaid) |
 | Voltage | 9-90V |
 | Connection | Direct hardwire (3 wires) |
 | Positioning | GPS + BDS + LBS |
 
-### AT06 Protocol
+### GT06 Protocol
 
 - Transport: TCP over GPRS
-- Format: Text-based, pipe-delimited ASCII
-- Header: `$$`
-- CRC: CRC-16 Modbus
+- Format: Binary short frames, header `0x7878`
+- CRC: CRC-ITU/X-25 (`0x8408`, initial/final XOR `0xFFFF`)
 - Gateway port: `5023`
-- Frame:
-  `$$[Len][IMEI]|[Alarm][UTCTime]|[GPSStatus]|[Lat]|[N/S]|[Lon]|[E/W]|[Speed]|[Heading]|[HDOP]|[Status]|[Voltage]|[ADC]|[LACCI]|[Temp]|[Mileage]|[Serial]|[CRC]`
+- CRC covers the length field through the packet serial number; checksum bytes are high-byte first.
 
 ### Device Reconfiguration SMS
 

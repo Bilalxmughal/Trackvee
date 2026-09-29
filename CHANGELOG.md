@@ -7,6 +7,7 @@
 ## 2026-09-29
 
 ### Added
+- [Gateway/Protocol] Corrected GT06 CRC from CRC-16/IBM to CRC-ITU/X-25 after validating 109 captured production frames; added captured-frame regression tests. Checksum warnings remain diagnostic-only.
 - [API/Admin/Portal/Mobile] Added grouped vehicle selection and flat service logging with standard/custom service types, `DD-MM-YYYY` dates, and a service-type Maintenance alert rule. Date and estimated-distance reminders are evaluated on the next valid telemetry packet; push uses each rule's notification settings. Migration 029 is required before API deployment.
 
 ## 2026-09-28

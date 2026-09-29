@@ -36,7 +36,8 @@ export function parseGt06Frame(buf: Buffer): Gt06ParseResult {
   // CRC covers from length byte to serial (excludes start, crc, end)
   const crcCalc = crc16Gt06(buf, 2, endIdx - 2);
   const crcRecv = (buf[endIdx - 2]! << 8) | buf[endIdx - 1]!;
-  // NOTE: CRC algorithm TBD — log mismatch but continue processing
+  // Keep checksum failures diagnostic-only: real devices may still send useful
+  // frames with damaged checksums, and GPS persistence/ACK policy is handled separately.
   if (crcCalc !== crcRecv) {
     console.warn(`[GT06] CRC mismatch (non-fatal): calc=0x${crcCalc.toString(16)} recv=0x${crcRecv.toString(16)}`);
   }
