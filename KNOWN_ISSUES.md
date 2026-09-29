@@ -167,7 +167,7 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 
 **Rule:** Await bounded API persistence before ACKing valid GPS frames; serialize socket parsing and close without ACK after persistence retries fail. Keep client poll requests serial or discard stale responses. Confirm Oracle gateway deployment and inspect live telemetry timestamps after release; UI polling cannot compensate for a tracker configured to report infrequently.
 
-**Production verification blocker:** Product docs identify the ATS-GO/AOT06 device as text-based AT06, while `apps/gateway/src/index.ts` starts a GT06 binary decoder. The separate API AT06 parser is in `TrackerModule`, which is not imported by `AppModule`. Before claiming device-to-map verification or running a gateway load test, confirm the actual device frame and active Oracle process protocol; then test the matching decoder end to end.
+**Production verification:** A 2026-09-29 Oracle log sample shows the ATS-GO IMEI producing valid GPS frames that the active GT06 gateway parses and persists, so the protocol-name mismatch in product docs/source is not evidence that this device's frames are being rejected. In that sample, tracker timestamps lag gateway receipt by about 80–111 seconds for one batch and 10–14 seconds later; API persistence follows gateway receipt in about 6–11 ms. Socket read timeouts also recur. Continue checking DB packet intervals and device/cellular send behavior; reconcile the documented AT06 label with the protocol that actually works before changing protocol code.
 
 ---
 
