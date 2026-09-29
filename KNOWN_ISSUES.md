@@ -167,6 +167,8 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 
 **Rule:** Await bounded API persistence before ACKing valid GPS frames; serialize socket parsing and close without ACK after persistence retries fail. Keep client poll requests serial or discard stale responses. Confirm Oracle gateway deployment and inspect live telemetry timestamps after release; UI polling cannot compensate for a tracker configured to report infrequently.
 
+**Production verification blocker:** Product docs identify the ATS-GO/AOT06 device as text-based AT06, while `apps/gateway/src/index.ts` starts a GT06 binary decoder. The separate API AT06 parser is in `TrackerModule`, which is not imported by `AppModule`. Before claiming device-to-map verification or running a gateway load test, confirm the actual device frame and active Oracle process protocol; then test the matching decoder end to end.
+
 ---
 
 ## KI-013 — Geofence and POI CRUD must enforce tenant and module access
