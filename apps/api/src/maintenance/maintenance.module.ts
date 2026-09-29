@@ -11,5 +11,6 @@ import { RolePortalPermissionsModule } from '../role-portal-permissions/role-por
   imports: [TypeOrmModule.forFeature([MaintenanceRecord, Vehicle]), OrgPermissionsModule, RolePortalPermissionsModule],
   providers: [MaintenanceService],
   controllers: [MaintenanceController],
+  exports: [MaintenanceService],
 })
 export class MaintenanceModule {}

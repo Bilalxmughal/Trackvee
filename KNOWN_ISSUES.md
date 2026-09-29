@@ -274,3 +274,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Rule:** Keep GPS-derived mileage labeled Estimated, require the entered service odometer baseline before evaluating distance thresholds, and never represent the estimate as an authoritative odometer. Date reminders work independently. Apply migration `029_maintenance_records.sql` before deploying the API.
 
 **Alert timing:** Service-type alert rules evaluate on the vehicle's next valid telemetry packet. They do not currently run from a wall-clock scheduler, so a vehicle that stops reporting will not receive an alert exactly at its due time until reporting resumes.
+
+---
+
+## KI-022 — Cross-module Nest providers must be exported
+
+**Status:** Regression rule
+
+**Area:** API / NestJS module wiring
+
+**Problem:** The API failed to bootstrap when `TelemetryService` injected `MaintenanceService` from `MaintenanceModule`; importing the module alone does not expose its provider.
+
+**Rule:** Any provider injected by a different Nest module must be listed in the owning module's `exports`. Verify module dependency injection at application startup, not only with TypeScript compilation.
