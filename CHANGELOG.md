@@ -32,6 +32,7 @@
 - [API] Enforced Driver Behavior role permissions and tenant/custom vehicle scope, whitelisted settings fields, kept score deletion internal-admin-only, and added authorization regression tests.
 
 ### Changed
+- [Mobile] Improved Log Service with searchable grouped vehicle selection, modal service-type and calendar pickers, separate service/due/reminder sections, required-field markers, 500–10,000 km service intervals converted to absolute due odometer, blank reminder defaults, and removed Provider from the form.
 - [Mobile] Fixed alert-tone preview cleanup calling `pause()` after Expo Audio had released its native player.
 - [Admin] Kept the Settings side menu stable while switching between Cities and Notifications in place.
 - [Admin] Moved Notification Sounds under Settings, directly below Cities, while preserving its existing role-based access and legacy URL.

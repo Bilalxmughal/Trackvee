@@ -286,3 +286,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Problem:** The API failed to bootstrap when `TelemetryService` injected `MaintenanceService` from `MaintenanceModule`; importing the module alone does not expose its provider.
 
 **Rule:** Any provider injected by a different Nest module must be listed in the owning module's `exports`. Verify module dependency injection at application startup, not only with TypeScript compilation.
+
+---
+
+## KI-023 — Mobile maintenance distance selection is an interval
+
+**Status:** Regression rule
+
+**Area:** Mobile / Maintenance reminders
+
+**Problem:** The mobile service form offers 500–10,000 km steps. Persisting the selected step as an absolute due odometer makes a vehicle whose current estimated odometer is already higher appear overdue even when its due date is in the future.
+
+**Rule:** Treat the selected value as distance after service. Require the entered service odometer and persist `serviceOdometerKm + selectedIntervalKm` as `nextDueOdometerKm`. The API correctly marks a record overdue when either its due date has passed or its estimated current odometer has reached the absolute due odometer.

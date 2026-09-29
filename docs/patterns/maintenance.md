@@ -7,7 +7,7 @@
 - Reminder state is `scheduled`, `upcoming`, or `overdue`; due thresholds use the record's lead-time settings (defaults: 30 days and 500 km).
 - Date reminders use the service's entered next-due date. Distance reminders require an entered service odometer; current distance is that baseline plus GPS-derived distance since service and must be labeled Estimated. It is not a tracker odometer reading.
 - The current implementation surfaces upcoming/overdue states in the Maintenance list. It does not send scheduled push notifications.
-- Service logging uses grouped organization vehicle options. Standard types are Engine Oil, Tuning, Oil Filter, Air Filter, AC Filter, Fuel Filter, Brake Pads, Brake Fluid, Coolant, Transmission Oil, Battery, Tyre Rotation, General Inspection, and Other; Other stores a required custom type.
+- Service logging uses searchable grouped organization vehicle options. Standard types are Engine Oil, Tuning, Oil Filter, Air Filter, AC Filter, Fuel Filter, Brake Pads, Brake Fluid, Coolant, Transmission Oil, Battery, Tyre Rotation, General Inspection, and Other; Other stores a required custom type. In mobile, the 500–10,000 km picker is an interval after service, not an absolute odometer; add it to the entered service odometer before saving `nextDueOdometerKm`.
 - Service and due dates display as `DD-MM-YYYY`; API payloads remain strict `YYYY-MM-DD`.
 - Maintenance alert rules select a service type and fire once per latest matching service record when its configured date or estimated-distance reminder window starts or becomes overdue. Evaluation runs on the vehicle's next valid telemetry packet; push follows the alert's mobile push and sound settings. A newly logged matching service creates a new reminder cycle.
 
