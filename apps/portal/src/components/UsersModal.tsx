@@ -13,6 +13,7 @@ interface OrgPerm {
   driverBehaviorView: boolean | null; driverBehaviorEdit: boolean | null;
   reportsView: boolean | null;
   usersView: boolean | null; usersAdd: boolean | null; usersEdit: boolean | null; usersDelete: boolean | null;
+  maintenanceView: boolean | null; maintenanceAdd: boolean | null; maintenanceEdit: boolean | null; maintenanceDelete: boolean | null;
   vehicleIds: string[] | null;
 }
 
@@ -35,6 +36,7 @@ const ROLE_COLOR: Record<string, string> = {
 
 // All possible permission modules — dynamically filtered by current user's canDo
 const ALL_MODULES: { portalKey: string; permKey: string; label: string; actions: string[] }[] = [
+  { portalKey: 'maintenance', permKey: 'maintenance', label: 'Maintenance', actions: ['View', 'Add', 'Edit', 'Delete'] },
   { portalKey: 'vehicles',        permKey: 'vehicles',       label: 'Vehicles',       actions: ['View', 'Add', 'Edit', 'Delete'] },
   { portalKey: 'alerts',          permKey: 'alerts',         label: 'Alerts',         actions: ['View', 'Add', 'Edit', 'Delete'] },
   { portalKey: 'geofences',       permKey: 'geofences',      label: 'Geofences',      actions: ['View', 'Add', 'Edit', 'Delete'] },
@@ -57,6 +59,7 @@ function defaultPerms(): OrgPerm {
     driverBehaviorView: false, driverBehaviorEdit: false,
     reportsView: false,
     usersView: false, usersAdd: false, usersEdit: false, usersDelete: false,
+    maintenanceView: false, maintenanceAdd: false, maintenanceEdit: false, maintenanceDelete: false,
     vehicleIds: null,
   };
 }

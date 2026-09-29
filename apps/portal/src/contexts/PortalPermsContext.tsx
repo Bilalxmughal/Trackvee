@@ -10,10 +10,10 @@ interface PortalPermsContextValue {
 const Ctx = createContext<PortalPermsContextValue | null>(null);
 
 const FALLBACK: Record<string, Record<string, string[]>> = {
-  client_owner:       { vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit','delete'] },
-  client_super_admin: { vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit'] },
-  client_admin:       { vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'], reports: ['view'], users: ['view','add','edit'] },
-  client_user:        { vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'], reports: ['view'] },
+  client_owner:       { vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], maintenance: ['view','add','edit','delete'], reports: ['view'], users: ['view','add','edit','delete'] },
+  client_super_admin: { vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], maintenance: ['view','add','edit','delete'], reports: ['view'], users: ['view','add','edit'] },
+  client_admin:       { vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'], maintenance: ['view','add','edit'], reports: ['view'], users: ['view','add','edit'] },
+  client_user:        { vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'], maintenance: ['view'], reports: ['view'] },
 };
 
 export function PortalPermsProvider({ children }: { children: ReactNode }) {
@@ -39,6 +39,7 @@ export function PortalPermsProvider({ children }: { children: ReactNode }) {
       if (orgPerm) for (const [feature, prefix] of Object.entries({
         vehicles: 'vehicles', alerts: 'alerts', geofences: 'geofences', pois: 'pois',
         'driver-behavior': 'driverBehavior', reports: 'reports', users: 'users',
+        maintenance: 'maintenance',
       })) {
         const actions = feature === 'reports' ? ['view'] : feature === 'driver-behavior' ? ['view', 'edit'] : ['view', 'add', 'edit', 'delete'];
         const roleActions = next[feature] ?? [];

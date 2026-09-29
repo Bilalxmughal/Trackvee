@@ -14,10 +14,10 @@ interface OrgRolePermsContextValue {
 const Ctx = createContext<OrgRolePermsContextValue | null>(null);
 
 const FALLBACK: OrgPermsMap = {
-  client_owner:       { dashboard: ['view'], map: ['view'], vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], users: ['view','add','edit','delete'] },
-  client_super_admin: { dashboard: ['view'], map: ['view'], vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], users: ['view','add','edit'] },
-  client_admin:       { dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'], reports: ['view'], users: ['view','add','edit'] },
-  client_user:        { dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'], reports: ['view'] },
+  client_owner:       { dashboard: ['view'], map: ['view'], vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], maintenance: ['view','add','edit','delete'], users: ['view','add','edit','delete'] },
+  client_super_admin: { dashboard: ['view'], map: ['view'], vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], maintenance: ['view','add','edit','delete'], users: ['view','add','edit'] },
+  client_admin:       { dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'], maintenance: ['view','add','edit'], reports: ['view'], users: ['view','add','edit'] },
+  client_user:        { dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'], maintenance: ['view'], reports: ['view'] },
 };
 
 export function OrgRolePermsProvider({ children }: { children: ReactNode }) {

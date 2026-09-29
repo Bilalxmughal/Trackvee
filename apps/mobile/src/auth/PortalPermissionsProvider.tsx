@@ -5,10 +5,10 @@ import { useAuth } from './AuthProvider';
 type RoleMap = Record<string, string[]>;
 type OrgPerm = Record<string, boolean | string[] | null>;
 const FALLBACK: Record<string, RoleMap> = {
-  client_owner: { map: ['view'], vehicles: ['view'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit','delete'], engine_cut: ['view'] },
-  client_super_admin: { map: ['view'], vehicles: ['view'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], reports: ['view'], users: ['view','add','edit'], engine_cut: ['view'] },
-  client_admin: { map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'], reports: ['view'], users: ['view','add','edit'] },
-  client_user: { map: ['view'], vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'], reports: ['view'] },
+  client_owner: { map: ['view'], vehicles: ['view'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], maintenance: ['view','add','edit','delete'], reports: ['view'], users: ['view','add','edit','delete'], engine_cut: ['view'] },
+  client_super_admin: { map: ['view'], vehicles: ['view'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], maintenance: ['view','add','edit','delete'], reports: ['view'], users: ['view','add','edit'], engine_cut: ['view'] },
+  client_admin: { map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'], maintenance: ['view','add','edit'], reports: ['view'], users: ['view','add','edit'] },
+  client_user: { map: ['view'], vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'], maintenance: ['view'], reports: ['view'] },
 };
 interface PermissionValue { canDo: (feature: string, action?: string) => boolean; loading: boolean; }
 const Context = createContext<PermissionValue | null>(null);
@@ -34,6 +34,7 @@ export function PortalPermissionsProvider({ children }: React.PropsWithChildren)
         if (orgPerm) for (const [feature, prefix] of Object.entries({
           vehicles: 'vehicles', alerts: 'alerts', geofences: 'geofences', pois: 'pois',
           'driver-behavior': 'driverBehavior', reports: 'reports', users: 'users',
+          maintenance: 'maintenance',
         })) {
           const actions = feature === 'reports' ? ['view'] : feature === 'driver-behavior' ? ['view', 'edit'] : ['view', 'add', 'edit', 'delete'];
           const roleActions = next[feature] ?? [];

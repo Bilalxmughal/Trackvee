@@ -9,6 +9,7 @@ Use this router after reading `AGENTS.md` and `CURRENT_STATE.md`. Load only the 
 | Users, roles, portal permissions | `docs/patterns/users-permissions.md` | admin `roles.ts`/`RoleAccessPage.tsx`, portal permission context/users modal |
 | Alerts, geofences, POIs, speed zones | `docs/patterns/alerts-geofences-pois.md` | corresponding API modules and admin/portal panels |
 | Driver behavior | `docs/patterns/driver-behavior.md` | API module and admin/portal behavior components |
+| Maintenance and service history | `docs/patterns/maintenance.md` | API `maintenance/`, admin `MaintenancePage.tsx`, portal `MaintenancePanel.tsx`, mobile `maintenance.tsx` |
 | Mobile app, Expo, navigation, mobile UI | `docs/patterns/mobile.md` | future `apps/mobile`, existing API and portal behavior |
 | Shared UI, forms, modals, dates, selection controls | `docs/patterns/ui.md` | closest existing admin and portal components |
 | Deployment or production state | `docs/DEPLOYMENT.md`, relevant `KNOWN_ISSUES.md` | workspace scripts, PM2, Vercel settings |

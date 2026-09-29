@@ -61,6 +61,19 @@ pnpm --filter api build
 pm2 restart yotrack-api
 ```
 
+Maintenance service history and role grants require migration `029_maintenance_records.sql`. Apply it on Oracle before deploying the maintenance API:
+
+```bash
+cd ~/yotrack
+set -a
+. ./.env
+set +a
+: "${DATABASE_URL:?DATABASE_URL is not set in .env}"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/api/migrations/029_maintenance_records.sql
+pnpm --filter api build
+pm2 restart yotrack-api
+```
+
 The mobile dynamic sound module needs one signed EAS build after it is first added. Once that version is installed, adding or deactivating uploaded catalogue sounds is server-side and does not require another app build. Use device QA for Android and iOS push playback.
 
 ## Nginx

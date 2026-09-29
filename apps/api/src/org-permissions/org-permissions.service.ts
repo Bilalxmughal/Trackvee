@@ -11,6 +11,7 @@ export interface OrgPermDto {
   driverBehaviorView?: boolean | null; driverBehaviorEdit?: boolean | null;
   reportsView?: boolean | null;
   usersView?: boolean | null; usersAdd?: boolean | null; usersEdit?: boolean | null; usersDelete?: boolean | null;
+  maintenanceView?: boolean | null; maintenanceAdd?: boolean | null; maintenanceEdit?: boolean | null; maintenanceDelete?: boolean | null;
   vehicleIds?: string[] | null;
 }
 
@@ -49,6 +50,7 @@ export class OrgPermissionsService {
       poisView: true, poisAdd: true, poisEdit: true, poisDelete: true,
       driverBehaviorView: null, driverBehaviorEdit: null, reportsView: null,
       usersView: null, usersAdd: null, usersEdit: null, usersDelete: null,
+      maintenanceView: null, maintenanceAdd: null, maintenanceEdit: null, maintenanceDelete: null,
       vehicleIds: null,
       createdAt: new Date(), updatedAt: new Date(),
     };

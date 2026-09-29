@@ -27,7 +27,8 @@ Organizations have multiple users/roles and strict tenant isolation. One organiz
 - Driver behavior scoring
 - Alerts and geofences
 - POIs
-- Mobile app planned
+- Vehicle maintenance service history and due reminders
+- Mobile client app (Expo SDK 57)
 - Public website planned
 
 ## 3. Device
@@ -73,7 +74,7 @@ PostgreSQL       Redis
     ↓
 apps/admin  — React Admin Portal (Vercel)
 apps/portal — React Client Portal (Vercel, same build)
-apps/mobile — React Native (planned)
+apps/mobile — React Native + Expo client app
 apps/website — Next.js (planned)
 ```
 
@@ -98,7 +99,7 @@ apps/website — Next.js (planned)
 | Real-time | Socket.io via NestJS |
 | Admin / Portal | React 18 + Vite + TypeScript |
 | Map | react-leaflet v4 + OpenStreetMap |
-| Mobile | React Native (planned) |
+| Mobile | React Native + Expo SDK 57 |
 | Website | Next.js (planned) |
 | Package Manager | pnpm workspaces |
 | Language | TypeScript |
@@ -208,7 +209,7 @@ pm2 restart yotrack-api
 | 6 — Client Portal | Complete |
 | 7 — Driver Behavior | Complete |
 | Feature Backlog | Ongoing |
-| 8 — Mobile App | Planned |
+| 8 — Mobile App | In Progress |
 | 9 — Public Website | Planned |
 
 ## 12. Documentation System

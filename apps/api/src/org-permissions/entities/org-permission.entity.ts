@@ -39,6 +39,10 @@ export class OrgPermission {
   @Column({ name: 'users_add', type: 'boolean', nullable: true, default: null }) usersAdd: boolean | null;
   @Column({ name: 'users_edit', type: 'boolean', nullable: true, default: null }) usersEdit: boolean | null;
   @Column({ name: 'users_delete', type: 'boolean', nullable: true, default: null }) usersDelete: boolean | null;
+  @Column({ name: 'maintenance_view', type: 'boolean', nullable: true, default: null }) maintenanceView: boolean | null;
+  @Column({ name: 'maintenance_add', type: 'boolean', nullable: true, default: null }) maintenanceAdd: boolean | null;
+  @Column({ name: 'maintenance_edit', type: 'boolean', nullable: true, default: null }) maintenanceEdit: boolean | null;
+  @Column({ name: 'maintenance_delete', type: 'boolean', nullable: true, default: null }) maintenanceDelete: boolean | null;
 
   @Column({ name: 'vehicle_ids', type: 'text', array: true, nullable: true, default: () => 'NULL' })
   vehicleIds: string[] | null;

@@ -4,6 +4,11 @@
 
 ---
 
+## 2026-09-29
+
+### Added
+- [API/Admin/Portal/Mobile] Added grouped vehicle selection and flat service logging with standard/custom service types, `DD-MM-YYYY` dates, and a service-type Maintenance alert rule. Date and estimated-distance reminders are evaluated on the next valid telemetry packet; push uses each rule's notification settings. Migration 029 is required before API deployment.
+
 ## 2026-09-28
 
 ### Added

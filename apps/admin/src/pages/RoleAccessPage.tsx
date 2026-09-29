@@ -15,6 +15,7 @@ const PAGES: PageRow[] = [
   { key: 'telemetry', label: 'Telemetry',       group: 'Core',           actions: ['view'] },
   { key: 'clients',   label: 'Clients',         group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'vehicles',  label: 'Vehicles',        group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
+  { key: 'maintenance', label: 'Maintenance', group: 'Management', actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'devices',   label: 'Devices',         group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'setup',     label: 'Setup Guide',     group: 'Management',     actions: ['view'] },
   { key: 'users',       label: 'User Management', group: 'Administration', actions: ['view', 'add', 'edit', 'delete'] },
@@ -30,6 +31,7 @@ const ORG_PAGES: PageRow[] = ORG_PORTAL_PAGES;
 
 const TOPBAR_ROWS: TopbarRow[] = [
   { key: 'alerts',      label: 'Alerts' },
+  { key: 'maintenance', label: 'Maintenance' },
   { key: 'geofences',   label: 'Geofences' },
   { key: 'pois',        label: 'POIs' },
   { key: 'engine_cut',  label: 'Engine Cut' },

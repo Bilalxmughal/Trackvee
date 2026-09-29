@@ -9,7 +9,8 @@ import { AlertSoundSettings, MobileAlertSoundId } from './AlertSoundSettings';
 
 type Rule = { id: string; name: string; type: string; active: boolean; config: Record<string, string | number>; schedule?: Record<string, unknown> | null; notifications?: { appPush?: boolean; appSound?: boolean; appSoundId?: MobileAlertSoundId; webPush?: boolean; webSound?: boolean; email?: boolean }; vehicleImeis: string[]; excludedVehicleImeis?: string[] };
 type Zone = { id: string; name: string };
-const TYPES = ['over_speed', 'idle', 'ignition_on', 'ignition_off', 'power_cut', 'low_battery', 'no_gps', 'offline', 'tow', 'over_parking', 'geofence', 'poi', 'low_score', 'speed_zone'] as const;
+const TYPES = ['over_speed', 'idle', 'ignition_on', 'ignition_off', 'power_cut', 'low_battery', 'no_gps', 'offline', 'tow', 'over_parking', 'geofence', 'poi', 'low_score', 'speed_zone', 'maintenance'] as const;
+const SERVICE_TYPES = ['Engine Oil','Tuning','Oil Filter','Air Filter','AC Filter','Fuel Filter','Brake Pads','Brake Fluid','Coolant','Transmission Oil','Battery','Tyre Rotation','General Inspection','Other'];
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
 export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false }: { visible: boolean; imei: string; onClose: () => void; fullScreen?: boolean }) {
@@ -30,6 +31,7 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
   const [notifications, setNotifications] = useState<Rule['notifications']>({});
   const [typeOpen, setTypeOpen] = useState(false);
   const [zoneOpen, setZoneOpen] = useState(false);
+  const [serviceTypeOpen, setServiceTypeOpen] = useState(false);
   const requestId = useRef(0);
   const load = useCallback(async () => {
     if (!imei || !visible) return;
@@ -60,6 +62,7 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
     if (requiredNumber && !(Number(config[requiredNumber]) > 0)) { setError(`Enter a valid ${label(requiredNumber).toLowerCase()}.`); return; }
     const requiredZone = type === 'geofence' || type === 'speed_zone' ? 'geofenceId' : type === 'poi' ? 'poiId' : null;
     if (requiredZone && !config[requiredZone]) { setError('Select a zone.'); return; }
+    if (type === 'maintenance' && (!config.serviceType || (config.serviceType === 'Other' && !String(config.customServiceType ?? '').trim()))) { setError('Select a service type and enter its name when choosing Other.'); return; }
     setSaving(true); setError('');
     try {
       const body = { name: name.trim(), type, active, config, schedule, notifications, vehicleImeis: [imei] };
@@ -88,6 +91,7 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
         {typeOpen && <View style={s.options}>{TYPES.map(option => <Pressable key={option} style={s.option} onPress={() => { setType(option); setTypeOpen(false); setConfig(option === 'over_speed' ? { speedLimit: 80 } : {}); }}><Text style={s.value}>{label(option)}</Text></Pressable>)}</View>}
         {numericField && <><Text style={s.label}>{label(numericField)}{numericField === 'speedLimit' ? ' (km/h)' : numericField === 'minutes' ? ' (minutes)' : ''}</Text><TextInput value={String(config[numericField] ?? '')} onChangeText={text => setConfig(previous => ({ ...previous, [numericField]: Number(text) || 0 }))} keyboardType="numeric" style={s.input} accessibilityLabel={label(numericField)} /></>}
         {zoneField && <><Text style={s.label}>{zoneField === 'poiId' ? 'POI' : 'Geofence'}</Text><Pressable style={s.input} onPress={() => setZoneOpen(v => !v)}><Text style={s.value}>{zoneItems.find(zone => zone.id === config[zoneField])?.name ?? 'Select zone'} ▾</Text></Pressable>{zoneOpen && <View style={s.options}>{zoneItems.map(zone => <Pressable key={zone.id} style={s.option} onPress={() => { setConfig(previous => ({ ...previous, [zoneField]: zone.id })); setZoneOpen(false); }}><Text style={s.value}>{zone.name}</Text></Pressable>)}</View>}</>}
+        {type === 'maintenance' && <><Text style={s.label}>Service type</Text><Pressable style={s.input} onPress={() => setServiceTypeOpen(value => !value)}><Text style={s.value}>{String(config.serviceType ?? 'Select service type')} ▾</Text></Pressable>{serviceTypeOpen && <View style={s.options}>{SERVICE_TYPES.map(serviceType => <Pressable key={serviceType} style={s.option} onPress={() => { setConfig(previous => ({ ...previous, serviceType, customServiceType: serviceType === 'Other' ? previous.customServiceType ?? '' : '' })); setServiceTypeOpen(false); }}><Text style={[s.value, config.serviceType === serviceType && { color: theme.red }]}>{serviceType}</Text></Pressable>)}</View>}{config.serviceType === 'Other' && <TextInput value={String(config.customServiceType ?? '')} onChangeText={customServiceType => setConfig(previous => ({ ...previous, customServiceType }))} placeholder="Enter custom service type" maxLength={80} style={s.input}/>}</>}
         {(type === 'geofence' || type === 'poi') && <><Text style={s.label}>Event</Text><View style={s.eventRow}>{(['enter', 'exit', 'both'] as const).map(event => <Pressable key={event} onPress={() => setConfig(previous => ({ ...previous, [type === 'poi' ? 'poiEvent' : 'geofenceEvent']: event }))} style={[s.eventButton, config[type === 'poi' ? 'poiEvent' : 'geofenceEvent'] === event && s.eventSelected]}><Text style={s.value}>{label(event)}</Text></Pressable>)}</View></>}
         <View style={s.activeRow}><Text style={s.label}>Active</Text><Switch value={active} onValueChange={setActive} trackColor={{ true: theme.red }} /></View>
         <View style={s.activeRow}><View style={{ flex: 1, paddingRight: 12 }}><Text style={s.label}>Mobile push</Text><Text style={s.hint}>Send this alert to devices with notifications enabled.</Text></View><Switch value={notifications?.appPush === true} onValueChange={value => setNotifications(previous => ({ ...previous, appPush: value, ...(value ? { appSound: previous?.appSound ?? true, appSoundId: previous?.appSoundId ?? 'trackvee' } : {}) }))} trackColor={{ true: theme.red }} /></View>

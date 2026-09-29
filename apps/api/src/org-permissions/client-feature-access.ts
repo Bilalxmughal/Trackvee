@@ -10,25 +10,25 @@ const FULL = ['view', 'add', 'edit', 'delete'];
 const CLIENT_DEFAULTS: Record<string, Record<string, string[]>> = {
   client_owner: {
     dashboard: ['view'], map: ['view'], vehicles: FULL, alerts: FULL, geofences: FULL, pois: FULL,
-    'driver-behavior': ['view', 'edit'], reports: ['view'], users: FULL, 'vehicle-groups': ['view', 'edit'],
+    'driver-behavior': ['view', 'edit'], reports: ['view'], users: FULL, 'vehicle-groups': ['view', 'edit'], maintenance: FULL,
   },
   client_super_admin: {
     dashboard: ['view'], map: ['view'], vehicles: FULL, alerts: FULL, geofences: FULL, pois: FULL,
-    'driver-behavior': ['view', 'edit'], reports: ['view'], users: ['view', 'add', 'edit'], 'vehicle-groups': ['view', 'edit'],
+    'driver-behavior': ['view', 'edit'], reports: ['view'], users: ['view', 'add', 'edit'], 'vehicle-groups': ['view', 'edit'], maintenance: FULL,
   },
   client_admin: {
     dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'],
-    'driver-behavior': ['view', 'edit'], reports: ['view'], users: ['view', 'add', 'edit'], 'vehicle-groups': ['view'],
+    'driver-behavior': ['view', 'edit'], reports: ['view'], users: ['view', 'add', 'edit'], 'vehicle-groups': ['view'], maintenance: ['view', 'add', 'edit'],
   },
   client_user: {
     dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'],
-    'driver-behavior': ['view'], reports: ['view'], 'vehicle-groups': ['view'],
+    'driver-behavior': ['view'], reports: ['view'], 'vehicle-groups': ['view'], maintenance: ['view'],
   },
 };
 
 const ORG_PERMISSION_PREFIX: Record<string, string> = {
   vehicles: 'vehicles', alerts: 'alerts', geofences: 'geofences', pois: 'pois',
-  'driver-behavior': 'driverBehavior', reports: 'reports', users: 'users',
+  'driver-behavior': 'driverBehavior', reports: 'reports', users: 'users', maintenance: 'maintenance',
 };
 
 export async function effectiveClientActions(
@@ -89,6 +89,8 @@ const PERMISSION_FEATURE: Record<string, { feature: string; action: string }> = 
   reportsView: { feature: 'reports', action: 'view' },
   usersView: { feature: 'users', action: 'view' }, usersAdd: { feature: 'users', action: 'add' },
   usersEdit: { feature: 'users', action: 'edit' }, usersDelete: { feature: 'users', action: 'delete' },
+  maintenanceView: { feature: 'maintenance', action: 'view' }, maintenanceAdd: { feature: 'maintenance', action: 'add' },
+  maintenanceEdit: { feature: 'maintenance', action: 'edit' }, maintenanceDelete: { feature: 'maintenance', action: 'delete' },
 };
 
 export async function validateOrgPermissionGrant(

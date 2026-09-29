@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { IconBell, IconSearch, IconPlus, IconAlertTriangle, IconGauge, IconBolt,
   IconPower, IconEngine, IconBattery, IconSignalE, IconMapPin, IconStar,
-  IconCar, IconParking, IconChevronRight, IconChevronLeft, IconCheck } from '@tabler/icons-react';
+  IconCar, IconParking, IconChevronRight, IconChevronLeft, IconCheck, IconTool } from '@tabler/icons-react';
 import api from '../api/client';
 import { usePortalPanel } from '../contexts/PortalPanelContext';
 import AlertSoundPicker from './AlertSoundPicker';
@@ -11,12 +11,12 @@ import AlertSoundPicker from './AlertSoundPicker';
 export type AlertType =
   | 'over_speed' | 'idle' | 'ignition_on' | 'ignition_off'
   | 'power_cut' | 'low_battery' | 'no_gps' | 'offline'
-  | 'tow' | 'over_parking' | 'geofence' | 'low_score' | 'speed_zone';
+  | 'tow' | 'over_parking' | 'geofence' | 'low_score' | 'speed_zone' | 'maintenance';
 
 export interface AlertConfig {
   speedLimit?: number; minutes?: number; level?: number;
   geofenceId?: string; geofenceEvent?: 'enter' | 'exit' | 'both';
-  scoreThreshold?: number; speedZoneId?: string;
+  scoreThreshold?: number; speedZoneId?: string; serviceType?: string; customServiceType?: string;
 }
 
 export interface AlertSchedule {
@@ -52,6 +52,7 @@ const ALERT_TYPES: { type: AlertType; label: string; icon: React.ReactNode; colo
   { type: 'geofence',     label: 'Geofence',      icon: <IconMapPin size={22} strokeWidth={1.5}/>,  color: '#0891b2', desc: 'Alert on geofence enter/exit' },
   { type: 'low_score',    label: 'Low Score',     icon: <IconStar size={22} strokeWidth={1.5}/>,    color: '#e11d48', desc: 'Alert when behavior score drops' },
   { type: 'speed_zone',   label: 'Speed Zone',    icon: <IconGauge size={22} strokeWidth={1.5}/>,   color: '#f59e0b', desc: 'Alert when speeding inside a defined zone' },
+  { type: 'maintenance',  label: 'Maintenance',   icon: <IconTool size={22} strokeWidth={1.5}/>,    color: '#dc2626', desc: 'Alert when a selected service type is due' },
 ];
 
 const ALERT_TYPE_MAP = Object.fromEntries(ALERT_TYPES.map(t => [t.type, t])) as Record<AlertType, typeof ALERT_TYPES[0]>;
@@ -150,6 +151,8 @@ function AlertFormWizard({
   const [geofenceId, setGeofenceId] = useState(initial?.config?.geofenceId ?? '');
   const [geofenceEvent, setGeofenceEvent] = useState<'enter'|'exit'|'both'>(initial?.config?.geofenceEvent ?? 'both');
   const [scoreThreshold, setScoreThreshold] = useState(initial?.config?.scoreThreshold ?? 70);
+  const [serviceType, setServiceType] = useState(initial?.config?.serviceType ?? '');
+  const [customServiceType, setCustomServiceType] = useState(initial?.config?.customServiceType ?? '');
   const [active, setActive] = useState(initial?.active ?? true);
   // Step 3
   const [scheduled, setScheduled] = useState(!!initial?.schedule);
@@ -176,10 +179,12 @@ function AlertFormWizard({
     if (TYPES_WITH_MINUTES.includes(type)) return { minutes };
     if (type === 'low_battery') return { level };
     if (type === 'low_score') return { scoreThreshold };
+    if (type === 'maintenance') return { serviceType, ...(serviceType === 'Other' ? { customServiceType } : {}) };
     return {};
   };
 
   const submit = async () => {
+    if (type === 'maintenance' && (!serviceType || (serviceType === 'Other' && !customServiceType.trim()))) { setErr('Select a service type and enter its name when choosing Other.'); setStep(2); return; }
     setSaving(true); setErr('');
     const payload = { name: name.trim(), type, config: buildConfig(), vehicleImeis: selectedImeis, active, schedule: scheduled ? schedule : null, notifications: notif };
     try {
@@ -392,6 +397,17 @@ function AlertFormWizard({
                     <input type="number" min={1} max={99} value={scoreThreshold} onChange={e => setScoreThreshold(+e.target.value)} style={inpSt}
                       onFocus={e => e.currentTarget.style.borderColor = '#dc2626'}
                       onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'} />
+                  </>
+                )}
+                {type === 'maintenance' && (
+                  <>
+                    <label style={LBL}>Service type</label>
+                    <select value={serviceType} onChange={e => setServiceType(e.target.value)} style={inpSt}>
+                      <option value="">— Select service type —</option>
+                      {['Engine Oil','Tuning','Oil Filter','Air Filter','AC Filter','Fuel Filter','Brake Pads','Brake Fluid','Coolant','Transmission Oil','Battery','Tyre Rotation','General Inspection','Other'].map(value => <option key={value}>{value}</option>)}
+                    </select>
+                    {serviceType === 'Other' && <input value={customServiceType} onChange={e => setCustomServiceType(e.target.value)} maxLength={80} placeholder="Enter custom service type" style={{ ...inpSt, marginTop: 8 }}/ >}
+                    <div style={{ color: '#777', fontSize: 11, marginTop: 6 }}>Triggers once when this service reaches its reminder window or becomes overdue.</div>
                   </>
                 )}
                 {type === 'tow' && (

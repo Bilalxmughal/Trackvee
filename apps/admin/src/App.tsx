@@ -20,6 +20,7 @@ import MapPage from './pages/MapPage';
 import SettingsPage from './pages/SettingsPage';
 import ClientUsersPage from './pages/ClientUsersPage';
 import DriverBehaviorPage from './pages/DriverBehaviorPage';
+import MaintenancePage from './pages/MaintenancePage';
 import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';;
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/customers/:id" element={<Navigate to="/clients" replace />} />
         <Route path="/organizations" element={<Navigate to="/clients" replace />} />
         <Route path="/vehicles" element={<RoleRoute page="vehicles"><VehiclesPage /></RoleRoute>} />
+        <Route path="/maintenance" element={<RoleRoute page="maintenance"><MaintenancePage /></RoleRoute>} />
         <Route path="/devices" element={<RoleRoute page="devices"><DevicesPage /></RoleRoute>} />
         <Route path="/telemetry" element={<RoleRoute page="telemetry"><TelemetryPage /></RoleRoute>} />
         <Route path="/map" element={<RoleRoute page="map"><MapPage /></RoleRoute>} />

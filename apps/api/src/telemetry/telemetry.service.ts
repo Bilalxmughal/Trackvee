@@ -9,6 +9,7 @@ import { DriverBehaviorService } from '../driver-behavior/driver-behavior.servic
 import type { CircleCoords, PolygonCoords } from '../geofences/entities/geofence.entity.js';
 import { SpeedZonesService } from '../speed-zones/speed-zones.service.js';
 import type { SZCircleCoords, SZPolygonCoords } from '../speed-zones/entities/speed-zone.entity.js';
+import { MaintenanceService } from '../maintenance/maintenance.service.js';
 import { User } from '../users/entities/user.entity.js';
 import { resolveVehicleLiveStatus, type VehicleLiveStatus, type VehicleMotionSample } from './vehicle-state.js';
 
@@ -61,6 +62,7 @@ export class TelemetryService {
     private geofencesService: GeofencesService,
     private driverBehaviorService: DriverBehaviorService,
     private speedZonesService: SpeedZonesService,
+    private maintenanceService: MaintenanceService,
   ) {}
 
   async findRecent(user: User, limit = 100): Promise<Telemetry[]> {
@@ -120,6 +122,20 @@ export class TelemetryService {
       const payload: Record<string, unknown> = { speed: pt.speedKmh, lat: pt.latitude, lng: pt.longitude, ts: pt.timestamp };
 
       switch (alert.type) {
+        case 'maintenance': {
+          if (!device?.vehicleId || !orgId || !alert.config.serviceType || !pt.gpsValid) break;
+          const serviceType = alert.config.serviceType === 'Other' && alert.config.customServiceType ? alert.config.customServiceType : alert.config.serviceType;
+          if (!serviceType) break;
+          const due = await this.maintenanceService.getAlertState(device.vehicleId, orgId, serviceType);
+          if (!due) break;
+          payload['maintenanceRecordId'] = due.recordId;
+          payload['serviceType'] = serviceType;
+          payload['maintenanceStatus'] = due.status;
+          payload['nextDueDate'] = due.dueDate;
+          payload['nextDueOdometerKm'] = due.dueOdometerKm;
+          triggered = !(await this.alertsService.hasMaintenanceTrigger(alert.id, pt.imei, due.recordId));
+          break;
+        }
         case 'over_speed':
           triggered = pt.speedKmh >= (alert.config.speedLimit ?? 80);
           break;

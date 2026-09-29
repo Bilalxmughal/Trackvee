@@ -190,3 +190,15 @@ This direction keeps live tracking primary, carries the existing Trackvee identi
 
 **Rule:**
 Implement screens and reusable mobile components against `docs/patterns/mobile.md`. Client-visible modules and actions must remain permission-controlled and behaviorally aligned with the portal.
+
+---
+
+## DEC-014 — Maintenance mileage reminders are estimates
+
+**Status:** Accepted
+
+**Decision:**
+Until tracker-reported odometer data is available, mileage since a service is estimated from the odometer entered on that service record plus GPS-derived distance.
+
+**Rule:**
+Label calculated mileage as estimated. Do not treat it as an authoritative device odometer or present it as a definitive vehicle reading. Date-based reminders remain independent of this estimate.

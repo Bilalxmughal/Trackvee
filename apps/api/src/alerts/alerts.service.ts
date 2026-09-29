@@ -350,7 +350,7 @@ export class AlertsService {
           messages.push({
             to: registration.token,
             title: alert.name,
-            body: `${device.vehicle.licensePlate || device.vehicle.name} · ${alert.type.replaceAll('_', ' ')}`,
+            body: `${device.vehicle.licensePlate || device.vehicle.name} · ${alert.type === 'maintenance' ? `${String(log.payload['serviceType'] ?? 'Maintenance')} ${String(log.payload['maintenanceStatus'] ?? 'due')}` : alert.type.replaceAll('_', ' ')}`,
             ...(soundEnabled
               ? modern && dynamicAvailable
                 ? registration.platform === 'ios'
@@ -390,5 +390,13 @@ export class AlertsService {
     const saved = await this.logRepo.save(log).catch(() => null);
     const alert = saved ? await this.repo.findOne({ where: { id: alertId } }).catch(() => null) : null;
     if (alert && saved) void this.sendMobilePush(alert, saved);
+  }
+
+  async hasMaintenanceTrigger(alertId: string, imei: string, maintenanceRecordId: string): Promise<boolean> {
+    return (await this.logRepo.createQueryBuilder('log')
+      .where('log.alert_id = :alertId', { alertId })
+      .andWhere('log.imei = :imei', { imei })
+      .andWhere("log.payload ->> 'maintenanceRecordId' = :maintenanceRecordId", { maintenanceRecordId })
+      .getExists());
   }
 }

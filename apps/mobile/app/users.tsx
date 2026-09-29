@@ -17,6 +17,7 @@ type VehicleGroup = { id: string; name: string; vehicleIds: string[] };
 type VehicleOptions = { vehicles: VehicleOption[]; groups: VehicleGroup[]; allVehiclesAllowed: boolean };
 
 const MODULES: Module[] = [
+  { feature: 'maintenance', prefix: 'maintenance', label: 'Maintenance', actions: ['view', 'add', 'edit', 'delete'] },
   { feature: 'vehicles', prefix: 'vehicles', label: 'Vehicles', actions: ['view', 'add', 'edit', 'delete'] },
   { feature: 'alerts', prefix: 'alerts', label: 'Alerts', actions: ['view', 'add', 'edit', 'delete'] },
   { feature: 'geofences', prefix: 'geofences', label: 'Geofences', actions: ['view', 'add', 'edit', 'delete'] },
@@ -35,6 +36,7 @@ const EMPTY_PERMISSIONS: OrgPermission = {
   poisView: false, poisAdd: false, poisEdit: false, poisDelete: false,
   driverBehaviorView: false, driverBehaviorEdit: false, reportsView: false,
   usersView: false, usersAdd: false, usersEdit: false, usersDelete: false,
+  maintenanceView: false, maintenanceAdd: false, maintenanceEdit: false, maintenanceDelete: false,
   vehicleIds: null,
 };
 const permissionKey = (module: Module, action: Action) => `${module.prefix}${action[0]!.toUpperCase()}${action.slice(1)}`;

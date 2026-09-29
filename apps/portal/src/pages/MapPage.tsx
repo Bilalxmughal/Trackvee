@@ -12,6 +12,7 @@ import GeofencesPanel, { type Geofence } from '../components/GeofencesPanel';
 import POIsPanel, { type POI } from '../components/POIsPanel';
 import ReportsModal from '../components/ReportsModal';
 import DriverBehaviorModal from '../components/DriverBehaviorModal';
+import MaintenancePanel from '../components/MaintenancePanel';
 import UsersModal from '../components/UsersModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1642,7 +1643,9 @@ export default function PortalMapPage() {
         border: '0.5px solid #e8e8e8', display: 'flex', flexDirection: 'column', zIndex: 400,
         overflow: 'hidden',
       }}>
-        {activePanel === 'alerts' ? (
+        {activePanel === 'maintenance' ? (
+          <MaintenancePanel onClose={closePanel} />
+        ) : activePanel === 'alerts' ? (
           <AlertsPanel alerts={alerts} loading={alertsLoading}
             setAlertList={list => { setAlerts(list); setAlertCount(list.filter(a => a.active).length); }}
             initialImei={createAlertImei}

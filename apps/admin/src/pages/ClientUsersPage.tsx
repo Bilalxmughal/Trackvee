@@ -29,6 +29,7 @@ interface OrgPerm {
   alertsView: boolean; alertsAdd: boolean; alertsEdit: boolean; alertsDelete: boolean;
   geofencesView: boolean; geofencesAdd: boolean; geofencesEdit: boolean; geofencesDelete: boolean;
   poisView: boolean; poisAdd: boolean; poisEdit: boolean; poisDelete: boolean;
+  maintenanceView: boolean | null; maintenanceAdd: boolean | null; maintenanceEdit: boolean | null; maintenanceDelete: boolean | null;
   vehicleIds: string[] | null;
 }
 
@@ -37,16 +38,18 @@ const DEFAULT_PERM: OrgPerm = {
   alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: false,
   geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: false,
   poisView: true, poisAdd: true, poisEdit: true, poisDelete: false,
+  maintenanceView: true, maintenanceAdd: false, maintenanceEdit: false, maintenanceDelete: false,
   vehicleIds: null,
 };
 
 const TEMPLATES: Record<string, OrgPerm> = {
-  'View Only': { vehiclesView: true, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false, alertsView: true, alertsAdd: false, alertsEdit: false, alertsDelete: false, geofencesView: true, geofencesAdd: false, geofencesEdit: false, geofencesDelete: false, poisView: true, poisAdd: false, poisEdit: false, poisDelete: false, vehicleIds: null },
-  'Field Staff': { vehiclesView: true, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false, alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: false, geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: false, poisView: true, poisAdd: true, poisEdit: true, poisDelete: false, vehicleIds: null },
-  'Manager': { vehiclesView: true, vehiclesAdd: true, vehiclesEdit: true, vehiclesDelete: false, alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: false, geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: false, poisView: true, poisAdd: true, poisEdit: true, poisDelete: false, vehicleIds: null },
+  'View Only': { vehiclesView: true, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false, alertsView: true, alertsAdd: false, alertsEdit: false, alertsDelete: false, geofencesView: true, geofencesAdd: false, geofencesEdit: false, geofencesDelete: false, poisView: true, poisAdd: false, poisEdit: false, poisDelete: false, maintenanceView: true, maintenanceAdd: false, maintenanceEdit: false, maintenanceDelete: false, vehicleIds: null },
+  'Field Staff': { vehiclesView: true, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false, alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: false, geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: false, poisView: true, poisAdd: true, poisEdit: true, poisDelete: false, maintenanceView: true, maintenanceAdd: true, maintenanceEdit: true, maintenanceDelete: false, vehicleIds: null },
+  'Manager': { vehiclesView: true, vehiclesAdd: true, vehiclesEdit: true, vehiclesDelete: false, alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: false, geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: false, poisView: true, poisAdd: true, poisEdit: true, poisDelete: false, maintenanceView: true, maintenanceAdd: true, maintenanceEdit: true, maintenanceDelete: true, vehicleIds: null },
 };
 
 const MODULES = [
+  { key: 'maintenance', label: 'Maintenance' },
   { key: 'vehicles', label: 'Vehicles' },
   { key: 'alerts', label: 'Alerts' },
   { key: 'geofences', label: 'Geofences' },

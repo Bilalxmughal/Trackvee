@@ -12,13 +12,15 @@ import AlertSoundPicker from './AlertSoundPicker';
 export type AlertType =
   | 'over_speed' | 'idle' | 'ignition_on' | 'ignition_off'
   | 'power_cut' | 'low_battery' | 'no_gps' | 'offline'
-  | 'tow' | 'over_parking' | 'geofence' | 'low_score' | 'speed_zone';
+  | 'tow' | 'over_parking' | 'geofence' | 'low_score' | 'speed_zone' | 'maintenance';
 
 export interface AlertConfig {
   speedLimit?: number; minutes?: number; level?: number;
   geofenceId?: string; geofenceEvent?: 'enter' | 'exit' | 'both';
   scoreThreshold?: number;
   speedZoneId?: string;
+  serviceType?: string;
+  customServiceType?: string;
 }
 
 export interface SpeedZoneRef { id: string; name: string; speedLimit: number; }
@@ -49,14 +51,14 @@ const ALERT_TYPE_LABELS: Record<AlertType, string> = {
   ignition_off: 'Ignition OFF', power_cut: 'Power Cut', low_battery: 'Low Battery',
   no_gps: 'No GPS Signal', offline: 'Offline', tow: 'Tow Alert',
   over_parking: 'Over Parking', geofence: 'Geofence', low_score: 'Low Driver Score',
-  speed_zone: 'Speed Zone',
+  speed_zone: 'Speed Zone', maintenance: 'Maintenance',
 };
 
 const ALERT_TYPE_COLOR: Record<AlertType, string> = {
   over_speed: '#dc2626', idle: '#f59e0b', ignition_on: '#16a34a', ignition_off: '#6b7280',
   power_cut: '#7c3aed', low_battery: '#ea580c', no_gps: '#0284c7', offline: '#9ca3af',
   tow: '#be123c', over_parking: '#a16207', geofence: '#0891b2', low_score: '#e11d48',
-  speed_zone: '#f59e0b',
+  speed_zone: '#f59e0b', maintenance: '#dc2626',
 };
 
 const ALERT_TYPE_ICONS: Record<AlertType, JSX.Element> = {
@@ -73,6 +75,7 @@ const ALERT_TYPE_ICONS: Record<AlertType, JSX.Element> = {
   geofence: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
   low_score: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
   speed_zone: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l2 2"/><path d="M4.93 4.93l4.24 4.24"/><path d="M19.07 4.93l-4.24 4.24"/></svg>,
+  maintenance: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4L15 12l-3-3z"/></svg>,
 };
 
 const DAYS = ['mon','tue','wed','thu','fri','sat','sun'] as const;
@@ -164,6 +167,7 @@ function AlertFormModal({ alert: init, vehicles, geofences, speedZones, dark, on
 
   const handleSave = () => {
     if (!name.trim()) return;
+    if (type === 'maintenance' && (!config.serviceType?.trim() || (config.serviceType === 'Other' && !config.customServiceType?.trim()))) return;
     onSave({ ...init, name: name.trim(), active, type, config, vehicleImeis: [...selectedImeis], schedule: scheduled ? schedule : null, notifications: notif });
   };
 
@@ -223,6 +227,16 @@ function AlertFormModal({ alert: init, vehicles, geofences, speedZones, dark, on
           </select>
           <span style={lbl}>Speed Limit inside zone (km/h)</span>
           <input type="number" min={1} max={300} value={config.speedLimit ?? 60} onChange={e => setConfig(c => ({ ...c, speedLimit: +e.target.value }))} style={inp} placeholder="e.g. 60"/>
+        </>;
+      case 'maintenance':
+        return <>
+          <span style={lbl}>Service type</span>
+          <select value={config.serviceType ?? ''} onChange={e => setConfig(c => ({ ...c, serviceType: e.target.value }))} style={inp}>
+            <option value="">— Select service type —</option>
+            {['Engine Oil','Tuning','Oil Filter','Air Filter','AC Filter','Fuel Filter','Brake Pads','Brake Fluid','Coolant','Transmission Oil','Battery','Tyre Rotation','General Inspection','Other'].map(value => <option key={value}>{value}</option>)}
+          </select>
+          {config.serviceType === 'Other' && <><span style={{ ...lbl, marginTop: 9 }}>Custom service type</span><input value={config.customServiceType ?? ''} onChange={e => setConfig(c => ({ ...c, customServiceType: e.target.value }))} maxLength={80} style={inp} placeholder="Enter service type"/></>}
+          <span style={{ display: 'block', color: dark ? '#777' : '#888', fontSize: 11, marginTop: 6 }}>Triggers once when this service reaches its reminder window or becomes overdue.</span>
         </>;
       default:
         return <div style={{ fontSize: 12.5, color: dark ? '#555' : '#9ca3af', padding: '10px 0' }}>No additional configuration needed.</div>;

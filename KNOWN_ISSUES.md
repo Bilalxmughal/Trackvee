@@ -260,3 +260,17 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Problem:** A client may change sound behavior only for its own registered push token. A caller-supplied token must never allow changing another account's notification preferences.
 
 **Rule:** Require effective `alerts.view`, validate the Expo token, and update only the row matching authenticated user ID, organization ID, and token. Combine the per-device sound preference with the alert rule's sound setting. Default existing registrations to sound enabled through migration `028_mobile_push_preferences.sql`.
+
+---
+
+## KI-021 — Maintenance distance reminders are approximate
+
+**Status:** Active product constraint
+
+**Area:** Maintenance / Odometer reminders
+
+**Problem:** The current tracker telemetry does not expose a verified cumulative odometer field. Distance since service is calculated from the user-entered service odometer and GPS displacement, which can be incomplete or noisy.
+
+**Rule:** Keep GPS-derived mileage labeled Estimated, require the entered service odometer baseline before evaluating distance thresholds, and never represent the estimate as an authoritative odometer. Date reminders work independently. Apply migration `029_maintenance_records.sql` before deploying the API.
+
+**Alert timing:** Service-type alert rules evaluate on the vehicle's next valid telemetry packet. They do not currently run from a wall-clock scheduler, so a vehicle that stops reporting will not receive an alert exactly at its due time until reporting resumes.

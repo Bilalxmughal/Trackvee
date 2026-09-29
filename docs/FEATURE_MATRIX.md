@@ -1,6 +1,6 @@
 # Feature Matrix
 
-Last verified: 2026-09-28 (API build and authorization tests, portal production build, mobile typecheck and Android Expo export; physical-device behavior remains unverified).
+Last verified: 2026-09-29 (API and mobile TypeScript checks and Android Expo export passed. Admin/portal TS checks are blocked by workspace React type conflicts; Vite builds are blocked by missing `@alloc/quick-lru`. Physical-device behavior remains unverified.)
 
 | Feature | API | Admin | Portal | Permission key | Notes |
 |---|---|---|---|---|---|
@@ -18,11 +18,11 @@ Last verified: 2026-09-28 (API build and authorization tests, portal production 
 | Users/custom access | Complete | Complete | Complete | `users` | Module and vehicle permissions |
 | Audit logs | Complete | Complete | Not exposed | `audit-logs` | Internal operational feature |
 | Tracking expiry | Complete | Complete | Map badge | organization access | Migration 021 |
-| Maintenance | Missing | Missing | Missing | future `maintenance` | Planned |
+| Maintenance | Complete | Complete | Complete | `maintenance` | Grouped vehicle selection, standard/custom service types, PKT DD-MM-YYYY dates, due-date/estimated-distance reminders, and service-type alert rules. Alerts evaluate on the vehicle's next valid telemetry packet; apply migration 029 before API deployment. |
 | Fuel monitoring | Missing | Missing | Missing | future `fuel` | Planned |
 | Scheduled report delivery | Partial | Missing | Missing | `reports` | Saved reports exist; scheduler pending |
 | Device health center | Partial data | Missing | Missing | future key | Telemetry data exists; workflow pending |
-| Mobile app | Client API | n/a | n/a | role + custom org permissions | Expo 57: client auth, Map/Vehicles/Alerts/Reports/More, grouped vehicle controls, map/detail/history/replay, alert rules, Geofences/POIs, Driver Behavior, all 13 report types with admin-equivalent filters, saved filters and CSV sharing, and More > Users with custom module/vehicle grants. More > Notifications & refresh manages this-device push, global sound preference, and optional fleet refresh on resume; polling pauses while backgrounded. Push sound preferences need migration 028; sound library needs migrations 025/026 and an EAS release; Users overrides need migration 027. Gaps: device health and maintenance; physical-device push QA. |
+| Mobile app | Client API | n/a | n/a | role + custom org permissions | Expo 57: client auth, Map/Vehicles/Alerts/Reports/More, grouped vehicle controls, map/detail/history/replay, alert rules, Geofences/POIs, Driver Behavior, Maintenance, all 13 report types with admin-equivalent filters, saved filters and CSV sharing, and More > Users with custom module/vehicle grants. More > Notifications & refresh manages this-device push, global sound preference, and optional fleet refresh on resume; polling pauses while backgrounded. Push sound preferences need migration 028; sound library needs migrations 025/026 and an EAS release; Users overrides need migration 027. Gaps: device health and physical-device push QA. |
 
 Mobile Users is permission-gated in the UI and API. User CRUD and grants are organization-scoped, restricted by role hierarchy and the caller's module/vehicle access. Migration `027_extended_user_permissions.sql` adds nullable per-user Driver Behavior, Reports and Users overrides; apply it before deploying the API.
 

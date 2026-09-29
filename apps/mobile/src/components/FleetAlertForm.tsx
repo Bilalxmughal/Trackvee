@@ -6,7 +6,7 @@ import { TablerIcon } from './TablerIcon';
 import { theme } from '../theme';
 import { AlertSoundSettings, MobileAlertSoundId } from './AlertSoundSettings';
 
-export type FleetAlertType = 'over_speed' | 'idle' | 'ignition_on' | 'ignition_off' | 'power_cut' | 'low_battery' | 'no_gps' | 'offline' | 'tow' | 'over_parking' | 'geofence' | 'low_score' | 'speed_zone';
+export type FleetAlertType = 'over_speed' | 'idle' | 'ignition_on' | 'ignition_off' | 'power_cut' | 'low_battery' | 'no_gps' | 'offline' | 'tow' | 'over_parking' | 'geofence' | 'low_score' | 'speed_zone' | 'maintenance';
 export interface FleetAlertRule {
   id: string;
   name: string;
@@ -39,7 +39,9 @@ const TYPES: { id: FleetAlertType; label: string; icon: string; description: str
   { id: 'geofence', label: 'Geofence', icon: 'geofence', description: 'Vehicle enters or exits a geofence.' },
   { id: 'low_score', label: 'Low Score', icon: 'activity', description: 'Daily driver score reaches the limit.' },
   { id: 'speed_zone', label: 'Speed Zone', icon: 'gauge', description: 'Vehicle exceeds the limit inside a geofence.' },
+  { id: 'maintenance', label: 'Maintenance', icon: 'tool', description: 'Service type reaches its reminder window or becomes overdue.' },
 ];
+const SERVICE_TYPES = ['Engine Oil','Tuning','Oil Filter','Air Filter','AC Filter','Fuel Filter','Brake Pads','Brake Fluid','Coolant','Transmission Oil','Battery','Tyre Rotation','General Inspection','Other'];
 const DAYS = [{ id: 'mon', label: 'M' }, { id: 'tue', label: 'T' }, { id: 'wed', label: 'W' }, { id: 'thu', label: 'T' }, { id: 'fri', label: 'F' }, { id: 'sat', label: 'S' }, { id: 'sun', label: 'S' }];
 const titleCase = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 const defaultConfigForType = (type: FleetAlertType): Record<string, string | number> => {
@@ -77,6 +79,7 @@ export function FleetAlertForm({ initial, vehicles, groups, geofences, allowFlee
   const [notifications, setNotifications] = useState<FleetAlertRule['notifications']>(initial ? { ...initial.notifications, appPush: initial.notifications?.appPush ?? true, appSound: initial.notifications?.appSound ?? true, appSoundId: initial.notifications?.appSoundId ?? 'trackvee' } : { appPush: true, appSound: true, appSoundId: 'trackvee' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
 
   const selectedType = TYPES.find(option => option.id === type)!;
   const filteredVehicles = useMemo(() => {
@@ -114,6 +117,7 @@ export function FleetAlertForm({ initial, vehicles, groups, geofences, allowFlee
       if (type === 'low_battery' && Number(config.level) > 5) return 'Battery level must be between 1 and 5.';
       if (type === 'low_score' && Number(config.scoreThreshold) > 100) return 'Score must be between 1 and 100.';
       if (zoneNeeded && !config.geofenceId) return 'Select a geofence.';
+      if (type === 'maintenance' && (!config.serviceType || (config.serviceType === 'Other' && !String(config.customServiceType ?? '').trim()))) return 'Select a service type and enter its name when choosing Other.';
     }
     return '';
   };
@@ -192,6 +196,7 @@ export function FleetAlertForm({ initial, vehicles, groups, geofences, allowFlee
             <TablerIcon name={option.icon} size={19} color={type === option.id ? theme.red : theme.secondary}/><Text style={[s.typeLabel, type === option.id && s.typeLabelSelected]}>{option.label}</Text><Text style={s.typeDescription}>{option.description}</Text>
           </Pressable>)}</View>
           {zoneNeeded ? <View style={s.configBlock}><Text style={s.sectionTitle}>Geofence</Text>{geofences.map(zone => <Pressable key={zone.id} onPress={() => setConfig(current => ({ ...current, geofenceId: zone.id }))} style={s.choiceRow}><View style={[s.radio, config.geofenceId === zone.id && s.radioSelected]}>{config.geofenceId === zone.id ? <View style={s.radioDot}/> : null}</View><Text style={s.vehiclePlate}>{zone.name}</Text></Pressable>)}{!geofences.length ? <Text style={s.empty}>Create a geofence before using this alert type.</Text> : null}</View> : null}
+          {type === 'maintenance' ? <View style={s.configBlock}><Text style={s.sectionTitle}>Service type</Text><Pressable onPress={() => setServicePickerOpen(value => !value)} style={s.input}><Text style={s.vehiclePlate}>{String(config.serviceType ?? 'Select service type')}  ▾</Text></Pressable>{servicePickerOpen ? SERVICE_TYPES.map(serviceType => <Pressable key={serviceType} onPress={() => { setConfig(current => ({ ...current, serviceType, customServiceType: serviceType === 'Other' ? current.customServiceType ?? '' : '' })); setServicePickerOpen(false); }} style={s.choiceRow}><Text style={[s.vehiclePlate, config.serviceType === serviceType && { color: theme.red }]}>{serviceType}</Text></Pressable>) : null}{config.serviceType === 'Other' ? <TextInput value={String(config.customServiceType ?? '')} onChangeText={customServiceType => setConfig(current => ({ ...current, customServiceType }))} placeholder="Enter custom service type" maxLength={80} style={s.input}/> : null}</View> : null}
           {type === 'geofence' ? <View style={s.configBlock}><Text style={s.sectionTitle}>Trigger when vehicle</Text><View style={s.choiceOptions}>{(['enter', 'exit', 'both'] as const).map(event => <Pressable key={event} onPress={() => setConfig(current => ({ ...current, geofenceEvent: event }))} style={[s.choiceButton, (config.geofenceEvent ?? 'both') === event && s.choiceSelected]}><Text style={[s.choiceText, (config.geofenceEvent ?? 'both') === event && s.choiceTextSelected]}>{titleCase(event)}</Text></Pressable>)}</View></View> : null}
           {type === 'tow' || type === 'ignition_on' || type === 'ignition_off' || type === 'power_cut' || type === 'no_gps' || type === 'offline' ? <Text style={s.hint}>{selectedType.description}</Text> : null}
         </>}

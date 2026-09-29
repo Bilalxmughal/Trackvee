@@ -57,9 +57,9 @@ export class OrgPermissionsController {
         return rows.map(row => row.id);
       });
     }
-    const allowed = ['vehiclesView', 'vehiclesAdd', 'vehiclesEdit', 'vehiclesDelete', 'alertsView', 'alertsAdd', 'alertsEdit', 'alertsDelete', 'geofencesView', 'geofencesAdd', 'geofencesEdit', 'geofencesDelete', 'poisView', 'poisAdd', 'poisEdit', 'poisDelete', 'driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete'] as const;
+    const allowed = ['vehiclesView', 'vehiclesAdd', 'vehiclesEdit', 'vehiclesDelete', 'alertsView', 'alertsAdd', 'alertsEdit', 'alertsDelete', 'geofencesView', 'geofencesAdd', 'geofencesEdit', 'geofencesDelete', 'poisView', 'poisAdd', 'poisEdit', 'poisDelete', 'driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete', 'maintenanceView', 'maintenanceAdd', 'maintenanceEdit', 'maintenanceDelete'] as const;
     const perms: OrgPermDto = {};
-    const nullable = new Set(['driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete']);
+    const nullable = new Set(['driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete', 'maintenanceView', 'maintenanceAdd', 'maintenanceEdit', 'maintenanceDelete']);
     for (const key of allowed) {
       if (typeof dto[key] === 'boolean') perms[key] = dto[key];
       else if (nullable.has(key) && dto[key] === null) (perms as unknown as Record<string, boolean | null>)[key] = null;
