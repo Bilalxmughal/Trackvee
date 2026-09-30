@@ -324,3 +324,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Problem:** Raw tracker IMEIs can leak through device lists, health panels, fallback vehicle labels, search, reports, notification details, or command prompts.
 
 **Rule:** Treat IMEI as an internal API/route key only. Never render, search, export, or use it as a client-facing fallback; use a vehicle plate/name, display ID, or generic vehicle label. Review portal and mobile UI whenever a device response is added to a screen.
+
+---
+
+## KI-026 — Legacy device installation dates are estimated
+
+**Status:** Active until migration 031 is applied
+
+**Area:** Device inventory / vehicle history / reports
+
+**Problem:** Before assignment history existed, the database stored only the current `devices.vehicle_id`. Migration 031 backfills the current link starting at the earliest retained telemetry point (or device creation time when no points exist); that cannot recover the actual historical installation or replacement date.
+
+**Rule:** Apply `031_device_assignment_and_vehicle_lifecycle.sql` before deploying the API. Treat rows with action `legacy` as approximate installation history. For all new assignment, transfer, and replacement actions, write a time-bounded assignment record transactionally. Reports must attribute packets by tracker timestamp within the assignment interval and must not infer past ownership from the current device link.

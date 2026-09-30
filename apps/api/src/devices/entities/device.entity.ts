@@ -28,6 +28,9 @@ export class Device {
   @Column({ type: 'enum', enum: DEVICE_STATUSES, default: 'offline' })
   status: DeviceStatus;
 
+  @Column({ name: 'inventory_status', type: 'varchar', length: 16, default: 'in_stock' })
+  inventoryStatus: 'in_stock' | 'assigned' | 'maintenance' | 'retired';
+
   @Column({ name: 'vehicle_id', type: 'uuid', nullable: true })
   vehicleId: string | null;
 

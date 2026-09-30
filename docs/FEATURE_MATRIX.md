@@ -7,7 +7,7 @@ Last verified: 2026-09-30 (Scheduled report API TypeScript check passes. Admin/p
 | Authentication | Complete | Complete | Complete | n/a | Admin/client role login separation |
 | Live map and history | Complete | Complete | Complete | `map` | Portal map is the background workspace |
 | Vehicles and groups | Complete | Complete | Map panel/groups | `vehicles` | Plate first; display name is Make/Model |
-| Devices and telemetry | Complete | Complete | Complete | `vehicles.view` (client/mobile) | Live telemetry and shared device-health diagnostics; mobile, portal, and admin results honor caller vehicle scope. |
+| Devices and telemetry | Complete | Complete | Complete | `vehicles.view` (client/mobile) | Inventory filters (client/user/date), one-device/one-vehicle assignment with replacement/transfer history, lifecycle expiry/archive, history-safe report attribution, and shared health diagnostics. Client UI never displays IMEI. Migration 031 required. |
 | Alerts | Complete | Complete | Complete | `alerts` | Rules, schedules, notifications, vehicle targeting, mobile push and shared sounds |
 | Notification sound catalogue | Complete | Complete | Read active choices | `alerts` | Internal upload/activation; client selection; dynamic mobile install requires EAS release |
 | Geofences | Complete | Complete | Complete | `geofences` | Circle and polygon drawing; mobile CRUD is tenant- and permission-scoped |

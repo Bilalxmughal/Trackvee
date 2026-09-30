@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { SavedReport } from './entities/saved-report.entity.js';
 import { Telemetry } from '../telemetry/entities/telemetry.entity.js';
-import { Device } from '../devices/entities/device.entity.js';
 import { Vehicle } from '../vehicles/entities/vehicle.entity.js';
 import { AlertLog } from '../alerts/entities/alert-log.entity.js';
 import { Alert } from '../alerts/entities/alert.entity.js';
@@ -39,6 +38,34 @@ export interface ReportResult {
   columns: string[];
   rows: (string | number | null)[][];
   summary: (string | number | null)[] | null;
+}
+
+type DeviceAssignmentRow = { vehicle_id: string; imei: string; assigned_at: Date | string; unassigned_at: Date | string | null };
+
+function buildAssignmentResolver(assignments: DeviceAssignmentRow[]) {
+  const byImei = new Map<string, DeviceAssignmentRow[]>();
+  for (const assignment of assignments) {
+    const rows = byImei.get(assignment.imei) ?? [];
+    rows.push(assignment);
+    byImei.set(assignment.imei, rows);
+  }
+  for (const rows of byImei.values()) rows.sort((a, b) => new Date(a.assigned_at).getTime() - new Date(b.assigned_at).getTime());
+
+  return (imei: string, timestamp: Date | string): DeviceAssignmentRow | undefined => {
+    const rows = byImei.get(imei);
+    if (!rows?.length) return undefined;
+    const at = new Date(timestamp).getTime();
+    let low = 0;
+    let high = rows.length - 1;
+    let match = -1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (new Date(rows[mid].assigned_at).getTime() <= at) { match = mid; low = mid + 1; }
+      else high = mid - 1;
+    }
+    const assignment = match >= 0 ? rows[match] : undefined;
+    return assignment && (!assignment.unassigned_at || new Date(assignment.unassigned_at).getTime() > at) ? assignment : undefined;
+  };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -144,7 +171,6 @@ function inGeofence(pt: Telemetry, gf: Geofence): boolean {
 export class ReportsService {
   constructor(
     @InjectRepository(Telemetry)   private teleRepo:  Repository<Telemetry>,
-    @InjectRepository(Device)      private devRepo:   Repository<Device>,
     @InjectRepository(Vehicle)     private vehRepo:   Repository<Vehicle>,
     @InjectRepository(AlertLog)    private alRepo:    Repository<AlertLog>,
     @InjectRepository(Alert)       private alertRepo: Repository<Alert>,
@@ -224,24 +250,38 @@ export class ReportsService {
       ? { id: In(p.vehicleIds), organizationId: p.organizationId }
       : { id: In(p.vehicleIds) };
     const vehicles = await this.vehRepo.find({ where: vehicleWhere });
-    const devices  = await this.devRepo.find({ where: { vehicle: { id: In(p.vehicleIds) } }, relations: { vehicle: true } });
-
     const vehMap = new Map(vehicles.map(v => [v.id, v]));
-    const imeiToVeh = new Map<string, Vehicle>();
     const vehToImei = new Map<string, string>();
-    for (const d of devices) {
-      if (d.vehicle) { imeiToVeh.set(d.imei, d.vehicle); vehToImei.set(d.vehicle.id, d.imei); }
+    const assignments = await this.teleRepo.query<Array<{ vehicle_id: string; imei: string; assigned_at: Date | string; unassigned_at: Date | string | null }>>(`
+      SELECT a.vehicle_id, d.imei, a.assigned_at, a.unassigned_at
+      FROM device_assignments a
+      JOIN devices d ON d.id = a.device_id
+      WHERE a.vehicle_id = ANY($1::uuid[])
+        AND a.assigned_at <= $3
+        AND (a.unassigned_at IS NULL OR a.unassigned_at > $2)
+        AND ($4::uuid IS NULL OR a.organization_id = $4::uuid)
+      ORDER BY a.assigned_at ASC
+    `, [p.vehicleIds, p.from, p.to, p.organizationId ?? null]);
+    const assignmentAt = buildAssignmentResolver(assignments);
+    for (const assignment of assignments) {
+      const vehicle = vehMap.get(assignment.vehicle_id);
+      if (vehicle) {
+        // Report helpers are vehicle-centric: combine packets across all
+        // trackers assigned to the vehicle during the selected date window.
+        vehToImei.set(vehicle.id, vehicle.id);
+      }
     }
 
     // Build ordered vehicle list (only those with a device)
     const vehList = vehicles.filter(v => vehToImei.has(v.id));
-    const imeis = vehList.map(v => vehToImei.get(v.id)!);
+    const imeis = [...new Set(assignments.map(assignment => assignment.imei))];
 
     // Fetch telemetry
     let tele: Telemetry[] = [];
     if (imeis.length && p.type !== 'alert_history' && p.type !== 'driver_behavior') {
       tele = await this.teleRepo.createQueryBuilder('t')
         .where('t.imei IN (:...imeis)', { imeis })
+        .andWhere('EXISTS (SELECT 1 FROM device_assignments a JOIN devices d ON d.id = a.device_id WHERE d.imei = t.imei AND a.vehicle_id = ANY(CAST(:vehicleIds AS uuid[])) AND a.assigned_at <= t.timestamp AND (a.unassigned_at IS NULL OR a.unassigned_at > t.timestamp) AND (CAST(:organizationId AS uuid) IS NULL OR a.organization_id = CAST(:organizationId AS uuid)))', { vehicleIds: p.vehicleIds, organizationId: p.organizationId ?? null })
         .andWhere('t.timestamp BETWEEN :from AND :to', { from: p.from, to: p.to })
         .andWhere('t.gps_valid = true')
         .orderBy('t.imei').addOrderBy('t.timestamp', 'ASC')
@@ -251,10 +291,16 @@ export class ReportsService {
     // Group by IMEI
     const byImei = new Map<string, Telemetry[]>();
     for (const t of tele) {
-      const arr = byImei.get(t.imei) ?? [];
+      // Resolve ownership per packet timestamp: the same tracker may have
+      // belonged to different vehicles during this report period.
+      const assignment = assignmentAt(t.imei, t.timestamp);
+      const vehicle = assignment ? vehMap.get(assignment.vehicle_id) : undefined;
+      if (!vehicle) continue;
+      const arr = byImei.get(vehicle.id) ?? [];
       arr.push(t);
-      byImei.set(t.imei, arr);
+      byImei.set(vehicle.id, arr);
     }
+    for (const points of byImei.values()) points.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
     const meta = {
       type: p.type,
@@ -275,7 +321,7 @@ export class ReportsService {
       case 'underspeed':        return { ...meta, ...this.underspeedReport(vehList, vehToImei, byImei, p.minSpeedKmh ?? 20) };
       case 'daily_travel':      return { ...meta, ...this.dailyTravel(vehList, vehToImei, byImei, p) };
       case 'vehicle_history':   return { ...meta, ...this.vehicleHistory(vehList, vehToImei, byImei) };
-      case 'alert_history':     return { ...meta, ...(await this.alertHistory(vehList, vehToImei, p)) };
+      case 'alert_history':     return { ...meta, ...(await this.alertHistory(vehList, assignments, vehMap, assignmentAt, p)) };
       case 'driver_behavior':   return { ...meta, ...(await this.driverBehaviorReport(vehList, p)) };
       case 'geofence_activity': return { ...meta, ...(await this.geofenceActivity(vehList, vehToImei, byImei, p.geofenceIds ?? [], p.organizationId)) };
       default: throw new BadRequestException('Unknown report type');
@@ -503,11 +549,11 @@ export class ReportsService {
   }
 
   // ── 11. Alert History ─────────────────────────────────────────────────────
-  private async alertHistory(vehList: Vehicle[], vehToImei: Map<string,string>, p: ReportParams) {
+  private async alertHistory(vehList: Vehicle[], assignments: DeviceAssignmentRow[], vehMap: Map<string, Vehicle>, assignmentAt: ReturnType<typeof buildAssignmentResolver>, p: ReportParams) {
     const columns = ['License Plate', 'Vehicle', 'Alert Name', 'Alert Type', 'Triggered At', 'Speed (km/h)', 'Location'];
     const rows: (string|number|null)[][] = [];
 
-    const imeis = vehList.map(v => vehToImei.get(v.id)!).filter(Boolean);
+    const imeis = [...new Set(assignments.map(assignment => assignment.imei))];
     if (!imeis.length) return { columns, rows, rowCount: 0, summary: null };
 
     const logs = await this.alRepo.createQueryBuilder('al')
@@ -519,10 +565,10 @@ export class ReportsService {
     const alertIds = [...new Set(logs.map(l => l.alertId))];
     const alerts = alertIds.length ? await this.alertRepo.find({ where: { id: In(alertIds) } }) : [];
     const alertMap = new Map(alerts.map(a => [a.id, a]));
-    const imeiToVeh = new Map(vehList.map(v => [vehToImei.get(v.id)!, v]));
-
     for (const log of logs) {
-      const v = imeiToVeh.get(log.imei);
+      const assignment = assignmentAt(log.imei, log.triggeredAt);
+      const v = assignment ? vehMap.get(assignment.vehicle_id) : undefined;
+      if (!v || !vehList.some(vehicle => vehicle.id === v.id)) continue;
       const al = alertMap.get(log.alertId);
       const spd = (log.payload as any)?.speed ?? '';
       const lat = (log.payload as any)?.lat, lng = (log.payload as any)?.lng;

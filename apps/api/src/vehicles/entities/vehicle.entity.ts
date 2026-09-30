@@ -49,6 +49,15 @@ export class Vehicle {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
+  @Column({ name: 'lifecycle_status', type: 'varchar', length: 16, default: 'active' })
+  lifecycleStatus: 'active' | 'expired' | 'archived';
+
+  @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })
+  expiresAt: Date | null;
+
+  @Column({ name: 'archived_at', type: 'timestamptz', nullable: true })
+  archivedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

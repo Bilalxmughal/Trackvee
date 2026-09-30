@@ -41,10 +41,23 @@ export class VehiclesController {
     return result;
   }
 
+  @Patch(':id/lifecycle')
+  async updateLifecycle(
+    @Param('id') id: string,
+    @Body() body: { lifecycleStatus: 'active' | 'expired' | 'archived'; expiresAt?: string | null },
+    @CurrentUser() user: User,
+    @Req() req: Request,
+  ) {
+    const result = await this.vehiclesService.updateLifecycle(id, body.lifecycleStatus, body.expiresAt, user);
+    this.audit.log({ user, ip: getIp(req) }, { action: 'update', entityType: 'vehicle', entityId: id, entityName: result.licensePlate ?? result.name, details: { lifecycleStatus: result.lifecycleStatus, expiresAt: result.expiresAt } }).catch(() => {});
+    return result;
+  }
+
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: User, @Req() req: Request) {
-    await this.vehiclesService.remove(id, user);
+    const result = await this.vehiclesService.remove(id, user);
     this.audit.log({ user, ip: getIp(req) }, { action: 'delete', entityType: 'vehicle', entityId: id }).catch(() => {});
+    return result;
   }
 
   @Post(':id/command')

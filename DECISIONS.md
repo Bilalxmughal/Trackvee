@@ -217,3 +217,18 @@ An owner copy preserves delivery accountability while allowing the user-requeste
 
 **Rule:**
 Revalidate the owner's active status, organization, reports permission, vehicle grants, and geofence scope on every delivery. The owner account address is always included; validate additional addresses and cap them at 10.
+
+---
+
+## DEC-016 — Device assignment history is the ownership timeline for telemetry
+
+**Status:** Accepted
+
+**Decision:**
+Keep device inventory state and vehicle lifecycle separate from connectivity. Record device-to-vehicle assignments as non-overlapping time intervals, and attribute telemetry to a vehicle using the tracker timestamp inside the matching assignment interval. Transfers and replacements close/open intervals atomically; historical devices and vehicles are archived rather than hard-deleted when records refer to them.
+
+**Reason:**
+A tracker can be moved or replaced while trips and reports must remain attached to the vehicle that generated them. Inferring all history from the currently installed device silently changes past vehicle reports.
+
+**Rule:**
+Apply migration `031_device_assignment_and_vehicle_lifecycle.sql` before API deployment. Do not change `devices.vehicle_id` through generic CRUD or query report/history telemetry through the current assignment only. Keep expired/archived vehicle history available, while live maps and device commands require an active, unexpired vehicle.

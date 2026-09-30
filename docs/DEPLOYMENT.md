@@ -94,6 +94,21 @@ pnpm --filter api build
 pm2 restart yotrack-api
 ```
 
+Device assignment history and vehicle lifecycle require migration `031_device_assignment_and_vehicle_lifecycle.sql`. Apply it before building/restarting the API so TypeORM can read the new columns and report generation can resolve telemetry against assignment periods:
+
+```bash
+cd ~/yotrack
+set -a
+. ./.env
+set +a
+: "${DATABASE_URL:?DATABASE_URL is not set in .env}"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/api/migrations/031_device_assignment_and_vehicle_lifecycle.sql
+pnpm --filter api build
+pm2 restart yotrack-api
+```
+
+The migration backfills each current device link from the earliest retained telemetry point (or device creation time when no telemetry exists); those legacy dates are estimates. New assignment/transfer/replacement records have operational timestamps and attribution metadata.
+
 The mobile dynamic sound module needs one signed EAS build after it is first added. Once that version is installed, adding or deactivating uploaded catalogue sounds is server-side and does not require another app build. Use device QA for Android and iOS push playback.
 
 ## Nginx

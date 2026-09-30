@@ -10,6 +10,7 @@ Use this router after reading `AGENTS.md` and `CURRENT_STATE.md`. Load only the 
 | Alerts, geofences, POIs, speed zones | `docs/patterns/alerts-geofences-pois.md` | corresponding API modules and admin/portal panels |
 | Driver behavior | `docs/patterns/driver-behavior.md` | API module and admin/portal behavior components |
 | Maintenance and service history | `docs/patterns/maintenance.md` | API `maintenance/`, admin `MaintenancePage.tsx`, portal `MaintenancePanel.tsx`, mobile `maintenance.tsx` |
+| Device inventory, assignment, vehicle lifecycle | `docs/patterns/device-inventory.md` | API `devices/`, `vehicles/`, `reports/`; admin `DevicesPage.tsx`/`VehiclesPage.tsx`; portal `VehiclesPage.tsx` |
 | Device health and diagnostics | `docs/patterns/device-health.md` | API `telemetry/`, admin `DeviceHealthPage.tsx`, portal `DeviceHealthPanel.tsx` |
 | Mobile app, Expo, navigation, mobile UI | `docs/patterns/mobile.md` | future `apps/mobile`, existing API and portal behavior |
 | Shared UI, forms, modals, dates, selection controls | `docs/patterns/ui.md` | closest existing admin and portal components |

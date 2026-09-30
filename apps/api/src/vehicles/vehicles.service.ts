@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Vehicle } from './entities/vehicle.entity.js';
 import { Device } from '../devices/entities/device.entity.js';
 import { User } from '../users/entities/user.entity.js';
@@ -20,12 +20,13 @@ export class VehiclesService {
     private deviceRepo: Repository<Device>,
     private orgPerms: OrgPermissionsService,
     private rolePerms: RolePortalPermissionsService,
+    private dataSource: DataSource,
   ) {}
 
   async findForUser(user: User, cityId?: string): Promise<Vehicle[]> {
     const cityFilter = cityId ? { cityId } : {};
     if (INTERNAL_ROLES.has(user.role)) {
-      return this.repo.find({ where: cityFilter });
+      return (await this.repo.find({ where: cityFilter })).map(vehicle => this.effectiveLifecycle(vehicle));
     }
     await this.assertCanRead(user);
     if (user.organizationId) {
@@ -33,16 +34,16 @@ export class VehiclesService {
       if (perm && perm.orgId !== user.organizationId) throw new ForbiddenException();
       if (user.role !== 'client_owner' && perm?.vehicleIds !== null && perm?.vehicleIds !== undefined) {
         if (!perm.vehicleIds.length) return [];
-        return this.repo.find({ where: { organizationId: user.organizationId, id: In(perm.vehicleIds), ...cityFilter } });
+        return (await this.repo.find({ where: { organizationId: user.organizationId, id: In(perm.vehicleIds), ...cityFilter } })).map(vehicle => this.effectiveLifecycle(vehicle));
       }
-      return this.repo.find({
+      return (await this.repo.find({
         where: [
           { organizationId: user.organizationId, ...cityFilter },
           { ownerId: user.id, ...cityFilter },
         ],
-      });
+      })).map(vehicle => this.effectiveLifecycle(vehicle));
     }
-    return this.repo.find({ where: { ownerId: user.id, ...cityFilter } });
+    return (await this.repo.find({ where: { ownerId: user.id, ...cityFilter } })).map(vehicle => this.effectiveLifecycle(vehicle));
   }
 
   async findOne(id: string, user: User): Promise<Vehicle> {
@@ -50,7 +51,7 @@ export class VehiclesService {
     const vehicle = await this.repo.findOne({ where: { id } });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
     await this.assertAccess(vehicle, user);
-    return vehicle;
+    return this.effectiveLifecycle(vehicle);
   }
 
   async create(data: Partial<Vehicle>, user: User): Promise<Vehicle> {
@@ -73,14 +74,45 @@ export class VehiclesService {
     return this.repo.save(vehicle);
   }
 
-  async remove(id: string, user: User): Promise<void> {
+  async remove(id: string, user: User): Promise<{ archived: boolean }> {
     if (CLIENT_ROLES.has(user.role)) await assertClientFeatureAccess(user, 'vehicles', 'delete', this.orgPerms, this.rolePerms);
     const vehicle = await this.findOne(id, user);
+    const [history] = await this.dataSource.query(`
+      SELECT (
+        EXISTS (SELECT 1 FROM device_assignments WHERE vehicle_id = $1)
+        OR EXISTS (SELECT 1 FROM devices WHERE vehicle_id = $1)
+        OR EXISTS (SELECT 1 FROM driver_events WHERE vehicle_id = $1)
+        OR EXISTS (SELECT 1 FROM maintenance_records WHERE vehicle_id = $1)
+      ) AS has_history
+    `, [id]);
+    if (history?.has_history) {
+      vehicle.lifecycleStatus = 'archived';
+      vehicle.isActive = false;
+      vehicle.archivedAt = new Date();
+      await this.repo.save(vehicle);
+      return { archived: true };
+    }
     await this.repo.remove(vehicle);
+    return { archived: false };
+  }
+
+  async updateLifecycle(id: string, lifecycleStatus: 'active' | 'expired' | 'archived', expiresAt: string | null | undefined, user: User): Promise<Vehicle> {
+    if (!['super_admin', 'admin', 'ops'].includes(user.role)) throw new ForbiddenException();
+    if (!['active', 'expired', 'archived'].includes(lifecycleStatus)) throw new BadRequestException('Invalid vehicle lifecycle status');
+    const vehicle = await this.repo.findOne({ where: { id } });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+    if (expiresAt !== undefined && expiresAt !== null && !Number.isFinite(Date.parse(expiresAt))) throw new BadRequestException('Invalid expiry date');
+    if (lifecycleStatus === 'active' && expiresAt && Date.parse(expiresAt) <= Date.now()) throw new BadRequestException('An active vehicle must have a future expiry date');
+    vehicle.lifecycleStatus = lifecycleStatus;
+    vehicle.isActive = lifecycleStatus === 'active';
+    vehicle.expiresAt = expiresAt === undefined ? vehicle.expiresAt : expiresAt ? new Date(expiresAt) : null;
+    vehicle.archivedAt = lifecycleStatus === 'archived' ? new Date() : null;
+    return this.repo.save(vehicle);
   }
 
   async sendCommand(vehicleId: string, action: 'immobilize' | 'activate', user: User): Promise<{ sent: boolean; connected: boolean }> {
     const vehicle = await this.findOne(vehicleId, user);
+    if (vehicle.lifecycleStatus !== 'active') throw new BadRequestException('Commands are disabled for expired or archived vehicles');
     const device = await this.deviceRepo.findOne({ where: { vehicleId: vehicle.id } });
     if (!device) throw new BadRequestException('No device assigned to this vehicle');
 
@@ -120,9 +152,16 @@ export class VehiclesService {
 
   private clientEditableFields(data: Partial<Vehicle>): Partial<Vehicle> {
     const result: Record<string, unknown> = {};
-    for (const key of ['name', 'licensePlate', 'make', 'model', 'year', 'type', 'isActive'] as const) {
+    for (const key of ['name', 'licensePlate', 'make', 'model', 'year', 'type'] as const) {
       if (data[key] !== undefined) result[key] = data[key];
     }
     return result as Partial<Vehicle>;
+  }
+
+  private effectiveLifecycle(vehicle: Vehicle): Vehicle {
+    if (vehicle.lifecycleStatus === 'active' && vehicle.expiresAt && vehicle.expiresAt.getTime() <= Date.now()) {
+      return { ...vehicle, lifecycleStatus: 'expired', isActive: false };
+    }
+    return vehicle;
   }
 }

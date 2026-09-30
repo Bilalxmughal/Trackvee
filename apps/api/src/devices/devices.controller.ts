@@ -48,16 +48,60 @@ export class DevicesController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get('inventory')
+  inventory(
+    @CurrentUser() user: User,
+    @Query('cityId') cityId?: string,
+    @Query('organizationId') organizationId?: string,
+    @Query('ownerId') ownerId?: string,
+    @Query('status') status?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.devicesService.inventory(user, { cityId, organizationId, ownerId, status, from, to, search });
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('vehicle/:vehicleId/assignment-history')
+  assignmentHistory(@Param('vehicleId') vehicleId: string, @CurrentUser() user: User) {
+    return this.devicesService.assignmentHistory(vehicleId, user);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/assignment-history')
+  deviceAssignmentHistory(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.devicesService.deviceAssignmentHistory(id, user);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/assignment')
+  async assign(
+    @Param('id') id: string,
+    @Body() body: { vehicleId: string | null; replaceCurrent?: boolean; reason?: string; odometerKm?: number | null; notes?: string },
+    @CurrentUser() user: User,
+    @Req() req: Request,
+  ) {
+    const result = await this.devicesService.assign(user, id, body);
+    this.audit.log({ user, ip: getIp(req) }, { action: 'update', entityType: 'device', entityId: id, entityName: result.imei, details: { action: 'assignment', vehicleId: body.vehicleId, reason: body.reason ?? null } }).catch(() => {});
+    return result;
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.devicesService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.devicesService.findOneForUser(id, user);
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post()
   async create(@Body() body: Partial<any>, @CurrentUser() user: User, @Req() req: Request) {
-    const result = await this.devicesService.create(body);
+    const result = await this.devicesService.create(user, body);
     this.audit.log({ user, ip: getIp(req) }, { action: 'create', entityType: 'device', entityId: result.id, entityName: (result as any).imei ?? (result as any).name }).catch(() => {});
     return result;
   }
@@ -66,7 +110,7 @@ export class DevicesController {
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: Partial<any>, @CurrentUser() user: User, @Req() req: Request) {
-    const result = await this.devicesService.update(id, body);
+    const result = await this.devicesService.update(user, id, body);
     this.audit.log({ user, ip: getIp(req) }, { action: 'update', entityType: 'device', entityId: id, entityName: (body as any).imei }).catch(() => {});
     return result;
   }
@@ -75,7 +119,7 @@ export class DevicesController {
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: User, @Req() req: Request) {
-    await this.devicesService.remove(id);
+    await this.devicesService.remove(id, user);
     this.audit.log({ user, ip: getIp(req) }, { action: 'delete', entityType: 'device', entityId: id }).catch(() => {});
   }
 

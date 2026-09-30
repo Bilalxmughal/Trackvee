@@ -372,13 +372,13 @@ export class TelemetryService {
   }
 
   async getLiveLocations(user: User): Promise<Array<Telemetry & { vehicleStatus: VehicleLiveStatus }>> {
-    let imeis: string[] | null = null;
-
-    if (!ADMIN_ROLES.includes(user.role) && user.organizationId) {
-      const devices = await this.devicesService.findAll(user);
-      imeis = devices.map(d => d.imei);
-      if (!imeis.length) return [];
-    }
+    // Live endpoints include only trackers attached to active vehicles. Expired
+    // vehicles remain available through history and reports, but not live maps.
+    const assignedDevices = await this.devicesService.findAll(user);
+    const imeis: string[] = assignedDevices
+      .filter(device => device.vehicleId && device.vehicle?.lifecycleStatus === 'active' && (!device.vehicle.expiresAt || new Date(device.vehicle.expiresAt).getTime() > Date.now()))
+      .map(device => device.imei);
+    if (!imeis.length) return [];
 
     const sub = this.repo
       .createQueryBuilder('t')
@@ -386,7 +386,7 @@ export class TelemetryService {
       .addSelect('MAX(t.timestamp)', 'max_ts')
       .groupBy('t.imei');
 
-    if (imeis) sub.where('t.imei IN (:...imeis)', { imeis });
+    sub.where('t.imei IN (:...imeis)', { imeis });
 
     const rows = await sub.getRawMany<{ imei: string; max_ts: string }>();
     if (!rows.length) return [];
