@@ -7,6 +7,7 @@ import { AlertLog }     from '../alerts/entities/alert-log.entity.js';
 import { Alert }        from '../alerts/entities/alert.entity.js';
 import { DriverEvent }  from '../driver-behavior/entities/driver-event.entity.js';
 import { Geofence }     from '../geofences/entities/geofence.entity.js';
+import { User }         from '../users/entities/user.entity.js';
 import { SavedReport }       from './entities/saved-report.entity.js';
 import { ScheduledReport }   from './entities/scheduled-report.entity.js';
 import { ReportsService }    from './reports.service.js';
@@ -16,7 +17,7 @@ import { OrgPermissionsModule } from '../org-permissions/org-permissions.module.
 import { RolePortalPermissionsModule } from '../role-portal-permissions/role-portal-permissions.module.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Telemetry, Device, Vehicle, AlertLog, Alert, DriverEvent, Geofence, SavedReport, ScheduledReport]), OrgPermissionsModule, RolePortalPermissionsModule],
+  imports: [TypeOrmModule.forFeature([Telemetry, Device, Vehicle, AlertLog, Alert, DriverEvent, Geofence, SavedReport, ScheduledReport, User]), OrgPermissionsModule, RolePortalPermissionsModule],
   providers: [ReportsService, ScheduledReportsService],
   controllers: [ReportsController],
 })
