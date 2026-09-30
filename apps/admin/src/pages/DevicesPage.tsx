@@ -10,6 +10,7 @@ import PageHeader from '../components/PageHeader';
 import DateRangePicker from '../components/DateRangePicker';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import TablePagination, { useTablePagination } from '../components/TablePagination';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
 interface Device { id: string; displayId: number; imei: string; name: string | null; simNumber: string | null; cityId: string | null; status: string; inventoryStatus: 'in_stock' | 'assigned' | 'maintenance' | 'retired'; lastSeenAt: string | null; vehicleId: string | null; vehicleDisplayId: number | null; licensePlate: string | null; make: string | null; model: string | null; organizationId: string | null; clientName: string | null; createdAt: string; }
@@ -120,6 +121,7 @@ export default function DevicesPage() {
   // The API applies this filter through the selected user's effective vehicle
   // permissions. Filtering here by vehicle creator would hide valid results.
   const filtered = devices;
+  const pagination = useTablePagination(filtered, JSON.stringify([q, statusFilter, organizationFilter, dateRange?.from?.getTime(), dateRange?.to?.getTime(), selectedCityId]));
   const summaryCards: { label: string; value: number; color: string }[] = [
     { label: 'Total Devices', value: summary.total, color: '#111' },
     { label: 'Assigned Devices', value: summary.assigned, color: '#16a34a' },
@@ -164,7 +166,7 @@ export default function DevicesPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(d => {
+            {pagination.pagedItems.map(d => {
               const online = d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < 5 * 60 * 1000;
               const borderColor = online ? '#16a34a' : d.vehicleId ? '#dc2626' : '#9ca3af';
               return (
@@ -197,6 +199,7 @@ export default function DevicesPage() {
         </table>
         </div>
       )}
+      {!loading && <TablePagination page={pagination.page} pageSize={pagination.pageSize} total={filtered.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />}
 
       <Modal open={modal} title={editing ? 'Edit Device' : 'Add Device'} onClose={closeModal} width='min(1200px, 97vw)' height='min(800px, 96vh)'>
         <form onSubmit={handleSubmit}>

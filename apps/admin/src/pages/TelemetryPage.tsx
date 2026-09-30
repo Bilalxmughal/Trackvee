@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { IconRefresh, IconSearch, IconDownload, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import { IconRefresh, IconSearch, IconDownload } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
@@ -9,6 +9,7 @@ import SkeletonTable from '../components/SkeletonTable';
 import DateRangePicker from '../components/DateRangePicker';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { fmtDateTime } from '../utils/date';
+import TablePagination, { TABLE_PAGE_SIZES } from '../components/TablePagination';
 
 interface Telemetry {
   id: string;
@@ -61,8 +62,6 @@ function exportCSV(data: Telemetry[], plateMap: Map<string, string>) {
   URL.revokeObjectURL(url);
 }
 
-const PAGE_SIZES = [25, 50, 75, 100] as const;
-
 export default function TelemetryPage() {
   const [rows, setRows] = useState<Telemetry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +69,7 @@ export default function TelemetryPage() {
   const [q, setQ] = useState('');
   const [ignFilter, setIgnFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [pageSize, setPageSize] = useState<typeof PAGE_SIZES[number]>(25);
+  const [pageSize, setPageSize] = useState<number>(TABLE_PAGE_SIZES[0]);
   const [page, setPage] = useState(1);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { selectedCityId } = useCityFilter();
@@ -173,9 +172,6 @@ export default function TelemetryPage() {
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, color: '#bbb' }}>{filtered.length} record{filtered.length !== 1 ? 's' : ''}</span>
-          <select value={pageSize} onChange={e => setPageSize(Number(e.target.value) as typeof PAGE_SIZES[number])} style={{ ...sel, width: 80 }}>
-            {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
-          </select>
         </div>
       </div>
 
@@ -212,46 +208,7 @@ export default function TelemetryPage() {
       )}
 
       {/* ── Pagination bar (frozen at bottom) ── */}
-      {!loading && filtered.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-            {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filtered.length)} of {filtered.length}
-          </span>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button onClick={() => setPage(1)} disabled={safePage === 1}
-              style={{ padding: '4px 7px', borderRadius: 3, border: '1px solid var(--input-border)', background: 'var(--input-bg)', color: safePage === 1 ? '#ccc' : 'var(--text2)', cursor: safePage === 1 ? 'not-allowed' : 'pointer', fontSize: 11 }}>«</button>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
-              style={{ display: 'flex', alignItems: 'center', padding: '4px 7px', borderRadius: 3, border: '1px solid var(--input-border)', background: 'var(--input-bg)', color: safePage === 1 ? '#ccc' : 'var(--text2)', cursor: safePage === 1 ? 'not-allowed' : 'pointer' }}>
-              <IconChevronLeft size={13}/>
-            </button>
-
-            {/* Page number pills */}
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(n => n === 1 || n === totalPages || Math.abs(n - safePage) <= 1)
-              .reduce<(number | '…')[]>((acc, n, i, arr) => {
-                if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push('…');
-                acc.push(n);
-                return acc;
-              }, [])
-              .map((n, i) =>
-                n === '…'
-                  ? <span key={`e${i}`} style={{ padding: '0 4px', color: '#bbb', fontSize: 12 }}>…</span>
-                  : <button key={n} onClick={() => setPage(n as number)}
-                      style={{ minWidth: 28, padding: '4px 6px', borderRadius: 3, border: `1px solid ${n === safePage ? '#dc2626' : 'var(--input-border)'}`, background: n === safePage ? '#dc2626' : 'var(--input-bg)', color: n === safePage ? '#fff' : 'var(--text2)', cursor: 'pointer', fontSize: 12, fontWeight: n === safePage ? 600 : 400 }}>{n}</button>
-              )}
-
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-              style={{ display: 'flex', alignItems: 'center', padding: '4px 7px', borderRadius: 3, border: '1px solid var(--input-border)', background: 'var(--input-bg)', color: safePage === totalPages ? '#ccc' : 'var(--text2)', cursor: safePage === totalPages ? 'not-allowed' : 'pointer' }}>
-              <IconChevronRight size={13}/>
-            </button>
-            <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages}
-              style={{ padding: '4px 7px', borderRadius: 3, border: '1px solid var(--input-border)', background: 'var(--input-bg)', color: safePage === totalPages ? '#ccc' : 'var(--text2)', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', fontSize: 11 }}>»</button>
-          </div>
-
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Page {safePage} / {totalPages}</span>
-        </div>
-      )}
+      {!loading && <TablePagination page={safePage} pageSize={pageSize} total={filtered.length} onPageChange={setPage} onPageSizeChange={setPageSize} />}
     </div>
   );
 }

@@ -36,6 +36,13 @@ Custom 15x15 checkbox, 3px radius, red checked state and white SVG checkmark. Li
 
 Display date/time as `01-Jan-2026 10:00 AM` across tables, panels, exports where human-readable display is expected.
 
+## Admin table pagination
+
+- Use `TablePagination` below admin list tables: `Showing X–Y of Z`, a Rows selector (25/50/75/100), and Prev/page numbers/Next.
+- Use `useTablePagination` for already-loaded filtered arrays. Reset to page 1 when filters change, and keep exports based on the full filtered set rather than the current page.
+- For API-paginated tables, keep the server's total and limit/offset contract; use the same footer controls to request the selected page and page size.
+- Show the footer after loading completes even when the result is empty (`Showing 0–0 of 0`).
+
 ## Source references
 
 - Portal vehicle selector: `apps/portal/src/components/VehicleMultiSelect.tsx`.

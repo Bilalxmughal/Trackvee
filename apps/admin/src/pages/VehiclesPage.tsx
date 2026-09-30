@@ -15,6 +15,7 @@ import DateRangePicker from '../components/DateRangePicker';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
+import TablePagination, { useTablePagination } from '../components/TablePagination';
 
 interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; year: number | null; cityId: string | null; organizationId: string | null; isActive: boolean; lifecycleStatus: 'active' | 'expired' | 'archived'; expiresAt: string | null; createdAt: string; }
 interface Org { id: string; name: string; }
@@ -173,6 +174,7 @@ export default function VehiclesPage() {
     if (expiryRange?.from && (!v.expiresAt || !isWithinInterval(parseISO(v.expiresAt), { start: startOfDay(expiryRange.from), end: endOfDay(expiryRange.to ?? expiryRange.from) }))) return false;
     return true;
   });
+  const pagination = useTablePagination(filtered, JSON.stringify([q, statusFilter, organizationFilter, dateRange?.from?.getTime(), dateRange?.to?.getTime(), expiryRange?.from?.getTime(), expiryRange?.to?.getTime()]));
   const getLifecycle = (vehicle: Vehicle): Vehicle['lifecycleStatus'] => vehicle.lifecycleStatus === 'active' && vehicle.expiresAt && Date.parse(vehicle.expiresAt) <= Date.now() ? 'expired' : vehicle.lifecycleStatus;
   const countLifecycle = (key: Vehicle['lifecycleStatus'] | 'all') => key === 'all' ? vehicles.length : vehicles.filter(vehicle => getLifecycle(vehicle) === key).length;
 
@@ -216,7 +218,7 @@ export default function VehiclesPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(v => (
+            {pagination.pagedItems.map(v => (
               <tr key={v.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${getLifecycle(v) === 'active' ? '#16a34a' : getLifecycle(v) === 'expired' ? '#dc2626' : '#9ca3af'}` }}>
                 <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{v.displayId}</td>
                 <td style={{ padding: '10px 14px', fontWeight: 500 }}>{v.licensePlate ?? '—'}</td>
@@ -250,6 +252,7 @@ export default function VehiclesPage() {
         </table>
         </div>
       )}
+      {!loading && <TablePagination page={pagination.page} pageSize={pagination.pageSize} total={filtered.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />}
 
       <Modal open={modal} title={editing ? 'Edit Vehicle' : 'Add Vehicle'} onClose={closeModal} width='min(1200px, 97vw)' height='min(800px, 96vh)'>
         <form onSubmit={handleSubmit}>

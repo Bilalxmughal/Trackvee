@@ -13,6 +13,7 @@ import DateRangePicker from '../components/DateRangePicker';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
+import TablePagination, { useTablePagination } from '../components/TablePagination';
 
 interface Client {
   id: string; displayId: number; name: string; type: string;
@@ -154,6 +155,7 @@ export default function ClientsPage() {
     if (dateRange?.from && !isWithinInterval(parseISO(c.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });
+  const pagination = useTablePagination(filtered, JSON.stringify([q, statusFilter, typeFilter, dateRange?.from?.getTime(), dateRange?.to?.getTime()]));
 
   return (
     <div>
@@ -203,7 +205,7 @@ export default function ClientsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(c => (
+              {pagination.pagedItems.map(c => (
                 <tr key={c.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${c.isActive ? '#22c55e' : '#e5e7eb'}` }}>
                   <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{c.displayId}</td>
                   <td style={{ padding: '10px 14px', fontWeight: 500, fontSize: 13 }}>{c.name}</td>
@@ -251,6 +253,7 @@ export default function ClientsPage() {
           </table>
         </div>
       )}
+      {!loading && <TablePagination page={pagination.page} pageSize={pagination.pageSize} total={filtered.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />}
 
       <Modal open={modal} title={editing ? 'Edit Client' : 'Add Client'} onClose={closeModal} width='min(1200px, 97vw)' height='min(800px, 96vh)'>
         <form onSubmit={handleSubmit}>

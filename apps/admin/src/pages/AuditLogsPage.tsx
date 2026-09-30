@@ -3,6 +3,7 @@ import { IconSearch, IconDownload, IconRefresh } from '@tabler/icons-react';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
 import PageHeader from '../components/PageHeader';
+import TablePagination from '../components/TablePagination';
 import SkeletonTable from '../components/SkeletonTable';
 
 interface AuditLog {
@@ -62,13 +63,12 @@ const flat = (color: string): React.CSSProperties => ({
   fontSize: 12, fontWeight: 600, color,
 });
 
-const PAGE_SIZE = 50;
-
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
 
   const [q, setQ] = useState('');
   const [actionFilter, setActionFilter] = useState('');
@@ -104,7 +104,7 @@ export default function AuditLogsPage() {
   const load = useCallback(async (pg = 0) => {
     setLoading(true);
     try {
-      const params = buildParams({ limit: String(PAGE_SIZE), offset: String(pg * PAGE_SIZE) });
+      const params = buildParams({ limit: String(pageSize), offset: String(pg * pageSize) });
       const qs = '?' + new URLSearchParams(params).toString();
       const r = await api.get<{ data: AuditLog[]; total: number }>(`/audit-logs${qs}`);
       setLogs(r.data.data);
@@ -113,7 +113,7 @@ export default function AuditLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [buildParams]);
+  }, [buildParams, pageSize]);
 
   useEffect(() => { load(0); }, [load]);
 
@@ -132,8 +132,6 @@ export default function AuditLogsPage() {
     } catch { /* ignore */ }
     setExporting(false);
   };
-
-  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div style={{ padding: '0 0 40px' }}>
@@ -235,14 +233,8 @@ export default function AuditLogsPage() {
         </table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 20px 0', fontSize: 12, color: 'var(--text-muted)' }}>
-          <button disabled={page === 0} onClick={() => load(page - 1)} style={{ height: 26, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 3, background: 'var(--input-bg)', cursor: page === 0 ? 'default' : 'pointer', fontSize: 12, color: 'var(--input-color)', opacity: page === 0 ? 0.4 : 1 }}>Prev</button>
-          <span>Page {page + 1} of {totalPages} ({total.toLocaleString()} total)</span>
-          <button disabled={page + 1 >= totalPages} onClick={() => load(page + 1)} style={{ height: 26, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 3, background: 'var(--input-bg)', cursor: page + 1 >= totalPages ? 'default' : 'pointer', fontSize: 12, color: 'var(--input-color)', opacity: page + 1 >= totalPages ? 0.4 : 1 }}>Next</button>
-        </div>
-      )}
+      <TablePagination page={page + 1} pageSize={pageSize} total={total}
+        onPageChange={nextPage => { void load(nextPage - 1); }} onPageSizeChange={setPageSize} />
     </div>
   );
 }

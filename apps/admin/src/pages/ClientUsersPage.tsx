@@ -14,6 +14,7 @@ import DateRangePicker from '../components/DateRangePicker';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
+import TablePagination, { useTablePagination } from '../components/TablePagination';
 
 interface OrgUser {
   id: string; displayId: number; email: string;
@@ -292,6 +293,7 @@ export default function ClientUsersPage() {
     if (dateRange?.from && !isWithinInterval(parseISO(u.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
     return true;
   });
+  const pagination = useTablePagination(filtered, JSON.stringify([q, roleFilter, orgFilter, statusFilter, dateRange?.from?.getTime(), dateRange?.to?.getTime()]));
 
   const canAssignPermissions = form.role !== 'client_owner' && !!form.organizationId;
   const tabs = [{ key: 'profile' as const, label: 'Profile' }, ...(canAssignPermissions ? [{ key: 'permissions' as const, label: 'Permissions' }] : [])];
@@ -358,7 +360,7 @@ export default function ClientUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(u => {
+              {pagination.pagedItems.map(u => {
                 const ps = portalStatus(u.lastLoginAt);
                 const org = orgs.find(o => o.id === u.organizationId);
                 return (
@@ -405,6 +407,7 @@ export default function ClientUsersPage() {
           </table>
         </div>
       )}
+      {!loading && <TablePagination page={pagination.page} pageSize={pagination.pageSize} total={filtered.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />}
 
       {/* Add/Edit Modal */}
       <Modal open={modal} title={editing ? 'Edit Client User' : 'Add Client User'} onClose={() => { setModal(false); setEditing(null); }} width='min(1200px, 97vw)' height='min(800px, 96vh)'>

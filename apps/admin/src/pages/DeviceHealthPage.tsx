@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconCpu, IconRefresh, IconSearch } from '@tabler/icons-react';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
+import TablePagination, { useTablePagination } from '../components/TablePagination';
 import { useCityFilter } from '../contexts/CityFilterContext';
 
 interface DeviceHealth {
@@ -98,6 +99,7 @@ export default function DeviceHealthPage() {
     const rank = { offline: 0, never_seen: 1, delayed: 2, online: 3 };
     return rank[a.connection] - rank[b.connection] || b.issues.length - a.issues.length;
   }), [rows, query, filter]);
+  const pagination = useTablePagination(filtered, JSON.stringify([query, filter, selectedCityId]));
 
   const card: React.CSSProperties = { padding: '14px 16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8 };
   const muted: React.CSSProperties = { color: 'var(--muted)', fontSize: 11 };
@@ -140,7 +142,7 @@ export default function DeviceHealthPage() {
             <tbody>
               {loading ? <tr><td colSpan={7} style={{ padding: 28, textAlign: 'center', color: '#9ca3af' }}>Loading device health…</td></tr>
                 : filtered.length === 0 ? <tr><td colSpan={7} style={{ padding: 36, textAlign: 'center', color: '#9ca3af' }}>{rows.length ? 'No devices match these filters' : 'No devices found'}</td></tr>
-                : filtered.map(row => <tr key={row.deviceId} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${CONNECTION_COLOR[row.connection]}` }}>
+                : pagination.pagedItems.map(row => <tr key={row.deviceId} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${CONNECTION_COLOR[row.connection]}` }}>
                   <td style={{ padding: '10px 12px', minWidth: 170 }}>
                     <div style={{ color: 'var(--text)', fontWeight: 600 }}>{row.vehicle?.licensePlate || row.vehicle?.name || (row.vehicle ? `Vehicle #${row.vehicle.displayId}` : 'Unassigned')}</div>
                     <div style={{ ...muted, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{row.deviceName ? `${row.deviceName} · ` : ''}{row.imei}</div>
@@ -155,6 +157,7 @@ export default function DeviceHealthPage() {
             </tbody>
           </table>
         </div>
+        {!loading && <TablePagination page={pagination.page} pageSize={pagination.pageSize} total={filtered.length} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />}
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, paddingTop: 12, ...muted }}><IconCpu size={14} /> Online ≤ 2 min · Delayed 2–10 min · Offline &gt; 10 min</div>
       </div>
     </div>
