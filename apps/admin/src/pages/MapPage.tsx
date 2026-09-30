@@ -349,17 +349,19 @@ function sameLivePoints(a: LivePoint[], b: LivePoint[]) {
 }
 
 const FOLLOW_WINDOW = { width: 360, height: 330, gap: 12, left: 16, top: 72 };
-function findFollowWindowPosition(occupied: Array<{ x: number; y: number }>) {
+function findFollowWindowPosition(occupied: Array<{ x: number; y: number }>, preferred?: { x: number; y: number }) {
   const maxX = Math.max(8, window.innerWidth - FOLLOW_WINDOW.width - 8);
   const maxY = Math.max(8, window.innerHeight - FOLLOW_WINDOW.height - 8);
+  const candidates: Array<{ x: number; y: number }> = [];
   for (let y = FOLLOW_WINDOW.top; y <= maxY; y += FOLLOW_WINDOW.height + FOLLOW_WINDOW.gap) {
     for (let x = FOLLOW_WINDOW.left; x <= maxX; x += FOLLOW_WINDOW.width + FOLLOW_WINDOW.gap) {
-      const free = occupied.every(p => x + FOLLOW_WINDOW.width <= p.x || p.x + FOLLOW_WINDOW.width <= x
-        || y + FOLLOW_WINDOW.height <= p.y || p.y + FOLLOW_WINDOW.height <= y);
-      if (free) return { x, y };
+      candidates.push({ x, y });
     }
   }
-  return null;
+  if (preferred) candidates.sort((a, b) =>
+    ((a.x - preferred.x) ** 2 + (a.y - preferred.y) ** 2) - ((b.x - preferred.x) ** 2 + (b.y - preferred.y) ** 2));
+  return candidates.find(({ x, y }) => occupied.every(p => x + FOLLOW_WINDOW.width <= p.x || p.x + FOLLOW_WINDOW.width <= x
+    || y + FOLLOW_WINDOW.height <= p.y || p.y + FOLLOW_WINDOW.height <= y)) ?? null;
 }
 
 // ── Map components ────────────────────────────────────────────────────────────
@@ -2233,7 +2235,7 @@ function FollowMiniMapMarker({ pt, plate }: { pt: LivePoint; plate: string }) {
 function FollowWindow({ plate, pt, dark, onStop, initPos, onPositionChange }: {
   plate: string; pt: LivePoint | undefined; dark: boolean; onStop: () => void;
   initPos: { x: number; y: number };
-  onPositionChange: (position: { x: number; y: number }) => void;
+  onPositionChange: (position: { x: number; y: number }) => { x: number; y: number };
 }) {
   const [pos, setPos] = useState(initPos);
   const winRef = useRef<HTMLDivElement>(null);
@@ -2258,8 +2260,9 @@ function FollowWindow({ plate, pt, dark, onStop, initPos, onPositionChange }: {
       dragRef.current = null;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      setPos(next);
-      onPositionChange(next);
+      const resolved = onPositionChange(next);
+      setPos(resolved);
+      if (el) { el.style.left = `${resolved.x}px`; el.style.top = `${resolved.y}px`; }
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -2343,6 +2346,8 @@ export default function MapPage() {
   const [vehicleDetails, setVehicleDetails] = useState<Map<string, VehicleDetail>>(new Map());
   const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; ts: number } | null>(null);
   const [followWindows, setFollowWindows] = useState<Array<{ imei: string; position: { x: number; y: number } }>>([]);
+  const followWindowsRef = useRef(followWindows);
+  followWindowsRef.current = followWindows;
   const [followLimitMessage, setFollowLimitMessage] = useState('');
   const [trails, setTrails] = useState<Map<string, [number,number][]>>(new Map());
   const [mapStyle, setMapStyle] = useState<MapStyle>('street');
@@ -2859,12 +2864,17 @@ export default function MapPage() {
                 }}
                 hasAlertImeis={alertsByImei}
                 onFollow={(imei) => {
-                  if (!followWindows.some(w => w.imei === imei)) {
-                    const position = findFollowWindowPosition(followWindows.map(w => w.position));
+                  const current = followWindowsRef.current;
+                  if (!current.some(w => w.imei === imei)) {
+                    const position = findFollowWindowPosition(current.map(w => w.position));
                     if (!position) {
                       setFollowLimitMessage('Close a follow window to open another one.');
                       window.setTimeout(() => setFollowLimitMessage(''), 3000);
-                    } else setFollowWindows([...followWindows, { imei, position }]);
+                    } else {
+                      const next = [...current, { imei, position }];
+                      followWindowsRef.current = next;
+                      setFollowWindows(next);
+                    }
                   }
                   const pt = points.find(p => p.imei === imei);
                   if (pt) setFlyTarget({ lat: pt.latitude, lng: pt.longitude, ts: Date.now() });
@@ -3026,7 +3036,17 @@ export default function MapPage() {
             dark={dark}
             onStop={() => setFollowWindows(prev => prev.filter(w => w.imei !== imei))}
             initPos={position}
-            onPositionChange={nextPos => setFollowWindows(prev => prev.map(w => w.imei === imei ? { ...w, position: nextPos } : w))}
+            onPositionChange={requested => {
+              const current = followWindowsRef.current;
+              const occupied = current.filter(w => w.imei !== imei).map(w => w.position);
+              const position = findFollowWindowPosition(occupied, requested)
+                ?? current.find(w => w.imei === imei)?.position
+                ?? requested;
+              const next = current.map(w => w.imei === imei ? { ...w, position } : w);
+              followWindowsRef.current = next;
+              setFollowWindows(next);
+              return position;
+            }}
           />
         );
       })}

@@ -7,7 +7,7 @@
 ## 2026-09-30
 
 ### Changed
-- [Admin] Reduced large-fleet live-map work by preserving unchanged telemetry/trail state, limiting animation to active markers at 30 FPS, separating stale-status updates from road snapping, and making follow-window dragging render-light with free-slot placement.
+- [Admin] Reduced large-fleet live-map work by preserving unchanged telemetry/trail state, limiting animation to active markers at 30 FPS, separating stale-status updates from road snapping, and keeping follow windows in non-overlapping grid slots while dragging.
 
 ### Added
 - [Gateway/Operations] Added a bounded GT06 simulator plus isolated LOADTEST fleet seed/cleanup scripts and a staged Oracle capacity-test runbook (10→50→100→300 devices; localhost only).

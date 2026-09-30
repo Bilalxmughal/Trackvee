@@ -40,7 +40,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - Preserve react-leaflet v4 and custom marker pointer-event behavior.
 - Use raw SQL for PostgreSQL `DISTINCT ON` queries.
 - Pending discussion: review Oracle VM shape and monthly cost with the user; do not resize or change the production instance before that discussion.
-- Admin live-map responsiveness for 300 vehicles is being optimized in source; production browser verification remains pending after deployment.
+- Admin live-map performance optimizations are pushed to `main`; production browser verification with a 300-vehicle fleet remains pending.
 
 ## Next product priorities
 
