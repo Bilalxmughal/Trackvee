@@ -122,6 +122,19 @@ pm2 restart yotrack-api
 
 The migration backfills each current device link from the earliest retained telemetry point (or device creation time when no telemetry exists); those legacy dates are estimates. New assignment/transfer/replacement records have operational timestamps and attribution metadata.
 
+Per-user Dashboard and Live Map permission overrides require migration `033_core_user_permissions.sql`. Apply after migrations 031 and 032 and before deploying the API:
+
+```bash
+cd ~/yotrack
+set -a
+. ./.env
+set +a
+: "${DATABASE_URL:?DATABASE_URL is not set in .env}"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/api/migrations/033_core_user_permissions.sql
+pnpm --filter api build
+pm2 restart yotrack-api
+```
+
 The mobile dynamic sound module needs one signed EAS build after it is first added. Once that version is installed, adding or deactivating uploaded catalogue sounds is server-side and does not require another app build. Use device QA for Android and iOS push playback.
 
 ## Nginx
