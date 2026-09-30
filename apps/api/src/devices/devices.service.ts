@@ -89,12 +89,11 @@ export class DevicesService {
       SELECT d.id, d.display_id AS "displayId", d.imei, d.name, d.sim_number AS "simNumber",
              d.status, d.inventory_status AS "inventoryStatus", d.city_id AS "cityId", d.last_seen_at AS "lastSeenAt", d.created_at AS "createdAt",
              v.id AS "vehicleId", v.display_id AS "vehicleDisplayId", v.license_plate AS "licensePlate",
-             v.make, v.model, v.owner_id AS "ownerId", v.organization_id AS "organizationId",
-             o.name AS "clientName", concat_ws(' ', u.first_name, u.last_name) AS "clientUserName"
+             v.make, v.model, v.organization_id AS "organizationId",
+             o.name AS "clientName"
       FROM devices d
       LEFT JOIN vehicles v ON v.id = d.vehicle_id
       LEFT JOIN organizations o ON o.id = v.organization_id
-      LEFT JOIN users u ON u.id::text = v.owner_id::text
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY d.created_at DESC
     `, params);

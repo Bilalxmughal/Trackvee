@@ -341,10 +341,10 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 
 ## KI-027 — Device inventory SQL must account for legacy owner ID types
 
-**Status:** Fixed in source; Oracle deployment pending
+**Status:** Resolved; regression rule retained
 
 **Area:** Admin / Device inventory
 
-**Cause:** The inventory query joined UUID `users.id` directly to text `vehicles.owner_id`, causing PostgreSQL to reject the query and return HTTP 500 for every inventory request.
+**Cause:** The inventory query joined UUID `users.id` directly to text `vehicles.owner_id`, causing PostgreSQL to reject the query and return HTTP 500 for every inventory request. The owner field also represents the vehicle's record owner, not necessarily the current operational owner.
 
-**Rule:** When joining users to vehicles in this inventory query, compare their textual UUID representations (`users.id::text = vehicles.owner_id::text`). Cast incoming city, organization, and user filter IDs to UUID in raw SQL predicates.
+**Rule:** Do not join/display `vehicles.owner_id` for the device inventory list. Cast incoming city, organization, and user filter IDs to UUID in raw SQL predicates; preserve the client-user permission filter independently of display columns.

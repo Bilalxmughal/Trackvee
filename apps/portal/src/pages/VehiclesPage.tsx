@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconCar, IconSearch, IconChevronRight, IconHistory, IconX } from '@tabler/icons-react';
 import api from '../api/client';
+import { fmtDate, fmtDateTime } from '../lib/date';
 
 interface Vehicle {
   id: string; displayId: number;
@@ -129,13 +130,13 @@ export default function VehiclesPage() {
           </div>
           <div style={{ padding: 20 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
-              {[['Lifecycle', selectedVehicle.lifecycleStatus === 'expired' ? 'Expired' : selectedVehicle.lifecycleStatus === 'archived' ? 'Archived' : 'Active'], ['Added', new Date(selectedVehicle.createdAt).toLocaleDateString()], ['Tracking expires', selectedVehicle.expiresAt ? new Date(selectedVehicle.expiresAt).toLocaleDateString() : 'No expiry'], ['Tracker', devByVehicle.has(selectedVehicle.id) ? `Device ${devByVehicle.get(selectedVehicle.id)?.displayId}` : 'No device assigned'], ['SIM', (() => { const sim = devByVehicle.get(selectedVehicle.id)?.simNumber; return sim ? `••••${sim.slice(-4)}` : '—'; })()]].map(([label, value]) => <div key={label} style={{ padding: 12, borderLeft: '2px solid #dc2626', background: '#fafafa' }}><div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>{label}</div><div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{value}</div></div>)}
+              {[['Lifecycle', selectedVehicle.lifecycleStatus === 'expired' ? 'Expired' : selectedVehicle.lifecycleStatus === 'archived' ? 'Archived' : 'Active'], ['Added', fmtDate(selectedVehicle.createdAt)], ['Tracking expires', selectedVehicle.expiresAt ? fmtDate(selectedVehicle.expiresAt) : 'No expiry'], ['Tracker', devByVehicle.has(selectedVehicle.id) ? `Device ${devByVehicle.get(selectedVehicle.id)?.displayId}` : 'No device assigned'], ['SIM', (() => { const sim = devByVehicle.get(selectedVehicle.id)?.simNumber; return sim ? `••••${sim.slice(-4)}` : '—'; })()]].map(([label, value]) => <div key={label} style={{ padding: 12, borderLeft: '2px solid #dc2626', background: '#fafafa' }}><div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>{label}</div><div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{value}</div></div>)}
             </div>
             <div style={{ marginTop: 24, fontSize: 13, fontWeight: 700, color: '#111' }}>Device assignment history</div>
             {historyLoading ? <div style={{ padding: 22, color: '#9ca3af', fontSize: 12 }}>Loading assignment history…</div> : assignmentHistory.length ? <div style={{ marginTop: 8, borderTop: '1px solid #e5e7eb' }}>
               {assignmentHistory.map(row => <div key={row.id} style={{ padding: '12px 4px', display: 'grid', gridTemplateColumns: 'minmax(115px, .7fr) minmax(180px, 1.2fr) minmax(120px, .8fr)', gap: 12, borderBottom: '1px solid #f0f0f0', fontSize: 12 }}>
                 <div><strong style={{ color: '#111' }}>Device {row.deviceDisplayId}</strong><div style={{ marginTop: 4, color: '#6b7280' }}>{row.action === 'legacy' ? 'Existing assignment' : row.action}</div></div>
-                <div style={{ color: '#4b5563' }}>{new Date(row.assignedAt).toLocaleString()}<div style={{ marginTop: 4, color: '#9ca3af' }}>To {row.unassignedAt ? new Date(row.unassignedAt).toLocaleString() : 'Current'}</div></div>
+                <div style={{ color: '#4b5563' }}>{fmtDateTime(row.assignedAt)}<div style={{ marginTop: 4, color: '#9ca3af' }}>To {row.unassignedAt ? fmtDateTime(row.unassignedAt) : 'Current'}</div></div>
                 <div style={{ color: '#6b7280' }}>{row.reason || row.notes || 'No service notes'}{row.odometerKm != null ? <div style={{ marginTop: 4 }}>Odometer {Number(row.odometerKm).toLocaleString()} km</div> : null}</div>
               </div>)}
             </div> : <div style={{ padding: 16, color: '#9ca3af', fontSize: 12 }}>No tracker assignment records available.</div>}

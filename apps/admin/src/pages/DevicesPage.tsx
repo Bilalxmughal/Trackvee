@@ -3,6 +3,7 @@ import { IconPlus, IconSearch, IconEdit, IconTrash, IconArrowsExchange, IconHist
 import type { DateRange } from '../components/DateRangePicker';
 import { format } from 'date-fns';
 import api from '../api/client';
+import { fmtDate, fmtDateTime } from '../utils/date';
 import SkeletonTable from '../components/SkeletonTable';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import PageHeader from '../components/PageHeader';
@@ -12,7 +13,7 @@ import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 
-interface Device { id: string; displayId: number; imei: string; name: string | null; simNumber: string | null; cityId: string | null; status: string; inventoryStatus: 'in_stock' | 'assigned' | 'maintenance' | 'retired'; lastSeenAt: string | null; vehicleId: string | null; vehicleDisplayId: number | null; licensePlate: string | null; make: string | null; model: string | null; ownerId: string | null; organizationId: string | null; clientName: string | null; clientUserName: string | null; createdAt: string; }
+interface Device { id: string; displayId: number; imei: string; name: string | null; simNumber: string | null; cityId: string | null; status: string; inventoryStatus: 'in_stock' | 'assigned' | 'maintenance' | 'retired'; lastSeenAt: string | null; vehicleId: string | null; vehicleDisplayId: number | null; licensePlate: string | null; make: string | null; model: string | null; organizationId: string | null; clientName: string | null; createdAt: string; }
 interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; lifecycleStatus?: string; }
 interface Organization { id: string; name: string; }
 interface AdminUser { id: string; firstName: string | null; lastName: string | null; email: string; role: string; organizationId: string | null; }
@@ -237,7 +238,7 @@ export default function DevicesPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {['ID', 'IMEI', 'Device', 'SIM', 'Assignment', 'Vehicle', 'Client', 'Vehicle Owner', 'Connection', 'Last Seen', 'Added', ''].map(h => (
+              {['ID', 'IMEI', 'Device', 'SIM', 'Assignment', 'Vehicle', 'Client', 'Connection', 'Last Seen', 'Added', ''].map(h => (
                 <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
               ))}
             </tr>
@@ -255,12 +256,11 @@ export default function DevicesPage() {
                   <td style={{ padding: '10px 14px', color: d.inventoryStatus === 'assigned' ? '#16a34a' : d.inventoryStatus === 'retired' ? '#6b7280' : d.inventoryStatus === 'maintenance' ? '#f59e0b' : '#9ca3af' }}>{d.inventoryStatus.replace('_', ' ').replace(/^\w/, c => c.toUpperCase())}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.vehicleId ? `${d.vehicleDisplayId ?? ''} ${d.licensePlate ?? ''}`.trim() : '—'}</td>
                   <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.clientName ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.clientUserName ?? '—'}</td>
                   <td style={{ padding: '10px 14px', color: online ? '#16a34a' : '#9ca3af' }}>
                     {online ? 'Online' : 'Offline'}
                   </td>
                   <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{lastSeenLabel(d.lastSeenAt)}</td>
-                  <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{new Date(d.createdAt).toLocaleDateString()}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{fmtDate(d.createdAt)}</td>
                   <td style={{ padding: '10px 14px' }}>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button title="Assign or transfer" onClick={() => { setAssigning(d); setAssignmentVehicleId(d.vehicleId ?? ''); setReplaceCurrent(false); }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#777', padding: 4 }}><IconArrowsExchange size={14} /></button>
@@ -274,7 +274,7 @@ export default function DevicesPage() {
                 </tr>
               );
             })}
-            {!filtered.length && <tr><td colSpan={12} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No devices found</td></tr>}
+            {!filtered.length && <tr><td colSpan={11} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No devices found</td></tr>}
           </tbody>
         </table>
         </div>
@@ -335,7 +335,7 @@ export default function DevicesPage() {
         {historyLoading ? <Spinner /> : historyRows.length ? <div style={{ display: 'grid', gap: 0 }}>
           {historyRows.map(row => <div key={row.id} style={{ padding: '14px 4px', borderBottom: '1px solid var(--border2)', display: 'grid', gridTemplateColumns: '180px 1fr 1fr', gap: 12, fontSize: 12 }}>
             <strong>{row.action === 'legacy' ? 'Existing assignment' : row.action}</strong>
-            <span>{new Date(row.assignedAt).toLocaleString()} → {row.unassignedAt ? new Date(row.unassignedAt).toLocaleString() : 'Current'}</span>
+            <span>{fmtDateTime(row.assignedAt)} → {row.unassignedAt ? fmtDateTime(row.unassignedAt) : 'Current'}</span>
             <span>{row.vehicleDisplayId} · {row.licensePlate || 'Vehicle'}<br />{row.reason || row.notes || 'No notes recorded'}</span>
           </div>)}
         </div> : <div style={{ color: 'var(--muted)', fontSize: 12 }}>No assignment history found.</div>}

@@ -10,6 +10,9 @@
 - [API/Admin/Portal] Added time-bounded device assignment/transfer/replacement history, stock and connection states, lifecycle expiry/archive, searchable client/user inventory filters, added-date range, vehicle detail timelines, and report attribution by packet-time assignment. Migration 031 is required before API deployment.
 - [API/Admin/Portal] Added reusable scheduled report templates with saved report filters, editable delivery windows/times/recipients, optional additional recipients, an owner copy, Active/Pause/Edit/Delete, and migration 030. Oracle requires the migration and Resend sender/API key before email delivery is active.
 
+### Changed
+- [Admin/Portal] Removed the misleading Vehicle Owner column and standardized device/vehicle feature dates to `DD-Mon-YYYY`, such as `01-Jan-2026`.
+
 ## 2026-09-29
 
 ### Added
