@@ -43,6 +43,11 @@ Display date/time as `01-Jan-2026 10:00 AM` across tables, panels, exports where
 - For API-paginated tables, keep the server's total and limit/offset contract; use the same footer controls to request the selected page and page size.
 - Show the footer after loading completes even when the result is empty (`Showing 0–0 of 0`).
 
+## Admin data-table gutters
+
+- Top-level admin data-list tables use the shared `tbl-wrap page-table` wrapper for 24px horizontal gutters, matching page cards and filter controls.
+- Tables already contained in padded cards, detail panels, modals, or page sections retain their existing parent spacing; do not add a second gutter.
+
 ## Source references
 
 - Portal vehicle selector: `apps/portal/src/components/VehicleMultiSelect.tsx`.

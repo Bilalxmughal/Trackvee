@@ -92,7 +92,7 @@ export default function OrganizationsPage() {
       </div>
 
       {loading ? <SkeletonTable cols={5} /> : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <div className="tbl-wrap page-table"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
               {['ID', 'Name', 'Status', 'Created', ''].map(h => (
@@ -119,7 +119,7 @@ export default function OrganizationsPage() {
             ))}
             {!filtered.length && <tr><td colSpan={5} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No organizations found</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       )}
 
       {/* Add/Edit Modal */}

@@ -102,6 +102,7 @@ input, select, button { font-family: inherit; }
 
 /* ── Responsive table wrapper ── */
 .tbl-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tbl-wrap.page-table { width: calc(100% - 48px); margin-inline: 24px; }
 .tbl-wrap table { min-width: 640px; width: 100%; border-collapse: collapse; font-size: 12px; }
 
 /* ── Skeleton shimmer ── */

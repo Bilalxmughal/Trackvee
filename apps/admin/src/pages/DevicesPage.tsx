@@ -156,7 +156,7 @@ export default function DevicesPage() {
       </div>
 
       {loading ? <SkeletonTable cols={8} /> : (
-        <div className="tbl-wrap">
+        <div className="tbl-wrap page-table">
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>

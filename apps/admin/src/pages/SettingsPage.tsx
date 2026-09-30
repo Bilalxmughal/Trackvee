@@ -121,7 +121,7 @@ export default function SettingsPage() {
           {activeTab === 'notifications' && canViewSounds && <NotificationSoundsPage embedded />}
           {activeTab === 'cities' && (
             loading ? <SkeletonTable cols={6} /> : (
-              <div className="tbl-wrap">
+              <div className="tbl-wrap page-table">
                 <table>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>

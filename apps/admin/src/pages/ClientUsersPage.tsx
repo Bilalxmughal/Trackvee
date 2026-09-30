@@ -350,7 +350,7 @@ export default function ClientUsersPage() {
       </div>
 
       {loading ? <SkeletonTable cols={9} /> : (
-        <div className="tbl-wrap">
+        <div className="tbl-wrap page-table">
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>

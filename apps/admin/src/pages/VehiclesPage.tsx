@@ -208,7 +208,7 @@ export default function VehiclesPage() {
       </div>
 
       {loading ? <SkeletonTable cols={7} /> : (
-        <div className="tbl-wrap">
+        <div className="tbl-wrap page-table">
         <table>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>

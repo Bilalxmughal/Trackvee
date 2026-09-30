@@ -177,7 +177,7 @@ export default function TelemetryPage() {
 
       {/* ── Scrollable table ── */}
       {loading ? <SkeletonTable cols={9} /> : (
-        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+        <div className="tbl-wrap page-table" style={{ flex: 1, minHeight: 0 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--card-bg, #fff)', borderBottom: '1px solid var(--border)' }}>
