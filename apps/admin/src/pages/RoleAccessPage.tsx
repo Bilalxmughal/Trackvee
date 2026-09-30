@@ -92,7 +92,13 @@ export default function RoleAccessPage() {
       const defaults = deepClone(ORG_ROLE_PORTAL_PERMISSIONS) as AllPerms;
       const merged = { ...defaults };
       for (const [role, features] of Object.entries(loadedOrgPerms)) {
-        merged[role] = { ...(defaults[role] ?? {}), ...features };
+        const normalized: PermMap = {};
+        for (const [feature, actions] of Object.entries(features)) {
+          normalized[feature] = actions.filter((action): action is PageAction =>
+            action === 'view' || action === 'add' || action === 'edit' || action === 'delete',
+          );
+        }
+        merged[role] = { ...(defaults[role] ?? {}), ...normalized };
       }
       setOrgPerms(merged);
     }
