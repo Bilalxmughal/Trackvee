@@ -277,7 +277,7 @@ export class ReportsService {
       case 'vehicle_history':   return { ...meta, ...this.vehicleHistory(vehList, vehToImei, byImei) };
       case 'alert_history':     return { ...meta, ...(await this.alertHistory(vehList, vehToImei, p)) };
       case 'driver_behavior':   return { ...meta, ...(await this.driverBehaviorReport(vehList, p)) };
-      case 'geofence_activity': return { ...meta, ...(await this.geofenceActivity(vehList, vehToImei, byImei, p.geofenceIds ?? [])) };
+      case 'geofence_activity': return { ...meta, ...(await this.geofenceActivity(vehList, vehToImei, byImei, p.geofenceIds ?? [], p.organizationId)) };
       default: throw new BadRequestException('Unknown report type');
     }
   }
@@ -559,11 +559,17 @@ export class ReportsService {
   }
 
   // ── 13. Geofence Activity ─────────────────────────────────────────────────
-  private async geofenceActivity(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>, gfIds: string[]) {
+  private async geofenceActivity(vehList: Vehicle[], vehToImei: Map<string,string>, byImei: Map<string,Telemetry[]>, gfIds: string[], organizationId?: string) {
     const columns = ['License Plate', 'Vehicle', 'Geofence', 'Event', 'Time', 'Duration Inside', 'Speed (km/h)', 'Location'];
     const rows: (string|number|null)[][] = [];
 
-    const geofences = gfIds.length ? await this.gfRepo.find({ where: { id: In(gfIds) } }) : await this.gfRepo.find();
+    const geofences = organizationId
+      ? gfIds.length
+        ? await this.gfRepo.find({ where: { id: In(gfIds), orgId: organizationId } })
+        : await this.gfRepo.find({ where: { orgId: organizationId } })
+      : gfIds.length
+        ? await this.gfRepo.find({ where: { id: In(gfIds) } })
+        : await this.gfRepo.find();
     if (!geofences.length) return { columns, rows, rowCount: 0, summary: null };
 
     for (const v of vehList) {

@@ -4,6 +4,11 @@
 
 ---
 
+## 2026-09-30
+
+### Added
+- [API/Admin/Portal] Added reusable scheduled report templates with saved report filters, editable delivery windows/times/recipients, optional additional recipients, an owner copy, Active/Pause/Edit/Delete, and migration 030. Oracle requires the migration and Resend sender/API key before email delivery is active.
+
 ## 2026-09-29
 
 ### Added

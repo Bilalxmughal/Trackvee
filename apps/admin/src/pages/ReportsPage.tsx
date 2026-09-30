@@ -28,6 +28,26 @@ interface SavedReport {
   params: Record<string, unknown>; userName: string | null; createdAt: string;
 }
 
+interface ScheduledReportItem {
+  id: string; title: string; reportType: string; period: string; timePkt: string; active: boolean;
+  reportFromTime: string | null; reportToTime: string | null; recipientEmails: string[];
+  nextRunAt: string; lastSentAt: string | null; lastError: string | null;
+}
+
+interface ScheduleDraft {
+  title: string; period: string; timePkt: string; reportFromTime: string | null;
+  reportToTime: string | null; recipientEmails: string[]; reportType?: string;
+  params?: Record<string, unknown>;
+}
+
+const SCHEDULE_PERIODS = [
+  { value: 'daily_window', label: 'Daily time window' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'last_24_hours', label: 'Last 24 hours' },
+  { value: 'last_7_days', label: 'Last 7 days' },
+  { value: 'this_month', label: 'This month' },
+];
+
 const REPORT_TYPES: { value: ReportType; label: string; group: string; opts?: ('speed'|'minStop'|'minSpeed'|'geofence')[] }[] = [
   { value: 'travel_summary',     label: 'Travel Summary',       group: 'Travel',    opts: ['speed'] },
   { value: 'stops_move_summary', label: 'Stops & Move Summary', group: 'Travel',    opts: ['speed','minStop'] },
@@ -92,6 +112,47 @@ function SaveModal({ onSave, onClose }: { onSave:(title:string)=>void; onClose:(
   );
 }
 
+function ScheduleModal({ report, existing, savedReports, configured, error, saving, onClose, onSubmit }: { report?: SavedReport; existing?: ScheduledReportItem; savedReports: SavedReport[]; configured: boolean; error:string; saving:boolean; onClose:()=>void; onSubmit:(draft:ScheduleDraft)=>void }) {
+  const [title, setTitle] = useState(existing?.title ?? report?.title ?? '');
+  const [period, setPeriod] = useState(existing?.period ?? 'daily_window');
+  const [timePkt, setTimePkt] = useState(existing?.timePkt ?? '23:00');
+  const [fromTime, setFromTime] = useState(existing?.reportFromTime ?? '09:00');
+  const [toTime, setToTime] = useState(existing?.reportToTime ?? '22:00');
+  const [recipientText, setRecipientText] = useState(existing?.recipientEmails.join(', ') ?? '');
+  const [replacementId, setReplacementId] = useState('');
+  const dailyWindowValid = period !== 'daily_window' || (fromTime < toTime && toTime < timePkt);
+  const chosenReport = savedReports.find(item => item.id === replacementId);
+  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{background:'var(--card-bg)',borderRadius:6,padding:24,width:420,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
+      <div style={{fontSize:14,fontWeight:600,marginBottom:6}}>{existing ? 'Edit Report Template' : 'Create Report Template'}</div>
+      <label style={lbl}>Template name</label>
+      <input value={title} maxLength={120} onChange={e=>setTitle(e.target.value)} style={{...inp,marginBottom:12}} placeholder="e.g. Daily fleet overspeed" />
+      {existing ? <><label style={lbl}>Report configuration</label><select value={replacementId} onChange={e=>setReplacementId(e.target.value)} style={{...sel,marginBottom:14}}><option value="">Keep current report and filters</option>{savedReports.map(item=><option key={item.id} value={item.id}>{item.title} · {REPORT_TYPE_LABEL[item.type]??item.type}</option>)}</select></> : <div style={{fontSize:12,color:'var(--text-muted)',marginBottom:14}}>{report?.title} · {REPORT_TYPE_LABEL[report?.type??'']??report?.type}</div>}
+      <label style={lbl}>Report data period</label>
+      <select value={period} onChange={e=>setPeriod(e.target.value)} style={{...sel,marginBottom:14}}>
+        {SCHEDULE_PERIODS.map(p=><option key={p.value} value={p.value}>{p.label}</option>)}
+      </select>
+      {period === 'daily_window' && <div style={{display:'flex',gap:10,marginBottom:12}}>
+        <div style={{flex:1}}><label style={lbl}>From</label><input type="time" value={fromTime} onChange={e=>setFromTime(e.target.value)} style={inp}/></div>
+        <div style={{flex:1}}><label style={lbl}>To</label><input type="time" value={toTime} onChange={e=>setToTime(e.target.value)} style={inp}/></div>
+      </div>}
+      <label style={lbl}>Email every day at · Pakistan time</label>
+      <input type="time" value={timePkt} onChange={e=>setTimePkt(e.target.value)} style={{...inp,marginBottom:12}} />
+      <label style={lbl}>Additional recipient emails (comma separated, up to 10)</label>
+      <input value={recipientText} onChange={e=>setRecipientText(e.target.value)} placeholder="manager@example.com, ops@example.com" style={{...inp,marginBottom:12}} />
+      {!dailyWindowValid && <div style={{fontSize:11,color:'#dc2626',marginBottom:12}}>The delivery time must be after the report window ends.</div>}
+      <div style={{fontSize:11,color:configured?'var(--text-muted)':'#dc2626',marginBottom:16}}>
+        {configured ? 'A copy always goes to your account email. Additional recipients will receive the same CSV.' : 'Email delivery is not configured on the server yet. The schedule can be saved, but emails will wait until delivery is configured.'}
+      </div>
+      {error && <div role="alert" style={{fontSize:12,color:'#dc2626',marginBottom:12}}>{error}</div>}
+      <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+        <button style={btnS('outline')} onClick={onClose}>Cancel</button>
+        <button style={btnS('primary')} disabled={saving||!dailyWindowValid||!title.trim()} onClick={()=>onSubmit({title:title.trim(),period,timePkt,reportFromTime:period==='daily_window'?fromTime:null,reportToTime:period==='daily_window'?toTime:null,recipientEmails:recipientText.split(/[;,\n]/).map(s=>s.trim()).filter(Boolean),...(chosenReport?{reportType:chosenReport.type,params:chosenReport.params}:!existing&&report?{reportType:report.type,params:report.params}:{})})}>{saving?(existing?'Saving…':'Creating…'):(existing?'Save Changes':'Save Template')}</button>
+      </div>
+    </div>
+  </div>;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   const [vehicles,      setVehicles]      = useState<VehicleOption[]>([]);
@@ -118,6 +179,11 @@ export default function ReportsPage() {
   const [showSaveModal,setShowSaveModal]= useState(false);
   const [savedLoading, setSavedLoading] = useState(false);
   const [deleteId,     setDeleteId]     = useState<string|null>(null);
+  const [schedules, setSchedules] = useState<ScheduledReportItem[]>([]);
+  const [scheduleTarget, setScheduleTarget] = useState<{ report?: SavedReport; existing?: ScheduledReportItem }|null>(null);
+  const [deliveryConfigured, setDeliveryConfigured] = useState(false);
+  const [scheduleError, setScheduleError] = useState('');
+  const [scheduleSaving, setScheduleSaving] = useState(false);
 
   const opts = REPORT_TYPES.find(r=>r.value===reportType)?.opts ?? [];
 
@@ -126,11 +192,49 @@ export default function ReportsPage() {
     api.get<VehicleGroup[]>('/vehicle-groups').then(r=>setVehicleGroups(r.data)).catch(()=>{});
     api.get<{id:string;name:string}[]>('/geofences').then(r=>setGeofences(r.data)).catch(()=>{});
     loadSaved();
+    loadSchedules();
   }, []);
 
   const loadSaved = () => {
     setSavedLoading(true);
     api.get<SavedReport[]>('/reports/saved').then(r=>setSaved(r.data)).catch(()=>{}).finally(()=>setSavedLoading(false));
+  };
+
+  const loadSchedules = () => {
+    api.get<{deliveryConfigured:boolean;items:ScheduledReportItem[]}>('/reports/schedules').then(r=>{
+      setSchedules(r.data.items); setDeliveryConfigured(r.data.deliveryConfigured);
+    }).catch(()=>{});
+  };
+
+  const saveSchedule = async (draft: ScheduleDraft) => {
+    if (!scheduleTarget) return;
+    const target = scheduleTarget;
+    setScheduleSaving(true); setScheduleError('');
+    try {
+      if (target.existing) await api.patch(`/reports/schedules/${target.existing.id}`, draft);
+      else if (target.report) await api.post('/reports/schedules', { ...draft, reportType: target.report.type, params: target.report.params });
+      else return;
+      setScheduleTarget(null); setScheduleError(''); loadSchedules();
+    } catch (e: unknown) {
+      const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setScheduleError(message ?? 'Could not schedule this report');
+    } finally { setScheduleSaving(false); }
+  };
+
+  const toggleSchedule = async (item: ScheduledReportItem) => {
+    try { await api.patch(`/reports/schedules/${item.id}`, { active: !item.active }); loadSchedules(); }
+    catch (e: unknown) {
+      const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setScheduleError(message ?? 'Could not update schedule');
+    }
+  };
+
+  const deleteSchedule = async (id: string) => {
+    try { await api.delete(`/reports/schedules/${id}`); loadSchedules(); }
+    catch (e: unknown) {
+      const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setScheduleError(message ?? 'Could not delete schedule');
+    }
   };
 
   const applyPeriod = (p: typeof PERIODS[0]) => {
@@ -328,6 +432,7 @@ export default function ReportsPage() {
               <button style={btnS('ghost')} onClick={exportExcel}><IconFileSpreadsheet size={14}/>Excel</button>
               <button style={btnS('ghost')} onClick={()=>window.print()}><IconPrinter size={14}/>Print</button>
               <button style={btnS('outline')} onClick={()=>setShowSaveModal(true)}><IconBookmark size={14}/>Save Report</button>
+              <button style={btnS('outline')} onClick={()=>{setScheduleError('');setScheduleTarget({report:{id:'current',title:REPORT_TYPE_LABEL[reportType],type:reportType,params:buildParams(),userName:null,createdAt:new Date().toISOString()}});}}>Create Template</button>
             </div>
           </div>
 
@@ -411,6 +516,7 @@ export default function ReportsPage() {
                     <td style={{padding:'7px 10px',textAlign:'center'}}>
                       <div style={{display:'flex',gap:6,justifyContent:'center'}}>
                         <button title="Load & Generate" style={{...btnS('outline'),padding:'0 10px',fontSize:11}} onClick={()=>loadSavedReport(sr)}>Load</button>
+                        <button title="Create a reusable delivery template" style={{...btnS('outline'),padding:'0 10px',fontSize:11}} onClick={()=>{setScheduleError('');setScheduleTarget({report:sr});}}>Schedule</button>
                         {deleteId===sr.id ? (
                           <>
                             <button style={{...btnS('danger'),padding:'0 10px',fontSize:11}} onClick={()=>handleDelete(sr.id)}>Confirm</button>
@@ -429,7 +535,32 @@ export default function ReportsPage() {
         )}
       </div>
 
+      <div className="no-print" style={{margin:'22px 20px 0',borderTop:'1px solid var(--border)',paddingTop:18}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <div style={{fontSize:13,fontWeight:600}}>Scheduled Delivery</div>
+          <button style={btnS('ghost')} onClick={loadSchedules}><IconRefresh size={13}/>Refresh</button>
+        </div>
+        {scheduleError && <div role="alert" style={{fontSize:12,color:'#dc2626',marginBottom:8}}>{scheduleError}</div>}
+        {!schedules.length ? <div style={{padding:'10px 0',fontSize:12,color:'var(--text-muted)'}}>No scheduled reports yet. Schedule a saved report to email it daily.</div> : (
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+            <thead><tr style={{background:'var(--bg2)',borderBottom:'2px solid var(--border)'}}>
+              {['Title','Period','Time (PKT)','Next Delivery','Last Sent','Status','Actions'].map(h=><th key={h} style={{padding:'7px 9px',textAlign:'left',fontSize:11,color:'var(--text-muted)'}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{schedules.map((item,i)=><tr key={item.id} style={{borderBottom:'1px solid var(--border)',background:i%2?'var(--bg2)':'transparent'}}>
+              <td style={{padding:'8px 9px'}}>{item.title}</td>
+              <td style={{padding:'8px 9px'}}>{item.period==='daily_window'?`Daily ${item.reportFromTime}–${item.reportToTime}`:(SCHEDULE_PERIODS.find(p=>p.value===item.period)?.label??item.period)}</td>
+              <td style={{padding:'8px 9px'}}>{item.timePkt}</td>
+              <td style={{padding:'8px 9px',whiteSpace:'nowrap'}}>{new Date(item.nextRunAt).toLocaleString('en-PK',{timeZone:'Asia/Karachi',dateStyle:'medium',timeStyle:'short'})}</td>
+              <td style={{padding:'8px 9px',whiteSpace:'nowrap'}} title={item.recipientEmails?.join(', ')}>{item.lastSentAt?new Date(item.lastSentAt).toLocaleString('en-PK',{timeZone:'Asia/Karachi',dateStyle:'medium',timeStyle:'short'}):'—'}{item.recipientEmails?.length?` · +${item.recipientEmails.length} recipients`:''}</td>
+              <td title={item.lastError??''} style={{padding:'8px 9px',color:item.lastError?'#dc2626':item.active?'#16a34a':'var(--text-muted)',fontWeight:600}}>{item.lastError?'Delivery error':item.active?'Active':'Paused'}</td>
+              <td style={{padding:'8px 9px',whiteSpace:'nowrap'}}><button style={{...btnS('outline'),marginRight:5}} onClick={()=>{setScheduleError('');setScheduleTarget({existing:item});}}>Edit</button><button style={{...btnS('outline'),marginRight:5}} onClick={()=>toggleSchedule(item)}>{item.active?'Pause':'Activate'}</button><button style={btnS('danger')} onClick={()=>deleteSchedule(item.id)}>Delete</button></td>
+            </tr>)}</tbody>
+          </table>
+        )}
+      </div>
+
       {showSaveModal && <SaveModal onSave={handleSave} onClose={()=>setShowSaveModal(false)} />}
+      {scheduleTarget && <ScheduleModal report={scheduleTarget.report} existing={scheduleTarget.existing} savedReports={saved} configured={deliveryConfigured} error={scheduleError} saving={scheduleSaving} onClose={()=>setScheduleTarget(null)} onSubmit={saveSchedule} />}
 
       {/* Delete confirm is inline in row */}
     </div>

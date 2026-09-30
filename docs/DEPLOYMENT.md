@@ -33,6 +33,26 @@ pnpm --filter api build
 pm2 restart yotrack-api
 ```
 
+Scheduled report delivery requires migration `030_scheduled_report_delivery.sql` and Resend email credentials. Set these in `/home/ubuntu/yotrack/.env` without committing them:
+
+```dotenv
+RESEND_API_KEY=<Resend API key>
+REPORT_EMAIL_FROM=<verified sender address>
+```
+
+Apply the migration before deploying the API. Once the sender/domain is verified in Resend and both environment variables are present, build and restart the API. Schedules run daily at the selected Pakistan time; custom report windows must end before delivery, the schedule owner always receives a copy, and up to 10 additional recipient addresses may be configured.
+
+```bash
+cd ~/yotrack
+set -a
+. ./.env
+set +a
+: "${DATABASE_URL:?DATABASE_URL is not set in .env}"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/api/migrations/030_scheduled_report_delivery.sql
+pnpm --filter api build
+pm2 restart yotrack-api --update-env
+```
+
 Use `--update-env` only when environment variables changed.
 
 ## Gateway deployment on Oracle

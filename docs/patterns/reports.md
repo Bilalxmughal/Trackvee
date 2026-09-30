@@ -37,6 +37,10 @@ Render values by column index, not object key.
 - Client-side Excel through `xlsx`.
 - Print layout.
 - Save, load, and delete report configurations through `/reports/saved`.
+- Save reusable scheduled-report templates from saved reports through `/reports/schedules`; edit title, report/filter source, time window, delivery time, and recipients, then activate, pause, or delete. Daily windows and delivery times use `Asia/Karachi`, while rolling periods are recalculated on every delivery.
+- Scheduled CSVs always go to the schedule owner's current account email and may include up to 10 additional addresses entered by that owner. API rechecks account status, organization membership, reports access, vehicle grants, and selected geofences at delivery time.
+- Server delivery requires `RESEND_API_KEY` and a verified sender in `REPORT_EMAIL_FROM`; see `docs/DEPLOYMENT.md`.
+- Every client report query must constrain vehicles and any selected geofences to the caller's organization. An unfiltered Geofence Activity report must load only that organization's geofences.
 
 ## Primary sources
 

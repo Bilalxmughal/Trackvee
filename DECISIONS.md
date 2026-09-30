@@ -202,3 +202,18 @@ Until tracker-reported odometer data is available, mileage since a service is es
 
 **Rule:**
 Label calculated mileage as estimated. Do not treat it as an authoritative device odometer or present it as a definitive vehicle reading. Date-based reminders remain independent of this estimate.
+
+---
+
+## DEC-015 — Scheduled reports use daily PKT delivery with an owner copy
+
+**Status:** Accepted
+
+**Decision:**
+Scheduled reports run daily in `Asia/Karachi`, regenerate the selected report period (including a custom daily time window), and email a CSV to the schedule owner's current account address plus up to 10 additional addresses entered by that owner. The API uses Resend over HTTPS; credentials and a verified sender are server environment settings.
+
+**Reason:**
+An owner copy preserves delivery accountability while allowing the user-requested distribution list. Recalculating the report window each day keeps the delivery current without changing its saved vehicle and report filters.
+
+**Rule:**
+Revalidate the owner's active status, organization, reports permission, vehicle grants, and geofence scope on every delivery. The owner account address is always included; validate additional addresses and cap them at 10.

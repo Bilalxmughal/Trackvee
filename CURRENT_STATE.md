@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-09-29 (GT06 CRC-ITU/X-25 matches 109 captured production frames; protocol regression tests and gateway typecheck pass. Oracle gateway still needs the CRC fix deployed and live logs checked.)
+Last verified: 2026-09-30 (Scheduled Report Delivery is implemented in API/admin/portal source; migration 030 and Resend sender/key are required before production email delivery.)
 
 ## Status
 
@@ -25,9 +25,10 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - GT06 CRC-ITU/X-25 verified against 109 captured production frames; valid GPS ACK follows confirmed API persistence with bounded retry. Oracle gateway still needs the CRC fix deployed and live logs checked.
 - Vehicles, devices, telemetry, alerts, geofences, POIs, speed zones, driver behavior scoring, and vehicle service history with due-date and estimated-distance reminders.
 - Reports in admin and portal: 13 report types, vehicle groups, period/conditional filters, CSV/Excel/Print, saved reports.
+- Scheduled Report Delivery in API/admin/portal source: reusable report templates with saved filters/vehicles, custom PKT report windows or rolling periods, delivery time, up to 10 extra recipients, and Active/Pause/Edit/Delete management. Production activation requires migration 030 and Resend credentials; one live email remains to be verified after setup.
 - Audit logs for internal operations.
 - Client portal topbar permission gating through DB-backed role portal permissions.
-- SQL migrations present through `029_maintenance_records.sql`; migrations 025–029 must be applied before deploying the current API. Shared alert sounds can be uploaded/activated in Admin and selected in Admin, Portal, and Mobile. Mobile supports per-device push/sound preferences and optional fleet refresh on foreground return; live polling pauses while backgrounded. One EAS build containing the local native dynamic-sound module is required; later catalogue uploads do not require a rebuild. Android signing/FCM and iOS APNs credentials, native build, and physical-device delivery QA remain release prerequisites.
+- SQL migrations present through `030_scheduled_report_delivery.sql`; migrations 025–030 must be applied before deploying the current API. Shared alert sounds can be uploaded/activated in Admin and selected in Admin, Portal, and Mobile. Mobile supports per-device push/sound preferences and optional fleet refresh on foreground return; live polling pauses while backgrounded. One EAS build containing the local native dynamic-sound module is required; later catalogue uploads do not require a rebuild. Android signing/FCM and iOS APNs credentials, native build, and physical-device delivery QA remain release prerequisites.
 
 ## Active constraints
 
@@ -40,13 +41,13 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 ## Next product priorities
 
 1. Complete Trackvee mobile release readiness and physical-device QA; see `docs/FEATURE_MATRIX.md` for exact gaps.
-2. Scheduled report delivery.
-3. Fuel monitoring and cost analytics.
+2. Fuel monitoring and cost analytics.
+3. Production delivery check for scheduled reports after Oracle configuration.
 
 ## Blockers
 
 Mobile foundation is in progress. Android export is verified; native-device interaction, remaining mobile parity, signed EAS builds, and store distribution setup remain. Production maintenance also requires migration 029 before the API restart.
 
-Gateway CRC-ITU/X-25 fix is pushed in commit `33f4685`. Pending production follow-up: pull/build/restart `yotrack-gateway` on Oracle, verify new GT06 packets no longer log CRC mismatch and still persist/ACK, then close KI-024. No additional drive test is required unless GPS persistence or ACK behavior regresses.
+Scheduled report delivery is coded but needs migration 030 and Resend sender/API key before production activation. Verify one delivery and pause/resume after setup. Gateway CRC-ITU/X-25 fix is pushed in commit `33f4685`; check deployment status separately if it remains outstanding.
 
 See `docs/FEATURE_MATRIX.md` for feature parity and `KNOWN_ISSUES.md` for operational/regression constraints.

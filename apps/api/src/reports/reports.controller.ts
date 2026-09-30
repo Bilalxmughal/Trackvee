@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, Query, Res, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Patch, Param, Body, Query, Res, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { OrgPermissionsService } from '../org-permissions/org-permissions.service.js';
@@ -8,6 +8,10 @@ import { ReportsService, ReportType } from './reports.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { User } from '../users/entities/user.entity.js';
+import { ScheduledReportsService } from './scheduled-reports.service.js';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
+import { Geofence } from '../geofences/entities/geofence.entity.js';
 
 @ApiTags('reports')
 @ApiBearerAuth()
@@ -18,6 +22,8 @@ export class ReportsController {
     private svc: ReportsService,
     private orgPermissions: OrgPermissionsService,
     private rolePermissions: RolePortalPermissionsService,
+    private scheduledReports: ScheduledReportsService,
+    @InjectRepository(Geofence) private geofences: Repository<Geofence>,
   ) {}
 
   @Get()
@@ -33,7 +39,7 @@ export class ReportsController {
     @Query('geofenceIds') geofenceIds?: string,
     @Query('groupBy')     groupBy?: string,
   ) {
-    const orgId = await this.assertReportScope(user, vehicleIds);
+    const orgId = await this.assertReportScope(user, vehicleIds, geofenceIds);
     return this.svc.generate({
       type,
       vehicleIds:     vehicleIds ? vehicleIds.split(',').filter(Boolean) : [],
@@ -62,7 +68,7 @@ export class ReportsController {
     @Query('groupBy')     groupBy?: string,
     @Res() res?: Response,
   ) {
-    const orgId = await this.assertReportScope(user, vehicleIds);
+    const orgId = await this.assertReportScope(user, vehicleIds, geofenceIds);
     const result = await this.svc.generate({
       type,
       vehicleIds:     vehicleIds ? vehicleIds.split(',').filter(Boolean) : [],
@@ -105,11 +111,57 @@ export class ReportsController {
     return this.assertClientFeatureAccess(user).then(() => this.svc.deleteSaved(id, user.id, orgId));
   }
 
+  @Get('schedules')
+  async listSchedules(@CurrentUser() user: User) {
+    await this.assertClientFeatureAccess(user);
+    const orgId = INTERNAL_ROLES.has(user.role) ? null : (user.organizationId ?? null);
+    return {
+      deliveryConfigured: this.scheduledReports.isDeliveryConfigured(),
+      items: await this.scheduledReports.listForUser(user.id, orgId),
+    };
+  }
+
+  @Post('schedules')
+  async createSchedule(
+    @CurrentUser() user: User,
+    @Body() body: {
+      title: string; reportType: string; params: Record<string, unknown>; period: string; timePkt: string;
+      reportFromTime?: string; reportToTime?: string; recipientEmails?: string[];
+    },
+  ) {
+    await this.assertClientFeatureAccess(user);
+    const orgId = INTERNAL_ROLES.has(user.role) ? null : (user.organizationId ?? null);
+    return this.scheduledReports.create(user, orgId, body);
+  }
+
+  @Patch('schedules/:id')
+  async updateSchedule(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() body: {
+      active?: boolean; title?: string; timePkt?: string; period?: string;
+      reportFromTime?: string | null; reportToTime?: string | null;
+      recipientEmails?: string[]; reportType?: string; params?: Record<string, unknown>;
+    },
+  ) {
+    await this.assertClientFeatureAccess(user);
+    const orgId = INTERNAL_ROLES.has(user.role) ? null : (user.organizationId ?? null);
+    return this.scheduledReports.update(user, orgId, id, body);
+  }
+
+  @Delete('schedules/:id')
+  async deleteSchedule(@CurrentUser() user: User, @Param('id') id: string) {
+    await this.assertClientFeatureAccess(user);
+    const orgId = INTERNAL_ROLES.has(user.role) ? null : (user.organizationId ?? null);
+    await this.scheduledReports.remove(user, orgId, id);
+    return { success: true };
+  }
+
   private async assertClientFeatureAccess(user: User): Promise<void> {
     await assertClientFeatureAccess(user, 'reports', 'view', this.orgPermissions, this.rolePermissions);
   }
 
-  private async assertReportScope(user: User, vehicleIds: string): Promise<string | undefined> {
+  private async assertReportScope(user: User, vehicleIds: string, geofenceIds?: string): Promise<string | undefined> {
     if (INTERNAL_ROLES.has(user.role)) return undefined;
     await this.assertClientFeatureAccess(user);
     if (!user.organizationId) throw new ForbiddenException('Organization access required');
@@ -118,6 +170,11 @@ export class ReportsController {
     const selected = vehicleIds ? [...new Set(vehicleIds.split(',').filter(Boolean))] : [];
     const allowed = grant?.vehicleIds ?? null;
     if (allowed !== null && selected.some(id => !allowed.includes(id))) throw new ForbiddenException('Report vehicle access is not permitted');
+    const selectedGeofences = geofenceIds ? [...new Set(geofenceIds.split(',').filter(Boolean))] : [];
+    if (selectedGeofences.length) {
+      const scoped = await this.geofences.find({ where: { id: In(selectedGeofences), orgId: user.organizationId }, select: { id: true } });
+      if (scoped.length !== selectedGeofences.length) throw new ForbiddenException('Report geofence access is not permitted');
+    }
     return user.organizationId;
   }
 }
