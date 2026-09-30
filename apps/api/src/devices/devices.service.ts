@@ -64,12 +64,12 @@ export class DevicesService {
     const params: unknown[] = [];
     const where: string[] = [];
     const add = (sql: string, value: unknown) => { params.push(value); where.push(sql.replace('?', `$${params.length}`)); };
-    if (filters.cityId) add('d.city_id = ?', filters.cityId);
-    if (filters.organizationId) add('v.organization_id = ?', filters.organizationId);
+    if (filters.cityId) add('d.city_id = ?::uuid', filters.cityId);
+    if (filters.organizationId) add('v.organization_id = ?::uuid', filters.organizationId);
     if (filters.ownerId) add(`EXISTS (
       SELECT 1 FROM users selected_user
       LEFT JOIN org_user_permissions selected_perm ON selected_perm.user_id = selected_user.id AND selected_perm.org_id = v.organization_id
-      WHERE selected_user.id = ? AND selected_user.organization_id = v.organization_id
+      WHERE selected_user.id = ?::uuid AND selected_user.organization_id = v.organization_id
         AND COALESCE(selected_perm.vehicles_view, TRUE) = TRUE
         AND (selected_perm.vehicle_ids IS NULL OR v.id::text = ANY(selected_perm.vehicle_ids))
     )`, filters.ownerId);
@@ -94,7 +94,7 @@ export class DevicesService {
       FROM devices d
       LEFT JOIN vehicles v ON v.id = d.vehicle_id
       LEFT JOIN organizations o ON o.id = v.organization_id
-      LEFT JOIN users u ON u.id = v.owner_id
+      LEFT JOIN users u ON u.id::text = v.owner_id::text
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY d.created_at DESC
     `, params);

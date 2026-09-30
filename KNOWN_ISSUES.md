@@ -336,3 +336,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Problem:** Before assignment history existed, the database stored only the current `devices.vehicle_id`. Migration 031 backfills the current link starting at the earliest retained telemetry point (or device creation time when no points exist); that cannot recover the actual historical installation or replacement date.
 
 **Rule:** Apply `031_device_assignment_and_vehicle_lifecycle.sql` before deploying the API. Treat rows with action `legacy` as approximate installation history. For all new assignment, transfer, and replacement actions, write a time-bounded assignment record transactionally. Reports must attribute packets by tracker timestamp within the assignment interval and must not infer past ownership from the current device link.
+
+---
+
+## KI-027 — Device inventory SQL must account for legacy owner ID types
+
+**Status:** Fixed in source; Oracle deployment pending
+
+**Area:** Admin / Device inventory
+
+**Cause:** The inventory query joined UUID `users.id` directly to text `vehicles.owner_id`, causing PostgreSQL to reject the query and return HTTP 500 for every inventory request.
+
+**Rule:** When joining users to vehicles in this inventory query, compare their textual UUID representations (`users.id::text = vehicles.owner_id::text`). Cast incoming city, organization, and user filter IDs to UUID in raw SQL predicates.

@@ -20,6 +20,7 @@
 
 - Internal inventory supports device/plate search, stock/connection state, added-date range, organization, and client-user vehicle-access filters.
 - The client-user filter is based on the selected user’s organization and effective per-user vehicle list (`NULL` means all, `[]` means none), not on the vehicle creator field.
+- The inventory raw SQL must join `users.id::text` to `vehicles.owner_id::text`; legacy `owner_id` is text while user IDs are UUID. Cast incoming city, organization, and client-user IDs to UUID in SQL predicates.
 - Admin may view full IMEI and SIM. Client/mobile must never render or search IMEI; assignment history omits it and masks SIM to the last four digits.
 - Client history requires effective `vehicles.view`, organization membership, and the user’s vehicle scope. Inventory mutation and lifecycle actions are internal operations.
 
