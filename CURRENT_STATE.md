@@ -35,7 +35,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 
 - Every schema change requires a migration.
 - API/gateway production changes require build plus PM2 restart after pull.
-- Every client-facing feature must be added to portal role permissions and UI guards.
+- Every new client-facing page/feature must be configured for both B2B and B2C role profiles, role-management controls, and UI/API guards as applicable; B2B grants do not imply B2C access.
 - Preserve react-leaflet v4 and custom marker pointer-event behavior.
 - Use raw SQL for PostgreSQL `DISTINCT ON` queries.
 

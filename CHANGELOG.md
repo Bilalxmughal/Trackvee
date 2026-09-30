@@ -14,6 +14,7 @@
 ### Changed
 - [Admin/Portal] Removed the misleading Vehicle Owner column and standardized device/vehicle feature dates to `DD-Mon-YYYY`, such as `01-Jan-2026`.
 - [Portal] Kept expired vehicles visible as labeled rows in the map's vehicle panel while excluding them from markers and live counts; added flat All/Active/Expired filters to the Vehicles page.
+- [Documentation] Made B2B and B2C role-permission coverage mandatory for every new client-facing page or feature unless explicitly excluded.
 - [API/Admin/Portal] Fixed intentional device removal being rejected as “Device Already Assigned”; only direct non-null vehicle-to-vehicle reassignment is blocked. Added searchable vehicle device/client filters, lifecycle and expiry counts/columns, and removed the Devices user filter.
 - [Admin/API/Portal] Added configurable B2C Client User role permissions and per-client-user page/action permissions across ten portal areas, with a permission shortcut and granted-page count. Migration 033 adds Dashboard and Live Map overrides.
 

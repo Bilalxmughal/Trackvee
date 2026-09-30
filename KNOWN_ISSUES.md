@@ -91,7 +91,7 @@ Do not upgrade react-leaflet. Do not remove `className="leaflet-interactive"` fr
 The client portal uses a DB-backed permission system (`role_portal_permissions` table). New features not added to `ORG_PORTAL_PAGES` + DB defaults will be inaccessible to org users.
 
 **Rule:**
-Every new feature/page built in the same session must also be wired into `ORG_PORTAL_PAGES`, the DB migration default rows, and any `canOrgDo` guards before closing the task.
+Every new client-facing page/feature must be configured for both B2B and B2C role profiles. Update `ORG_PORTAL_PAGES`/role defaults, the B2B and B2C role-management choices, any required DB migration defaults, and UI/API guards before closing the task. Do not assume B2B grants cover B2C; only omit a profile when the user explicitly requests it or the feature cannot apply to that organization type.
 
 ---
 

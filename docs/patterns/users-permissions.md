@@ -41,7 +41,7 @@ Topbar feature mapping:
 - reports -> `reports`
 - users -> `users`
 
-Every new client-facing feature must update definitions/defaults, role access UI, portal navigation/action guards, and backend enforcement where required. B2C `client_user` accounts use the separate `client_user_b2c` role-permission map selected from the authenticated organization type. Per-user permissions cover Dashboard, Live Map, Vehicles, Alerts, Geofences, POIs, Driver Behavior, Maintenance, Reports, and Users; only supported CRUD actions are shown. The Admin Client Users table exposes a permissions action and a granted-page count out of 10. Dashboard/Map per-user overrides require migration `033_core_user_permissions.sql`.
+Every new client-facing page/feature must be configured for both B2B and B2C role profiles; update defaults, role-access controls, portal navigation/action guards, and backend enforcement where required. Do not assume B2B grants cover B2C. B2C `client_user` accounts use the separate `client_user_b2c` role-permission map selected from the authenticated organization type. Per-user permissions cover Dashboard, Live Map, Vehicles, Alerts, Geofences, POIs, Driver Behavior, Maintenance, Reports, and Users; only supported CRUD actions are shown. The Admin Client Users table exposes a permissions action and a granted-page count out of 10. Dashboard/Map per-user overrides require migration `033_core_user_permissions.sql`.
 
 ## Primary sources
 

@@ -26,7 +26,7 @@ Read `PROJECT.md` only for architecture, infrastructure, protocol, security, ten
 - Reuse existing components and flows before creating a new pattern.
 - Portal is light-only, uses inline styles and the shared `api` client.
 - Default parity: an admin feature also goes to portal unless the user says admin-only or it is inherently an internal feature.
-- Every portal feature must be wired through role portal permissions and guarded in UI/API as applicable.
+- Every new client portal page or feature must be configured for both B2B and B2C role profiles, and wired through role permissions with UI/API guards as applicable. Add both profiles to defaults and role-management UI; do not assume B2B grants automatically cover B2C. Only omit a profile when the user explicitly requests it or the feature cannot apply to that organization type.
 - Never expose secrets or hard-code credentials.
 
 ## Bug and verification rules
