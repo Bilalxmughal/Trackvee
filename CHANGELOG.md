@@ -13,6 +13,7 @@
 
 ### Changed
 - [Admin/Portal] Removed the misleading Vehicle Owner column and standardized device/vehicle feature dates to `DD-Mon-YYYY`, such as `01-Jan-2026`.
+- [Portal] Kept expired vehicles visible as labeled rows in the map's vehicle panel while excluding them from markers and live counts; added flat All/Active/Expired filters to the Vehicles page.
 
 ## 2026-09-29
 

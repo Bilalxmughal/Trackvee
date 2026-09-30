@@ -33,6 +33,7 @@ interface DeviceInfo {
 interface VehicleDetail {
   id: string; make: string | null; model: string | null;
   licensePlate: string | null; displayId: number;
+  name?: string; lifecycleStatus?: 'active' | 'expired' | 'archived'; expiresAt?: string | null;
 }
 interface VehicleGroup { id: string; name: string; imeis: string[]; }
 interface ApiVehicleGroup { id: string; name: string; organizationId: string; vehicleIds: string[]; }
@@ -1458,19 +1459,28 @@ export default function PortalMapPage() {
 
   useEffect(() => { saveCollapsed(collapsed); }, [collapsed]);
 
-  // Load devices + vehicles once
+  // Load devices + vehicles once, then refresh lifecycle/device links while map stays open.
   useEffect(() => {
-    api.get<DeviceInfo[]>('/devices').then(r => {
-      const dm = new Map<string, { plate: string | null; vehicleId: string | null; displayId: number | null }>();
-      for (const d of r.data) dm.set(d.imei, { plate: d.vehicle?.licensePlate ?? null, vehicleId: d.vehicle?.id ?? null, displayId: d.vehicle?.displayId ?? d.displayId });
-      setDeviceMap(dm);
-    }).catch(() => {});
-    api.get<VehicleDetail[]>('/vehicles').then(r => {
-      const vm = new Map<string, VehicleDetail>();
-      for (const v of r.data) vm.set(v.id, v);
-      setVehicleDetails(vm);
-    }).catch(() => {});
+    let timer: ReturnType<typeof setTimeout>;
+    let stopped = false;
+    const refresh = async () => {
+      await Promise.all([
+        api.get<DeviceInfo[]>('/devices').then(r => {
+          const dm = new Map<string, { plate: string | null; vehicleId: string | null; displayId: number | null }>();
+          for (const d of r.data) dm.set(d.imei, { plate: d.vehicle?.licensePlate ?? null, vehicleId: d.vehicle?.id ?? null, displayId: d.vehicle?.displayId ?? d.displayId });
+          setDeviceMap(dm);
+        }).catch(() => {}),
+        api.get<VehicleDetail[]>('/vehicles').then(r => {
+          const vm = new Map<string, VehicleDetail>();
+          for (const v of r.data) vm.set(v.id, v);
+          setVehicleDetails(vm);
+        }).catch(() => {}),
+      ]);
+      if (!stopped) timer = setTimeout(refresh, 30_000);
+    };
+    void refresh();
     api.get<ApiVehicleGroup[]>('/vehicle-groups').then(r => setApiGroups(r.data)).catch(() => {});
+    return () => { stopped = true; clearTimeout(timer); };
   }, []);
 
   // Poll live telemetry
@@ -1571,12 +1581,22 @@ export default function PortalMapPage() {
     const plate = fmtPlate(deviceMap.get(imei), imei);
     return plate.toLowerCase().includes(q);
   };
-  const filteredPoints = points.filter(p => matches(p.imei));
+  const livePoints = points.filter(p => {
+    const vehicleId = deviceMap.get(p.imei)?.vehicleId;
+    const vehicle = vehicleId ? vehicleDetails.get(vehicleId) : undefined;
+    const dateExpired = !!vehicle?.expiresAt && Date.parse(vehicle.expiresAt) <= Date.now();
+    return vehicle?.lifecycleStatus !== 'expired' && vehicle?.lifecycleStatus !== 'archived' && !dateExpired;
+  });
+  const filteredPoints = livePoints.filter(p => matches(p.imei));
+  const expiredVehicles = [...vehicleDetails.values()]
+    .filter(v => v.lifecycleStatus === 'expired' || (v.lifecycleStatus === 'active' && !!v.expiresAt && Date.parse(v.expiresAt) <= Date.now()))
+    .filter(v => !q || [v.licensePlate, v.name, v.make, v.model, String(v.displayId)].filter(Boolean).join(' ').toLowerCase().includes(q))
+    .sort((a, b) => (a.licensePlate ?? '').localeCompare(b.licensePlate ?? ''));
   const groupedImeis = new Set(groups.flatMap(g => g.imeis));
   const ungrouped = filteredPoints.filter(p => !groupedImeis.has(p.imei));
 
   const counts = { moving: 0, idle: 0, parked: 0, offline: 0 };
-  for (const pt of points) counts[vehicleStatus(pt)]++;
+  for (const pt of livePoints) counts[vehicleStatus(pt)]++;
 
   const followPt = followImei ? points.find(p => p.imei === followImei) : undefined;
   const followPlate = followImei ? fmtPlate(deviceMap.get(followImei), followImei) : '';
@@ -1595,7 +1615,7 @@ export default function PortalMapPage() {
         {historyMode ? (
           <HistoryLayer points={historyPoints} selectedSegment={selectedSegment} />
         ) : (
-          <ClusterLayer points={points} deviceMap={deviceMap} vehicleDetails={vehicleDetails} onSelect={handleSelect} />
+          <ClusterLayer points={livePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} onSelect={handleSelect} />
         )}
         {flyTarget && <FlyTo lat={flyTarget.lat} lng={flyTarget.lng} ts={flyTarget.ts} />}
         {activePanel === 'geofences' && <GeofenceMapLayer geofences={geofences} selectedId={selectedGfId} />}
@@ -1699,7 +1719,7 @@ export default function PortalMapPage() {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', padding: '12px 12px 10px', borderBottom: '1px solid #f0f0f0' }}>
               <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#111' }}>
-                Vehicles <span style={{ fontSize: 11, fontWeight: 400, color: '#aaa' }}>{points.length}</span>
+                Vehicles <span style={{ fontSize: 11, fontWeight: 400, color: '#aaa' }}>{livePoints.length + expiredVehicles.length}</span>
               </span>
               <button onClick={() => { setCreateName(''); setCreateSel(new Set()); setShowCreate(true); }} title="Create group"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, border: '1px solid #e5e7eb', background: 'transparent', cursor: 'pointer', color: '#666' }}>
@@ -1750,7 +1770,21 @@ export default function PortalMapPage() {
                   })}
                 </>
               )}
-              {filteredPoints.length === 0 && <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#aaa' }}>{search ? 'No results' : 'No vehicles online'}</div>}
+              {expiredVehicles.length > 0 && (
+                <>
+                  <div style={{ padding: '7px 12px 5px', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid #f5f5f5' }}>Expired · {expiredVehicles.length}</div>
+                  {expiredVehicles.map(vehicle => (
+                    <div key={`expired-${vehicle.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 10px 10px 9px', borderBottom: '1px solid #f5f5f5', borderLeft: '3px solid #dc2626', background: '#fff' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vehicle.licensePlate || `Vehicle ${vehicle.displayId}`}</div>
+                        <div style={{ marginTop: 2, fontSize: 10, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[vehicle.make, vehicle.model].filter(Boolean).join(' ') || vehicle.name || 'Vehicle'}</div>
+                      </div>
+                      <span style={{ flexShrink: 0, color: '#dc2626', fontSize: 10, fontWeight: 700 }}>Expired</span>
+                    </div>
+                  ))}
+                </>
+              )}
+              {filteredPoints.length === 0 && expiredVehicles.length === 0 && <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#aaa' }}>{search ? 'No results' : 'No vehicles online'}</div>}
             </div>
             {/* Footer counts */}
             <div style={{ padding: '7px 12px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>

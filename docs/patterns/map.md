@@ -11,6 +11,7 @@
 - A five-second UI refresh is only a request cadence. It cannot make a tracker transmit more often; device acquisition and sending intervals are configured on the tracker.
 - For GT06 live ingestion, persist each valid GPS frame through the API before acknowledging it to the device. Bound request retries/timeouts and serialize socket parsing; on exhausted persistence retries close the connection without ACK so the tracker can reconnect/retry. Client polling must never allow an older response to replace a newer live point.
 - Vehicle row: 3px state-colored left border, plate, speed, power/battery/signal, three-dot menu.
+- Client portal live map: render map markers, grouped rows, and live status counts from active, unexpired telemetry only. Separately load the tenant-scoped `/vehicles` list and show expired (including date-expired) vehicles at the bottom of the left panel with a red left rule and `Expired` text; these rows have no live actions and never create map markers or live counts. Refresh vehicle/device metadata periodically while the map stays open.
 
 ## Vehicle menu order
 

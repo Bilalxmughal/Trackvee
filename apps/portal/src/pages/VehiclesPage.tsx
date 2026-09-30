@@ -16,12 +16,14 @@ interface Vehicle {
 
 interface Device { id: string; displayId: number; imei: string; simNumber: string | null; vehicleId: string | null; }
 interface AssignmentHistory { id: string; deviceDisplayId: number; assignedAt: string; unassignedAt: string | null; action: string; reason: string | null; odometerKm: number | null; notes: string | null; simNumber: string | null; }
+type VehicleFilter = 'all' | 'active' | 'expired';
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
+  const [vehicleFilter, setVehicleFilter] = useState<VehicleFilter>('all');
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [assignmentHistory, setAssignmentHistory] = useState<AssignmentHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -39,12 +41,19 @@ export default function VehiclesPage() {
   const devByVehicle = new Map<string, Device>();
   for (const d of devices) if (d.vehicleId) devByVehicle.set(d.vehicleId, d);
 
-  const filtered = q.trim()
-    ? vehicles.filter(v =>
-        (v.licensePlate ?? '').toLowerCase().includes(q.toLowerCase()) ||
-        ([v.make, v.model].filter(Boolean).join(' ')).toLowerCase().includes(q.toLowerCase()) ||
-        `${v.displayId}`.includes(q))
-    : vehicles;
+  const isExpired = (vehicle: Vehicle) => vehicle.lifecycleStatus === 'expired'
+    || (vehicle.lifecycleStatus === 'active' && !!vehicle.expiresAt && Date.parse(vehicle.expiresAt) <= Date.now());
+  const query = q.trim().toLowerCase();
+  const filtered = vehicles.filter(v => {
+    const matchesFilter = vehicleFilter === 'all'
+      || (vehicleFilter === 'active' && v.lifecycleStatus === 'active' && !isExpired(v))
+      || (vehicleFilter === 'expired' && isExpired(v));
+    const matchesSearch = !query
+      || (v.licensePlate ?? '').toLowerCase().includes(query)
+      || [v.make, v.model, v.name].filter(Boolean).join(' ').toLowerCase().includes(query)
+      || String(v.displayId).includes(query);
+    return matchesFilter && matchesSearch;
+  });
 
   useEffect(() => {
     if (!selectedVehicle) return;
@@ -74,6 +83,17 @@ export default function VehiclesPage() {
         </div>
       </div>
 
+      <div role="tablist" aria-label="Vehicle status" style={{ display: 'flex', alignItems: 'stretch', gap: 18, padding: '0 20px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+        {(['all', 'active', 'expired'] as VehicleFilter[]).map(filter => {
+          const count = filter === 'all' ? vehicles.length : filter === 'expired'
+            ? vehicles.filter(isExpired).length
+            : vehicles.filter(vehicle => vehicle.lifecycleStatus === 'active' && !isExpired(vehicle)).length;
+          const active = vehicleFilter === filter;
+          const label = filter === 'all' ? 'All' : filter === 'active' ? 'Active' : 'Expired';
+          return <button key={filter} role="tab" aria-selected={active} onClick={() => setVehicleFilter(filter)} style={{ padding: '10px 1px 9px', border: 0, borderBottom: `2px solid ${active ? '#dc2626' : 'transparent'}`, marginBottom: -1, background: 'transparent', color: active ? '#dc2626' : '#6b7280', fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer' }}>{label} <span style={{ color: active ? '#dc2626' : '#9ca3af', fontWeight: 500 }}>{count}</span></button>;
+        })}
+      </div>
+
       {/* Table */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {loading ? (
@@ -96,6 +116,7 @@ export default function VehiclesPage() {
               {filtered.map((v, i) => {
                 const dev = devByVehicle.get(v.id);
                 const name = [v.make, v.model].filter(Boolean).join(' ') || '—';
+                const expired = isExpired(v);
                 return (
                   <tr key={v.id} style={{ borderBottom: '1px solid #f7f7f7' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fafafa'; }}
@@ -106,8 +127,8 @@ export default function VehiclesPage() {
                     </td>
                     <td style={{ padding: '10px 16px', fontSize: 12.5, color: '#444' }}>{name}</td>
                     <td style={{ padding: '10px 16px', fontSize: 12.5, color: '#666' }}>{v.year ?? '—'}</td>
-                    <td style={{ padding: '10px 16px', fontSize: 12, color: v.lifecycleStatus === 'expired' ? '#dc2626' : v.lifecycleStatus === 'archived' ? '#9ca3af' : '#16a34a' }}>
-                      {v.lifecycleStatus === 'expired' ? 'Expired' : v.lifecycleStatus === 'archived' ? 'Archived' : 'Active'}
+                    <td style={{ padding: '10px 16px', fontSize: 12, color: expired ? '#dc2626' : v.lifecycleStatus === 'archived' ? '#9ca3af' : '#16a34a' }}>
+                      {expired ? 'Expired' : v.lifecycleStatus === 'archived' ? 'Archived' : 'Active'}
                     </td>
                     <td style={{ padding: '10px 16px', fontSize: 12, color: dev ? '#16a34a' : '#9ca3af' }}>
                       {dev ? 'Assigned' : 'No device'}
@@ -130,7 +151,7 @@ export default function VehiclesPage() {
           </div>
           <div style={{ padding: 20 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
-              {[['Lifecycle', selectedVehicle.lifecycleStatus === 'expired' ? 'Expired' : selectedVehicle.lifecycleStatus === 'archived' ? 'Archived' : 'Active'], ['Added', fmtDate(selectedVehicle.createdAt)], ['Tracking expires', selectedVehicle.expiresAt ? fmtDate(selectedVehicle.expiresAt) : 'No expiry'], ['Tracker', devByVehicle.has(selectedVehicle.id) ? `Device ${devByVehicle.get(selectedVehicle.id)?.displayId}` : 'No device assigned'], ['SIM', (() => { const sim = devByVehicle.get(selectedVehicle.id)?.simNumber; return sim ? `••••${sim.slice(-4)}` : '—'; })()]].map(([label, value]) => <div key={label} style={{ padding: 12, borderLeft: '2px solid #dc2626', background: '#fafafa' }}><div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>{label}</div><div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{value}</div></div>)}
+              {[['Lifecycle', isExpired(selectedVehicle) ? 'Expired' : selectedVehicle.lifecycleStatus === 'archived' ? 'Archived' : 'Active'], ['Added', fmtDate(selectedVehicle.createdAt)], ['Tracking expires', selectedVehicle.expiresAt ? fmtDate(selectedVehicle.expiresAt) : 'No expiry'], ['Tracker', devByVehicle.has(selectedVehicle.id) ? `Device ${devByVehicle.get(selectedVehicle.id)?.displayId}` : 'No device assigned'], ['SIM', (() => { const sim = devByVehicle.get(selectedVehicle.id)?.simNumber; return sim ? `••••${sim.slice(-4)}` : '—'; })()]].map(([label, value]) => <div key={label} style={{ padding: 12, borderLeft: '2px solid #dc2626', background: '#fafafa' }}><div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>{label}</div><div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{value}</div></div>)}
             </div>
             <div style={{ marginTop: 24, fontSize: 13, fontWeight: 700, color: '#111' }}>Device assignment history</div>
             {historyLoading ? <div style={{ padding: 22, color: '#9ca3af', fontSize: 12 }}>Loading assignment history…</div> : assignmentHistory.length ? <div style={{ marginTop: 8, borderTop: '1px solid #e5e7eb' }}>
