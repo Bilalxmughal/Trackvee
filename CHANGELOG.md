@@ -7,6 +7,7 @@
 ## 2026-09-30
 
 ### Added
+- [API/Admin/Portal] Moved device assignment, replacement, removal, and assignment history into Vehicle details; made Devices an inventory-only page with Total/Assigned/In Stock cards. Removing a tracker expires its vehicle and excludes it from live tracking while preserving client history and reports; cross-vehicle reuse requires removal first. Migration 032 distinguishes device-removal expiry from manual expiry.
 - [API/Admin/Portal] Added time-bounded device assignment/transfer/replacement history, stock and connection states, lifecycle expiry/archive, searchable client/user inventory filters, added-date range, vehicle detail timelines, and report attribution by packet-time assignment. Migration 031 is required before API deployment.
 - [API/Admin/Portal] Added reusable scheduled report templates with saved report filters, editable delivery windows/times/recipients, optional additional recipients, an owner copy, Active/Pause/Edit/Delete, and migration 030. Oracle requires the migration and Resend sender/API key before email delivery is active.
 

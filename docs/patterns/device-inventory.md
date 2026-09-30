@@ -11,6 +11,9 @@
 
 - `device_assignments` is the time-bounded source of truth. At most one current assignment per device and per vehicle is enforced by partial unique indexes.
 - Assign, transfer, unassign, and replacement run transactionally; a replacement closes the old device period and opens the new period in the same operation. Do not directly edit `devices.vehicle_id` from CRUD forms.
+- All assignment, replacement, and removal operations start from Vehicle details. The Devices page is inventory-only; do not expose assignment or per-device history actions there. A device assigned to another vehicle must produce a conflict naming that vehicle and require removal there before it can be used elsewhere.
+- Removing a device from a vehicle closes its assignment and expires that vehicle in the same transaction (`lifecycle_reason = 'device_removed'`). Expired vehicles stay in client portal vehicle lists and reports/history, but `/telemetry/live` must omit them. Assigning an in-stock replacement reactivates only a vehicle expired for `device_removed`; manually expired, archived, and past-expiry vehicles stay unavailable.
+- Device inventory summary cards (total, assigned, in stock) are aggregated independently of table search and filters; city scope may apply.
 - Keep assignment rows when a device is moved or replaced. Devices or vehicles with telemetry/assignment history must be retired/archived instead of hard-deleted.
 - Reports attribute each packet using its tracker timestamp within `[assigned_at, unassigned_at)`. Never map all historical packets to the device currently installed on the vehicle.
 - `organization_id` on an assignment is a tenant snapshot. Client assignment history and reports must respect that snapshot when a vehicle has moved between organizations.
@@ -33,3 +36,4 @@
 - `apps/admin/src/pages/DevicesPage.tsx`
 - `apps/admin/src/pages/VehiclesPage.tsx`
 - `apps/portal/src/pages/VehiclesPage.tsx`
+- Migration `032_vehicle_device_lifecycle_reason.sql` distinguishes removal-triggered expiry from manual lifecycle changes.

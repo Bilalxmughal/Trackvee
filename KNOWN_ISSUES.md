@@ -348,3 +348,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Cause:** The inventory query joined UUID `users.id` directly to text `vehicles.owner_id`, causing PostgreSQL to reject the query and return HTTP 500 for every inventory request. The owner field also represents the vehicle's record owner, not necessarily the current operational owner.
 
 **Rule:** Do not join/display `vehicles.owner_id` for the device inventory list. Cast incoming city, organization, and user filter IDs to UUID in raw SQL predicates; preserve the client-user permission filter independently of display columns.
+
+---
+
+## KI-028 — Device-removal expiry must remain distinguishable from manual expiry
+
+**Status:** Active deployment prerequisite
+
+**Area:** Device assignment / vehicle lifecycle
+
+**Problem:** Removing a tracker expires its vehicle, while manual expiry and archive have different reactivation rules. Treating all expired states alike could accidentally reactivate a manually expired vehicle when a tracker is assigned.
+
+**Rule:** Apply `032_vehicle_device_lifecycle_reason.sql`. Set `lifecycle_reason = 'device_removed'` only when removal causes expiry; only that state may be automatically reactivated by assigning an in-stock device. Keep the operation transactional and keep expired vehicles out of live telemetry while retaining client history and reports.

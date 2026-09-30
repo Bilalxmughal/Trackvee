@@ -64,6 +64,13 @@ export class DevicesController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get('inventory/summary')
+  inventorySummary(@CurrentUser() user: User, @Query('cityId') cityId?: string) {
+    return this.devicesService.inventorySummary(user, cityId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get('vehicle/:vehicleId/assignment-history')
   assignmentHistory(@Param('vehicleId') vehicleId: string, @CurrentUser() user: User) {
     return this.devicesService.assignmentHistory(vehicleId, user);
@@ -74,20 +81,6 @@ export class DevicesController {
   @Get(':id/assignment-history')
   deviceAssignmentHistory(@Param('id') id: string, @CurrentUser() user: User) {
     return this.devicesService.deviceAssignmentHistory(id, user);
-  }
-
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @Post(':id/assignment')
-  async assign(
-    @Param('id') id: string,
-    @Body() body: { vehicleId: string | null; replaceCurrent?: boolean; reason?: string; odometerKm?: number | null; notes?: string },
-    @CurrentUser() user: User,
-    @Req() req: Request,
-  ) {
-    const result = await this.devicesService.assign(user, id, body);
-    this.audit.log({ user, ip: getIp(req) }, { action: 'update', entityType: 'device', entityId: id, entityName: result.imei, details: { action: 'assignment', vehicleId: body.vehicleId, reason: body.reason ?? null } }).catch(() => {});
-    return result;
   }
 
   @ApiBearerAuth()

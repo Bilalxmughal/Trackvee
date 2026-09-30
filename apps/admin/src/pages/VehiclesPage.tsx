@@ -19,6 +19,7 @@ import FormField, { inputStyle, selectStyle, FormActions } from '../components/F
 interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; year: number | null; cityId: string | null; organizationId: string | null; isActive: boolean; lifecycleStatus: 'active' | 'expired' | 'archived'; expiresAt: string | null; createdAt: string; }
 interface Org { id: string; name: string; }
 interface DeviceAssignment { id: string; vehicleId: string; assignedAt: string; unassignedAt: string | null; action: string; reason: string | null; odometerKm: number | null; notes: string | null; deviceDisplayId: number; imei: string; simNumber: string | null; assignedByFirstName: string | null; assignedByLastName: string | null; }
+interface InventoryDevice { id: string; displayId: number; imei: string; name: string | null; simNumber: string | null; inventoryStatus: 'in_stock' | 'assigned' | 'maintenance' | 'retired'; vehicleId: string | null; licensePlate: string | null; }
 
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
@@ -40,6 +41,10 @@ export default function VehiclesPage() {
   const [detailVehicle, setDetailVehicle] = useState<Vehicle | null>(null);
   const [assignmentRows, setAssignmentRows] = useState<DeviceAssignment[]>([]);
   const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [inventoryDevices, setInventoryDevices] = useState<InventoryDevice[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState('');
+  const [deviceSaving, setDeviceSaving] = useState(false);
+  const [deviceConflict, setDeviceConflict] = useState('');
   const { cities, selectedCityId } = useCityFilter();
   const { user } = useAuth();
   const { canOrgDo } = useOrgRolePerms();
@@ -59,11 +64,50 @@ export default function VehiclesPage() {
   useEffect(() => { load(); }, [selectedCityId]);
 
   const openDetails = async (vehicle: Vehicle) => {
-    setDetailVehicle(vehicle); setAssignmentRows([]); setAssignmentLoading(true);
+    setDetailVehicle(vehicle); setAssignmentRows([]); setInventoryDevices([]); setAssignmentLoading(true); setDeviceConflict('');
     try {
-      const response = await api.get<DeviceAssignment[]>(`/devices/vehicle/${vehicle.id}/assignment-history`);
-      setAssignmentRows(response.data);
-    } catch { setAssignmentRows([]); } finally { setAssignmentLoading(false); }
+      const [history, devices] = await Promise.all([
+        api.get<DeviceAssignment[]>(`/devices/vehicle/${vehicle.id}/assignment-history`),
+        api.get<InventoryDevice[]>('/devices/inventory'),
+      ]);
+      setAssignmentRows(history.data);
+      setInventoryDevices(devices.data.filter(device => device.inventoryStatus !== 'retired' && device.inventoryStatus !== 'maintenance'));
+      const current = devices.data.find(device => device.vehicleId === vehicle.id);
+      setSelectedDeviceId(current?.id ?? '');
+    } catch { setAssignmentRows([]); setInventoryDevices([]); } finally { setAssignmentLoading(false); }
+  };
+
+  const currentDevice = inventoryDevices.find(device => device.vehicleId === detailVehicle?.id);
+  const selectedDevice = inventoryDevices.find(device => device.id === selectedDeviceId);
+  const conflictingDevice = selectedDevice?.vehicleId && selectedDevice.vehicleId !== detailVehicle?.id ? selectedDevice : null;
+
+  const saveVehicleDevice = async () => {
+    if (!detailVehicle || !selectedDeviceId) return;
+    if (conflictingDevice) {
+      setDeviceConflict(`Device ${conflictingDevice.displayId} is already assigned to ${conflictingDevice.licensePlate || 'another vehicle'}. Remove it from that vehicle first.`);
+      return;
+    }
+    setDeviceSaving(true); setDeviceConflict('');
+    try {
+      await api.post(`/vehicles/${detailVehicle.id}/device-assignment`, { deviceId: selectedDeviceId, reason: currentDevice ? 'Device replaced' : 'Device assigned' });
+      setVehicles(rows => rows.map(row => row.id === detailVehicle.id ? { ...row, lifecycleStatus: 'active', isActive: true } : row));
+      await load();
+      await openDetails({ ...detailVehicle, lifecycleStatus: 'active', isActive: true });
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      setDeviceConflict(Array.isArray(message) ? message.join('. ') : message ?? 'Unable to assign this device.');
+    } finally { setDeviceSaving(false); }
+  };
+
+  const removeVehicleDevice = async () => {
+    if (!detailVehicle || !currentDevice || !window.confirm(`Remove device ${currentDevice.displayId} from ${detailVehicle.licensePlate || 'this vehicle'}? The vehicle will become Expired and disappear from live tracking.`)) return;
+    setDeviceSaving(true); setDeviceConflict('');
+    try {
+      await api.post(`/vehicles/${detailVehicle.id}/device-assignment`, { deviceId: null, reason: 'Device removed from vehicle' });
+      setVehicles(rows => rows.map(row => row.id === detailVehicle.id ? { ...row, lifecycleStatus: 'expired', isActive: false } : row));
+      await openDetails({ ...detailVehicle, lifecycleStatus: 'expired', isActive: false });
+    } catch (error: any) { setDeviceConflict(error?.response?.data?.message ?? 'Unable to remove this device.'); }
+    finally { setDeviceSaving(false); }
   };
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
@@ -237,6 +281,24 @@ export default function VehiclesPage() {
               ['Expiry', detailVehicle.expiresAt ? new Date(detailVehicle.expiresAt).toLocaleDateString() : 'No expiry'],
             ].map(([label, value]) => <div key={label} style={{ padding: 12, borderLeft: '2px solid #dc2626', background: 'var(--bg2)' }}><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>{label}</div><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{value}</div></div>)}
           </div>
+          <div style={{ marginTop: 20, padding: 16, border: '1px solid var(--border)', background: 'var(--bg)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Vehicle Device</div>
+            {assignmentLoading ? <Spinner /> : <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 240px', fontSize: 12, color: 'var(--text2)' }}>
+                  {currentDevice ? <><strong>Device {currentDevice.displayId}</strong> · {currentDevice.imei}<div style={{ marginTop: 4, color: 'var(--muted)' }}>SIM {currentDevice.simNumber || '—'}</div></> : 'No device assigned'}
+                </div>
+                {canManageLifecycle && <>
+                  <select value={selectedDeviceId} onChange={event => { setSelectedDeviceId(event.target.value); setDeviceConflict(''); }} style={{ ...sel, minWidth: 250, height: 34 }}>
+                    <option value="">Select a device from inventory</option>
+                    {inventoryDevices.map(device => <option key={device.id} value={device.id}>{device.displayId} · {device.imei}{device.vehicleId && device.vehicleId !== detailVehicle.id ? ` · Assigned to ${device.licensePlate || 'another vehicle'}` : device.vehicleId === detailVehicle.id ? ' · Current device' : ' · In stock'}</option>)}
+                  </select>
+                  <button disabled={!selectedDeviceId || selectedDeviceId === currentDevice?.id || deviceSaving} onClick={() => void saveVehicleDevice()} style={{ height: 34, padding: '0 14px', border: 0, background: '#dc2626', color: '#fff', fontSize: 12, cursor: 'pointer', opacity: !selectedDeviceId || selectedDeviceId === currentDevice?.id || deviceSaving ? .5 : 1 }}>{currentDevice ? 'Replace Device' : 'Assign Device'}</button>
+                  {currentDevice && <button disabled={deviceSaving} onClick={() => void removeVehicleDevice()} style={{ height: 34, padding: '0 14px', border: '1px solid #dc2626', background: 'transparent', color: '#dc2626', fontSize: 12, cursor: 'pointer' }}>Remove Device</button>}
+                </>}
+              </div>
+            </>}
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '22px 0 8px', fontSize: 13, fontWeight: 700 }}><IconHistory size={16} color="#dc2626" /> Device and assignment history</div>
           {assignmentLoading ? <Spinner /> : assignmentRows.length ? <div style={{ borderTop: '1px solid var(--border)' }}>
             {assignmentRows.map(row => <div key={row.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 1fr) minmax(190px, 1.2fr) minmax(150px, 1fr)', gap: 12, padding: '13px 4px', borderBottom: '1px solid var(--border2)', fontSize: 12 }}>
@@ -246,6 +308,11 @@ export default function VehiclesPage() {
             </div>)}
           </div> : <div style={{ padding: 18, color: 'var(--muted)', fontSize: 12 }}>No device assignment records found.</div>}
         </div>}
+      </Modal>
+
+      <Modal open={!!deviceConflict} title={deviceConflict.toLowerCase().includes('already assigned') ? 'Device Already Assigned' : 'Device Assignment'} onClose={() => setDeviceConflict('')}>
+        <div style={{ borderLeft: '3px solid #dc2626', padding: '12px 14px', background: 'rgba(220,38,38,.06)', color: 'var(--text2)', fontSize: 13 }}>{deviceConflict}</div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}><button onClick={() => setDeviceConflict('')} style={{ height: 34, padding: '0 16px', border: 0, background: '#dc2626', color: '#fff', cursor: 'pointer' }}>Understood</button></div>
       </Modal>
 
       <ConfirmDialog open={!!deleting} title="Delete Vehicle"

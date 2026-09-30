@@ -52,6 +52,9 @@ export class Vehicle {
   @Column({ name: 'lifecycle_status', type: 'varchar', length: 16, default: 'active' })
   lifecycleStatus: 'active' | 'expired' | 'archived';
 
+  @Column({ name: 'lifecycle_reason', type: 'varchar', length: 24, nullable: true })
+  lifecycleReason: 'manual' | 'device_removed' | null;
+
   @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })
   expiresAt: Date | null;
 

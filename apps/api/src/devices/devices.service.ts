@@ -100,6 +100,18 @@ export class DevicesService {
     return rows;
   }
 
+  async inventorySummary(user: User, cityId?: string) {
+    this.assertInternal(user);
+    const [row] = await this.dataSource.query(`
+      SELECT COUNT(*)::int AS total,
+             COUNT(*) FILTER (WHERE inventory_status = 'assigned')::int AS assigned,
+             COUNT(*) FILTER (WHERE inventory_status = 'in_stock')::int AS in_stock
+      FROM devices
+      WHERE ($1::uuid IS NULL OR city_id = $1::uuid)
+    `, [cityId || null]);
+    return { total: row.total, assigned: row.assigned, inStock: row.in_stock };
+  }
+
   async assignmentHistory(vehicleId: string, user: User) {
     if (!ADMIN_ROLES.includes(user.role)) {
       if (!user.organizationId) throw new ForbiddenException();
@@ -150,13 +162,14 @@ export class DevicesService {
     await runner.connect();
     await runner.startTransaction();
     try {
-      const [device] = await runner.query('SELECT id, imei, vehicle_id FROM devices WHERE id = $1 FOR UPDATE', [deviceId]);
+      const [device] = await runner.query('SELECT id, imei, vehicle_id, inventory_status FROM devices WHERE id = $1 FOR UPDATE', [deviceId]);
       if (!device) throw new NotFoundException('Device not found');
       if (device.inventory_status === 'retired' || device.inventory_status === 'maintenance') throw new BadRequestException(`A ${device.inventory_status} device cannot be assigned`);
       if (input.vehicleId) {
-        const [target] = await runner.query('SELECT id, license_plate, lifecycle_status, expires_at FROM vehicles WHERE id = $1 FOR UPDATE', [input.vehicleId]);
+        const [target] = await runner.query('SELECT id, license_plate, lifecycle_status, lifecycle_reason, expires_at FROM vehicles WHERE id = $1 FOR UPDATE', [input.vehicleId]);
         if (!target) throw new NotFoundException('Vehicle not found');
-        if (target.lifecycle_status !== 'active' || (target.expires_at && new Date(target.expires_at).getTime() <= Date.now())) throw new BadRequestException('A device can only be assigned to an active vehicle');
+        const canRestoreAfterDeviceRemoval = target.lifecycle_status === 'expired' && target.lifecycle_reason === 'device_removed' && (!target.expires_at || new Date(target.expires_at).getTime() > Date.now());
+        if ((target.lifecycle_status !== 'active' && !canRestoreAfterDeviceRemoval) || (target.expires_at && new Date(target.expires_at).getTime() <= Date.now())) throw new BadRequestException('A device can only be assigned to an active vehicle');
         const [occupied] = await runner.query(`SELECT d.id, v.license_plate FROM devices d JOIN vehicles v ON v.id = d.vehicle_id WHERE d.vehicle_id = $1 AND d.id <> $2 LIMIT 1 FOR UPDATE OF d`, [input.vehicleId, deviceId]);
         if (input.replaceCurrent && !occupied) throw new BadRequestException('The selected vehicle has no device to replace');
         if (occupied && !input.replaceCurrent) throw new ConflictException(`Vehicle ${occupied.license_plate || 'selected vehicle'} already has an active device. Choose Replace current device to continue.`);
@@ -166,16 +179,22 @@ export class DevicesService {
         }
       }
       const oldVehicleId = device.vehicle_id as string | null;
+      if (oldVehicleId && oldVehicleId !== input.vehicleId) {
+        const [current] = await runner.query('SELECT license_plate FROM vehicles WHERE id = $1', [oldVehicleId]);
+        throw new ConflictException(`This device is already assigned to ${current?.license_plate || 'another vehicle'}. Remove it from that vehicle first.`);
+      }
       if (oldVehicleId === input.vehicleId) {
         await runner.commitTransaction();
         return this.findOne(deviceId);
       }
       const now = new Date();
       if (oldVehicleId) {
-        await runner.query(`UPDATE device_assignments SET unassigned_at = GREATEST($2::timestamptz, assigned_at + INTERVAL '1 millisecond'), unassigned_by = $3, action = CASE WHEN $4::boolean THEN 'replacement' ELSE 'transfer' END, reason = COALESCE($5, reason), odometer_km = COALESCE($6, odometer_km), notes = COALESCE($7, notes) WHERE device_id = $1 AND unassigned_at IS NULL`, [deviceId, now, user.id, !!input.vehicleId, input.reason ?? null, input.odometerKm ?? null, input.notes ?? null]);
+        await runner.query(`UPDATE device_assignments SET unassigned_at = GREATEST($2::timestamptz, assigned_at + INTERVAL '1 millisecond'), unassigned_by = $3, action = CASE WHEN $4::boolean THEN 'replacement' ELSE 'removal' END, reason = COALESCE($5, reason), odometer_km = COALESCE($6, odometer_km), notes = COALESCE($7, notes) WHERE device_id = $1 AND unassigned_at IS NULL`, [deviceId, now, user.id, !!input.vehicleId, input.reason ?? null, input.odometerKm ?? null, input.notes ?? null]);
+        if (!input.vehicleId) await runner.query(`UPDATE vehicles SET lifecycle_status = 'expired', lifecycle_reason = 'device_removed', is_active = FALSE, updated_at = NOW() WHERE id = $1`, [oldVehicleId]);
       }
       await runner.query('UPDATE devices SET vehicle_id = $2, inventory_status = $3, updated_at = NOW() WHERE id = $1', [deviceId, input.vehicleId, input.vehicleId ? 'assigned' : 'in_stock']);
       if (input.vehicleId) {
+        await runner.query(`UPDATE vehicles SET lifecycle_status = 'active', lifecycle_reason = NULL, is_active = TRUE, archived_at = NULL, updated_at = NOW() WHERE id = $1 AND lifecycle_status = 'expired' AND lifecycle_reason = 'device_removed'`, [input.vehicleId]);
         await runner.query(`INSERT INTO device_assignments (device_id, vehicle_id, organization_id, assigned_at, assigned_by, action, reason, odometer_km, notes) SELECT $1, v.id, v.organization_id, GREATEST($3::timestamptz, COALESCE((SELECT MAX(unassigned_at) FROM device_assignments WHERE device_id = $1), $3::timestamptz), COALESCE((SELECT MAX(unassigned_at) FROM device_assignments WHERE vehicle_id = $2), $3::timestamptz)), $4, $5, $6, $7, $8 FROM vehicles v WHERE v.id = $2`, [deviceId, input.vehicleId, now, user.id, input.replaceCurrent ? 'replacement' : oldVehicleId ? 'transfer' : 'assignment', input.reason ?? null, input.odometerKm ?? null, input.notes ?? null]);
       }
       await runner.commitTransaction();
@@ -188,6 +207,23 @@ export class DevicesService {
     } finally {
       await runner.release();
     }
+  }
+
+  async updateVehicleDevice(user: User, vehicleId: string, input: { deviceId: string | null; reason?: string; odometerKm?: number | null; notes?: string }) {
+    this.assertDeviceManager(user);
+    const current = await this.repo.findOne({ where: { vehicleId } });
+    if (input.deviceId === null) {
+      if (!current) throw new BadRequestException('This vehicle has no assigned device');
+      return this.assign(user, current.id, { vehicleId: null, reason: input.reason ?? 'Device removed from vehicle', odometerKm: input.odometerKm, notes: input.notes });
+    }
+    if (!input.deviceId) throw new BadRequestException('Select a device from inventory');
+    const selected = await this.repo.findOne({ where: { id: input.deviceId } });
+    if (!selected) throw new NotFoundException('Device not found');
+    if (selected.vehicleId && selected.vehicleId !== vehicleId) {
+      const assignedVehicle = await this.dataSource.query('SELECT license_plate FROM vehicles WHERE id = $1', [selected.vehicleId]);
+      throw new ConflictException(`This device is already assigned to ${assignedVehicle[0]?.license_plate || 'another vehicle'}. Remove it from that vehicle first.`);
+    }
+    return this.assign(user, selected.id, { vehicleId, replaceCurrent: !!current && current.id !== selected.id, reason: input.reason ?? (current ? 'Device replaced' : 'Device assigned'), odometerKm: input.odometerKm, notes: input.notes });
   }
 
   async create(user: User, data: Partial<Device>): Promise<Device> {

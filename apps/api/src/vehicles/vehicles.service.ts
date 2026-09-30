@@ -87,6 +87,7 @@ export class VehiclesService {
     `, [id]);
     if (history?.has_history) {
       vehicle.lifecycleStatus = 'archived';
+      vehicle.lifecycleReason = 'manual';
       vehicle.isActive = false;
       vehicle.archivedAt = new Date();
       await this.repo.save(vehicle);
@@ -104,6 +105,7 @@ export class VehiclesService {
     if (expiresAt !== undefined && expiresAt !== null && !Number.isFinite(Date.parse(expiresAt))) throw new BadRequestException('Invalid expiry date');
     if (lifecycleStatus === 'active' && expiresAt && Date.parse(expiresAt) <= Date.now()) throw new BadRequestException('An active vehicle must have a future expiry date');
     vehicle.lifecycleStatus = lifecycleStatus;
+    vehicle.lifecycleReason = lifecycleStatus === 'active' ? null : 'manual';
     vehicle.isActive = lifecycleStatus === 'active';
     vehicle.expiresAt = expiresAt === undefined ? vehicle.expiresAt : expiresAt ? new Date(expiresAt) : null;
     vehicle.archivedAt = lifecycleStatus === 'archived' ? new Date() : null;

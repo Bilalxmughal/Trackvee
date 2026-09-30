@@ -55,6 +55,19 @@ pm2 restart yotrack-api --update-env
 
 Use `--update-env` only when environment variables changed.
 
+Vehicle-owned device assignment and device-removal expiry require migration `032_vehicle_device_lifecycle_reason.sql`. Apply it after 031 and before deploying the API; without it, API queries that load vehicle lifecycle details will fail:
+
+```bash
+cd ~/yotrack
+set -a
+. ./.env
+set +a
+: "${DATABASE_URL:?DATABASE_URL is not set in .env}"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/api/migrations/032_vehicle_device_lifecycle_reason.sql
+pnpm --filter api build
+pm2 restart yotrack-api
+```
+
 ## Gateway deployment on Oracle
 
 ```bash

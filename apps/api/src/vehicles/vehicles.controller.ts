@@ -7,6 +7,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { User } from '../users/entities/user.entity.js';
 import { Vehicle } from './entities/vehicle.entity.js';
 import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
+import { DevicesService } from '../devices/devices.service.js';
 
 function getIp(req: Request): string { return (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || ''; }
 
@@ -15,7 +16,7 @@ function getIp(req: Request): string { return (req.headers['x-forwarded-for'] as
 @UseGuards(JwtAuthGuard)
 @Controller('vehicles')
 export class VehiclesController {
-  constructor(private vehiclesService: VehiclesService, private audit: AuditLogsService) {}
+  constructor(private vehiclesService: VehiclesService, private devicesService: DevicesService, private audit: AuditLogsService) {}
 
   @Get()
   findAll(@CurrentUser() user: User, @Query('cityId') cityId?: string) {
@@ -50,6 +51,18 @@ export class VehiclesController {
   ) {
     const result = await this.vehiclesService.updateLifecycle(id, body.lifecycleStatus, body.expiresAt, user);
     this.audit.log({ user, ip: getIp(req) }, { action: 'update', entityType: 'vehicle', entityId: id, entityName: result.licensePlate ?? result.name, details: { lifecycleStatus: result.lifecycleStatus, expiresAt: result.expiresAt } }).catch(() => {});
+    return result;
+  }
+
+  @Post(':id/device-assignment')
+  async updateDeviceAssignment(
+    @Param('id') id: string,
+    @Body() body: { deviceId: string | null; reason?: string; odometerKm?: number | null; notes?: string },
+    @CurrentUser() user: User,
+    @Req() req: Request,
+  ) {
+    const result = await this.devicesService.updateVehicleDevice(user, id, body);
+    this.audit.log({ user, ip: getIp(req) }, { action: 'update', entityType: 'vehicle', entityId: id, details: { action: body.deviceId ? 'device_assigned_or_replaced' : 'device_removed', deviceId: body.deviceId, reason: body.reason ?? null } }).catch(() => {});
     return result;
   }
 
