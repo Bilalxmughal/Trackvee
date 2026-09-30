@@ -90,6 +90,11 @@ const btnS = (variant:'primary'|'outline'|'ghost'|'danger'): React.CSSProperties
   ...(variant==='ghost'   ? {background:'transparent',color:'var(--text-muted)',border:'1px solid var(--input-border)'} : {}),
   ...(variant==='danger'  ? {background:'transparent',color:'#dc2626',border:'1px solid #dc2626'} : {}),
 });
+const btnActionS: React.CSSProperties = {
+  display:'flex', alignItems:'center', justifyContent:'center', gap:5, padding:'3px 10px',
+  borderRadius:5, border:'1px solid var(--input-border)', background:'var(--card-bg)',
+  color:'var(--text)', fontSize:11, cursor:'pointer', whiteSpace:'nowrap',
+};
 
 // ── Save Modal ────────────────────────────────────────────────────────────────
 function SaveModal({ onSave, onClose }: { onSave:(title:string)=>void; onClose:()=>void }) {
@@ -514,16 +519,16 @@ export default function ReportsPage() {
                     <td style={{padding:'7px 10px',color:'var(--text-muted)'}}>{sr.userName??'—'}</td>
                     <td style={{padding:'7px 10px',color:'var(--text-muted)',whiteSpace:'nowrap'}}>{fmtDate(sr.createdAt)}</td>
                     <td style={{padding:'7px 10px',textAlign:'center'}}>
-                      <div style={{display:'flex',gap:6,justifyContent:'center'}}>
-                        <button title="Load & Generate" style={{...btnS('outline'),padding:'0 10px',fontSize:11}} onClick={()=>loadSavedReport(sr)}>Load</button>
-                        <button title="Create a reusable delivery template" style={{...btnS('outline'),padding:'0 10px',fontSize:11}} onClick={()=>{setScheduleError('');setScheduleTarget({report:sr});}}>Schedule</button>
+                      <div style={{display:'flex',alignItems:'center',gap:6,justifyContent:'center'}}>
+                        <button title="Load & Generate" style={btnActionS} onClick={()=>loadSavedReport(sr)}>Load</button>
+                        <button title="Create a reusable delivery template" style={btnActionS} onClick={()=>{setScheduleError('');setScheduleTarget({report:sr});}}>Schedule</button>
                         {deleteId===sr.id ? (
                           <>
-                            <button style={{...btnS('danger'),padding:'0 10px',fontSize:11}} onClick={()=>handleDelete(sr.id)}>Confirm</button>
-                            <button style={{...btnS('ghost'),padding:'0 10px',fontSize:11}} onClick={()=>setDeleteId(null)}>Cancel</button>
+                            <button style={{...btnActionS,border:'1px solid #dc2626',background:'#dc2626',color:'#fff'}} onClick={()=>handleDelete(sr.id)}>Confirm</button>
+                            <button style={btnActionS} onClick={()=>setDeleteId(null)}>Cancel</button>
                           </>
                         ) : (
-                          <button title="Delete" style={{...btnS('ghost'),padding:'0 8px'}} onClick={()=>setDeleteId(sr.id)}><IconTrash size={13}/></button>
+                          <button title="Delete" aria-label={`Delete saved report ${sr.title}`} style={{...btnActionS,width:27,height:27,padding:0,color:'#dc2626'}} onClick={()=>setDeleteId(sr.id)}><IconTrash size={13}/></button>
                         )}
                       </div>
                     </td>
@@ -553,7 +558,7 @@ export default function ReportsPage() {
               <td style={{padding:'8px 9px',whiteSpace:'nowrap'}}>{new Date(item.nextRunAt).toLocaleString('en-PK',{timeZone:'Asia/Karachi',dateStyle:'medium',timeStyle:'short'})}</td>
               <td style={{padding:'8px 9px',whiteSpace:'nowrap'}} title={item.recipientEmails?.join(', ')}>{item.lastSentAt?new Date(item.lastSentAt).toLocaleString('en-PK',{timeZone:'Asia/Karachi',dateStyle:'medium',timeStyle:'short'}):'—'}{item.recipientEmails?.length?` · +${item.recipientEmails.length} recipients`:''}</td>
               <td title={item.lastError??''} style={{padding:'8px 9px',color:item.lastError?'#dc2626':item.active?'#16a34a':'var(--text-muted)',fontWeight:600}}>{item.lastError?'Delivery error':item.active?'Active':'Paused'}</td>
-              <td style={{padding:'8px 9px',whiteSpace:'nowrap'}}><button style={{...btnS('outline'),marginRight:5}} onClick={()=>{setScheduleError('');setScheduleTarget({existing:item});}}>Edit</button><button style={{...btnS('outline'),marginRight:5}} onClick={()=>toggleSchedule(item)}>{item.active?'Pause':'Activate'}</button><button style={btnS('danger')} onClick={()=>deleteSchedule(item.id)}>Delete</button></td>
+              <td style={{padding:'8px 9px',whiteSpace:'nowrap'}}><div style={{display:'flex',alignItems:'center',gap:6}}><button style={btnActionS} onClick={()=>{setScheduleError('');setScheduleTarget({existing:item});}}>Edit</button><button style={btnActionS} onClick={()=>toggleSchedule(item)}>{item.active?'Pause':'Activate'}</button><button title="Delete" aria-label={`Delete scheduled report ${item.title}`} style={{...btnActionS,width:27,height:27,padding:0,color:'#dc2626'}} onClick={()=>deleteSchedule(item.id)}><IconTrash size={13}/></button></div></td>
             </tr>)}</tbody>
           </table>
         )}
