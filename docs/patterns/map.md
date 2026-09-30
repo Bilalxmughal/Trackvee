@@ -52,6 +52,8 @@ Alert presence: `alerts.some(a => a.active && a.vehicleImeis.includes(imei))`.
 - Filter malformed polygon points before `L.polygon`; skip shapes with fewer than three valid points.
 - Keep react-leaflet v4.
 - Custom DivIcon markers require `leaflet-interactive` when they must receive pointer events.
+- For large live fleets, preserve `points`/trail references when a poll contains no changes, memoize filtered map data, and animate only moving or transitioning marker IDs. Keep marker animation at or below 30 FPS; update stale/offline marker appearance without rerunning coordinate snapping for every vehicle. Ignore delayed road-snap results when a newer GPS fix has already replaced that vehicle's coordinates.
+- Follow windows must open in free viewport slots and account for their current dragged positions. Drag movement should update the window element directly and commit React state once on release, so mini Leaflet maps do not rerender on every pointer event. When no free slot exists, ask the operator to close a window instead of stacking another one.
 
 ## Primary sources
 

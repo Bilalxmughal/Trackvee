@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, memo } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet.markercluster';
@@ -327,6 +327,39 @@ interface MarkerState {
   animFromLat: number; animFromLng: number;
   animToLat: number; animToLng: number;
   animStart: number; animDur: number;
+  iconKey: string;
+}
+
+function liveIconKey(pt: LivePoint, plate: string, status: string, alertType: string | undefined, expired: boolean) {
+  return `${plate}|${status}|${Math.round(pt.speedKmh)}|${pt.heading}|${alertType ?? ''}|${expired ? 1 : 0}`;
+}
+
+function sameLivePoints(a: LivePoint[], b: LivePoint[]) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  return a.every((p, i) => {
+    const q = b[i];
+    return !!q && p.imei === q.imei && p.id === q.id && p.latitude === q.latitude && p.longitude === q.longitude
+      && p.speedKmh === q.speedKmh && p.heading === q.heading && p.satellites === q.satellites
+      && p.gpsValid === q.gpsValid && p.timestamp === q.timestamp && p.ignition === q.ignition
+      && p.externalPower === q.externalPower && p.immobilizer === q.immobilizer
+      && p.voltageLevel === q.voltageLevel && p.gsmSignal === q.gsmSignal && p.altitude === q.altitude
+      && p.vehicleStatus === q.vehicleStatus;
+  });
+}
+
+const FOLLOW_WINDOW = { width: 360, height: 330, gap: 12, left: 16, top: 72 };
+function findFollowWindowPosition(occupied: Array<{ x: number; y: number }>) {
+  const maxX = Math.max(8, window.innerWidth - FOLLOW_WINDOW.width - 8);
+  const maxY = Math.max(8, window.innerHeight - FOLLOW_WINDOW.height - 8);
+  for (let y = FOLLOW_WINDOW.top; y <= maxY; y += FOLLOW_WINDOW.height + FOLLOW_WINDOW.gap) {
+    for (let x = FOLLOW_WINDOW.left; x <= maxX; x += FOLLOW_WINDOW.width + FOLLOW_WINDOW.gap) {
+      const free = occupied.every(p => x + FOLLOW_WINDOW.width <= p.x || p.x + FOLLOW_WINDOW.width <= x
+        || y + FOLLOW_WINDOW.height <= p.y || p.y + FOLLOW_WINDOW.height <= y);
+      if (free) return { x, y };
+    }
+  }
+  return null;
 }
 
 // ── Map components ────────────────────────────────────────────────────────────
@@ -337,7 +370,13 @@ function InvalidateSize() {
     map.invalidateSize();
     const t1 = setTimeout(() => map.invalidateSize(), 200);
     const t2 = setTimeout(() => map.invalidateSize(), 800);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => map.invalidateSize({ pan: false }), 100);
+    });
+    observer?.observe(map.getContainer());
+    return () => { clearTimeout(t1); clearTimeout(t2); if (resizeTimer) clearTimeout(resizeTimer); observer?.disconnect(); };
   }, [map]);
   return null;
 }
@@ -471,16 +510,18 @@ function TripReplayInner({ points, currentIdx }: { points: TripPoint[]; currentI
 }
 
 // Cluster Layer with status colors + alert support
-function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, distanceModeRef, orgExpiredIds }: {
+function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, distanceModeRef, orgExpiredIds, statusTick }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   alertSettingsRef: React.MutableRefObject<AlertSettings>;
   distanceModeRef: React.MutableRefObject<boolean>;
   orgExpiredIds: Set<string>;
+  statusTick: number;
 }) {
   const map = useMap();
   const groupRef = useRef<L.MarkerClusterGroup | null>(null);
   const stateRef = useRef<Map<string, MarkerState>>(new Map());
   const rafRef = useRef<number>(0);
+  const animatedImeisRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const group = L.markerClusterGroup({
@@ -517,23 +558,34 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
       marker.openPopup();
     });
 
-    let prevTime = performance.now();
+    let lastFrame = 0;
     function rafLoop(now: number) {
-      const dt = now - prevTime; prevTime = now;
-      stateRef.current.forEach(s => {
+      rafRef.current = requestAnimationFrame(rafLoop);
+      if (now - lastFrame < 33) return;
+      const dt = lastFrame ? now - lastFrame : 33;
+      lastFrame = now;
+      animatedImeisRef.current.forEach(imei => {
+        const s = stateRef.current.get(imei);
+        if (!s) { animatedImeisRef.current.delete(imei); return; }
         const elapsed = now - s.animStart;
+        if (s.pt.speedKmh < 3 && elapsed >= s.animDur) {
+          s.dispLat = s.animToLat; s.dispLng = s.animToLng;
+          s.marker.setLatLng([s.dispLat, s.dispLng]);
+          animatedImeisRef.current.delete(imei);
+          return;
+        }
         const t = Math.min(elapsed / s.animDur, 1);
         const ease = 1 - Math.pow(1 - t, 3);
         let lat: number, lng: number;
         if (t < 1) { lat = s.animFromLat + (s.animToLat - s.animFromLat) * ease; lng = s.animFromLng + (s.animToLng - s.animFromLng) * ease; }
-        else { [lat, lng] = predictDR(s.dispLat, s.dispLng, s.pt.speedKmh, s.pt.heading, dt); }
+        else if (s.pt.speedKmh >= 3) { [lat, lng] = predictDR(s.dispLat, s.dispLng, s.pt.speedKmh, s.pt.heading, dt); }
+        else { lat = s.animToLat; lng = s.animToLng; }
         s.dispLat = lat; s.dispLng = lng;
         s.marker.setLatLng([lat, lng]);
       });
-      rafRef.current = requestAnimationFrame(rafLoop);
     }
     rafRef.current = requestAnimationFrame(rafLoop);
-    return () => { cancelAnimationFrame(rafRef.current); map.removeLayer(group); stateRef.current.clear(); };
+    return () => { cancelAnimationFrame(rafRef.current); map.removeLayer(group); stateRef.current.clear(); animatedImeisRef.current.clear(); };
   }, [map, distanceModeRef]);
 
   useEffect(() => {
@@ -542,6 +594,7 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
     const prev = stateRef.current;
     const next = new Map<string, MarkerState>();
     const imeiSet = new Set(points.map(p => p.imei));
+    let clustersNeedRefresh = false;
     prev.forEach((s, imei) => { if (!imeiSet.has(imei)) group.removeLayer(s.marker); });
 
     for (const pt of points) {
@@ -557,11 +610,16 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
       const existing = prev.get(pt.imei);
 
       if (existing) {
+        if ((existing.marker as any)._ytStatus !== status || (existing.marker as any)._ytAlert !== alertType) clustersNeedRefresh = true;
         const emaLat = EMA_ALPHA * pt.latitude + (1 - EMA_ALPHA) * existing.emaLat;
         const emaLng = EMA_ALPHA * pt.longitude + (1 - EMA_ALPHA) * existing.emaLng;
         Object.assign(existing.ctx, { pt, dv, vc, plate });
         const expd = vc?.organizationId ? orgExpiredIds.has(vc.organizationId) : false;
-        existing.marker.setIcon(makeCarIcon(pt.heading, status, plate, pt.speedKmh, alertType, expd));
+        const iconKey = liveIconKey(pt, plate, status, alertType, expd);
+        if (iconKey !== existing.iconKey) {
+          existing.marker.setIcon(makeCarIcon(pt.heading, status, plate, pt.speedKmh, alertType, expd));
+          existing.iconKey = iconKey;
+        }
         (existing.marker as any)._ytStatus = status;
         (existing.marker as any)._ytAlert = alertType;
         const updated: MarkerState = {
@@ -569,11 +627,15 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
           animFromLat: existing.dispLat, animFromLng: existing.dispLng,
           animToLat: emaLat, animToLng: emaLng,
           animStart: performance.now(), animDur: POLL_MS * 0.85,
+          iconKey,
         };
         next.set(pt.imei, updated);
+        if (pt.speedKmh >= 3 || Math.abs(updated.animToLat - updated.animFromLat) > 1e-8 || Math.abs(updated.animToLng - updated.animFromLng) > 1e-8) animatedImeisRef.current.add(pt.imei);
+        else animatedImeisRef.current.delete(pt.imei);
         snapToRoad(emaLat, emaLng).then(([sLat, sLng]) => {
           const s = stateRef.current.get(pt.imei);
-          if (s && (Math.abs(sLat - emaLat) > 0.000005 || Math.abs(sLng - emaLng) > 0.000005)) {
+          if (s && s.pt.latitude === pt.latitude && s.pt.longitude === pt.longitude
+            && (Math.abs(sLat - emaLat) > 0.000005 || Math.abs(sLng - emaLng) > 0.000005)) {
             s.animToLat = sLat; s.animToLng = sLng; s.emaLat = sLat; s.emaLng = sLng;
           }
         });
@@ -609,10 +671,12 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
           animFromLat: pt.latitude, animFromLng: pt.longitude,
           animToLat: pt.latitude, animToLng: pt.longitude,
           animStart: 0, animDur: 1,
+          iconKey: liveIconKey(pt, plate, status, alertType, expired),
         });
+        if (pt.speedKmh >= 3) animatedImeisRef.current.add(pt.imei);
         snapToRoad(pt.latitude, pt.longitude).then(([sLat, sLng]) => {
           const s = stateRef.current.get(pt.imei);
-          if (s) {
+          if (s && s.pt.latitude === pt.latitude && s.pt.longitude === pt.longitude) {
             s.emaLat = sLat; s.emaLng = sLng; s.dispLat = sLat; s.dispLng = sLng;
             s.animToLat = sLat; s.animToLng = sLng; s.marker.setLatLng([sLat, sLng]);
           }
@@ -620,8 +684,31 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
       }
     }
     stateRef.current = next;
-    try { group.refreshClusters(); } catch {}
+    if (clustersNeedRefresh) try { group.refreshClusters(); } catch {}
   }, [points, deviceMap, vehicleDetails, alertSettingsRef, orgExpiredIds]);
+
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    let clustersNeedRefresh = false;
+    stateRef.current.forEach(s => {
+      const status = vehicleStatus(s.pt);
+      const alertType: 'speed' | 'idle' | undefined =
+        (alertSettingsRef.current.speedLimit > 0 && s.pt.speedKmh > alertSettingsRef.current.speedLimit) ? 'speed'
+        : (alertSettingsRef.current.idleMinutes > 0 && status === 'idle') ? 'idle'
+        : undefined;
+      if ((s.marker as any)._ytStatus !== status || (s.marker as any)._ytAlert !== alertType) clustersNeedRefresh = true;
+      const expired = s.ctx.vc?.organizationId ? orgExpiredIds.has(s.ctx.vc.organizationId) : false;
+      const iconKey = liveIconKey(s.pt, s.ctx.plate, status, alertType, expired);
+      if (iconKey !== s.iconKey) {
+        s.marker.setIcon(makeCarIcon(s.pt.heading, status, s.ctx.plate, s.pt.speedKmh, alertType, expired));
+        s.iconKey = iconKey;
+      }
+      (s.marker as any)._ytStatus = status;
+      (s.marker as any)._ytAlert = alertType;
+    });
+    if (clustersNeedRefresh) try { group.refreshClusters(); } catch {}
+  }, [statusTick, alertSettingsRef, orgExpiredIds]);
 
   return null;
 }
@@ -2143,31 +2230,36 @@ function FollowMiniMapMarker({ pt, plate }: { pt: LivePoint; plate: string }) {
   return null;
 }
 
-function FollowWindow({ plate, pt, dark, onStop, initPos }: {
+function FollowWindow({ plate, pt, dark, onStop, initPos, onPositionChange }: {
   plate: string; pt: LivePoint | undefined; dark: boolean; onStop: () => void;
   initPos: { x: number; y: number };
+  onPositionChange: (position: { x: number; y: number }) => void;
 }) {
   const [pos, setPos] = useState(initPos);
   const winRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
 
   const onHeaderMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
     e.preventDefault();
     dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
     const onMove = (ev: MouseEvent) => {
       if (!dragRef.current) return;
       const el = winRef.current;
-      const w = el ? el.offsetWidth : 480;
-      const h = el ? el.offsetHeight : 380;
-      setPos({
-        x: Math.max(0, Math.min(window.innerWidth - w, dragRef.current.px + ev.clientX - dragRef.current.sx)),
-        y: Math.max(0, Math.min(window.innerHeight - h, dragRef.current.py + ev.clientY - dragRef.current.sy)),
-      });
+      const w = el ? el.offsetWidth : FOLLOW_WINDOW.width;
+      const h = el ? el.offsetHeight : FOLLOW_WINDOW.height;
+      const x = Math.max(0, Math.min(window.innerWidth - w, dragRef.current.px + ev.clientX - dragRef.current.sx));
+      const y = Math.max(0, Math.min(window.innerHeight - h, dragRef.current.py + ev.clientY - dragRef.current.sy));
+      if (el) { el.style.left = `${x}px`; el.style.top = `${y}px`; }
     };
     const onUp = () => {
+      const el = winRef.current;
+      const next = el ? { x: parseFloat(el.style.left), y: parseFloat(el.style.top) } : pos;
       dragRef.current = null;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      setPos(next);
+      onPositionChange(next);
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -2178,7 +2270,7 @@ function FollowWindow({ plate, pt, dark, onStop, initPos }: {
   const lng = pt?.longitude ?? 69.3451;
 
   return (
-    <div ref={winRef} style={{ position: 'fixed', left: pos.x, top: pos.y, zIndex: 9200, width: 480, background: dark ? '#1a1a1a' : '#fff', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.3)', overflow: 'hidden', userSelect: 'none' }}>
+    <div ref={winRef} style={{ position: 'fixed', left: pos.x, top: pos.y, zIndex: 9200, width: FOLLOW_WINDOW.width, background: dark ? '#1a1a1a' : '#fff', border: `1px solid ${dark ? '#333' : '#e5e7eb'}`, borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.3)', overflow: 'hidden', userSelect: 'none' }}>
       {/* Header — drag handle */}
       <div onMouseDown={onHeaderMouseDown} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px 10px 14px', background: '#dc2626', cursor: 'move' }}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -2196,7 +2288,7 @@ function FollowWindow({ plate, pt, dark, onStop, initPos }: {
       </div>
 
       {/* Mini map */}
-      <div style={{ height: 300, pointerEvents: 'none' }}>
+      <div style={{ height: 210, pointerEvents: 'none' }}>
         <MapContainer center={[lat, lng]} zoom={17} style={{ height: '100%', width: '100%' }}
           zoomControl={false} dragging={false} scrollWheelZoom={false}
           doubleClickZoom={false} attributionControl={false} keyboard={false}>
@@ -2222,6 +2314,10 @@ function FollowWindow({ plate, pt, dark, onStop, initPos }: {
   );
 }
 
+const MemoFollowWindow = memo(FollowWindow, (a, b) =>
+  a.plate === b.plate && a.pt === b.pt && a.dark === b.dark && a.initPos === b.initPos
+);
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function MapPage() {
@@ -2240,12 +2336,14 @@ export default function MapPage() {
   const isMobile = useIsMobile();
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= 768);
   const [points, setPoints] = useState<LivePoint[]>([]);
+  const [statusTick, setStatusTick] = useState(0);
   const [loading, setLoading] = useState(true);
   const livePollRequestId = useRef(0);
   const [deviceMap, setDeviceMap] = useState<DMap>(new Map());
   const [vehicleDetails, setVehicleDetails] = useState<Map<string, VehicleDetail>>(new Map());
   const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; ts: number } | null>(null);
-  const [followImeis, setFollowImeis] = useState<string[]>([]);
+  const [followWindows, setFollowWindows] = useState<Array<{ imei: string; position: { x: number; y: number } }>>([]);
+  const [followLimitMessage, setFollowLimitMessage] = useState('');
   const [trails, setTrails] = useState<Map<string, [number,number][]>>(new Map());
   const [mapStyle, setMapStyle] = useState<MapStyle>('street');
 
@@ -2349,19 +2447,20 @@ export default function MapPage() {
       if (requestId !== livePollRequestId.current) return;
       const valid = data.filter(p => p.gpsValid);
       setTrails(prev => {
-        const next = new Map(prev);
+        let next: Map<string, [number, number][]> | null = null;
         valid.forEach(pt => {
-          const trail = next.get(pt.imei) ? [...next.get(pt.imei)!] : [];
+          const source = next?.get(pt.imei) ?? prev.get(pt.imei);
+          const trail = source ?? [];
           const last = trail[trail.length - 1];
           if (!last || last[0] !== pt.latitude || last[1] !== pt.longitude) {
-            trail.push([pt.latitude, pt.longitude]);
-            if (trail.length > 15) trail.shift();
-            next.set(pt.imei, trail);
+            if (!next) next = new Map(prev);
+            const updated = [...trail, [pt.latitude, pt.longitude] as [number, number]].slice(-15);
+            next.set(pt.imei, updated);
           }
         });
-        return next;
+        return next ?? prev;
       });
-      setPoints(valid);
+      setPoints(prev => sameLivePoints(prev, valid) ? prev : valid);
     } catch {} finally { if (requestId === livePollRequestId.current) setLoading(false); }
   };
 
@@ -2374,6 +2473,11 @@ export default function MapPage() {
     };
     void poll();
     return () => { active = false; clearTimeout(timer); livePollRequestId.current++; };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setStatusTick(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -2429,14 +2533,19 @@ export default function MapPage() {
     api.get<SpeedZone[]>(`/speed-zones${qs}`).then(r => { setSpeedZones(r.data); setSzCount(r.data.length); }).catch(() => {}).finally(() => setSzLoading(false));
   }, [szPanelOpen, selectedClientId]);
 
-  const visiblePoints = selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points;
+  const visiblePoints = useMemo(() => selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points,
+    [selectedCityId, points, deviceMap]);
+  const visibleImeis = useMemo(() => new Set(visiblePoints.map(p => p.imei)), [visiblePoints]);
   const allVehicles = useMemo(() =>
     visiblePoints.map(p => ({ imei: p.imei, plate: fmtPlate(deviceMap.get(p.imei), p.imei) }))
       .sort((a, b) => a.plate.localeCompare(b.plate)),
     [visiblePoints, deviceMap]
   );
-  const counts = { moving: 0, idle: 0, parked: 0, offline: 0 };
-  visiblePoints.forEach(p => counts[vehicleStatus(p)]++);
+  const counts = useMemo(() => {
+    const next = { moving: 0, idle: 0, parked: 0, offline: 0 };
+    visiblePoints.forEach(p => next[vehicleStatus(p)]++);
+    return next;
+  }, [visiblePoints, statusTick]);
 
   // Compute active alerts
   const activeAlerts = useMemo<VehicleAlert[]>(() => {
@@ -2452,7 +2561,7 @@ export default function MapPage() {
       }
     });
     return alerts;
-  }, [visiblePoints, alertSettings, deviceMap]);
+  }, [visiblePoints, alertSettings, deviceMap, statusTick]);
 
   // Sync active alert count to global context (topbar badge)
   useEffect(() => { setActiveAlertCount(activeAlerts.length); }, [activeAlerts, setActiveAlertCount]);
@@ -2750,7 +2859,13 @@ export default function MapPage() {
                 }}
                 hasAlertImeis={alertsByImei}
                 onFollow={(imei) => {
-                  setFollowImeis(prev => prev.includes(imei) ? prev : [...prev, imei]);
+                  if (!followWindows.some(w => w.imei === imei)) {
+                    const position = findFollowWindowPosition(followWindows.map(w => w.position));
+                    if (!position) {
+                      setFollowLimitMessage('Close a follow window to open another one.');
+                      window.setTimeout(() => setFollowLimitMessage(''), 3000);
+                    } else setFollowWindows([...followWindows, { imei, position }]);
+                  }
                   const pt = points.find(p => p.imei === imei);
                   if (pt) setFlyTarget({ lat: pt.latitude, lng: pt.longitude, ts: Date.now() });
                 }}
@@ -2867,8 +2982,8 @@ export default function MapPage() {
               {historyPoints.length > 0
                 ? <HistoryLayer points={historyPoints} speedLimit={alertSettings.speedLimit} selectedSegment={selectedSegment}/>
                 : <>
-                    <TrailLayer trails={trails} visibleImeis={new Set(visiblePoints.map(p => p.imei))}/>
-                    <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef} orgExpiredIds={orgExpiredIds}/>
+                    <TrailLayer trails={trails} visibleImeis={visibleImeis}/>
+                    <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef} orgExpiredIds={orgExpiredIds} statusTick={statusTick}/>
                   </>}
               <DistanceTool active={distanceMode} distanceModeRef={distanceModeRef}/>
               <GeofenceLayer geofences={geofences} editingId={gfEditing?.id ?? null} visible={gfVisible}/>
@@ -2901,19 +3016,17 @@ export default function MapPage() {
       </div>
 
       {/* Follow Windows */}
-      {followImeis.map((imei, idx) => {
-        const WINDOW_W = 480, WINDOW_H = 390, GAP = 10, SX = 20, SY = 80;
-        const cols = Math.max(1, Math.floor((window.innerWidth - SX) / (WINDOW_W + GAP)));
-        const col = idx % cols;
-        const row = Math.floor(idx / cols);
+      {followLimitMessage && <div style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 9500, padding: '9px 14px', borderRadius: 6, background: '#222', color: '#fff', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,.2)' }}>{followLimitMessage}</div>}
+      {followWindows.map(({ imei, position }) => {
         return (
-          <FollowWindow
+          <MemoFollowWindow
             key={imei}
             plate={fmtPlate(deviceMap.get(imei), imei)}
             pt={points.find(p => p.imei === imei)}
             dark={dark}
-            onStop={() => setFollowImeis(prev => prev.filter(i => i !== imei))}
-            initPos={{ x: SX + col * (WINDOW_W + GAP), y: SY + row * (WINDOW_H + GAP) }}
+            onStop={() => setFollowWindows(prev => prev.filter(w => w.imei !== imei))}
+            initPos={position}
+            onPositionChange={nextPos => setFollowWindows(prev => prev.map(w => w.imei === imei ? { ...w, position: nextPos } : w))}
           />
         );
       })}

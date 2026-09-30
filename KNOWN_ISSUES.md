@@ -381,3 +381,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Problem:** A GT06 load test writes persistent telemetry, updates device heartbeat state, and opens real TCP sessions on the production gateway. Unscoped dummy records can pollute customer maps/reports or create avoidable production pressure.
 
 **Rule:** Use only the bounded `apps/gateway/scripts/gt06-load-test.mjs` simulator with a uniquely seeded `LOADTEST` organization and an unused reserved IMEI prefix. Run from Oracle to localhost, ramp 10 → 50 → 100 → 300 devices, monitor API/gateway/database health at every stage, stop on errors or rising lag, and clean up the exact run before declaring completion. Never simulate a customer's real IMEI or direct traffic at a public endpoint.
+
+---
+
+## KI-031 — Admin map must avoid fleet-wide work on idle renders
+
+**Status:** Fixed in source; production browser verification pending
+
+**Area:** Admin / Live map / large fleets
+
+**Cause:** Unchanged five-second telemetry responses replaced map state and repeated trail/marker work. Marker animation visited every vehicle continuously, and the stale-status timer reran the full marker update including road snapping. Follow windows also rerendered their Leaflet maps during every drag event and could open over occupied windows.
+
+**Rule:** Keep unchanged telemetry state stable; memoize derived visible points/IDs; animate only moving or transitioning markers at a bounded frame rate; refresh stale status separately from position/snap work. Follow windows must choose free viewport positions, preserve dragged positions, and avoid React/Leaflet renders for each pointer move. Verify pan, sidebar resizing, and several simultaneous follow windows with a large fleet after deployment.

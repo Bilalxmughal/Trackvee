@@ -6,6 +6,9 @@
 
 ## 2026-09-30
 
+### Changed
+- [Admin] Reduced large-fleet live-map work by preserving unchanged telemetry/trail state, limiting animation to active markers at 30 FPS, separating stale-status updates from road snapping, and making follow-window dragging render-light with free-slot placement.
+
 ### Added
 - [Gateway/Operations] Added a bounded GT06 simulator plus isolated LOADTEST fleet seed/cleanup scripts and a staged Oracle capacity-test runbook (10→50→100→300 devices; localhost only).
 - [API/Admin/Portal] Moved device assignment, replacement, removal, and assignment history into Vehicle details; made Devices an inventory-only page with Total/Assigned/In Stock cards. Removing a tracker expires its vehicle and excludes it from live tracking while preserving client history and reports; cross-vehicle reuse requires removal first. Migration 032 distinguishes device-removal expiry from manual expiry.
