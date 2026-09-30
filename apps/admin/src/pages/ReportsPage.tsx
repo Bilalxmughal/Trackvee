@@ -103,7 +103,7 @@ function SaveModal({ onSave, onClose }: { onSave:(title:string)=>void; onClose:(
   useEffect(() => { ref.current?.focus(); }, []);
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div style={{background:'var(--card-bg)',borderRadius:6,padding:24,width:360,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
+      <div style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:10,padding:24,width:360,boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}}>
         <div style={{fontSize:14,fontWeight:600,marginBottom:16}}>Save Report</div>
         <label style={lbl}>Report Title</label>
         <input ref={ref} style={{...inp,marginBottom:20}} placeholder="e.g. Monthly Travel — Fleet A" value={title} onChange={e=>setTitle(e.target.value)}
@@ -127,8 +127,8 @@ function ScheduleModal({ report, existing, savedReports, configured, error, savi
   const [replacementId, setReplacementId] = useState('');
   const dailyWindowValid = period !== 'daily_window' || (fromTime < toTime && toTime < timePkt);
   const chosenReport = savedReports.find(item => item.id === replacementId);
-  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center'}}>
-    <div style={{background:'var(--card-bg)',borderRadius:6,padding:24,width:420,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
+  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+    <div style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:10,padding:24,width:420,maxWidth:'100%',boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}}>
       <div style={{fontSize:14,fontWeight:600,marginBottom:6}}>{existing ? 'Edit Report Template' : 'Create Report Template'}</div>
       <label style={lbl}>Template name</label>
       <input value={title} maxLength={120} onChange={e=>setTitle(e.target.value)} style={{...inp,marginBottom:12}} placeholder="e.g. Daily fleet overspeed" />
