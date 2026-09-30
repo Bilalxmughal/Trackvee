@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, Put, Query, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { OrgPermissionsService, OrgPermDto } from './org-permissions.service.js';
@@ -25,6 +25,12 @@ export class OrgPermissionsController {
     const target = await this.users.findOne({ where: { id: userId } });
     if (!target) throw new NotFoundException('User not found');
     return target;
+  }
+
+  @Get('summary')
+  async summary(@CurrentUser() caller: User, @Query('organizationId') organizationId?: string) {
+    if (!INTERNAL_PERMISSION_ROLES.has(caller.role)) throw new ForbiddenException();
+    return this.svc.findByOrg(organizationId);
   }
 
   @Get(':userId')
@@ -57,9 +63,9 @@ export class OrgPermissionsController {
         return rows.map(row => row.id);
       });
     }
-    const allowed = ['vehiclesView', 'vehiclesAdd', 'vehiclesEdit', 'vehiclesDelete', 'alertsView', 'alertsAdd', 'alertsEdit', 'alertsDelete', 'geofencesView', 'geofencesAdd', 'geofencesEdit', 'geofencesDelete', 'poisView', 'poisAdd', 'poisEdit', 'poisDelete', 'driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete', 'maintenanceView', 'maintenanceAdd', 'maintenanceEdit', 'maintenanceDelete'] as const;
+    const allowed = ['dashboardView', 'mapView', 'vehiclesView', 'vehiclesAdd', 'vehiclesEdit', 'vehiclesDelete', 'alertsView', 'alertsAdd', 'alertsEdit', 'alertsDelete', 'geofencesView', 'geofencesAdd', 'geofencesEdit', 'geofencesDelete', 'poisView', 'poisAdd', 'poisEdit', 'poisDelete', 'driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete', 'maintenanceView', 'maintenanceAdd', 'maintenanceEdit', 'maintenanceDelete'] as const;
     const perms: OrgPermDto = {};
-    const nullable = new Set(['driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete', 'maintenanceView', 'maintenanceAdd', 'maintenanceEdit', 'maintenanceDelete']);
+    const nullable = new Set(['dashboardView', 'mapView', 'driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete', 'maintenanceView', 'maintenanceAdd', 'maintenanceEdit', 'maintenanceDelete']);
     for (const key of allowed) {
       if (typeof dto[key] === 'boolean') perms[key] = dto[key];
       else if (nullable.has(key) && dto[key] === null) (perms as unknown as Record<string, boolean | null>)[key] = null;

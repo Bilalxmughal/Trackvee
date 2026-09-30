@@ -20,6 +20,7 @@ const CLIENT_DEFAULTS: Record<string, Record<string, string[]>> = {
     dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'],
     'driver-behavior': ['view', 'edit'], reports: ['view'], users: ['view', 'add', 'edit'], 'vehicle-groups': ['view'], maintenance: ['view', 'add', 'edit'],
   },
+  client_user_b2c: { dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'] },
   client_user: {
     dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'],
     'driver-behavior': ['view'], reports: ['view'], 'vehicle-groups': ['view'], maintenance: ['view'],
@@ -27,7 +28,7 @@ const CLIENT_DEFAULTS: Record<string, Record<string, string[]>> = {
 };
 
 const ORG_PERMISSION_PREFIX: Record<string, string> = {
-  vehicles: 'vehicles', alerts: 'alerts', geofences: 'geofences', pois: 'pois',
+  dashboard: 'dashboard', map: 'map', vehicles: 'vehicles', alerts: 'alerts', geofences: 'geofences', pois: 'pois',
   'driver-behavior': 'driverBehavior', reports: 'reports', users: 'users', maintenance: 'maintenance',
 };
 
@@ -38,14 +39,14 @@ export async function effectiveClientActions(
   rolePermissions: RolePortalPermissionsService,
 ): Promise<string[]> {
   if (!CLIENT_ROLES.has(user.role) || !user.organizationId) return [];
-  const [roleMap, permission] = await Promise.all([
-    rolePermissions.findAll(),
-    orgPermissions.findByUser(user.id),
+  const [roleMap, permission, orgType] = await Promise.all([
+    rolePermissions.findAll(), orgPermissions.findByUser(user.id), orgPermissions.organizationType(user.organizationId),
   ]);
   if (permission && permission.orgId !== user.organizationId) throw new ForbiddenException();
 
   // Missing role keys inherit product defaults; an explicit empty action list remains a denial.
-  const roleActions = roleMap[user.role]?.[feature] ?? CLIENT_DEFAULTS[user.role]?.[feature] ?? [];
+  const roleKey = user.role === 'client_user' && orgType === 'b2c' ? 'client_user_b2c' : user.role;
+  const roleActions = roleMap[roleKey]?.[feature] ?? CLIENT_DEFAULTS[roleKey]?.[feature] ?? CLIENT_DEFAULTS[user.role]?.[feature] ?? [];
   if (user.role === 'client_owner') return roleActions;
   const prefix = ORG_PERMISSION_PREFIX[feature];
   if (!prefix || !permission) return roleActions;
@@ -86,6 +87,7 @@ const PERMISSION_FEATURE: Record<string, { feature: string; action: string }> = 
   poisView: { feature: 'pois', action: 'view' }, poisAdd: { feature: 'pois', action: 'add' },
   poisEdit: { feature: 'pois', action: 'edit' }, poisDelete: { feature: 'pois', action: 'delete' },
   driverBehaviorView: { feature: 'driver-behavior', action: 'view' }, driverBehaviorEdit: { feature: 'driver-behavior', action: 'edit' },
+  dashboardView: { feature: 'dashboard', action: 'view' }, mapView: { feature: 'map', action: 'view' },
   reportsView: { feature: 'reports', action: 'view' },
   usersView: { feature: 'users', action: 'view' }, usersAdd: { feature: 'users', action: 'add' },
   usersEdit: { feature: 'users', action: 'edit' }, usersDelete: { feature: 'users', action: 'delete' },

@@ -16,7 +16,7 @@ interface Vehicle {
 
 interface Device { id: string; displayId: number; imei: string; simNumber: string | null; vehicleId: string | null; }
 interface AssignmentHistory { id: string; deviceDisplayId: number; assignedAt: string; unassignedAt: string | null; action: string; reason: string | null; odometerKm: number | null; notes: string | null; simNumber: string | null; }
-type VehicleFilter = 'all' | 'active' | 'expired';
+type VehicleFilter = 'all' | 'active' | 'expired' | 'archived';
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -47,7 +47,8 @@ export default function VehiclesPage() {
   const filtered = vehicles.filter(v => {
     const matchesFilter = vehicleFilter === 'all'
       || (vehicleFilter === 'active' && v.lifecycleStatus === 'active' && !isExpired(v))
-      || (vehicleFilter === 'expired' && isExpired(v));
+      || (vehicleFilter === 'expired' && isExpired(v))
+      || (vehicleFilter === 'archived' && v.lifecycleStatus === 'archived');
     const matchesSearch = !query
       || (v.licensePlate ?? '').toLowerCase().includes(query)
       || [v.make, v.model, v.name].filter(Boolean).join(' ').toLowerCase().includes(query)
@@ -84,12 +85,13 @@ export default function VehiclesPage() {
       </div>
 
       <div role="tablist" aria-label="Vehicle status" style={{ display: 'flex', alignItems: 'stretch', gap: 18, padding: '0 20px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
-        {(['all', 'active', 'expired'] as VehicleFilter[]).map(filter => {
+        {(['all', 'active', 'expired', 'archived'] as VehicleFilter[]).map(filter => {
           const count = filter === 'all' ? vehicles.length : filter === 'expired'
-            ? vehicles.filter(isExpired).length
+            ? vehicles.filter(isExpired).length : filter === 'archived'
+            ? vehicles.filter(vehicle => vehicle.lifecycleStatus === 'archived').length
             : vehicles.filter(vehicle => vehicle.lifecycleStatus === 'active' && !isExpired(vehicle)).length;
           const active = vehicleFilter === filter;
-          const label = filter === 'all' ? 'All' : filter === 'active' ? 'Active' : 'Expired';
+          const label = filter === 'all' ? 'All' : filter === 'active' ? 'Active' : filter === 'expired' ? 'Expired' : 'Archived';
           return <button key={filter} role="tab" aria-selected={active} onClick={() => setVehicleFilter(filter)} style={{ padding: '10px 1px 9px', border: 0, borderBottom: `2px solid ${active ? '#dc2626' : 'transparent'}`, marginBottom: -1, background: 'transparent', color: active ? '#dc2626' : '#6b7280', fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer' }}>{label} <span style={{ color: active ? '#dc2626' : '#9ca3af', fontWeight: 500 }}>{count}</span></button>;
         })}
       </div>

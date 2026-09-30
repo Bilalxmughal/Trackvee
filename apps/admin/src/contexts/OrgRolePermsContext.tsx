@@ -17,8 +17,17 @@ const FALLBACK: OrgPermsMap = {
   client_owner:       { dashboard: ['view'], map: ['view'], vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], maintenance: ['view','add','edit','delete'], users: ['view','add','edit','delete'] },
   client_super_admin: { dashboard: ['view'], map: ['view'], vehicles: ['view','add','edit','delete'], alerts: ['view','add','edit','delete'], geofences: ['view','add','edit','delete'], pois: ['view','add','edit','delete'], 'driver-behavior': ['view','edit'], maintenance: ['view','add','edit','delete'], users: ['view','add','edit'] },
   client_admin:       { dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: ['view'], pois: ['view'], 'driver-behavior': ['view'], maintenance: ['view','add','edit'], reports: ['view'], users: ['view','add','edit'] },
+  client_user_b2c:    { dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'] },
   client_user:        { dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'], 'driver-behavior': ['view'], maintenance: ['view'], reports: ['view'] },
 };
+
+function mergeRolePerms(saved: OrgPermsMap): OrgPermsMap {
+  const merged: OrgPermsMap = { ...FALLBACK };
+  for (const [role, features] of Object.entries(saved)) {
+    merged[role] = { ...(FALLBACK[role] ?? {}), ...features };
+  }
+  return merged;
+}
 
 export function OrgRolePermsProvider({ children }: { children: ReactNode }) {
   const [perms, setPerms] = useState<OrgPermsMap>(FALLBACK);
@@ -26,7 +35,7 @@ export function OrgRolePermsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     api.get<OrgPermsMap>('/role-portal-permissions')
-      .then(r => { if (Object.keys(r.data).length > 0) setPerms(r.data); })
+      .then(r => { if (Object.keys(r.data).length > 0) setPerms(mergeRolePerms(r.data)); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

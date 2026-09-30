@@ -21,7 +21,7 @@
 
 ## Inventory filters and privacy
 
-- Internal inventory supports device/plate search, stock/connection state, added-date range, organization, and client-user vehicle-access filters.
+- Internal inventory supports device/plate search, stock/connection state, added-date range, and searchable organization selection. The Vehicles page supports lifecycle counts, searchable client selection, added-date and tracking-expiry ranges, plus searchable device selection in vehicle details. Devices remains inventory-only and has no client-user filter.
 - The client-user filter is based on the selected user’s organization and effective per-user vehicle list (`NULL` means all, `[]` means none), not on the vehicle creator field.
 - Do not display the vehicle's `owner_id` as “Vehicle Owner”; it can identify the user who originally created the vehicle and is not a reliable current assignment owner. The client-user filter still uses that user's effective vehicle permissions. Cast incoming city, organization, and client-user IDs to UUID in SQL predicates.
 - Display date-only values in this feature as `DD-Mon-YYYY` (for example, `01-Jan-2026`). Include the same date format before the time in assignment history.

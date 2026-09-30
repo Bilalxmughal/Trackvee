@@ -10,6 +10,7 @@ export interface AuthUser {
   isActive: boolean;
   organizationId: string | null;
   organizationName?: string | null;
+  organizationType?: string | null;
 }
 
 export const authApi = {

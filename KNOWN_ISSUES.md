@@ -360,3 +360,12 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Problem:** Removing a tracker expires its vehicle, while manual expiry and archive have different reactivation rules. Treating all expired states alike could accidentally reactivate a manually expired vehicle when a tracker is assigned.
 
 **Rule:** Apply `032_vehicle_device_lifecycle_reason.sql`. Set `lifecycle_reason = 'device_removed'` only when removal causes expiry; only that state may be automatically reactivated by assigning an in-stock device. Keep the operation transactional and keep expired vehicles out of live telemetry, map markers, and live status counts while retaining client vehicle-list visibility (including an `Expired` map-panel row), history, and reports.
+
+
+## KI-029 — Device unassignment must not trigger cross-vehicle conflict
+
+**Area:** Admin vehicle device assignment
+
+**Problem:** The device conflict guard treated `vehicleId: null` (remove/unassign) as a transfer to a different vehicle, blocking device removal with “Device Already Assigned”.
+
+**Rule:** Only reject a direct assignment when both the old and requested vehicle IDs are non-null and different. Preserve transactional assignment closure and the vehicle-expiry transition on intentional removal.

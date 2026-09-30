@@ -1,13 +1,13 @@
 # Feature Matrix
 
-Last verified: 2026-09-30 (Scheduled report API TypeScript check passes. Admin/portal checks remain affected by local React type conflicts and missing `@alloc/quick-lru`; production email and physical-device behavior remain unverified.)
+Last verified: 2026-09-30 (API typecheck passes. Admin/portal checks report the repository's existing React 18/19 JSX type conflicts.)
 
 | Feature | API | Admin | Portal | Permission key | Notes |
 |---|---|---|---|---|---|
 | Authentication | Complete | Complete | Complete | n/a | Admin/client role login separation |
 | Live map and history | Complete | Complete | Complete | `map` | Portal map is the background workspace |
 | Vehicles and groups | Complete | Complete | Map panel/groups | `vehicles` | Plate first; display name is Make/Model |
-| Devices and telemetry | Complete | Complete | Complete | `vehicles.view` (client/mobile) | Devices is inventory-only with total/assigned/in-stock counts. Internal assign/replace/remove and assignment history are managed from Vehicle details. Removing a device expires the vehicle; it remains in client vehicle lists/history/reports and appears as an `Expired` row in the portal map panel, while map markers and live status counts exclude it. Vehicle list has flat All/Active/Expired filters. Cross-vehicle assignment is rejected until removed from the existing vehicle. Client UI never displays IMEI. Migrations 031/032 required. |
+| Devices and telemetry | Complete | Complete | Complete | `vehicles.view` (client/mobile) | Devices is inventory-only with total/assigned/in-stock counts. Internal assign/replace/remove and assignment history are managed from Vehicle details. Removing a device expires the vehicle; it remains in client vehicle lists/history/reports and appears as an `Expired` row in the portal map panel, while map markers and live status counts exclude it. Admin Vehicles has lifecycle counts, searchable client/device selection, expiry column/filter, and named actions. Cross-vehicle assignment is rejected; intentional unassignment is allowed and expires the former vehicle. Client UI never displays IMEI. Migrations 031–033 required. |
 | Alerts | Complete | Complete | Complete | `alerts` | Rules, schedules, notifications, vehicle targeting, mobile push and shared sounds |
 | Notification sound catalogue | Complete | Complete | Read active choices | `alerts` | Internal upload/activation; client selection; dynamic mobile install requires EAS release |
 | Geofences | Complete | Complete | Complete | `geofences` | Circle and polygon drawing; mobile CRUD is tenant- and permission-scoped |
@@ -15,7 +15,7 @@ Last verified: 2026-09-30 (Scheduled report API TypeScript check passes. Admin/p
 | Speed zones | Complete | Complete | Map integration | related alert access | Migration 018 |
 | Driver behavior | Complete | Complete | Complete | `driver-behavior` | Mobile trend, leaderboard, detail/events/chart and role-gated settings; API enforces tenant and vehicle scope |
 | Reports | Complete | Complete | Complete | `reports` | 13 types, grouped vehicles, filters, exports and saved reports |
-| Users/custom access | Complete | Complete | Complete | `users` | Module and vehicle permissions |
+| Users/custom access | Complete | Complete | Complete | `users` | Per-user permissions cover 10 portal areas with supported CRUD; Admin shows a permission action and granted-page count. B2C role defaults have a separate configurable profile. Migration 033 adds Dashboard/Map overrides. |
 | Audit logs | Complete | Complete | Not exposed | `audit-logs` | Internal operational feature |
 | Tracking expiry | Complete | Complete | Map badge | organization access | Migration 021 |
 | Maintenance | Complete | Complete | Complete | `maintenance` | Grouped vehicle selection, standard/custom service types, PKT DD-MM-YYYY dates, due-date/estimated-distance reminders, and service-type alert rules. Alerts evaluate on the vehicle's next valid telemetry packet; apply migration 029 before API deployment. |

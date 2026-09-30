@@ -33,7 +33,8 @@ export function PortalPermsProvider({ children }: { children: ReactNode }) {
         : api.get<Record<string, boolean | string[] | null> | null>(`/org-permissions/${user.id}`).then(r => r.data),
     ]).then(([roleResult, orgResult]) => {
       if (!current) return;
-      const roleMap = roleResult.status === 'fulfilled' ? roleResult.value.data[user.role] : undefined;
+      const roleKey = user.role === 'client_user' && user.organizationType === 'b2c' ? 'client_user_b2c' : user.role;
+      const roleMap = roleResult.status === 'fulfilled' ? roleResult.value.data[roleKey] : undefined;
       const orgPerm = orgResult.status === 'fulfilled' ? orgResult.value : null;
       const next: Record<string, string[]> = { ...(FALLBACK[user.role] ?? {}), ...(roleMap ?? {}) };
       if (orgPerm) for (const [feature, prefix] of Object.entries({

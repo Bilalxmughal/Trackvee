@@ -179,7 +179,9 @@ export class DevicesService {
         }
       }
       const oldVehicleId = device.vehicle_id as string | null;
-      if (oldVehicleId && oldVehicleId !== input.vehicleId) {
+      // A null target is an intentional unassignment/removal. Only block a
+      // direct move from one vehicle to another without first removing it.
+      if (oldVehicleId && input.vehicleId && oldVehicleId !== input.vehicleId) {
         const [current] = await runner.query('SELECT license_plate FROM vehicles WHERE id = $1', [oldVehicleId]);
         throw new ConflictException(`This device is already assigned to ${current?.license_plate || 'another vehicle'}. Remove it from that vehicle first.`);
       }

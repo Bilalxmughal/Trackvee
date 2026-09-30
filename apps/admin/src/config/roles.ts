@@ -259,7 +259,7 @@ export function canManageRole(currentRole: UserRole, targetRole: UserRole): bool
 }
 
 // Client portal permissions per client role (used in RoleAccessPage client section)
-export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, PageAction[]>>>> = {
+export const ORG_ROLE_PORTAL_PERMISSIONS: Record<string, Partial<Record<string, PageAction[]>>> = {
   client_owner: {
     dashboard:         ['view'],
     map:               ['view'],
@@ -295,6 +295,9 @@ export const ORG_ROLE_PORTAL_PERMISSIONS: Partial<Record<UserRole, Partial<Recor
     maintenance:       ['view', 'add', 'edit'],
     reports:           ['view'],
     users:             ['view', 'add', 'edit'],
+  },
+  client_user_b2c: {
+    dashboard: ['view'], map: ['view'], vehicles: ['view'], alerts: ['view'], geofences: [], pois: [], 'driver-behavior': [], maintenance: [], reports: [], users: [],
   },
   client_user: {
     dashboard:         ['view'],

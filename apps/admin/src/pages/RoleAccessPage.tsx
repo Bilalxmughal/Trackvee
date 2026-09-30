@@ -45,7 +45,7 @@ const ACTION_LABEL: Record<PageAction, string> = { view: 'View', add: 'Add', edi
 const ACTION_COLOR: Record<PageAction, string> = { view: '#3b82f6', add: '#16a34a', edit: '#f59e0b', delete: '#dc2626' };
 
 type PermMap = Partial<Record<string, PageAction[]>>;
-type AllPerms = Partial<Record<UserRole, PermMap>>;
+type AllPerms = Record<string, PermMap>;
 
 function deepClone<T>(v: T): T { return JSON.parse(JSON.stringify(v)); }
 
@@ -81,14 +81,21 @@ export default function RoleAccessPage() {
   const [topbarPerms, setTopbarPerms]     = useState<AllPerms>(() => deepClone(TOPBAR_PERMISSIONS));
 
   // Client portal state — seeded from API via context
-  const [activeOrgRole, setActiveOrgRole] = useState<UserRole>('client_super_admin');
+  const [activeOrgRole, setActiveOrgRole] = useState<string>('client_super_admin');
   const [orgPerms, setOrgPerms]           = useState<AllPerms>(() => deepClone(ORG_ROLE_PORTAL_PERMISSIONS));
   const [saveLoading, setSaveLoading]     = useState(false);
   const [saved, setSaved]                 = useState(false);
 
   // Sync from API once loaded
   useEffect(() => {
-    if (Object.keys(loadedOrgPerms).length > 0) setOrgPerms(deepClone(loadedOrgPerms) as AllPerms);
+    if (Object.keys(loadedOrgPerms).length > 0) {
+      const defaults = deepClone(ORG_ROLE_PORTAL_PERMISSIONS) as AllPerms;
+      const merged = { ...defaults };
+      for (const [role, features] of Object.entries(loadedOrgPerms)) {
+        merged[role] = { ...(defaults[role] ?? {}), ...features };
+      }
+      setOrgPerms(merged);
+    }
   }, [JSON.stringify(loadedOrgPerms)]);
 
   // Trackvee helpers
@@ -339,14 +346,10 @@ export default function RoleAccessPage() {
                 );
               })}
               <div style={{ padding: '10px 16px 6px', borderTop: '1px solid var(--border)', marginTop: 8, fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1 }}>B2C Individual</div>
-              <div style={{ padding: '6px 16px 10px' }}>
-                <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <IconLock size={11} />Client User (B2C)
-                </div>
-                <div style={{ fontSize: 11, color: '#bbb', marginTop: 3, lineHeight: 1.5 }}>
-                  Fixed access: Dashboard, Map, Vehicles, Alerts (view only). Cannot add team members.
-                </div>
-              </div>
+              <button onClick={() => setActiveOrgRole('client_user_b2c')} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', border: 0, textAlign: 'left', cursor: 'pointer', background: activeOrgRole === 'client_user_b2c' ? 'rgba(220,38,38,0.06)' : 'transparent', borderLeft: `3px solid ${activeOrgRole === 'client_user_b2c' ? '#dc2626' : 'transparent'}` }}>
+                <div><div style={{ fontSize: 13, fontWeight: activeOrgRole === 'client_user_b2c' ? 600 : 400, color: activeOrgRole === 'client_user_b2c' ? '#dc2626' : 'var(--text)' }}>Client User (B2C)</div><div style={{ fontSize: 11, color: '#bbb', marginTop: 1 }}>{isSuperAdmin ? 'Editable' : 'Read-only'}</div></div>
+                {activeOrgRole === 'client_user_b2c' && <IconShield size={13} color="#dc2626" />}
+              </button>
               <div style={{ padding: '10px 16px 10px', borderTop: '1px solid var(--border)', marginTop: 4 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
                   All client role permissions are configurable by Super Admin.
@@ -357,7 +360,7 @@ export default function RoleAccessPage() {
             <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
               <div style={{ padding: '12px 20px 10px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
-                  {ORG_ROLE_LABEL[activeOrgRole]}
+                  {activeOrgRole === 'client_user_b2c' ? 'Client User (B2C)' : ORG_ROLE_LABEL[activeOrgRole]}
                 </div>
                 <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
                   {canEditOrg ? 'Click cells to toggle portal permissions. Save when done.' : 'Only Super Admin can edit client portal permissions.'}

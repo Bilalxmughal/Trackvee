@@ -32,6 +32,8 @@ export class OrgPermission {
   @Column({ name: 'pois_delete', default: false }) poisDelete: boolean;
 
   // Nullable fields are optional per-user overrides; null preserves role-level access.
+  @Column({ name: 'dashboard_view', type: 'boolean', nullable: true, default: null }) dashboardView: boolean | null;
+  @Column({ name: 'map_view', type: 'boolean', nullable: true, default: null }) mapView: boolean | null;
   @Column({ name: 'driver_behavior_view', type: 'boolean', nullable: true, default: null }) driverBehaviorView: boolean | null;
   @Column({ name: 'driver_behavior_edit', type: 'boolean', nullable: true, default: null }) driverBehaviorEdit: boolean | null;
   @Column({ name: 'reports_view', type: 'boolean', nullable: true, default: null }) reportsView: boolean | null;

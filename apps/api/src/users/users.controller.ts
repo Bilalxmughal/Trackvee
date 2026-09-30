@@ -18,9 +18,10 @@ import { VehicleGroupMembership } from '../vehicle-groups/entities/vehicle-group
 function getIp(req: Request): string { return (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || ''; }
 const CLIENT_ROLE_LEVEL: Record<string, number> = { client_owner: 4, client_super_admin: 3, client_admin: 2, client_user: 1 };
 const PERMISSION_FIELDS = [
-  'vehiclesView', 'vehiclesAdd', 'vehiclesEdit', 'vehiclesDelete', 'alertsView', 'alertsAdd', 'alertsEdit', 'alertsDelete',
+  'dashboardView', 'mapView', 'vehiclesView', 'vehiclesAdd', 'vehiclesEdit', 'vehiclesDelete', 'alertsView', 'alertsAdd', 'alertsEdit', 'alertsDelete',
   'geofencesView', 'geofencesAdd', 'geofencesEdit', 'geofencesDelete', 'poisView', 'poisAdd', 'poisEdit', 'poisDelete',
   'driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete',
+  'maintenanceView', 'maintenanceAdd', 'maintenanceEdit', 'maintenanceDelete',
 ] as const;
 
 @ApiTags('users')
@@ -220,7 +221,7 @@ export class UsersController {
     const dto: OrgPermDto = {};
     for (const field of PERMISSION_FIELDS) {
       if (input[field] === undefined) continue;
-      if (input[field] === null && ['driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete'].includes(field)) {
+      if (input[field] === null && ['dashboardView', 'mapView', 'driverBehaviorView', 'driverBehaviorEdit', 'reportsView', 'usersView', 'usersAdd', 'usersEdit', 'usersDelete', 'maintenanceView', 'maintenanceAdd', 'maintenanceEdit', 'maintenanceDelete'].includes(field)) {
         (dto as Record<string, unknown>)[field] = null;
         continue;
       }

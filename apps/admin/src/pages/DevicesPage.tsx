@@ -14,7 +14,6 @@ import FormField, { inputStyle, selectStyle, FormActions } from '../components/F
 
 interface Device { id: string; displayId: number; imei: string; name: string | null; simNumber: string | null; cityId: string | null; status: string; inventoryStatus: 'in_stock' | 'assigned' | 'maintenance' | 'retired'; lastSeenAt: string | null; vehicleId: string | null; vehicleDisplayId: number | null; licensePlate: string | null; make: string | null; model: string | null; organizationId: string | null; clientName: string | null; createdAt: string; }
 interface Organization { id: string; name: string; }
-interface AdminUser { id: string; firstName: string | null; lastName: string | null; email: string; role: string; organizationId: string | null; }
 interface InventorySummary { total: number; assigned: number; inStock: number; }
 
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
@@ -56,12 +55,10 @@ export default function DevicesPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [summary, setSummary] = useState<InventorySummary>({ total: 0, assigned: 0, inStock: 0 });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [clientUsers, setClientUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [organizationFilter, setOrganizationFilter] = useState('');
-  const [ownerFilter, setOwnerFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Device | null>(null);
@@ -75,7 +72,6 @@ export default function DevicesPage() {
     const query = new URLSearchParams();
     if (selectedCityId) query.set('cityId', selectedCityId);
     if (organizationFilter) query.set('organizationId', organizationFilter);
-    if (ownerFilter) query.set('ownerId', ownerFilter);
     if (statusFilter) query.set('status', statusFilter);
     if (q.trim()) query.set('search', q.trim());
     if (dateRange?.from) query.set('from', format(dateRange.from, 'yyyy-MM-dd'));
@@ -87,11 +83,9 @@ export default function DevicesPage() {
       .then(response => setSummary(response.data)).catch(() => {});
   };
   useEffect(() => {
-    Promise.all([api.get<Organization[]>('/organizations'), api.get<AdminUser[]>('/users/org-users')])
-      .then(([o, u]) => { setOrganizations(o.data); setClientUsers(u.data.filter(item => item.role.startsWith('client_'))); })
-      .catch(() => {});
+    api.get<Organization[]>('/organizations').then(response => setOrganizations(response.data)).catch(() => {});
   }, []);
-  useEffect(() => { load(); }, [selectedCityId, organizationFilter, ownerFilter, statusFilter, q, dateRange?.from?.getTime(), dateRange?.to?.getTime()]);
+  useEffect(() => { load(); }, [selectedCityId, organizationFilter, statusFilter, q, dateRange?.from?.getTime(), dateRange?.to?.getTime()]);
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (d: Device) => {
@@ -126,7 +120,6 @@ export default function DevicesPage() {
   // The API applies this filter through the selected user's effective vehicle
   // permissions. Filtering here by vehicle creator would hide valid results.
   const filtered = devices;
-  const userOptions = clientUsers.filter(user => !organizationFilter || user.organizationId === organizationFilter).map(user => ({ id: user.id, label: `${[user.firstName, user.lastName].filter(Boolean).join(' ') || user.email} · ${user.email}` }));
   const summaryCards: { label: string; value: number; color: string }[] = [
     { label: 'Total Devices', value: summary.total, color: '#111' },
     { label: 'Assigned Devices', value: summary.assigned, color: '#16a34a' },
@@ -155,9 +148,8 @@ export default function DevicesPage() {
           <option value="">All Assignment States</option><option value="assigned">Assigned</option><option value="in_stock">In Stock</option><option value="maintenance">Maintenance</option><option value="retired">Retired</option>
         </select>
         <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Added date" />
-        <SearchableFilter options={organizations.map(org => ({ id: org.id, label: org.name }))} value={organizationFilter} onChange={id => { setOrganizationFilter(id); setOwnerFilter(''); }} placeholder="Search client…" />
-        <SearchableFilter options={userOptions} value={ownerFilter} onChange={setOwnerFilter} placeholder="Search client user…" />
-        {(q || statusFilter || dateRange || organizationFilter || ownerFilter) && <button onClick={() => { setQ(''); setStatusFilter(''); setDateRange(undefined); setOrganizationFilter(''); setOwnerFilter(''); }} style={{ fontSize: 11, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer' }}>Clear filters</button>}
+        <SearchableFilter options={organizations.map(org => ({ id: org.id, label: org.name }))} value={organizationFilter} onChange={setOrganizationFilter} placeholder="Search client…" />
+        {(q || statusFilter || dateRange || organizationFilter) && <button onClick={() => { setQ(''); setStatusFilter(''); setDateRange(undefined); setOrganizationFilter(''); }} style={{ fontSize: 11, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer' }}>Clear filters</button>}
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#bbb' }}>{filtered.length} results</span>
       </div>
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { OrgPermission } from './entities/org-permission.entity.js';
 
 export interface OrgPermDto {
@@ -12,15 +12,27 @@ export interface OrgPermDto {
   reportsView?: boolean | null;
   usersView?: boolean | null; usersAdd?: boolean | null; usersEdit?: boolean | null; usersDelete?: boolean | null;
   maintenanceView?: boolean | null; maintenanceAdd?: boolean | null; maintenanceEdit?: boolean | null; maintenanceDelete?: boolean | null;
+  dashboardView?: boolean | null; mapView?: boolean | null;
   vehicleIds?: string[] | null;
 }
 
 @Injectable()
 export class OrgPermissionsService {
+  private readonly organizationTypes = new Map<string, { type: string | null; at: number }>();
   constructor(
     @InjectRepository(OrgPermission)
     private repo: Repository<OrgPermission>,
+    private dataSource: DataSource,
   ) {}
+
+  async findByOrg(orgId?: string): Promise<OrgPermission[]> { return this.repo.find({ where: orgId ? { orgId } : {} }); }
+
+  async organizationType(orgId: string): Promise<string | null> {
+    const cached = this.organizationTypes.get(orgId);
+    if (cached && Date.now() - cached.at < 300_000) return cached.type;
+    const [row] = await this.dataSource.query('SELECT type FROM organizations WHERE id = $1', [orgId]);
+    const type = row?.type ?? null; this.organizationTypes.set(orgId, { type, at: Date.now() }); return type;
+  }
 
   async findByUser(userId: string): Promise<OrgPermission | null> {
     return this.repo.findOne({ where: { userId } });
@@ -43,7 +55,7 @@ export class OrgPermissionsService {
   // Returns default full-access permissions (for org_owner / org_admin)
   static fullAccess(userId: string, orgId: string): OrgPermission {
     return {
-      id: '', userId, orgId,
+      id: '', userId, orgId, dashboardView: null, mapView: null,
       vehiclesView: true, vehiclesAdd: true, vehiclesEdit: true, vehiclesDelete: true,
       alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: true,
       geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: true,

@@ -30,7 +30,8 @@ export class AuthService {
       expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN'),
     });
 
-    const { password: _, ...userWithoutPassword } = user;
+    const loginUser = await this.usersService.findByIdWithOrg(user.id) ?? user;
+    const { password: _, ...userWithoutPassword } = loginUser;
     void _;
 
     return { accessToken, refreshToken, user: userWithoutPassword };

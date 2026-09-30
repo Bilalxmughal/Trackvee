@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, FormEvent } from 'react';
+﻿import { useEffect, useState, FormEvent, useRef } from 'react';
 import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconHistory } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
@@ -20,6 +20,21 @@ interface Vehicle { id: string; displayId: number; licensePlate: string | null; 
 interface Org { id: string; name: string; }
 interface DeviceAssignment { id: string; vehicleId: string; assignedAt: string; unassignedAt: string | null; action: string; reason: string | null; odometerKm: number | null; notes: string | null; deviceDisplayId: number; imei: string; simNumber: string | null; assignedByFirstName: string | null; assignedByLastName: string | null; }
 interface InventoryDevice { id: string; displayId: number; imei: string; name: string | null; simNumber: string | null; inventoryStatus: 'in_stock' | 'assigned' | 'maintenance' | 'retired'; vehicleId: string | null; licensePlate: string | null; }
+function ClientSearchSelect({ orgs, value, onChange }: { orgs: Org[]; value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false); const [query, setQuery] = useState(''); const root = useRef<HTMLDivElement>(null);
+  useEffect(() => { const close = (event: MouseEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); }; document.addEventListener('mousedown', close); return () => document.removeEventListener('mousedown', close); }, []);
+  const current = orgs.find(org => org.id === value); const filtered = orgs.filter(org => org.name.toLowerCase().includes(query.toLowerCase()));
+  return <div ref={root} style={{ position: 'relative' }}><button type="button" onClick={() => setOpen(v => !v)} style={{ ...sel, minWidth: 150, textAlign: 'left' }}>{current?.name ?? 'All Clients'}</button>{open && <div style={{ position: 'absolute', zIndex: 600, top: 'calc(100% + 3px)', left: 0, minWidth: 230, background: 'var(--bg)', border: '1px solid var(--border)', boxShadow: '0 8px 24px rgba(0,0,0,.16)' }}><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search clients…" style={{ ...inp, width: '100%', paddingLeft: 10, borderRadius: 0 }} /><div style={{ maxHeight: 220, overflowY: 'auto' }}><button type="button" onClick={() => { onChange(''); setQuery(''); setOpen(false); }} style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, background: 'transparent', textAlign: 'left', cursor: 'pointer', color: 'var(--text)' }}>All Clients</button>{filtered.map(org => <button key={org.id} type="button" onClick={() => { onChange(org.id); setQuery(''); setOpen(false); }} style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, borderTop: '1px solid var(--border2)', background: org.id === value ? 'var(--bg2)' : 'transparent', textAlign: 'left', cursor: 'pointer', color: 'var(--text)' }}>{org.name}</button>)}</div></div>}</div>;
+}
+
+function DeviceSearchSelect({ devices, value, onChange }: { devices: InventoryDevice[]; value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false); const [query, setQuery] = useState(''); const root = useRef<HTMLDivElement>(null);
+  useEffect(() => { const close = (event: MouseEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); }; document.addEventListener('mousedown', close); return () => document.removeEventListener('mousedown', close); }, []);
+  const selected = devices.find(device => device.id === value);
+  const filtered = devices.filter(device => `${device.displayId} ${device.imei} ${device.name ?? ''} ${device.licensePlate ?? ''}`.toLowerCase().includes(query.toLowerCase()));
+  return <div ref={root} style={{ position: 'relative', minWidth: 250 }}><button type="button" onClick={() => setOpen(v => !v)} style={{ ...sel, width: '100%', height: 34, textAlign: 'left' }}>{selected ? `Device ${selected.displayId} · ${selected.imei}` : 'Select a device from inventory'}</button>
+    {open && <div style={{ position: 'absolute', zIndex: 600, top: 'calc(100% + 3px)', left: 0, right: 0, minWidth: 310, background: 'var(--bg)', border: '1px solid var(--border)', boxShadow: '0 8px 24px rgba(0,0,0,.16)' }}><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search device, IMEI, or vehicle…" style={{ ...inp, width: '100%', paddingLeft: 10, borderRadius: 0 }} /><div style={{ maxHeight: 220, overflowY: 'auto' }}>{filtered.map(device => <button key={device.id} type="button" onClick={() => { onChange(device.id); setQuery(''); setOpen(false); }} style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, borderBottom: '1px solid var(--border2)', background: device.id === value ? 'var(--bg2)' : 'transparent', color: 'var(--text)', textAlign: 'left', cursor: 'pointer', fontSize: 12 }}><strong>Device {device.displayId}</strong> · {device.imei}{device.licensePlate ? <span style={{ color: '#dc2626' }}> · Assigned to {device.licensePlate}</span> : <span style={{ color: '#16a34a' }}> · In stock</span>}</button>)}{!filtered.length && <div style={{ padding: 12, fontSize: 12, color: 'var(--muted)' }}>No devices found</div>}</div></div>}</div>;
+}
 
 const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
@@ -31,7 +46,9 @@ export default function VehiclesPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [organizationFilter, setOrganizationFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [expiryRange, setExpiryRange] = useState<DateRange | undefined>();
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [form, setForm] = useState(empty);
@@ -149,10 +166,15 @@ export default function VehiclesPage() {
 
   const filtered = vehicles.filter(v => {
     if (q && !(v.licensePlate ?? '').toLowerCase().includes(q.toLowerCase()) && !(v.make ?? '').toLowerCase().includes(q.toLowerCase())) return false;
-    if (statusFilter && v.lifecycleStatus !== statusFilter) return false;
+    const effectiveStatus = v.lifecycleStatus === 'active' && v.expiresAt && Date.parse(v.expiresAt) <= Date.now() ? 'expired' : v.lifecycleStatus;
+    if (statusFilter && effectiveStatus !== statusFilter) return false;
+    if (organizationFilter && v.organizationId !== organizationFilter) return false;
     if (dateRange?.from && !isWithinInterval(parseISO(v.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to ?? dateRange.from) })) return false;
+    if (expiryRange?.from && (!v.expiresAt || !isWithinInterval(parseISO(v.expiresAt), { start: startOfDay(expiryRange.from), end: endOfDay(expiryRange.to ?? expiryRange.from) }))) return false;
     return true;
   });
+  const getLifecycle = (vehicle: Vehicle): Vehicle['lifecycleStatus'] => vehicle.lifecycleStatus === 'active' && vehicle.expiresAt && Date.parse(vehicle.expiresAt) <= Date.now() ? 'expired' : vehicle.lifecycleStatus;
+  const countLifecycle = (key: Vehicle['lifecycleStatus'] | 'all') => key === 'all' ? vehicles.length : vehicles.filter(vehicle => getLifecycle(vehicle) === key).length;
 
   return (
     <div>
@@ -164,6 +186,9 @@ export default function VehiclesPage() {
         ) : undefined
       } />
 
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 12, padding: '14px 24px', borderBottom: '1px solid var(--border)' }}>
+        {([['All Vehicles', 'all', '#374151'], ['Active', 'active', '#16a34a'], ['Expired', 'expired', '#dc2626'], ['Archived', 'archived', '#6b7280']] as const).map(([label, key, color]) => <div key={key} style={{ borderLeft: `3px solid ${color}`, padding: '8px 12px', background: 'var(--bg2)' }}><div style={{ color: 'var(--muted)', fontSize: 11 }}>{label}</div><div style={{ color, fontSize: 20, fontWeight: 700, marginTop: 3 }}>{countLifecycle(key)}</div></div>)}
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative' }}>
           <IconSearch size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#ccc' }} />
@@ -173,8 +198,10 @@ export default function VehiclesPage() {
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
           <option value="">All Lifecycle States</option><option value="active">Active</option><option value="expired">Expired</option><option value="archived">Archived</option>
         </select>
+        <ClientSearchSelect orgs={orgs} value={organizationFilter} onChange={setOrganizationFilter} />
         <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Added date" />
-        {(q || statusFilter || dateRange) && <button onClick={() => { setQ(''); setStatusFilter(''); setDateRange(undefined); }} style={{ fontSize: 11, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer' }}>Clear all</button>}
+        <DateRangePicker value={expiryRange} onChange={setExpiryRange} placeholder="Tracking expiry" />
+        {(q || statusFilter || organizationFilter || dateRange || expiryRange) && <button onClick={() => { setQ(''); setStatusFilter(''); setOrganizationFilter(''); setDateRange(undefined); setExpiryRange(undefined); }} style={{ fontSize: 11, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer' }}>Clear all</button>}
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#bbb' }}>{filtered.length} results</span>
       </div>
 
@@ -183,40 +210,42 @@ export default function VehiclesPage() {
         <table>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Plate', 'Make / Model', 'Year', 'Status', 'Added', ''].map(h => (
+                {['ID', 'Plate', 'Make / Model', 'Year', 'Client', 'Status', 'Added', 'Tracking Expiry', 'Actions'].map(h => (
                 <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map(v => (
-              <tr key={v.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${v.lifecycleStatus === 'active' ? '#16a34a' : v.lifecycleStatus === 'expired' ? '#dc2626' : '#9ca3af'}` }}>
+              <tr key={v.id} style={{ borderBottom: '1px solid var(--border2)', borderLeft: `3px solid ${getLifecycle(v) === 'active' ? '#16a34a' : getLifecycle(v) === 'expired' ? '#dc2626' : '#9ca3af'}` }}>
                 <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{v.displayId}</td>
                 <td style={{ padding: '10px 14px', fontWeight: 500 }}>{v.licensePlate ?? '—'}</td>
                 <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
                 <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{v.year ?? '—'}</td>
+                <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{orgs.find(org => org.id === v.organizationId)?.name ?? '—'}</td>
                 <td style={{ padding: '10px 14px' }}>
-                  {canManageLifecycle ? <select value={v.lifecycleStatus ?? (v.isActive ? 'active' : 'archived')} onChange={async e => {
+                  {canManageLifecycle ? <select value={getLifecycle(v)} onChange={async e => {
                     const lifecycleStatus = e.target.value as Vehicle['lifecycleStatus'];
                     try { await api.patch(`/vehicles/${v.id}/lifecycle`, { lifecycleStatus, expiresAt: v.expiresAt }); setVehicles(rows => rows.map(row => row.id === v.id ? { ...row, lifecycleStatus, isActive: lifecycleStatus === 'active' } : row)); }
                     catch { /* Keep the saved lifecycle state on screen. */ }
-                  }} style={{ ...sel, color: v.lifecycleStatus === 'expired' ? '#dc2626' : v.lifecycleStatus === 'active' ? '#16a34a' : '#6b7280' }}>
+                  }} style={{ ...sel, color: getLifecycle(v) === 'expired' ? '#dc2626' : getLifecycle(v) === 'active' ? '#16a34a' : '#6b7280' }}>
                     <option value="active">Active</option><option value="expired">Expired</option><option value="archived">Archived</option>
-                  </select> : <span style={{ color: v.lifecycleStatus === 'expired' ? '#dc2626' : v.lifecycleStatus === 'active' ? '#16a34a' : '#6b7280' }}>{v.lifecycleStatus}</span>}
+                  </select> : <span style={{ color: getLifecycle(v) === 'expired' ? '#dc2626' : getLifecycle(v) === 'active' ? '#16a34a' : '#6b7280' }}>{getLifecycle(v) === 'expired' ? 'Expired' : getLifecycle(v) === 'archived' ? 'Archived' : 'Active'}</span>}
                 </td>
                 <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{fmtDate(v.createdAt)}</td>
+                <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{v.expiresAt ? fmtDate(v.expiresAt) : '—'}</td>
                 <td style={{ padding: '10px 14px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => void openDetails(v)} title="Vehicle details and tracker history" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#888', padding: 4, borderRadius: 3 }}><IconEye size={14} /></button>
-                    {canEdit && <button onClick={() => openEdit(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                    {canEdit && <button onClick={() => openEdit(v)} title="Edit vehicle" aria-label="Edit vehicle" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                       onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>}
-                    {canDelete && <button onClick={() => setDeleting(v)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                    {canDelete && <button onClick={() => setDeleting(v)} title="Delete vehicle" aria-label="Delete vehicle" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                       onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconTrash size={14} /></button>}
                   </div>
                 </td>
               </tr>
             ))}
-            {!filtered.length && <tr><td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No vehicles found</td></tr>}
+            {!filtered.length && <tr><td colSpan={9} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No vehicles found</td></tr>}
           </tbody>
         </table>
         </div>
@@ -289,10 +318,7 @@ export default function VehiclesPage() {
                   {currentDevice ? <><strong>Device {currentDevice.displayId}</strong> · {currentDevice.imei}<div style={{ marginTop: 4, color: 'var(--muted)' }}>SIM {currentDevice.simNumber || '—'}</div></> : 'No device assigned'}
                 </div>
                 {canManageLifecycle && <>
-                  <select value={selectedDeviceId} onChange={event => { setSelectedDeviceId(event.target.value); setDeviceConflict(''); }} style={{ ...sel, minWidth: 250, height: 34 }}>
-                    <option value="">Select a device from inventory</option>
-                    {inventoryDevices.map(device => <option key={device.id} value={device.id}>{device.displayId} · {device.imei}{device.vehicleId && device.vehicleId !== detailVehicle.id ? ` · Assigned to ${device.licensePlate || 'another vehicle'}` : device.vehicleId === detailVehicle.id ? ' · Current device' : ' · In stock'}</option>)}
-                  </select>
+                  <DeviceSearchSelect devices={inventoryDevices} value={selectedDeviceId} onChange={id => { setSelectedDeviceId(id); setDeviceConflict(''); }} />
                   <button disabled={!selectedDeviceId || selectedDeviceId === currentDevice?.id || deviceSaving} onClick={() => void saveVehicleDevice()} style={{ height: 34, padding: '0 14px', border: 0, background: '#dc2626', color: '#fff', fontSize: 12, cursor: 'pointer', opacity: !selectedDeviceId || selectedDeviceId === currentDevice?.id || deviceSaving ? .5 : 1 }}>{currentDevice ? 'Replace Device' : 'Assign Device'}</button>
                   {currentDevice && <button disabled={deviceSaving} onClick={() => void removeVehicleDevice()} style={{ height: 34, padding: '0 14px', border: '1px solid #dc2626', background: 'transparent', color: '#dc2626', fontSize: 12, cursor: 'pointer' }}>Remove Device</button>}
                 </>}

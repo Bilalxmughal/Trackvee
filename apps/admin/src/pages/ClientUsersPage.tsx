@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconUserScan, IconBan, IconCheck, IconMinus } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconUserScan, IconBan, IconCheck, IconMinus, IconShieldCheck } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import api from '../api/client';
@@ -25,15 +25,19 @@ interface Org { id: string; name: string; type: string; }
 interface Vehicle { id: string; licensePlate: string | null; make: string | null; model: string | null; displayId: number; organizationId: string | null; }
 
 interface OrgPerm {
+  userId?: string; orgId?: string; dashboardView: boolean | null; mapView: boolean | null;
   vehiclesView: boolean; vehiclesAdd: boolean; vehiclesEdit: boolean; vehiclesDelete: boolean;
   alertsView: boolean; alertsAdd: boolean; alertsEdit: boolean; alertsDelete: boolean;
   geofencesView: boolean; geofencesAdd: boolean; geofencesEdit: boolean; geofencesDelete: boolean;
   poisView: boolean; poisAdd: boolean; poisEdit: boolean; poisDelete: boolean;
   maintenanceView: boolean | null; maintenanceAdd: boolean | null; maintenanceEdit: boolean | null; maintenanceDelete: boolean | null;
+  driverBehaviorView: boolean | null; driverBehaviorEdit: boolean | null; reportsView: boolean | null;
+  usersView: boolean | null; usersAdd: boolean | null; usersEdit: boolean | null; usersDelete: boolean | null;
   vehicleIds: string[] | null;
 }
 
 const DEFAULT_PERM: OrgPerm = {
+  dashboardView: null, mapView: null, driverBehaviorView: null, driverBehaviorEdit: null, reportsView: null, usersView: null, usersAdd: null, usersEdit: null, usersDelete: null,
   vehiclesView: true, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false,
   alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: false,
   geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: false,
@@ -43,25 +47,25 @@ const DEFAULT_PERM: OrgPerm = {
 };
 
 const TEMPLATES: Record<string, OrgPerm> = {
-  'View Only': { vehiclesView: true, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false, alertsView: true, alertsAdd: false, alertsEdit: false, alertsDelete: false, geofencesView: true, geofencesAdd: false, geofencesEdit: false, geofencesDelete: false, poisView: true, poisAdd: false, poisEdit: false, poisDelete: false, maintenanceView: true, maintenanceAdd: false, maintenanceEdit: false, maintenanceDelete: false, vehicleIds: null },
-  'Field Staff': { vehiclesView: true, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false, alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: false, geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: false, poisView: true, poisAdd: true, poisEdit: true, poisDelete: false, maintenanceView: true, maintenanceAdd: true, maintenanceEdit: true, maintenanceDelete: false, vehicleIds: null },
-  'Manager': { vehiclesView: true, vehiclesAdd: true, vehiclesEdit: true, vehiclesDelete: false, alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: false, geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: false, poisView: true, poisAdd: true, poisEdit: true, poisDelete: false, maintenanceView: true, maintenanceAdd: true, maintenanceEdit: true, maintenanceDelete: true, vehicleIds: null },
+  'View Only': { dashboardView: null, mapView: null, driverBehaviorView: null, driverBehaviorEdit: null, reportsView: null, usersView: null, usersAdd: null, usersEdit: null, usersDelete: null, vehiclesView: true, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false, alertsView: true, alertsAdd: false, alertsEdit: false, alertsDelete: false, geofencesView: true, geofencesAdd: false, geofencesEdit: false, geofencesDelete: false, poisView: true, poisAdd: false, poisEdit: false, poisDelete: false, maintenanceView: true, maintenanceAdd: false, maintenanceEdit: false, maintenanceDelete: false, vehicleIds: null },
+  'Field Staff': { dashboardView: null, mapView: null, driverBehaviorView: null, driverBehaviorEdit: null, reportsView: null, usersView: null, usersAdd: null, usersEdit: null, usersDelete: null, vehiclesView: true, vehiclesAdd: false, vehiclesEdit: false, vehiclesDelete: false, alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: false, geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: false, poisView: true, poisAdd: true, poisEdit: true, poisDelete: false, maintenanceView: true, maintenanceAdd: true, maintenanceEdit: true, maintenanceDelete: false, vehicleIds: null },
+  'Manager': { dashboardView: null, mapView: null, driverBehaviorView: null, driverBehaviorEdit: null, reportsView: null, usersView: null, usersAdd: null, usersEdit: null, usersDelete: null, vehiclesView: true, vehiclesAdd: true, vehiclesEdit: true, vehiclesDelete: false, alertsView: true, alertsAdd: true, alertsEdit: true, alertsDelete: false, geofencesView: true, geofencesAdd: true, geofencesEdit: true, geofencesDelete: false, poisView: true, poisAdd: true, poisEdit: true, poisDelete: false, maintenanceView: true, maintenanceAdd: true, maintenanceEdit: true, maintenanceDelete: true, vehicleIds: null },
 };
 
-const MODULES = [
-  { key: 'maintenance', label: 'Maintenance' },
-  { key: 'vehicles', label: 'Vehicles' },
-  { key: 'alerts', label: 'Alerts' },
-  { key: 'geofences', label: 'Geofences' },
-  { key: 'pois', label: 'POIs' },
-] as const;
-type ModuleKey = typeof MODULES[number]['key'];
+const MODULES: { key: string; label: string; actions: PermAction[] }[] = [
+  { key: 'dashboard', label: 'Dashboard', actions: ['View'] }, { key: 'map', label: 'Live Map', actions: ['View'] },
+  { key: 'vehicles', label: 'Vehicles', actions: ['View', 'Add', 'Edit', 'Delete'] }, { key: 'alerts', label: 'Alerts', actions: ['View', 'Add', 'Edit', 'Delete'] },
+  { key: 'geofences', label: 'Geofences', actions: ['View', 'Add', 'Edit', 'Delete'] }, { key: 'pois', label: 'POIs', actions: ['View', 'Add', 'Edit', 'Delete'] },
+  { key: 'driverBehavior', label: 'Driver Behavior', actions: ['View', 'Edit'] }, { key: 'maintenance', label: 'Maintenance', actions: ['View', 'Add', 'Edit', 'Delete'] },
+  { key: 'reports', label: 'Reports', actions: ['View'] }, { key: 'users', label: 'Users', actions: ['View', 'Add', 'Edit', 'Delete'] },
+];
 type PermAction = 'View' | 'Add' | 'Edit' | 'Delete';
 const ACTIONS: PermAction[] = ['View', 'Add', 'Edit', 'Delete'];
 const ACTION_COLOR: Record<PermAction, string> = { View: '#3b82f6', Add: '#16a34a', Edit: '#f59e0b', Delete: '#dc2626' };
-function permKey(mod: ModuleKey, action: PermAction): keyof OrgPerm { return `${mod}${action}` as keyof OrgPerm; }
+function permKey(mod: string, action: PermAction): keyof OrgPerm { return `${mod}${action}` as keyof OrgPerm; }
 
 const ORG_ROLES_B2B = ['client_owner', 'client_super_admin', 'client_admin'];
+const CLIENT_ROLE_LEVEL: Record<string, number> = { client_owner: 4, client_super_admin: 3, client_admin: 2, client_user: 1 };
 const ROLE_LABEL: Record<string, string> = { client_owner: 'Client Owner', client_super_admin: 'Client Super Admin', client_admin: 'Client Admin', client_user: 'Client User' };
 
 function portalStatus(lastLoginAt: string | null): { label: string; color: string } {
@@ -127,7 +131,7 @@ export default function ClientUsersPage() {
   const { user: me, loginAs } = useAuth();
   const [searchParams] = useSearchParams();
 
-  const { canOrgDo } = useOrgRolePerms();
+  const { canOrgDo, perms: rolePermissions } = useOrgRolePerms();
   const meRole = me?.role ?? '';
   const isOrgScoped = ORG_ROLES_SET.has(meRole);
 
@@ -138,6 +142,7 @@ export default function ClientUsersPage() {
   const cuCanDelete = isOrgScoped ? canOrgDo(meRole, 'users', 'delete') : true;
 
   const [users, setUsers] = useState<OrgUser[]>([]);
+  const [permissionRows, setPermissionRows] = useState<OrgPerm[]>([]);
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -162,13 +167,14 @@ export default function ClientUsersPage() {
     Promise.all([
       api.get<OrgUser[]>(`/users/org-users${orgParam}`),
       api.get<Org[]>('/organizations'),
-    ]).then(([u, o]) => { setUsers(u.data); setOrgs(o.data); })
+      !['super_admin', 'admin', 'ops'].includes(meRole) ? Promise.resolve({ data: [] as OrgPerm[] }) : api.get<OrgPerm[]>('/org-permissions/summary'),
+    ]).then(([u, o, p]) => { setUsers(u.data); setOrgs(o.data); setPermissionRows(p.data); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
-    if (form.role === 'client_admin' && form.organizationId) {
+    if (form.role !== 'client_owner' && form.organizationId) {
       api.get<Vehicle[]>(`/vehicles?organizationId=${form.organizationId}`)
         .then(r => setOrgVehicles(r.data)).catch(() => setOrgVehicles([]));
     } else {
@@ -197,7 +203,7 @@ export default function ClientUsersPage() {
     const org = orgs.find(o => o.id === u.organizationId);
     setForm({ clientType: (org?.type as 'b2b' | 'b2c') ?? 'b2b', firstName: u.firstName ?? '', lastName: u.lastName ?? '', email: u.email, password: '', role: u.role, isActive: u.isActive, organizationId: u.organizationId ?? '' });
     setActiveTab('profile');
-    if (u.role === 'client_admin') {
+    if (u.role !== 'client_owner') {
       try { const r = await api.get<OrgPerm>(`/org-permissions/${u.id}`); setPerm(r.data ?? DEFAULT_PERM); }
       catch { setPerm(DEFAULT_PERM); }
     } else { setPerm(DEFAULT_PERM); }
@@ -222,6 +228,10 @@ export default function ClientUsersPage() {
     setPerm(p => {
       const newVal = !p[key];
       const updated = { ...p, [key]: newVal };
+      if (!newVal && key.endsWith('View')) {
+        const prefix = String(key).replace(/View$/, '');
+        for (const action of ['Add', 'Edit', 'Delete']) { const actionKey = `${prefix}${action}` as keyof OrgPerm; if (actionKey in updated) (updated as unknown as Record<string, unknown>)[actionKey] = false; }
+      }
       if (newVal && (key.endsWith('Add') || key.endsWith('Edit') || key.endsWith('Delete'))) {
         const viewKey = `${key.replace(/(Add|Edit|Delete)$/, '')}View` as keyof OrgPerm;
         updated[viewKey] = true as never;
@@ -247,7 +257,7 @@ export default function ClientUsersPage() {
       let userId = editing?.id;
       if (editing) await api.patch(`/users/${editing.id}`, payload);
       else { const r = await api.post<{ id: string }>('/users', payload); userId = r.data.id; }
-      if (form.role === 'client_admin' && userId && form.organizationId) {
+      if (form.role !== 'client_owner' && userId && form.organizationId) {
         await api.put(`/org-permissions/${userId}`, { ...perm, orgId: form.organizationId });
       }
       await load(); setModal(false); setEditing(null);
@@ -283,13 +293,16 @@ export default function ClientUsersPage() {
     return true;
   });
 
-  const isOrgUser = form.role === 'client_admin';
-  const tabs = [{ key: 'profile' as const, label: 'Profile' }, ...(isOrgUser ? [{ key: 'permissions' as const, label: 'Permissions' }] : [])];
+  const canAssignPermissions = form.role !== 'client_owner' && !!form.organizationId;
+  const tabs = [{ key: 'profile' as const, label: 'Profile' }, ...(canAssignPermissions ? [{ key: 'permissions' as const, label: 'Permissions' }] : [])];
 
   const myOrg = myOrgId ? orgs.find(o => o.id === myOrgId) : null;
   const selectedOrg = !isOrgScoped && orgFilter ? orgs.find(o => o.id === orgFilter) : null;
   const selectedOrgIsB2C = selectedOrg?.type === 'b2c' || (isOrgScoped && me?.organizationType === 'b2c');
   const canShowAddUser = cuCanAdd && !selectedOrgIsB2C;
+  const editableUser = (target: OrgUser) => target.role !== 'client_owner' && (['super_admin', 'admin', 'ops'].includes(meRole) || (isOrgScoped && cuCanEdit && (CLIENT_ROLE_LEVEL[target.role] ?? 0) < (CLIENT_ROLE_LEVEL[meRole] ?? 0)));
+  const permissionCount = (target: OrgUser) => { const row = permissionRows.find(item => item.userId === target.id); const org = orgs.find(item => item.id === target.organizationId); const roleKey = target.role === 'client_user' && org?.type === 'b2c' ? 'client_user_b2c' : target.role; let allowed = 0; for (const mod of MODULES) { const feature = mod.key === 'driverBehavior' ? 'driver-behavior' : mod.key; const override = row?.[permKey(mod.key, 'View')]; if (target.role === 'client_owner' || (typeof override === 'boolean' ? override : !!rolePermissions[roleKey]?.[feature]?.includes('view'))) allowed++; } return allowed; };
+  const openPermissions = async (target: OrgUser) => { if (!editableUser(target)) return; await openEdit(target); setActiveTab('permissions'); };
 
   return (
     <div>
@@ -368,7 +381,8 @@ export default function ClientUsersPage() {
                     <td style={{ padding: '10px 14px', color: u.isActive ? '#16a34a' : 'var(--muted)' }}>{u.isActive ? 'Active' : 'Inactive'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{fmtDate(u.createdAt)}</td>
                     <td style={{ padding: '10px 14px' }}>
-                      <div style={{ display: 'flex', gap: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        {editableUser(u) && <button onClick={() => void openPermissions(u)} title="Manage page permissions" aria-label="Manage page permissions" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6b7280', padding: 4, display: 'inline-flex', alignItems: 'center', gap: 3 }}><IconShieldCheck size={14} /><span style={{ fontSize: 10, whiteSpace: 'nowrap' }}>{permissionCount(u)}/10</span></button>}
                         {cuCanEdit && <button onClick={() => openEdit(u)} title="Edit" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                           onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>}
                         {me?.role === 'super_admin' && !isOrgScoped && (
@@ -394,7 +408,7 @@ export default function ClientUsersPage() {
 
       {/* Add/Edit Modal */}
       <Modal open={modal} title={editing ? 'Edit Client User' : 'Add Client User'} onClose={() => { setModal(false); setEditing(null); }} width='min(1200px, 97vw)' height='min(800px, 96vh)'>
-        {isOrgUser && (
+        {canAssignPermissions && (
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
             {tabs.map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
@@ -494,7 +508,7 @@ export default function ClientUsersPage() {
                   {MODULES.map(mod => (
                     <tr key={mod.key} style={{ borderBottom: '1px solid var(--border2)' }}>
                       <td style={{ padding: '8px 0', fontWeight: 500 }}>{mod.label}</td>
-                      {ACTIONS.map(action => {
+                      {mod.actions.map(action => {
                         const k = permKey(mod.key, action);
                         const on = perm[k] as boolean;
                         return (
