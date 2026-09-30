@@ -36,6 +36,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - Every schema change requires a migration.
 - API/gateway production changes require build plus PM2 restart after pull.
 - Every new client-facing page/feature must be configured for both B2B and B2C role profiles, role-management controls, and UI/API guards as applicable; B2B grants do not imply B2C access.
+- Synthetic live-tracking load harness is available under `apps/gateway/scripts/`; production execution remains pending and must use the isolated staged runbook in `docs/LOAD_TESTING.md`.
 - Preserve react-leaflet v4 and custom marker pointer-event behavior.
 - Use raw SQL for PostgreSQL `DISTINCT ON` queries.
 

@@ -77,6 +77,8 @@ pnpm --filter gateway build
 pm2 restart yotrack-gateway
 ```
 
+For a controlled synthetic live-tracking capacity check, follow [`LOAD_TESTING.md`](LOAD_TESTING.md). It seeds a separate `LOADTEST` organization, simulates up to 300 GT06 devices through localhost port 5023, and includes a bounded cleanup procedure. Do not run load against customer records or a public gateway address.
+
 ## Database migrations
 
 Schema changes require a numbered SQL migration in `apps/api/migrations/`. Apply the exact new migration before restarting code that depends on it. Never enable TypeORM synchronization.

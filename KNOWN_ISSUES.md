@@ -369,3 +369,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Problem:** The device conflict guard treated `vehicleId: null` (remove/unassign) as a transfer to a different vehicle, blocking device removal with “Device Already Assigned”.
 
 **Rule:** Only reject a direct assignment when both the old and requested vehicle IDs are non-null and different. Preserve transactional assignment closure and the vehicle-expiry transition on intentional removal.
+
+---
+
+## KI-030 — Synthetic live load tests must use isolated tracker identities
+
+**Status:** Active operational safeguard
+
+**Area:** Oracle / GT06 gateway / telemetry database
+
+**Problem:** A GT06 load test writes persistent telemetry, updates device heartbeat state, and opens real TCP sessions on the production gateway. Unscoped dummy records can pollute customer maps/reports or create avoidable production pressure.
+
+**Rule:** Use only the bounded `apps/gateway/scripts/gt06-load-test.mjs` simulator with a uniquely seeded `LOADTEST` organization and an unused reserved IMEI prefix. Run from Oracle to localhost, ramp 10 → 50 → 100 → 300 devices, monitor API/gateway/database health at every stage, stop on errors or rising lag, and clean up the exact run before declaring completion. Never simulate a customer's real IMEI or direct traffic at a public endpoint.
