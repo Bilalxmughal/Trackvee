@@ -41,11 +41,12 @@ Alert presence: `alerts.some(a => a.active && a.vehicleImeis.includes(imei))`.
 ## History layer
 
 - History API reads use ascending `(timestamp, id)` order and bounded 2,000-row offset pages. Admin, portal and mobile must keep loading pages until a short page is returned; one capped response can omit late-day stops and misstate route start/end.
-- In mobile history, bridge a gap longer than 10 minutes into one parked event only when both bounding fixes report ignition OFF and their coordinates are within 100 m. Do not infer a stop from silence alone.
+- Filter every History/Replay surface to valid, finite, in-range GPS fixes before deriving the route endpoints; discard (0, 0) fixes.
+- Parked segments may span a >10-minute telemetry gap only when both fixes explicitly report ignition OFF and are within 100 m. For shorter gaps, parked points must still stay within 100 m. Do not infer a stop from silence alone or count a long location jump as parked time.
 - Route: red `#dc2626`, weight 3.5, opacity 0.85.
 - Direction arrows: blue SVG, bearing rotation, sampled to about 200 markers, moving points only.
 - Parked marker: red `P`, idle marker: amber `I`, both 26px with white border and shown for >= 2 minutes.
-- Start/end are explicitly labeled `START` (green) and `END` (black); ignition-off STOP marker: amber.
+- START is a green circle (`S`); END is a red circle (`E`), rendered above stop markers. Parked `P` markers are black; idle `I` markers are amber.
 - Driving timeline selection highlights green, fits bounds, and opens midpoint popup with timestamps, reverse-geocoded addresses, duration and average speed.
 - Cache reverse geocoding by rounded coordinates.
 

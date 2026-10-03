@@ -22,7 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { POIsPanel, POIRecord } from '../components/POIsPanel';
 import { POI_ICONS } from '../lib/poi-icons';
 import DriverBehaviorPanel from '../components/DriverBehaviorPanel';
-import { fetchTelemetryHistory } from '../utils/telemetry-history';
+import { canContinueHistorySegment, fetchTelemetryHistory, isUsableHistoryPoint } from '../utils/telemetry-history';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -137,7 +137,7 @@ function deriveTimeline(pts: TripPoint[]): TimelineEvent[] {
   let si = 0;
   for (let i = 1; i < pts.length; i++) {
     const next = tripSegType(pts[i]);
-    if (next !== type) { events.push(makeEvent(type, si, i - 1)); type = next; si = i; }
+    if (next !== type || !canContinueHistorySegment(pts[i - 1], pts[i], type)) { events.push(makeEvent(type, si, i - 1)); type = next; si = i; }
   }
   events.push(makeEvent(type, si, pts.length - 1));
   return events;
@@ -1070,7 +1070,7 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
     let si = 0;
     for (let i = 1; i < points.length; i++) {
       const nt = tripSegType(points[i]);
-      if (nt !== curSegType) { segments.push({ type: curSegType, start: si, end: i-1 }); curSegType = nt; si = i; }
+      if (nt !== curSegType || !canContinueHistorySegment(points[i-1], points[i], curSegType)) { segments.push({ type: curSegType, start: si, end: i-1 }); curSegType = nt; si = i; }
     }
     segments.push({ type: curSegType, start: si, end: points.length - 1 });
 
@@ -1080,7 +1080,7 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
       const dur = Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000));
       if (dur < 120) return; // skip stops shorter than 2 minutes
       const isIdle = seg.type === 'idle';
-      const color = isIdle ? '#f59e0b' : '#dc2626';
+      const color = isIdle ? '#f59e0b' : '#111827';
       const label = isIdle ? 'I' : 'P';
       const title = isIdle ? 'Idle (Engine On)' : 'Parked';
       const addrId = `paddr-${idx}-${Date.now()}`;
@@ -1137,11 +1137,10 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
       flush(points.length - 1);
     }
 
-    // Start dot (green) and end dot (black)
-    const startHtml = `<div style="height:22px;min-width:52px;padding:0 7px;border-radius:12px;background:#16a34a;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font:700 9px system-ui;letter-spacing:.3px;transform:translate(-50%,-50%)">START</div>`;
-    const endHtml = `<div style="height:22px;min-width:48px;padding:0 7px;border-radius:12px;background:#111;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font:700 9px system-ui;letter-spacing:.3px;transform:translate(-50%,-50%)">END</div>`;
-    L.marker([points[0].latitude, points[0].longitude], { icon: L.divIcon({ html: startHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }) }).addTo(layer);
-    L.marker([points[points.length-1].latitude, points[points.length-1].longitude], { icon: L.divIcon({ html: endHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }) }).addTo(layer);
+    const startHtml = `<div title="START" style="width:20px;height:20px;border-radius:50%;background:#16a34a;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font:700 9px system-ui;transform:translate(-50%,-50%)">S</div>`;
+    const endHtml = `<div title="END" style="width:20px;height:20px;border-radius:50%;background:#dc2626;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font:700 9px system-ui;transform:translate(-50%,-50%)">E</div>`;
+    L.marker([points[0].latitude, points[0].longitude], { icon: L.divIcon({ html: startHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 500 }).bindTooltip('START').addTo(layer);
+    L.marker([points[points.length-1].latitude, points[points.length-1].longitude], { icon: L.divIcon({ html: endHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 500 }).bindTooltip('END').addTo(layer);
 
     try { map.fitBounds(L.latLngBounds(coords), { padding: [30, 30] }); } catch {}
 
@@ -1291,12 +1290,12 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
               <div key={i} onClick={() => onSegmentClick(ev)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f5f5f5'}`, cursor: 'pointer', transition: 'background .15s' }}
                 onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1a1a1a' : '#f9fafb'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'parked' ? '#dc2626' : ev.type === 'idle' ? '#f59e0b' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
                   {ev.type === 'parked' ? 'P' : ev.type === 'idle' ? 'I' : 'D'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: dark ? '#ccc' : '#333' }}>{formatTsFull(ev.startTime)}</div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'parked' ? '#dc2626' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{formatDuration(ev.durationSec)}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{formatDuration(ev.durationSec)}</div>
                 </div>
                 {ev.type === 'driving' && ev.avgSpeed !== undefined && (
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#16a34a' }}>{ev.avgSpeed} km/h</div>
@@ -1752,7 +1751,7 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
     setLoading(true); setSnapping(false); setPlaying(false); setFrameIdx(0);
     try {
       const points = await fetchTelemetryHistory<TripPoint>(imei, from, to);
-      const filtered = points.filter(pt => pt.gpsValid && (pt.latitude !== 0 || pt.longitude !== 0));
+      const filtered = points.filter(isUsableHistoryPoint);
       setLoading(false);
       if (filtered.length > 0) {
         setSnapping(true);
@@ -2417,7 +2416,7 @@ export default function MapPage() {
     setHistoryLoading(true);
     try {
       const data = await fetchTelemetryHistory<TripPoint>(imei, new Date(range.from).toISOString(), new Date(range.to).toISOString());
-      setHistoryPoints(data.filter(p => p.gpsValid));
+      setHistoryPoints(data.filter(isUsableHistoryPoint));
     } catch {} finally { setHistoryLoading(false); }
   };
 
@@ -2427,7 +2426,7 @@ export default function MapPage() {
     setHistoryPoints([]);
     try {
       const data = await fetchTelemetryHistory<TripPoint>(historyMode.imei, new Date(from).toISOString(), new Date(to).toISOString());
-      setHistoryPoints(data.filter(p => p.gpsValid));
+      setHistoryPoints(data.filter(isUsableHistoryPoint));
     } catch {} finally { setHistoryLoading(false); }
   };
 
@@ -2439,7 +2438,7 @@ export default function MapPage() {
     setHistoryPoints([]);
     try {
       const data = await fetchTelemetryHistory<TripPoint>(imei, new Date(from).toISOString(), new Date(to).toISOString());
-      setHistoryPoints(data.filter(p => p.gpsValid));
+      setHistoryPoints(data.filter(isUsableHistoryPoint));
     } catch {} finally { setHistoryLoading(false); }
   };
 

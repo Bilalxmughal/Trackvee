@@ -402,6 +402,6 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 
 **Area:** API / Admin / Client portal / Mobile / History and Replay
 
-**Cause:** History consumers requested one capped result page from an ascending date range. Dense ranges could omit later points, including long parked periods, and make displayed route start/end misleading.
+**Cause:** History consumers requested one capped result page from an ascending date range. Dense ranges could omit later points, including long parked periods. Portal also used GPS-invalid fixes for endpoints, and stop segments could count a long location jump as parked time.
 
-**Rule:** Keep deterministic `(timestamp, id)` ordering, bounded API pages, and fetch until a short page is returned. Show labeled START/END markers. A telemetry silence is a GPS-data gap and must not be presented as confirmed parking without samples. Mobile may bridge a >10-minute gap as parked only when both bounding fixes explicitly say ignition OFF and are within 100 m.
+**Rule:** Keep deterministic `(timestamp, id)` ordering, bounded API pages, and fetch until a short page is returned. Filter invalid GPS fixes consistently across clients. Bridge a >10-minute gap as parked only when both bounding fixes explicitly say ignition OFF and are within 100 m; otherwise split the segment. A telemetry silence is a GPS-data gap and must not be presented as confirmed parking without corroborating fixes. START is a green circle, END a red circle, and parked `P` markers are black.

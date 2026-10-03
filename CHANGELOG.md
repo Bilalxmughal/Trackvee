@@ -201,3 +201,4 @@ The following modules were already implemented and production-deployed at this p
 
 ### Fixed
 - [API/Admin/Portal/Mobile] History and Replay now fetch every telemetry page in the selected range instead of silently stopping at the first 2,000/5,000 points; route endpoints are labeled START and END, and mobile bridges sparse ignition-off fixes at the same location into a stop event.
+- [Admin/Portal/Mobile] Filter unusable GPS fixes consistently; split parked intervals across long, distant GPS gaps; use green START, red END, and black parked `P` markers.
