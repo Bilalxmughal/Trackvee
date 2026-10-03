@@ -40,10 +40,12 @@ Alert presence: `alerts.some(a => a.active && a.vehicleImeis.includes(imei))`.
 
 ## History layer
 
+- History API reads use ascending `(timestamp, id)` order and bounded 2,000-row offset pages. Admin, portal and mobile must keep loading pages until a short page is returned; one capped response can omit late-day stops and misstate route start/end.
+- In mobile history, bridge a gap longer than 10 minutes into one parked event only when both bounding fixes report ignition OFF and their coordinates are within 100 m. Do not infer a stop from silence alone.
 - Route: red `#dc2626`, weight 3.5, opacity 0.85.
 - Direction arrows: blue SVG, bearing rotation, sampled to about 200 markers, moving points only.
 - Parked marker: red `P`, idle marker: amber `I`, both 26px with white border and shown for >= 2 minutes.
-- Start: green dot; end: black dot; ignition-off STOP marker: amber.
+- Start/end are explicitly labeled `START` (green) and `END` (black); ignition-off STOP marker: amber.
 - Driving timeline selection highlights green, fits bounds, and opens midpoint popup with timestamps, reverse-geocoded addresses, duration and average speed.
 - Cache reverse geocoding by rounded coordinates.
 

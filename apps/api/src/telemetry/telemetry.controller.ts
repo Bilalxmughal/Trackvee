@@ -140,6 +140,7 @@ export class TelemetryController {
     @CurrentUser() user: User,
     @Param('imei') imei: string,
     @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
@@ -147,8 +148,11 @@ export class TelemetryController {
       const allowedDevices = await this.devicesService.findAll(user);
       if (!allowedDevices.some(device => device.imei === imei)) throw new NotFoundException();
     }
+    const requestedLimit = Number.parseInt(limit ?? '', 10);
+    const requestedOffset = Number.parseInt(offset ?? '', 10);
     return this.telemetryService.getHistory(imei, {
-      limit: limit ? parseInt(limit) : 2000,
+      limit: Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 2000) : 2000,
+      offset: Number.isFinite(requestedOffset) && requestedOffset > 0 ? requestedOffset : 0,
       from,
       to,
     });

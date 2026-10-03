@@ -195,3 +195,9 @@ The following modules were already implemented and production-deployed at this p
 - Fixed vehicle-device removal being rejected by the cross-vehicle assignment conflict check.
 - Added searchable client/device controls, lifecycle counts, tracking-expiry filters, and named vehicle actions in Admin; removed the Devices user filter.
 - Added separate B2C role permissions and per-user CRUD controls/counts across 10 portal areas. Migration 033 adds Dashboard/Map overrides.
+---
+
+## 2026-10-03
+
+### Fixed
+- [API/Admin/Portal/Mobile] History and Replay now fetch every telemetry page in the selected range instead of silently stopping at the first 2,000/5,000 points; route endpoints are labeled START and END, and mobile bridges sparse ignition-off fixes at the same location into a stop event.

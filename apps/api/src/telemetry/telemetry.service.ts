@@ -263,7 +263,7 @@ export class TelemetryService {
     });
   }
 
-  async getHistory(imei: string, opts: { limit?: number; from?: string; to?: string } = {}): Promise<Telemetry[]> {
+  async getHistory(imei: string, opts: { limit?: number; offset?: number; from?: string; to?: string } = {}): Promise<Telemetry[]> {
     const where: Record<string, unknown> = { imei };
     if (opts.from || opts.to) {
       const start = opts.from ? new Date(opts.from) : new Date(0);
@@ -272,7 +272,8 @@ export class TelemetryService {
     }
     return this.repo.find({
       where: where as any,
-      order: { timestamp: 'ASC' },
+      order: { timestamp: 'ASC', id: 'ASC' },
+      skip: Math.max(0, opts.offset ?? 0),
       take: opts.limit ?? 2000,
     });
   }

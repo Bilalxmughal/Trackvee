@@ -15,6 +15,7 @@ import DriverBehaviorModal from '../components/DriverBehaviorModal';
 import MaintenancePanel from '../components/MaintenancePanel';
 import DeviceHealthPanel from '../components/DeviceHealthPanel';
 import UsersModal from '../components/UsersModal';
+import { fetchTelemetryHistory } from '../utils/telemetry-history';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -371,8 +372,8 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
     }
 
     // Start (green) and end (black) dots
-    const startHtml = `<div style="width:14px;height:14px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);transform:translate(-50%,-50%)"></div>`;
-    const endHtml = `<div style="width:14px;height:14px;border-radius:50%;background:#111;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);transform:translate(-50%,-50%)"></div>`;
+    const startHtml = `<div style="height:22px;min-width:52px;padding:0 7px;border-radius:12px;background:#16a34a;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font:700 9px system-ui;letter-spacing:.3px;transform:translate(-50%,-50%)">START</div>`;
+    const endHtml = `<div style="height:22px;min-width:48px;padding:0 7px;border-radius:12px;background:#111;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font:700 9px system-ui;letter-spacing:.3px;transform:translate(-50%,-50%)">END</div>`;
     L.marker([points[0]!.latitude, points[0]!.longitude], { icon: L.divIcon({ html: startHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }) }).addTo(layer);
     L.marker([points[points.length-1]!.latitude, points[points.length-1]!.longitude], { icon: L.divIcon({ html: endHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }) }).addTo(layer);
 
@@ -963,7 +964,7 @@ function TripReplayModal({ imei, plate, onClose }: { imei: string; plate: string
       }
       setLoading(true); setPlaying(false); setFrameIdx(0);
       try {
-        const { data } = await api.get<TripPoint[]>(`/telemetry/${imei}/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=2000`);
+        const data = await fetchTelemetryHistory<TripPoint>(imei, from, to);
         setHistory(data);
       } catch { setHistory([]); } finally { setLoading(false); }
     };
@@ -1527,7 +1528,7 @@ export default function PortalMapPage() {
     setSelectedSegment(null);
     setHistoryMode({ imei, plate, from, to });
     try {
-      const { data } = await api.get<TripPoint[]>(`/telemetry/${imei}/history?from=${encodeURIComponent(new Date(from).toISOString())}&to=${encodeURIComponent(new Date(to).toISOString())}&limit=2000`);
+      const data = await fetchTelemetryHistory<TripPoint>(imei, new Date(from).toISOString(), new Date(to).toISOString());
       setHistoryPoints(data);
     } catch { setHistoryPoints([]); } finally { setHistoryLoading(false); }
   }, []);

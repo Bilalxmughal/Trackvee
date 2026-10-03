@@ -393,3 +393,15 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Cause:** Unchanged five-second telemetry responses replaced map state and repeated trail/marker work. Marker animation visited every vehicle continuously, and the stale-status timer reran the full marker update including road snapping. Follow windows also rerendered their Leaflet maps during every drag event and could open over occupied windows.
 
 **Rule:** Keep unchanged telemetry state stable; memoize derived visible points/IDs; animate only moving or transitioning markers at a bounded frame rate; refresh stale status separately from position/snap work. Follow windows must choose free viewport positions, snap to free grid slots after dragging, and avoid React/Leaflet renders for each pointer move. Verify pan, sidebar resizing, and several simultaneous follow windows with a large fleet after deployment.
+
+---
+
+## KI-032 — History requests must not silently truncate dense date ranges
+
+**Status:** Fixed in source; production verification requires vehicle/date-specific check
+
+**Area:** API / Admin / Client portal / Mobile / History and Replay
+
+**Cause:** History consumers requested one capped result page from an ascending date range. Dense ranges could omit later points, including long parked periods, and make displayed route start/end misleading.
+
+**Rule:** Keep deterministic `(timestamp, id)` ordering, bounded API pages, and fetch until a short page is returned. Show labeled START/END markers. A telemetry silence is a GPS-data gap and must not be presented as confirmed parking without samples. Mobile may bridge a >10-minute gap as parked only when both bounding fixes explicitly say ignition OFF and are within 100 m.

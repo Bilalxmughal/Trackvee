@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { IconChartBar, IconSearch, IconDownload } from '@tabler/icons-react';
 import api from '../api/client';
+import { fetchTelemetryHistory } from '../utils/telemetry-history';
 
 interface DeviceInfo {
   imei: string;
@@ -74,7 +75,7 @@ export default function ReportsPage() {
     try {
       const fromIso = new Date(from).toISOString();
       const toIso = new Date(to).toISOString();
-      const { data: pts } = await api.get<TripPoint[]>(`/telemetry/${selectedImei}/history?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}&limit=5000`);
+      const pts = await fetchTelemetryHistory<TripPoint>(selectedImei, fromIso, toIso);
       if (pts.length === 0) { setRows([]); setCols([]); setLoading(false); return; }
 
       if (reportType === 'trip') {

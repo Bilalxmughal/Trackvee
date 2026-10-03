@@ -22,6 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { POIsPanel, POIRecord } from '../components/POIsPanel';
 import { POI_ICONS } from '../lib/poi-icons';
 import DriverBehaviorPanel from '../components/DriverBehaviorPanel';
+import { fetchTelemetryHistory } from '../utils/telemetry-history';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -1137,8 +1138,8 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
     }
 
     // Start dot (green) and end dot (black)
-    const startHtml = `<div style="width:14px;height:14px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);transform:translate(-50%,-50%)"></div>`;
-    const endHtml = `<div style="width:14px;height:14px;border-radius:50%;background:#111;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);transform:translate(-50%,-50%)"></div>`;
+    const startHtml = `<div style="height:22px;min-width:52px;padding:0 7px;border-radius:12px;background:#16a34a;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font:700 9px system-ui;letter-spacing:.3px;transform:translate(-50%,-50%)">START</div>`;
+    const endHtml = `<div style="height:22px;min-width:48px;padding:0 7px;border-radius:12px;background:#111;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font:700 9px system-ui;letter-spacing:.3px;transform:translate(-50%,-50%)">END</div>`;
     L.marker([points[0].latitude, points[0].longitude], { icon: L.divIcon({ html: startHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }) }).addTo(layer);
     L.marker([points[points.length-1].latitude, points[points.length-1].longitude], { icon: L.divIcon({ html: endHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }) }).addTo(layer);
 
@@ -1750,11 +1751,8 @@ function TripReplayModal({ imei, plate, onClose, dark }: { imei: string; plate: 
     const { from, to } = tripPresetRange(p, cf, ct);
     setLoading(true); setSnapping(false); setPlaying(false); setFrameIdx(0);
     try {
-      const params = new URLSearchParams({ limit: '2000' });
-      if (from) params.set('from', from);
-      if (to) params.set('to', to);
-      const r = await api.get<TripPoint[]>(`/telemetry/${imei}/history?${params}`);
-      const filtered = r.data.filter(pt => pt.gpsValid && (pt.latitude !== 0 || pt.longitude !== 0));
+      const points = await fetchTelemetryHistory<TripPoint>(imei, from, to);
+      const filtered = points.filter(pt => pt.gpsValid && (pt.latitude !== 0 || pt.longitude !== 0));
       setLoading(false);
       if (filtered.length > 0) {
         setSnapping(true);
@@ -2418,7 +2416,7 @@ export default function MapPage() {
     setPanelOpen(true);
     setHistoryLoading(true);
     try {
-      const { data } = await api.get<TripPoint[]>(`/telemetry/${imei}/history?from=${encodeURIComponent(new Date(range.from).toISOString())}&to=${encodeURIComponent(new Date(range.to).toISOString())}&limit=2000`);
+      const data = await fetchTelemetryHistory<TripPoint>(imei, new Date(range.from).toISOString(), new Date(range.to).toISOString());
       setHistoryPoints(data.filter(p => p.gpsValid));
     } catch {} finally { setHistoryLoading(false); }
   };
@@ -2428,7 +2426,7 @@ export default function MapPage() {
     setHistoryLoading(true);
     setHistoryPoints([]);
     try {
-      const { data } = await api.get<TripPoint[]>(`/telemetry/${historyMode.imei}/history?from=${encodeURIComponent(new Date(from).toISOString())}&to=${encodeURIComponent(new Date(to).toISOString())}&limit=2000`);
+      const data = await fetchTelemetryHistory<TripPoint>(historyMode.imei, new Date(from).toISOString(), new Date(to).toISOString());
       setHistoryPoints(data.filter(p => p.gpsValid));
     } catch {} finally { setHistoryLoading(false); }
   };
@@ -2440,7 +2438,7 @@ export default function MapPage() {
     setHistoryLoading(true);
     setHistoryPoints([]);
     try {
-      const { data } = await api.get<TripPoint[]>(`/telemetry/${imei}/history?from=${encodeURIComponent(new Date(from).toISOString())}&to=${encodeURIComponent(new Date(to).toISOString())}&limit=2000`);
+      const data = await fetchTelemetryHistory<TripPoint>(imei, new Date(from).toISOString(), new Date(to).toISOString());
       setHistoryPoints(data.filter(p => p.gpsValid));
     } catch {} finally { setHistoryLoading(false); }
   };
