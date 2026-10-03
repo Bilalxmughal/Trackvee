@@ -4,6 +4,11 @@
 
 ---
 
+## 2026-10-03
+
+### Fixed
+- [Admin/Portal/Mobile] History and Replay now mark telemetry silences over 10 minutes as GPS data gaps, draw dashed route connectors, and exclude those gaps from confirmed stop duration.
+
 ## 2026-09-30
 
 ### Changed

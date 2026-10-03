@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-10-03 (History/Replay pages dense ranges, filters unusable GPS fixes, bounds inferred stop gaps, and uses consistent START/END/P markers; exact LEH-7985 telemetry check needs production packet output.)
+Last verified: 2026-10-03 (History/Replay now splits >10-minute telemetry silences into visible GPS data-gap events across admin, portal, and mobile; LEH-7985 ACC reporting still needs device-side verification.)
 
 ## Status
 

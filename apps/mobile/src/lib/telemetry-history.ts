@@ -10,6 +10,11 @@ export function isUsableHistoryPoint<T extends HistoryFix>(point: T): boolean {
     && (point.latitude !== 0 || point.longitude !== 0);
 }
 
+export function isHistoryDataGap(previous: HistoryFix, next: HistoryFix): boolean {
+  const gapSeconds = (new Date(next.timestamp).getTime() - new Date(previous.timestamp).getTime()) / 1000;
+  return !Number.isFinite(gapSeconds) || gapSeconds > 600;
+}
+
 export function canContinueHistorySegment(previous: HistoryFix, next: HistoryFix, type: 'parked' | 'idle' | 'driving'): boolean {
   const gapSeconds = (new Date(next.timestamp).getTime() - new Date(previous.timestamp).getTime()) / 1000;
   if (!Number.isFinite(gapSeconds) || gapSeconds < 0) return false;
@@ -18,9 +23,8 @@ export function canContinueHistorySegment(previous: HistoryFix, next: HistoryFix
   const dLng = (next.longitude - previous.longitude) * rad;
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(previous.latitude * rad) * Math.cos(next.latitude * rad) * Math.sin(dLng / 2) ** 2;
   const distanceMeters = 6_371_000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-  if (type === 'parked') {
-    return distanceMeters <= 100 && (gapSeconds <= 600 || (previous.ignition === false && next.ignition === false));
-  }
+  if (gapSeconds > 600) return false;
+  if (type === 'parked') return distanceMeters <= 100;
   return gapSeconds <= 600;
 }
 

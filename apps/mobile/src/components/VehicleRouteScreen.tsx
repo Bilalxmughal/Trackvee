@@ -9,12 +9,12 @@ import { theme } from '../theme';
 import api from '../lib/api';
 import { usePortalPermissions } from '../auth/PortalPermissionsProvider';
 import carIcon from '../../assets/car-icon.png';
-import { canContinueHistorySegment, fetchTelemetryHistory, isUsableHistoryPoint } from '../lib/telemetry-history';
+import { canContinueHistorySegment, fetchTelemetryHistory, isHistoryDataGap, isUsableHistoryPoint } from '../lib/telemetry-history';
 
 type RouteMode = 'history' | 'replay';
 type Point = { latitude: number; longitude: number; timestamp: string; speedKmh: number; heading: number; ignition?: boolean | null; gpsValid: boolean; satellites?: number };
 type Period = 'lastHour'|'today'|'24h'|'yesterday'|'lastWeek'|'custom';
-type HistoryEvent = { kind: 'Start'|'Driving'|'Idle'|'Parked'|'End'; point: Point; end: Point; duration: number; avgSpeed: number };
+type HistoryEvent = { kind: 'Start'|'Driving'|'Idle'|'Parked'|'Gap'|'End'; point: Point; end: Point; duration: number; avgSpeed: number };
 type MapStyle = 'street' | 'satellite' | 'hybrid' | 'terrain';
 const PK_TIME = new Intl.DateTimeFormat('en-PK', { timeZone: 'Asia/Karachi', hour: 'numeric', minute: '2-digit', hour12: true });
 const PK_DATE = new Intl.DateTimeFormat('en-PK', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', year: 'numeric' });
@@ -43,17 +43,24 @@ function buildHistoryEvents(route: Point[]): HistoryEvent[] {
   if (!route.length) return [];
   const events: HistoryEvent[] = [{ kind: 'Start', point: route[0]!, end: route[0]!, duration: 0, avgSpeed: route[0]!.speedKmh }];
   let start = 0;
-  const kindAt = (point: Point): HistoryEvent['kind'] => point.speedKmh >= 5 ? 'Driving' : point.ignition === true ? 'Idle' : 'Parked';
-  for (let i = 1; i <= route.length; i++) {
-    const current = route[i];
-    const sameKind = i < route.length && kindAt(current!) === kindAt(route[start]!);
-    const segmentType = kindAt(route[start]!) === 'Parked' ? 'parked' : kindAt(route[start]!) === 'Idle' ? 'idle' : 'driving';
-    if (sameKind && canContinueHistorySegment(route[i - 1]!, current!, segmentType)) continue;
-    const first = route[start]!; const last = route[i - 1]!; const kind = kindAt(first);
-    const slice = route.slice(start, i); const avgSpeed = slice.reduce((sum, p) => sum + p.speedKmh, 0) / slice.length;
+  const kindAt = (point: Point): 'Driving'|'Idle'|'Parked' => point.speedKmh >= 5 ? 'Driving' : point.ignition === true ? 'Idle' : 'Parked';
+  const pushSegment = (endIndex: number) => {
+    if (endIndex < start) return;
+    const first = route[start]!, last = route[endIndex]!, kind = kindAt(first);
+    const slice = route.slice(start, endIndex + 1); const avgSpeed = slice.reduce((sum, p) => sum + p.speedKmh, 0) / slice.length;
     events.push({ kind, point: first, end: last, duration: Math.max(0, new Date(last.timestamp).getTime() - new Date(first.timestamp).getTime()) / 1000, avgSpeed });
-    start = i;
+  };
+  for (let i = 1; i < route.length; i++) {
+    const previous = route[i - 1]!, current = route[i]!;
+    const gap = isHistoryDataGap(previous, current);
+    const segmentType = kindAt(route[start]!) === 'Parked' ? 'parked' : kindAt(route[start]!) === 'Idle' ? 'idle' : 'driving';
+    if (gap || kindAt(current) !== kindAt(route[start]!) || !canContinueHistorySegment(previous, current, segmentType)) {
+      pushSegment(i - 1);
+      if (gap) events.push({ kind: 'Gap', point: previous, end: current, duration: Math.max(0, new Date(current.timestamp).getTime() - new Date(previous.timestamp).getTime()) / 1000, avgSpeed: 0 });
+      start = i;
+    }
   }
+  pushSegment(route.length - 1);
   const last = route[route.length - 1]!;
   events.push({ kind: 'End', point: last, end: last, duration: 0, avgSpeed: last.speedKmh });
   return events;
@@ -116,7 +123,18 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
   const [following, setFollowing] = useState(false);
   const route = useMemo(() => points.filter(valid), [points]);
   const historyEvents = useMemo(() => buildHistoryEvents(route), [route]);
-  const coords = useMemo(() => route.map(point => ({ latitude: point.latitude, longitude: point.longitude })), [route]);
+  const replayGapSeconds = mode === 'replay' && frame > 0 && route[frame] && isHistoryDataGap(route[frame - 1]!, route[frame]!)
+    ? Math.round((new Date(route[frame]!.timestamp).getTime() - new Date(route[frame - 1]!.timestamp).getTime()) / 1000)
+    : null;
+  const track = useMemo(() => {
+    const segments: Point[][] = []; const gaps: Array<{ from: Point; to: Point }> = [];
+    let start = 0;
+    for (let i = 1; i < route.length; i++) if (isHistoryDataGap(route[i - 1]!, route[i]!)) {
+      segments.push(route.slice(start, i)); gaps.push({ from: route[i - 1]!, to: route[i]! }); start = i;
+    }
+    if (route.length) segments.push(route.slice(start));
+    return { segments, gaps };
+  }, [route]);
   const current = route[Math.min(frame, Math.max(0, route.length - 1))];
   const currentHeading = current && frame > 0 ? direction(route[frame - 1]!, current) : current?.heading ?? 0;
   const plate = item?.vehicle?.licensePlate || (item ? `#${item.vehicle?.displayId ?? item.device.displayId}` : 'Vehicle');
@@ -226,7 +244,8 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
     <View style={[s.mapWrap, mode === 'history' && { flex: 1.15 }]}>
       {current ? <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={{ latitude: current.latitude, longitude: current.longitude, latitudeDelta: 0.025, longitudeDelta: 0.025 }} mapType={mapStyle === 'street' ? 'none' : mapStyle} showsCompass={false} toolbarEnabled={false} moveOnMarkerPress={false} onRegionChangeComplete={region => { regionRef.current = region; }}>
         {mapStyle === 'street' && <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256} zIndex={0} />}
-        {coords.length > 1 && <Polyline coordinates={coords} strokeColor={theme.red} strokeWidth={3} />}
+        {track.segments.map((segment, index) => segment.length > 1 && <Polyline key={`route-${index}`} coordinates={segment.map(point => ({ latitude: point.latitude, longitude: point.longitude }))} strokeColor={theme.red} strokeWidth={3} />)}
+        {track.gaps.map((gap, index) => <Polyline key={`gap-${index}`} coordinates={[{ latitude: gap.from.latitude, longitude: gap.from.longitude }, { latitude: gap.to.latitude, longitude: gap.to.longitude }]} strokeColor="#6b7280" strokeWidth={3} lineDashPattern={[6, 7]} />)}
         {selectedEvent?.kind === 'Driving' && <Polyline coordinates={route.filter(p => new Date(p.timestamp).getTime() >= new Date(selectedEvent.point.timestamp).getTime() && new Date(p.timestamp).getTime() <= new Date(selectedEvent.end.timestamp).getTime()).map(p => ({latitude:p.latitude,longitude:p.longitude}))} strokeColor="#16a34a" strokeWidth={5} zIndex={3} />}
         {mode === 'history' && directions.map(({ point, index, heading }) => <Marker key={`${imei}-${index}`} coordinate={{ latitude: point.latitude, longitude: point.longitude }} onPress={() => choosePoint(point)} tracksViewChanges={false} stopPropagation><View style={[s.arrow, { transform: [{ rotate: `${heading}deg` }] }]}><Text style={s.arrowText}>▲</Text></View></Marker>)}
         {mode === 'history' && historyEvents.map((event, index) => {
@@ -243,7 +262,7 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
         <Pressable onPress={() => zoom(1.8)} style={s.mapButton} accessibilityLabel="Zoom out"><Text style={s.minus}>−</Text></Pressable>
         <Pressable onPress={() => { setFollowing(v => !v); if (current) mapRef.current?.animateToRegion({ latitude: current.latitude, longitude: current.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 250); }} style={s.mapButton} accessibilityLabel="Follow location"><TablerIcon name="locate" size={18} color={following ? theme.red : theme.ink} /></Pressable>
       </View>
-      {selected && <View style={extra.pointCardAuto}><Pressable style={s.closePoint} onPress={() => {setSelected(null);setSelectedEvent(null);}}><TablerIcon name="close" size={16}/></Pressable><Text numberOfLines={2} style={[s.pointTitle, extra.addressTitle]}>{selectedAddress}</Text>{selectedEvent ? <><Text style={s.muted}>From · {PK_DATE.format(new Date(selectedEvent.point.timestamp))} {PK_TIME.format(new Date(selectedEvent.point.timestamp))} PKT</Text><Text style={s.muted}>To · {PK_DATE.format(new Date(selectedEvent.end.timestamp))} {PK_TIME.format(new Date(selectedEvent.end.timestamp))} PKT</Text></> : <Text style={s.muted}>Time · {PK_DATE.format(new Date(selected.timestamp))} {PK_TIME.format(new Date(selected.timestamp))} PKT</Text>}{selectedEvent && (selectedEvent.kind === 'Parked' || selectedEvent.kind === 'Idle') && <Text style={extra.stopDuration}>Stop duration · {formatDuration(selectedEvent.duration)}</Text>}<Text style={s.muted}>{Math.round(selectedEvent?.kind === 'Driving' ? selectedEvent.avgSpeed : selected.speedKmh)} km/h · Ignition {selectedEvent?.kind === 'Driving' || selected.speedKmh >= 5 ? 'On' : selected.ignition === true ? 'On' : selected.ignition === false ? 'Off' : '—'}</Text></View>}
+      {selected && <View style={extra.pointCardAuto}><Pressable style={s.closePoint} onPress={() => {setSelected(null);setSelectedEvent(null);}}><TablerIcon name="close" size={16}/></Pressable><Text numberOfLines={2} style={[s.pointTitle, extra.addressTitle]}>{selectedEvent?.kind === 'Gap' ? 'GPS data gap' : selectedAddress}</Text>{selectedEvent ? <><Text style={s.muted}>From · {PK_DATE.format(new Date(selectedEvent.point.timestamp))} {PK_TIME.format(new Date(selectedEvent.point.timestamp))} PKT</Text><Text style={s.muted}>To · {PK_DATE.format(new Date(selectedEvent.end.timestamp))} {PK_TIME.format(new Date(selectedEvent.end.timestamp))} PKT</Text></> : <Text style={s.muted}>Time · {PK_DATE.format(new Date(selected.timestamp))} {PK_TIME.format(new Date(selected.timestamp))} PKT</Text>}{selectedEvent?.kind === 'Gap' && <Text style={extra.stopDuration}>No GPS updates · {formatDuration(selectedEvent.duration)}. Stop duration is unconfirmed.</Text>}{selectedEvent && (selectedEvent.kind === 'Parked' || selectedEvent.kind === 'Idle') && <Text style={extra.stopDuration}>Stop duration · {formatDuration(selectedEvent.duration)}</Text>}{selectedEvent?.kind !== 'Gap' && <Text style={s.muted}>{Math.round(selectedEvent?.kind === 'Driving' ? selectedEvent.avgSpeed : selected.speedKmh)} km/h · Ignition {selectedEvent?.kind === 'Driving' || selected.speedKmh >= 5 ? 'On' : selected.ignition === true ? 'On' : selected.ignition === false ? 'Off' : '—'}</Text>}</View>}
     </View>
     {mode === 'replay' ? <View style={s.replayPanel}>
       <View style={s.replayHeading}><Text style={s.replayPlate}>{plate}</Text><Text style={s.muted}>{current ? `${PK_TIME.format(new Date(current.timestamp))} / ${route.length ? PK_TIME.format(new Date(route[route.length - 1]!.timestamp)) : '--:--'}` : 'No replay data'}</Text></View>
@@ -252,6 +271,7 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
         <View><Pressable style={extra.speedChoiceWide} onPress={() => setSpeedMenuOpen(v => !v)} accessibilityLabel="Replay speed"><Text style={s.speedText}>{speed}×</Text><TablerIcon name="down" size={13} color={theme.secondary}/></Pressable>{speedMenuOpen && <View style={extra.speedMenuWide}>{[0.5,1,2,4,8].map(value => <Pressable key={value} onPress={() => {setSpeed(value);setSpeedMenuOpen(false);}} style={s.speedOption}><Text style={[s.speedText,speed===value&&{color:theme.red,fontWeight:'700'}]}>{value}×</Text></Pressable>)}</View>}</View>
       </View>
       <View style={s.replayOptions}><Text style={s.currentSpeed}>Speed {Math.round(current?.speedKmh ?? 0)} km/h · Ignition {current?.ignition === true ? 'On' : current?.ignition === false ? 'Off' : '—'} · {current?.satellites ?? 0} satellites</Text></View>
+      {replayGapSeconds != null && <Text style={extra.gapNotice}>GPS data gap · No updates for {formatDuration(replayGapSeconds)}. The route during this gap is unknown.</Text>}
       {error ? <Text style={s.error}>{error}</Text> : null}
     </View> : <View style={s.historyList}>
       {error ? <Text style={s.error}>{error}</Text> : null}
@@ -265,8 +285,8 @@ function FlatRoute({ events, onPress, selectedEvent, loading }: { events: Histor
   if (loading) return <ActivityIndicator style={{ margin: 15 }} color={theme.red} />;
   if (!events.length) return null;
   const renderEvent = ({ item: event }: { item: HistoryEvent }) => <Pressable onPress={() => onPress(event.point,event)} style={[s.historyRow, selectedEvent?.point.timestamp === event.point.timestamp && extra.historyRowSelected]}>
-      <View style={[s.timelineMark, event.kind === 'Start' ? s.timelineStart : event.kind === 'End' ? s.timelineEnd : event.kind === 'Idle' ? s.timelineIdle : event.kind === 'Parked' ? extra.timelineParkedTheme : extra.timelineDrivingGreen]}><Text style={s.timelineLetter}>{event.kind[0]}</Text></View>
-      <View style={{ flex: 1 }}><Text style={s.historyTime}>{event.kind} · {PK_TIME.format(new Date(event.point.timestamp))}{event.kind !== 'Start' && event.kind !== 'End' ? ` – ${PK_TIME.format(new Date(event.end.timestamp))}` : ''}</Text><Text style={s.muted}>{event.kind === 'Start' || event.kind === 'End' ? '—' : `${formatDuration(event.duration)} · Avg ${Math.round(event.avgSpeed)} km/h`} · {event.point.latitude.toFixed(5)}, {event.point.longitude.toFixed(5)}</Text></View>
+      <View style={[s.timelineMark, event.kind === 'Start' ? s.timelineStart : event.kind === 'End' ? s.timelineEnd : event.kind === 'Gap' ? extra.timelineGap : event.kind === 'Idle' ? s.timelineIdle : event.kind === 'Parked' ? extra.timelineParkedTheme : extra.timelineDrivingGreen]}><Text style={s.timelineLetter}>{event.kind === 'Gap' ? '!' : event.kind[0]}</Text></View>
+      <View style={{ flex: 1 }}><Text style={s.historyTime}>{event.kind === 'Gap' ? 'GPS data gap' : event.kind} · {PK_TIME.format(new Date(event.point.timestamp))}{event.kind !== 'Start' && event.kind !== 'End' ? ` – ${PK_TIME.format(new Date(event.end.timestamp))}` : ''}</Text><Text style={s.muted}>{event.kind === 'Gap' ? `No GPS updates · ${formatDuration(event.duration)} · stop unconfirmed` : event.kind === 'Start' || event.kind === 'End' ? '—' : `${formatDuration(event.duration)} · Avg ${Math.round(event.avgSpeed)} km/h`} · {event.point.latitude.toFixed(5)}, {event.point.longitude.toFixed(5)}</Text></View>
       <TablerIcon name="locate" size={17} color={theme.secondary}/>
     </Pressable>;
   return <FlatList data={events} keyExtractor={(event, index) => `${event.kind}-${event.point.timestamp}-${index}`} renderItem={renderEvent} initialNumToRender={14} maxToRenderPerBatch={18} windowSize={7} contentContainerStyle={{ paddingBottom: 10 }} />;
@@ -308,6 +328,6 @@ const extra = StyleSheet.create({
   speedMenuWide:{position:'absolute',bottom:43,right:0,minWidth:76,backgroundColor:'#fff',borderWidth:0,borderRadius:3,elevation:5,zIndex:10},
   replayCar:{alignItems:'center'},carSpeedLabel:{backgroundColor:'#fff',paddingHorizontal:5,paddingVertical:2,borderRadius:4,borderWidth:1,borderColor:theme.border,elevation:2,marginTop:-1},carSpeedText:{color:theme.ink,fontSize:9,fontWeight:'700'},
   pointCardAuto:{position:'absolute',alignSelf:'center',maxWidth:'92%',minWidth:'70%',bottom:10,backgroundColor:'#fff',borderWidth:1,borderColor:theme.border,borderRadius:8,padding:12,elevation:3},addressTitle:{marginBottom:5},stopDuration:{fontSize:11,color:theme.red,fontWeight:'700',marginTop:5},
-  historyRowSelected:{backgroundColor:'#f9fafb',borderLeftWidth:3,borderLeftColor:theme.red},timelineDrivingGreen:{backgroundColor:'#16a34a'},timelineParkedTheme:{backgroundColor:'#111827'},
+  historyRowSelected:{backgroundColor:'#f9fafb',borderLeftWidth:3,borderLeftColor:theme.red},timelineDrivingGreen:{backgroundColor:'#16a34a'},timelineParkedTheme:{backgroundColor:'#111827'},timelineGap:{backgroundColor:'#6b7280'},gapNotice:{marginHorizontal:14,marginBottom:6,padding:8,borderLeftWidth:3,borderLeftColor:'#6b7280',backgroundColor:'#f3f4f6',color:'#4b5563',fontSize:11},
   meridiem:{paddingHorizontal:10,paddingVertical:8,backgroundColor:'#f3f4f6',borderRadius:6},meridiemText:{fontSize:12,fontWeight:'700',color:theme.ink},
 });

@@ -15,7 +15,7 @@ import DriverBehaviorModal from '../components/DriverBehaviorModal';
 import MaintenancePanel from '../components/MaintenancePanel';
 import DeviceHealthPanel from '../components/DeviceHealthPanel';
 import UsersModal from '../components/UsersModal';
-import { canContinueHistorySegment, fetchTelemetryHistory, isUsableHistoryPoint } from '../utils/telemetry-history';
+import { canContinueHistorySegment, fetchTelemetryHistory, isHistoryDataGap, isUsableHistoryPoint } from '../utils/telemetry-history';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,9 +46,9 @@ interface TripPoint {
 }
 interface HistoryMode { imei: string; plate: string; from: string; to: string; }
 interface TimelineEvent {
-  type: 'parked' | 'idle' | 'driving';
+  type: 'parked' | 'idle' | 'driving' | 'gap';
   startTime: string; endTime: string; durationSec: number;
-  lat: number; lng: number; avgSpeed?: number;
+  lat: number; lng: number; endLat?: number; endLng?: number; avgSpeed?: number;
 }
 
 // ── Constants / Utilities ─────────────────────────────────────────────────────
@@ -129,10 +129,12 @@ function deriveTimeline(pts: TripPoint[]): TimelineEvent[] {
     return { type, startTime: sp.timestamp, endTime: ep.timestamp, durationSec: Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000)), lat: sp.latitude, lng: sp.longitude, avgSpeed };
   };
   const events: TimelineEvent[] = [];
+  const makeGap = (a: TripPoint, b: TripPoint): TimelineEvent => ({ type: 'gap', startTime: a.timestamp, endTime: b.timestamp, durationSec: Math.max(0, Math.round((new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) / 1000)), lat: a.latitude, lng: a.longitude, endLat: b.latitude, endLng: b.longitude });
   let type = tripSegType(pts[0]!);
   let si = 0;
   for (let i = 1; i < pts.length; i++) {
     const next = tripSegType(pts[i]!);
+    if (isHistoryDataGap(pts[i - 1]!, pts[i]!)) { events.push(makeEvent(type, si, i - 1), makeGap(pts[i - 1]!, pts[i]!)); type = next; si = i; continue; }
     if (next !== type || !canContinueHistorySegment(pts[i - 1]!, pts[i]!, type)) { events.push(makeEvent(type, si, i - 1)); type = next; si = i; }
   }
   events.push(makeEvent(type, si, pts.length - 1));
@@ -242,7 +244,13 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
     if (dPopupRef.current) { map.closePopup(dPopupRef.current); dPopupRef.current = null; }
     if (!selectedSegment) return;
 
-    if (selectedSegment.type === 'parked' || selectedSegment.type === 'idle') {
+    if (selectedSegment.type === 'gap') {
+      const endLat = selectedSegment.endLat ?? selectedSegment.lat, endLng = selectedSegment.endLng ?? selectedSegment.lng;
+      const coords: [number, number][] = [[selectedSegment.lat, selectedSegment.lng], [endLat, endLng]];
+      highlightRef.current = L.polyline(coords, { color: '#6b7280', weight: 5, opacity: 0.9, dashArray: '6 7' }).addTo(map);
+      map.fitBounds(L.latLngBounds(coords), { padding: [60, 60], animate: true });
+      dPopupRef.current = L.popup({ maxWidth: 260 }).setLatLng([(selectedSegment.lat + endLat) / 2, (selectedSegment.lng + endLng) / 2]).setContent(`<div style="font:12px system-ui;line-height:1.6"><b style="color:#6b7280">GPS data gap</b><br>From ${formatTsFull(selectedSegment.startTime)}<br>To ${formatTsFull(selectedSegment.endTime)}<br>No GPS updates for ${formatDuration(selectedSegment.durationSec)}<br><small>Stop duration during this gap is unconfirmed.</small></div>`).addTo(map);
+    } else if (selectedSegment.type === 'parked' || selectedSegment.type === 'idle') {
       map.flyTo([selectedSegment.lat, selectedSegment.lng], 18, { animate: true, duration: 0.7 });
       const m = pMarkersRef.current.get(selectedSegment.startTime);
       if (m) setTimeout(() => m.openPopup(), 800);
@@ -291,13 +299,22 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
     const layer = L.layerGroup().addTo(map);
     layerRef.current = layer;
 
-    const coords: [number,number][] = points.map(p => [p.latitude, p.longitude]);
-    L.polyline(coords, { color: '#dc2626', weight: 3.5, opacity: 0.85 }).addTo(layer);
+    const coords: [number, number][] = points.map(p => [p.latitude, p.longitude]);
+    let routeStart = 0;
+    for (let i = 1; i < points.length; i++) if (isHistoryDataGap(points[i - 1]!, points[i]!)) {
+      const part = points.slice(routeStart, i).map(p => [p.latitude, p.longitude] as [number, number]);
+      if (part.length > 1) L.polyline(part, { color: '#dc2626', weight: 3.5, opacity: 0.85 }).addTo(layer);
+      L.polyline([[points[i - 1]!.latitude, points[i - 1]!.longitude], [points[i]!.latitude, points[i]!.longitude]], { color: '#6b7280', weight: 3, opacity: 0.85, dashArray: '5 7' }).addTo(layer);
+      routeStart = i;
+    }
+    const finalPart = points.slice(routeStart).map(p => [p.latitude, p.longitude] as [number, number]);
+    if (finalPart.length > 1) L.polyline(finalPart, { color: '#dc2626', weight: 3.5, opacity: 0.85 }).addTo(layer);
 
     // Direction arrow markers — clickable SVG polygon, placed every ~N moving points
     const step = Math.max(1, Math.floor(points.length / 200));
     for (let i = step; i < points.length - 1; i += step) {
       const p = points[i]!;
+      if (isHistoryDataGap(points[i - 1]!, p)) continue;
       if (p.speedKmh < MOVING_SPEED) continue;
       const bearing = calcBearing(points[i-1]!.latitude, points[i-1]!.longitude, p.latitude, p.longitude);
       const addrId = `arrow-${i}-${Date.now()}`;
@@ -322,7 +339,7 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
     let si = 0;
     for (let i = 1; i < points.length; i++) {
       const nt = tripSegType(points[i]!);
-      if (nt !== curSegType || !canContinueHistorySegment(points[i - 1]!, points[i]!, curSegType)) { segments.push({ type: curSegType, start: si, end: i-1 }); curSegType = nt; si = i; }
+      if (isHistoryDataGap(points[i - 1]!, points[i]!) || nt !== curSegType || !canContinueHistorySegment(points[i - 1]!, points[i]!, curSegType)) { segments.push({ type: curSegType, start: si, end: i-1 }); curSegType = nt; si = i; }
     }
     segments.push({ type: curSegType, start: si, end: points.length - 1 });
 
@@ -882,12 +899,12 @@ function HistoryPanel({ mode, points, loading, onLoad, onClear, allVehicles, onV
               <div key={i} onClick={() => onSegmentClick(ev)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
-                  {ev.type === 'parked' ? 'P' : ev.type === 'idle' ? 'I' : 'D'}
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'gap' ? '#6b7280' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
+                  {ev.type === 'gap' ? '!' : ev.type === 'parked' ? 'P' : ev.type === 'idle' ? 'I' : 'D'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, color: '#333' }}>{formatTsFull(ev.startTime)}</div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{formatDuration(ev.durationSec)}</div>
+                  <div style={{ fontSize: 11, color: '#333' }}>{ev.type === 'gap' ? `GPS data gap · ${formatTsFull(ev.startTime)} – ${formatTsFull(ev.endTime)}` : formatTsFull(ev.startTime)}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'gap' ? '#6b7280' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{ev.type === 'gap' ? `No GPS updates · ${formatDuration(ev.durationSec)} · stop unconfirmed` : formatDuration(ev.durationSec)}</div>
                 </div>
                 {ev.type === 'driving' && ev.avgSpeed !== undefined && (
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#16a34a' }}>{ev.avgSpeed} km/h</div>
@@ -909,14 +926,24 @@ type TripPreset = 'today' | 'yesterday' | 'last7' | 'custom';
 function TripReplayInner({ points, currentIdx }: { points: TripPoint[]; currentIdx: number }) {
   const map = useMap();
   const markerRef = useRef<L.Marker | null>(null);
-  const passedRef = useRef<L.Polyline | null>(null);
-  const fullRef = useRef<L.Polyline | null>(null);
+  const passedRef = useRef<L.LayerGroup | null>(null);
+  const fullRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
     if (!points.length) return;
     const coords: [number,number][] = points.map(p => [p.latitude, p.longitude]);
-    fullRef.current = L.polyline(coords, { color: '#d1d5db', weight: 3, opacity: 0.5 }).addTo(map);
-    passedRef.current = L.polyline([], { color: '#dc2626', weight: 3, opacity: 0.9 }).addTo(map);
+    const full = L.layerGroup().addTo(map); fullRef.current = full;
+    let trackStart = 0;
+    for (let i = 1; i < points.length; i++) if (isHistoryDataGap(points[i - 1]!, points[i]!)) {
+      const segment = points.slice(trackStart, i).map(p => [p.latitude, p.longitude] as [number, number]);
+      if (segment.length > 1) L.polyline(segment, { color: '#d1d5db', weight: 3, opacity: 0.5 }).addTo(full);
+      const connector = L.polyline([[points[i - 1]!.latitude, points[i - 1]!.longitude], [points[i]!.latitude, points[i]!.longitude]], { color: '#6b7280', weight: 3, opacity: 0.9, dashArray: '5 7' }).addTo(full);
+      connector.bindTooltip(`GPS data gap · ${formatDuration(Math.round((new Date(points[i]!.timestamp).getTime() - new Date(points[i - 1]!.timestamp).getTime()) / 1000))}`);
+      trackStart = i;
+    }
+    const lastSegment = points.slice(trackStart).map(p => [p.latitude, p.longitude] as [number, number]);
+    if (lastSegment.length > 1) L.polyline(lastSegment, { color: '#d1d5db', weight: 3, opacity: 0.5 }).addTo(full);
+    passedRef.current = L.layerGroup().addTo(map);
     markerRef.current = L.marker(coords[0]!, { icon: makeCarIcon(points[0]!.heading ?? 0, 'moving', '', points[0]!.speedKmh) }).addTo(map);
     if (coords.length > 1) map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
     return () => {
@@ -932,7 +959,17 @@ function TripReplayInner({ points, currentIdx }: { points: TripPoint[]; currentI
     const ll: [number,number] = [pt.latitude, pt.longitude];
     markerRef.current?.setLatLng(ll);
     markerRef.current?.setIcon(makeCarIcon(pt.heading ?? 0, 'moving', '', pt.speedKmh));
-    passedRef.current?.setLatLngs(points.slice(0, currentIdx + 1).map(p => [p.latitude, p.longitude]));
+    const passed = passedRef.current;
+    passed?.clearLayers();
+    let trackStart = 0;
+    for (let i = 1; i <= currentIdx; i++) if (isHistoryDataGap(points[i - 1]!, points[i]!)) {
+      const segment = points.slice(trackStart, i).map(p => [p.latitude, p.longitude] as [number, number]);
+      if (segment.length > 1) L.polyline(segment, { color: '#dc2626', weight: 3, opacity: 0.9 }).addTo(passed!);
+      L.polyline([[points[i - 1]!.latitude, points[i - 1]!.longitude], [points[i]!.latitude, points[i]!.longitude]], { color: '#6b7280', weight: 3, opacity: 0.9, dashArray: '5 7' }).addTo(passed!);
+      trackStart = i;
+    }
+    const lastSegment = points.slice(trackStart, currentIdx + 1).map(p => [p.latitude, p.longitude] as [number, number]);
+    if (lastSegment.length > 1) L.polyline(lastSegment, { color: '#dc2626', weight: 3, opacity: 0.9 }).addTo(passed!);
     map.panTo(ll, { animate: true, duration: 0.25 });
   }, [currentIdx, points, map]);
   return null;
