@@ -9,12 +9,12 @@ import { theme } from '../theme';
 import api from '../lib/api';
 import { usePortalPermissions } from '../auth/PortalPermissionsProvider';
 import carIcon from '../../assets/car-icon.png';
-import { canContinueHistorySegment, fetchTelemetryHistory, isHistoryDataGap, isUsableHistoryPoint } from '../lib/telemetry-history';
+import { canContinueHistorySegment, canEstimateStopAcrossGap, fetchTelemetryHistory, isHistoryDataGap, isUsableHistoryPoint } from '../lib/telemetry-history';
 
 type RouteMode = 'history' | 'replay';
 type Point = { latitude: number; longitude: number; timestamp: string; speedKmh: number; heading: number; ignition?: boolean | null; gpsValid: boolean; satellites?: number };
 type Period = 'lastHour'|'today'|'24h'|'yesterday'|'lastWeek'|'custom';
-type HistoryEvent = { kind: 'Start'|'Driving'|'Idle'|'Parked'|'Gap'|'End'; point: Point; end: Point; duration: number; avgSpeed: number };
+type HistoryEvent = { kind: 'Start'|'Driving'|'Idle'|'Parked'|'Gap'|'End'; point: Point; end: Point; duration: number; avgSpeed: number; estimatedGapSec?: number; stopEstimateIncluded?: boolean };
 type MapStyle = 'street' | 'satellite' | 'hybrid' | 'terrain';
 const PK_TIME = new Intl.DateTimeFormat('en-PK', { timeZone: 'Asia/Karachi', hour: 'numeric', minute: '2-digit', hour12: true });
 const PK_DATE = new Intl.DateTimeFormat('en-PK', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', year: 'numeric' });
@@ -44,19 +44,21 @@ function buildHistoryEvents(route: Point[]): HistoryEvent[] {
   const events: HistoryEvent[] = [{ kind: 'Start', point: route[0]!, end: route[0]!, duration: 0, avgSpeed: route[0]!.speedKmh }];
   let start = 0;
   const kindAt = (point: Point): 'Driving'|'Idle'|'Parked' => point.speedKmh >= 5 ? 'Driving' : point.ignition === true ? 'Idle' : 'Parked';
-  const pushSegment = (endIndex: number) => {
+  const pushSegment = (endIndex: number, estimatedGapSec?: number) => {
     if (endIndex < start) return;
     const first = route[start]!, last = route[endIndex]!, kind = kindAt(first);
-    const slice = route.slice(start, endIndex + 1); const avgSpeed = slice.reduce((sum, p) => sum + p.speedKmh, 0) / slice.length;
-    events.push({ kind, point: first, end: last, duration: Math.max(0, new Date(last.timestamp).getTime() - new Date(first.timestamp).getTime()) / 1000, avgSpeed });
+    const slice = route.slice(start, estimatedGapSec ? endIndex : endIndex + 1); const avgSpeed = slice.reduce((sum, p) => sum + p.speedKmh, 0) / Math.max(1, slice.length);
+    events.push({ kind, point: first, end: last, duration: Math.max(0, new Date(last.timestamp).getTime() - new Date(first.timestamp).getTime()) / 1000, avgSpeed, estimatedGapSec });
   };
   for (let i = 1; i < route.length; i++) {
     const previous = route[i - 1]!, current = route[i]!;
     const gap = isHistoryDataGap(previous, current);
     const segmentType = kindAt(route[start]!) === 'Parked' ? 'parked' : kindAt(route[start]!) === 'Idle' ? 'idle' : 'driving';
     if (gap || kindAt(current) !== kindAt(route[start]!) || !canContinueHistorySegment(previous, current, segmentType)) {
-      pushSegment(i - 1);
-      if (gap) events.push({ kind: 'Gap', point: previous, end: current, duration: Math.max(0, new Date(current.timestamp).getTime() - new Date(previous.timestamp).getTime()) / 1000, avgSpeed: 0 });
+      const gapSeconds = Math.max(0, new Date(current.timestamp).getTime() - new Date(previous.timestamp).getTime()) / 1000;
+      const estimateStop = gap && segmentType !== 'driving' && canEstimateStopAcrossGap(previous, current);
+      pushSegment(estimateStop ? i : i - 1, estimateStop ? gapSeconds : undefined);
+      if (gap) events.push({ kind: 'Gap', point: previous, end: current, duration: gapSeconds, avgSpeed: 0, stopEstimateIncluded: estimateStop });
       start = i;
     }
   }
@@ -262,7 +264,7 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
         <Pressable onPress={() => zoom(1.8)} style={s.mapButton} accessibilityLabel="Zoom out"><Text style={s.minus}>−</Text></Pressable>
         <Pressable onPress={() => { setFollowing(v => !v); if (current) mapRef.current?.animateToRegion({ latitude: current.latitude, longitude: current.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 250); }} style={s.mapButton} accessibilityLabel="Follow location"><TablerIcon name="locate" size={18} color={following ? theme.red : theme.ink} /></Pressable>
       </View>
-      {selected && <View style={extra.pointCardAuto}><Pressable style={s.closePoint} onPress={() => {setSelected(null);setSelectedEvent(null);}}><TablerIcon name="close" size={16}/></Pressable><Text numberOfLines={2} style={[s.pointTitle, extra.addressTitle]}>{selectedEvent?.kind === 'Gap' ? 'GPS data gap' : selectedAddress}</Text>{selectedEvent ? <><Text style={s.muted}>From · {PK_DATE.format(new Date(selectedEvent.point.timestamp))} {PK_TIME.format(new Date(selectedEvent.point.timestamp))} PKT</Text><Text style={s.muted}>To · {PK_DATE.format(new Date(selectedEvent.end.timestamp))} {PK_TIME.format(new Date(selectedEvent.end.timestamp))} PKT</Text></> : <Text style={s.muted}>Time · {PK_DATE.format(new Date(selected.timestamp))} {PK_TIME.format(new Date(selected.timestamp))} PKT</Text>}{selectedEvent?.kind === 'Gap' && <Text style={extra.stopDuration}>No GPS updates · {formatDuration(selectedEvent.duration)}. Stop duration is unconfirmed.</Text>}{selectedEvent && (selectedEvent.kind === 'Parked' || selectedEvent.kind === 'Idle') && <Text style={extra.stopDuration}>Stop duration · {formatDuration(selectedEvent.duration)}</Text>}{selectedEvent?.kind !== 'Gap' && <Text style={s.muted}>{Math.round(selectedEvent?.kind === 'Driving' ? selectedEvent.avgSpeed : selected.speedKmh)} km/h · Ignition {selectedEvent?.kind === 'Driving' || selected.speedKmh >= 5 ? 'On' : selected.ignition === true ? 'On' : selected.ignition === false ? 'Off' : '—'}</Text>}</View>}
+      {selected && <View style={extra.pointCardAuto}><Pressable style={s.closePoint} onPress={() => {setSelected(null);setSelectedEvent(null);}}><TablerIcon name="close" size={16}/></Pressable><Text numberOfLines={2} style={[s.pointTitle, extra.addressTitle]}>{selectedEvent?.kind === 'Gap' ? 'GPS data gap' : selectedAddress}</Text>{selectedEvent ? <><Text style={s.muted}>From · {PK_DATE.format(new Date(selectedEvent.point.timestamp))} {PK_TIME.format(new Date(selectedEvent.point.timestamp))} PKT</Text><Text style={s.muted}>To · {PK_DATE.format(new Date(selectedEvent.end.timestamp))} {PK_TIME.format(new Date(selectedEvent.end.timestamp))} PKT</Text></> : <Text style={s.muted}>Time · {PK_DATE.format(new Date(selected.timestamp))} {PK_TIME.format(new Date(selected.timestamp))} PKT</Text>}{selectedEvent?.kind === 'Gap' && <Text style={extra.stopDuration}>No GPS updates · {formatDuration(selectedEvent.duration)}. {selectedEvent.stopEstimateIncluded ? 'Included in estimated stop duration.' : 'Stop duration is unconfirmed.'}</Text>}{selectedEvent && (selectedEvent.kind === 'Parked' || selectedEvent.kind === 'Idle') && <Text style={extra.stopDuration}>Stop duration · {selectedEvent.estimatedGapSec ? '~' : ''}{formatDuration(selectedEvent.duration)}{selectedEvent.estimatedGapSec ? ` (includes ${formatDuration(selectedEvent.estimatedGapSec)} GPS gap)` : ''}</Text>}{selectedEvent?.kind !== 'Gap' && <Text style={s.muted}>{Math.round(selectedEvent?.kind === 'Driving' ? selectedEvent.avgSpeed : selected.speedKmh)} km/h · Ignition {selectedEvent?.kind === 'Driving' || selected.speedKmh >= 5 ? 'On' : selected.ignition === true ? 'On' : selected.ignition === false ? 'Off' : '—'}</Text>}</View>}
     </View>
     {mode === 'replay' ? <View style={s.replayPanel}>
       <View style={s.replayHeading}><Text style={s.replayPlate}>{plate}</Text><Text style={s.muted}>{current ? `${PK_TIME.format(new Date(current.timestamp))} / ${route.length ? PK_TIME.format(new Date(route[route.length - 1]!.timestamp)) : '--:--'}` : 'No replay data'}</Text></View>
@@ -286,7 +288,7 @@ function FlatRoute({ events, onPress, selectedEvent, loading }: { events: Histor
   if (!events.length) return null;
   const renderEvent = ({ item: event }: { item: HistoryEvent }) => <Pressable onPress={() => onPress(event.point,event)} style={[s.historyRow, selectedEvent?.point.timestamp === event.point.timestamp && extra.historyRowSelected]}>
       <View style={[s.timelineMark, event.kind === 'Start' ? s.timelineStart : event.kind === 'End' ? s.timelineEnd : event.kind === 'Gap' ? extra.timelineGap : event.kind === 'Idle' ? s.timelineIdle : event.kind === 'Parked' ? extra.timelineParkedTheme : extra.timelineDrivingGreen]}><Text style={s.timelineLetter}>{event.kind === 'Gap' ? '!' : event.kind[0]}</Text></View>
-      <View style={{ flex: 1 }}><Text style={s.historyTime}>{event.kind === 'Gap' ? 'GPS data gap' : event.kind} · {PK_TIME.format(new Date(event.point.timestamp))}{event.kind !== 'Start' && event.kind !== 'End' ? ` – ${PK_TIME.format(new Date(event.end.timestamp))}` : ''}</Text><Text style={s.muted}>{event.kind === 'Gap' ? `No GPS updates · ${formatDuration(event.duration)} · stop unconfirmed` : event.kind === 'Start' || event.kind === 'End' ? '—' : `${formatDuration(event.duration)} · Avg ${Math.round(event.avgSpeed)} km/h`} · {event.point.latitude.toFixed(5)}, {event.point.longitude.toFixed(5)}</Text></View>
+      <View style={{ flex: 1 }}><Text style={s.historyTime}>{event.kind === 'Gap' ? 'GPS data gap' : event.kind} · {PK_TIME.format(new Date(event.point.timestamp))}{event.kind !== 'Start' && event.kind !== 'End' ? ` – ${PK_TIME.format(new Date(event.end.timestamp))}` : ''}</Text><Text style={s.muted}>{event.kind === 'Gap' ? `No GPS updates · ${formatDuration(event.duration)} · ${event.stopEstimateIncluded ? 'included in estimated stop' : 'stop unconfirmed'}` : event.kind === 'Start' || event.kind === 'End' ? '—' : `${event.estimatedGapSec ? '~' : ''}${formatDuration(event.duration)}${event.estimatedGapSec ? ` · includes ${formatDuration(event.estimatedGapSec)} GPS gap` : ''} · Avg ${Math.round(event.avgSpeed)} km/h`} · {event.point.latitude.toFixed(5)}, {event.point.longitude.toFixed(5)}</Text></View>
       <TablerIcon name="locate" size={17} color={theme.secondary}/>
     </Pressable>;
   return <FlatList data={events} keyExtractor={(event, index) => `${event.kind}-${event.point.timestamp}-${index}`} renderItem={renderEvent} initialNumToRender={14} maxToRenderPerBatch={18} windowSize={7} contentContainerStyle={{ paddingBottom: 10 }} />;

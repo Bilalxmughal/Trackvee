@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-10-03 (History/Replay now splits >10-minute telemetry silences into visible GPS data-gap events across admin, portal, and mobile; LEH-7985 ACC reporting still needs device-side verification.)
+Last verified: 2026-10-07 (Short-gap stop estimates are implemented across admin, portal, and mobile source; mobile typecheck passes. Admin/portal builds and production verification remain pending because local dependencies are incomplete; tracker GPS/GPRS cadence still needs device-side verification.)
 
 ## Status
 

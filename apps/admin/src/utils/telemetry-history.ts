@@ -15,6 +15,12 @@ export function isHistoryDataGap(previous: HistoryFix, next: HistoryFix): boolea
   return !Number.isFinite(gapSeconds) || gapSeconds > 600;
 }
 
+export function canEstimateStopAcrossGap(previous: HistoryFix, next: HistoryFix): boolean {
+  const gapSeconds = (new Date(next.timestamp).getTime() - new Date(previous.timestamp).getTime()) / 1000;
+  return Number.isFinite(gapSeconds) && gapSeconds > 600 && gapSeconds <= 900
+    && previous.speedKmh <= 2 && next.speedKmh >= 5;
+}
+
 export function canContinueHistorySegment(previous: HistoryFix, next: HistoryFix, type: 'parked' | 'idle' | 'driving'): boolean {
   const gapSeconds = (new Date(next.timestamp).getTime() - new Date(previous.timestamp).getTime()) / 1000;
   if (!Number.isFinite(gapSeconds) || gapSeconds < 0) return false;

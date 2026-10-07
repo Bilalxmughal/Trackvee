@@ -4,6 +4,11 @@
 
 ---
 
+## 2026-10-07
+
+### Changed
+- [Admin/Portal/Mobile] History and Replay now show an estimated stop through the first moving GPS fix across a 10–15 minute telemetry gap, while keeping the GPS gap visible and labeling the estimate; longer gaps remain unconfirmed.
+
 ## 2026-10-03
 
 ### Fixed

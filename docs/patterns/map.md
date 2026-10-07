@@ -42,7 +42,7 @@ Alert presence: `alerts.some(a => a.active && a.vehicleImeis.includes(imei))`.
 
 - History API reads use ascending `(timestamp, id)` order and bounded 2,000-row offset pages. Admin, portal and mobile must keep loading pages until a short page is returned; one capped response can omit late-day stops and misstate route start/end.
 - Filter every History/Replay surface to valid, finite, in-range GPS fixes before deriving the route endpoints; discard (0, 0) fixes.
-- A telemetry gap longer than 10 minutes always ends the current History/Replay segment, even when ignition reports OFF; add a visible `GPS data gap` entry with its time range and duration, and draw only a dashed connector between its bounding fixes. Never include that silence in confirmed parked/idle duration. For shorter gaps, parked points must stay within 100 m.
+- A telemetry gap longer than 10 minutes ends the GPS route segment and remains visible as a `GPS data gap` entry with a dashed connector. When the last fix is stationary (<=2 km/h), the next fix is moving (>=5 km/h), and the gap is 10–15 minutes, extend the stop event to the first moving fix but label its duration as estimated and show the included gap length. This is an estimate, not recovered GPS data. Gaps over 15 minutes remain unconfirmed and are excluded from stop duration. For ordinary parked points, keep them within 100 m.
 - Route: red `#dc2626`, weight 3.5, opacity 0.85.
 - Direction arrows: blue SVG, bearing rotation, sampled to about 200 markers, moving points only.
 - Parked marker: red `P`, idle marker: amber `I`, both 26px with white border and shown for >= 2 minutes.
