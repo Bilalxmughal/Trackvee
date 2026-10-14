@@ -37,10 +37,10 @@ export class OrgBillingConfig {
   @Column({ name: 'tax_percent', type: 'numeric', precision: 5, scale: 2, nullable: true })
   taxPercent: number | null;
 
-  @Column({ name: 'threshold_enabled', nullable: true })
+  @Column({ name: 'threshold_enabled', type: 'boolean', nullable: true })
   thresholdEnabled: boolean | null;
 
-  @Column({ name: 'threshold_days', nullable: true })
+  @Column({ name: 'threshold_days', type: 'int', nullable: true })
   thresholdDays: number | null;
 
   @Column({ name: 'activity_overrides', type: 'jsonb', nullable: true })
