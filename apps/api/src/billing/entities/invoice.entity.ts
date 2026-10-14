@@ -17,13 +17,13 @@ export class Invoice {
   @JoinColumn({ name: 'org_id' })
   org: Organization;
 
-  @Column({ name: 'device_id', nullable: true })
+  @Column({ name: 'device_id', type: 'uuid', nullable: true })
   deviceId: string | null;
 
-  @Column({ name: 'vehicle_id', nullable: true })
+  @Column({ name: 'vehicle_id', type: 'uuid', nullable: true })
   vehicleId: string | null;
 
-  @Column({ name: 'activity_type_id', nullable: true })
+  @Column({ name: 'activity_type_id', type: 'uuid', nullable: true })
   activityTypeId: string | null;
 
   @Column({ name: 'invoice_no', type: 'varchar', length: 30, unique: true })
