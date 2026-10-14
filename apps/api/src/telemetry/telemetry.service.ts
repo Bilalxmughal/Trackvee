@@ -283,10 +283,19 @@ export class TelemetryService {
     odometer: number;
     engineHours: number;
   }> {
-    const latest = await this.repo.findOne({ where: { imei, gpsValid: true }, order: { timestamp: 'DESC' } });
+    const [latest, device] = await Promise.all([
+      this.repo.findOne({ where: { imei, gpsValid: true }, order: { timestamp: 'DESC' } }),
+      this.devicesService.findByImei(imei),
+    ]);
     let stopDuration: number | null = null;
-    const latestIsFresh = latest && Date.now() - new Date(latest.timestamp).getTime() <= 90 * 60_000;
-    if (latestIsFresh && latest.speedKmh <= 2) {
+    const now = Date.now();
+    const latestAge = latest ? now - new Date(latest.timestamp).getTime() : null;
+    const latestIsFresh = latestAge !== null && latestAge <= 90 * 60_000;
+    // Device is alive if a packet (including heartbeat) arrived within the last 10 minutes
+    const deviceAlive = device?.lastSeenAt != null && now - new Date(device.lastSeenAt).getTime() <= 10 * 60_000;
+
+    if (latestIsFresh && latest && latest.speedKmh <= 2) {
+      // GPS-based path: recent stationary GPS packet — use segment logic
       const stationaryRun = await this.repo.query<{ stop_started_at: Date | string | null; sample_count: string }[]>(`
         WITH last_moving AS (
           (
@@ -326,8 +335,13 @@ export class TelemetryService {
       `, [imei]);
       const run = stationaryRun[0];
       if (run?.stop_started_at && Number(run.sample_count) >= 2) {
-        stopDuration = Math.max(0, Math.floor((Date.now() - new Date(run.stop_started_at).getTime()) / 1000));
+        stopDuration = Math.max(0, Math.floor((now - new Date(run.stop_started_at).getTime()) / 1000));
       }
+    } else if (deviceAlive && latest && latestAge !== null && latestAge > 5 * 60_000) {
+      // Heartbeat-only path: tracker is alive (recent heartbeat) but no GPS for > 5 min.
+      // This means the vehicle is parked and the tracker stopped sending GPS packets.
+      // Stop started at the last GPS timestamp.
+      stopDuration = Math.max(0, Math.floor(latestAge / 1000));
     }
 
     // Odometer: haversine sum of all valid GPS points (last 90 days)
