@@ -6,6 +6,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { canPerformAction } from '../config/roles';
 import type { UserRole } from '@yotrack/types';
 import api from '../api/client';
+import SearchableSelect from '../components/SearchableSelect';
+import DateRangePicker from '../components/DateRangePicker';
+import type { DateRange } from '../components/DateRangePicker';
 
 interface Org { id: string; name: string; companyName: string | null; type: string; }
 
@@ -67,8 +70,7 @@ export default function ClientStatementsPage() {
   const [selectedOrg, setSelectedOrg] = useState<Org | null>(null);
   const [statement, setStatement] = useState<Statement | null>(null);
   const [loading, setLoading] = useState(false);
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
 
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -87,14 +89,14 @@ export default function ClientStatementsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (from) params.set('from', from);
-      if (to) params.set('to', to);
+      if (dateRange?.from) params.set('from', dateRange.from.toISOString().slice(0, 10));
+      if (dateRange?.to) params.set('to', dateRange.to.toISOString().slice(0, 10));
       const r = await api.get(`/billing/statement/${selectedOrg.id}?${params}`);
       setStatement(r.data);
     } finally {
       setLoading(false);
     }
-  }, [selectedOrg, from, to]);
+  }, [selectedOrg, dateRange]);
 
   useEffect(() => { loadStatement(); }, [loadStatement]);
 
@@ -168,26 +170,19 @@ export default function ClientStatementsPage() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div>
+        <div style={{ width: 260 }}>
           <div style={{ fontSize: 11, color: sub, marginBottom: 4 }}>Client</div>
-          <select
+          <SearchableSelect
             value={selectedOrg?.id ?? ''}
-            onChange={e => setSelectedOrg(orgs.find(o => o.id === e.target.value) ?? null)}
-            style={{ ...inputStyle, width: 240 }}
-          >
-            <option value="">— Select client —</option>
-            {orgs.map(o => (
-              <option key={o.id} value={o.id}>{o.companyName ?? o.name}</option>
-            ))}
-          </select>
+            onChange={v => setSelectedOrg(orgs.find(o => o.id === v) ?? null)}
+            options={orgs.map(o => ({ value: o.id, label: o.companyName ?? o.name }))}
+            placeholder="Search client..."
+            emptyLabel="— No client —"
+          />
         </div>
         <div>
-          <div style={{ fontSize: 11, color: sub, marginBottom: 4 }}>From</div>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ ...inputStyle, width: 150 }} />
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: sub, marginBottom: 4 }}>To</div>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ ...inputStyle, width: 150 }} />
+          <div style={{ fontSize: 11, color: sub, marginBottom: 4 }}>Date Range</div>
+          <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="All time" />
         </div>
         <button onClick={loadStatement} style={{ padding: '8px 12px', background: 'transparent', border: `1px solid ${border}`, borderRadius: 6, color: text, cursor: 'pointer' }}>
           <IconRefresh size={15} />
