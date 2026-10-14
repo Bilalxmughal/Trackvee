@@ -285,7 +285,7 @@ export class TelemetryService {
   }> {
     const latest = await this.repo.findOne({ where: { imei, gpsValid: true }, order: { timestamp: 'DESC' } });
     let stopDuration: number | null = null;
-    const latestIsFresh = latest && Date.now() - new Date(latest.timestamp).getTime() <= 10 * 60_000;
+    const latestIsFresh = latest && Date.now() - new Date(latest.timestamp).getTime() <= 90 * 60_000;
     if (latestIsFresh && latest.speedKmh <= 2) {
       const stationaryRun = await this.repo.query<{ stop_started_at: Date | string | null; sample_count: string }[]>(`
         WITH last_moving AS (
@@ -314,7 +314,7 @@ export class TelemetryService {
         ), stationary_segments AS (
           SELECT timestamp,
             SUM(CASE WHEN previous_timestamp IS NULL
-                       OR timestamp - previous_timestamp > INTERVAL '10 minutes'
+                       OR timestamp - previous_timestamp > INTERVAL '60 minutes'
                      THEN 1 ELSE 0 END) OVER (ORDER BY timestamp) AS segment_id
           FROM stationary_points
         ), latest_segment AS (

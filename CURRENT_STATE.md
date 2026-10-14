@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-10-07 (Short-gap stop estimates are implemented across admin, portal, and mobile source; mobile typecheck passes. Admin/portal builds and production verification remain pending because local dependencies are incomplete; tracker GPS/GPRS cadence still needs device-side verification.)
+Last verified: 2026-10-14 (Gateway CRC build/restart verified in production: fresh post-restart GPS persisted, zero new CRC warnings. Admin Device Health UI confirmed in production; portal IMEI-hide and API org-scoping confirmed in source. Scheduled Report pause/resume UI remains unverified in production.)
 
 ## Status
 
@@ -27,7 +27,7 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 - GT06 CRC-ITU/X-25 verified against 109 captured production frames; valid GPS ACK follows confirmed API persistence with bounded retry. Oracle gateway still needs the CRC fix deployed and live logs checked.
 - Vehicles, devices, telemetry, alerts, geofences, POIs, speed zones, driver behavior scoring, and vehicle service history with due-date and estimated-distance reminders.
 - Reports in admin and portal: 13 report types, vehicle groups, period/conditional filters, CSV/Excel/Print, saved reports.
-- Scheduled Report Delivery in API/admin/portal source: reusable report templates with saved filters/vehicles, custom PKT report windows or rolling periods, delivery time, up to 10 extra recipients, and Active/Pause/Edit/Delete management. Production activation requires migration 030 and Resend credentials; one live email remains to be verified after setup.
+- Scheduled Report Delivery in API/admin/portal source: reusable report templates with saved filters/vehicles, custom PKT report windows or rolling periods, delivery time, up to 10 extra recipients, and Active/Pause/Edit/Delete management. Production migration/configuration and delivery were verified on 2026-10-09: one active schedule, one successful send, zero recorded errors. Pause/resume UI behavior has not been independently tested in production.
 - Audit logs for internal operations.
 - Client portal topbar permission gating through DB-backed role portal permissions.
 - SQL migrations present through `032_vehicle_device_lifecycle_reason.sql`; migrations 025–032 must be applied before deploying the current API. Shared alert sounds can be uploaded/activated in Admin and selected in Admin, Portal, and Mobile. Mobile supports per-device push/sound preferences and optional fleet refresh on foreground return; live polling pauses while backgrounded. One EAS build containing the local native dynamic-sound module is required; later catalogue uploads do not require a rebuild. Android signing/FCM and iOS APNs credentials, native build, and physical-device delivery QA remain release prerequisites.
@@ -53,6 +53,6 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 
 Mobile foundation is in progress. Android export is verified; native-device interaction, remaining mobile parity, signed EAS builds, and store distribution setup remain. Production maintenance also requires migration 029 before the API restart.
 
-Scheduled report delivery is coded but needs migration 030 and Resend sender/API key before production activation. Verify one delivery and pause/resume after setup. Gateway CRC-ITU/X-25 fix is pushed in commit `33f4685`; check deployment status separately if it remains outstanding.
+Scheduled report delivery has one successful production send; pause/resume behavior still needs an authenticated UI check with a non-customer schedule. Device Health admin UI and API scoping verified in production and source; client portal session verification was not performed (no test client account available). Gateway CRC runtime verification complete: fresh build/restart 2026-10-14, zero post-restart CRC warnings, GPS persisted.
 
 See `docs/FEATURE_MATRIX.md` for feature parity and `KNOWN_ISSUES.md` for operational/regression constraints.
