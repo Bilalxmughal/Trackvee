@@ -49,7 +49,7 @@ export default function PricingPage() {
   const [newActivity, setNewActivity] = useState({ name: '', charge: 0 });
   const [addingActivity, setAddingActivity] = useState(false);
 
-  const bg = dark ? '#141414' : '#f5f5f5';
+  const bg = dark ? '#141414' : '#fff';
   const card = dark ? '#1e1e1e' : '#fff';
   const border = dark ? '#2a2a2a' : '#e5e5e5';
   const text = dark ? '#e5e5e5' : '#1a1a1a';
@@ -149,7 +149,6 @@ export default function PricingPage() {
 
   const col2: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 };
   const col3: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 };
-  const col4: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 };
 
   return (
     <div style={{ minHeight: '100vh', background: bg, padding: '24px 28px' }}>
@@ -194,188 +193,179 @@ export default function PricingPage() {
         )}
       </PageHeader>
 
-      {/* Device & Installation */}
-      <div style={sectionStyle}>
-        {sectionTitle('Device & Installation')}
-        <div style={col4}>
-          {numField('Device Price (hardware)', 'devicePrice')}
-          {numField('Installation Charge', 'installationCharge')}
-          {numField('Removal Charge', 'removalCharge')}
-          {numField('Transfer Charge', 'transferCharge')}
-        </div>
-        <div style={col2}>
-          {numField('Reactivation Charge', 'reactivationCharge')}
-        </div>
-      </div>
-
-      {/* Monthly Charges */}
-      <div style={sectionStyle}>
-        {sectionTitle('Monthly Charges')}
-        <div style={col3}>
-          {numField('Monthly Fixed Charge (per device)', 'monthlyFixedCharge')}
-          {numField('Tax / GST %', 'taxPercent', '%')}
-        </div>
-      </div>
-
-      {/* Billing Rules */}
-      <div style={sectionStyle}>
-        {sectionTitle('Billing Rules')}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 13, color: text, fontWeight: 500 }}>Short-Use Monthly Waiver</div>
-            <div style={{ fontSize: 12, color: sub, marginTop: 2 }}>
-              If device is active for fewer than threshold days, monthly charge is waived
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+        {/* Left column */}
+        <div>
+          {/* Device & Installation */}
+          <div style={sectionStyle}>
+            {sectionTitle('Device & Installation')}
+            <div style={col2}>
+              {numField('Device Price (hardware)', 'devicePrice')}
+              {numField('Installation Charge', 'installationCharge')}
+            </div>
+            <div style={col3}>
+              {numField('Removal Charge', 'removalCharge')}
+              {numField('Transfer Charge', 'transferCharge')}
+              {numField('Reactivation Charge', 'reactivationCharge')}
             </div>
           </div>
-          <button
-            onClick={() => editMode && setDraft(p => ({ ...p, thresholdEnabled: !p.thresholdEnabled }))}
-            style={{
-              width: 44, height: 24, borderRadius: 12, border: 'none',
-              cursor: editMode ? 'pointer' : 'default',
-              background: current.thresholdEnabled ? '#dc2626' : (dark ? '#333' : '#ccc'),
-              position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-            }}
-          >
-            <span style={{
-              position: 'absolute', top: 2, left: current.thresholdEnabled ? 22 : 2,
-              width: 20, height: 20, borderRadius: '50%', background: '#fff',
-              transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-            }} />
-          </button>
-        </div>
-        {current.thresholdEnabled && (
-          <div>
-            <div style={{ fontSize: 12, color: sub, marginBottom: 4 }}>Threshold Days</div>
-            {editMode ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="number" min={1} max={31}
-                  value={draft.thresholdDays}
-                  onChange={e => setDraft(p => ({ ...p, thresholdDays: parseInt(e.target.value) || 5 }))}
-                  style={{
-                    width: 80, padding: '6px 10px', border: `1px solid ${border}`,
-                    borderRadius: 6, background: inputBg, color: text, fontSize: 13, outline: 'none',
-                  }}
-                />
-                <span style={{ fontSize: 12, color: sub }}>days — if device active for less than this, monthly charge is waived</span>
+
+          {/* Monthly Charges */}
+          <div style={sectionStyle}>
+            {sectionTitle('Monthly Charges')}
+            <div style={col2}>
+              {numField('Monthly Fixed Charge (per device)', 'monthlyFixedCharge')}
+              {numField('Tax / GST %', 'taxPercent', '%')}
+            </div>
+          </div>
+
+          {/* Billing Rules */}
+          <div style={sectionStyle}>
+            {sectionTitle('Billing Rules')}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 13, color: text, fontWeight: 500 }}>Short-Use Monthly Waiver</div>
+                <div style={{ fontSize: 12, color: sub, marginTop: 2 }}>
+                  If device is active for fewer than threshold days, monthly charge is waived
+                </div>
               </div>
-            ) : (
-              <div style={{ fontSize: 14, fontWeight: 600, color: text }}>
-                {current.thresholdDays} days
+              <button
+                onClick={() => editMode && setDraft(p => ({ ...p, thresholdEnabled: !p.thresholdEnabled }))}
+                style={{
+                  width: 44, height: 24, borderRadius: 12, border: 'none',
+                  cursor: editMode ? 'pointer' : 'default',
+                  background: current.thresholdEnabled ? '#dc2626' : (dark ? '#333' : '#ccc'),
+                  position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 2, left: current.thresholdEnabled ? 22 : 2,
+                  width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                  transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                }} />
+              </button>
+            </div>
+            {current.thresholdEnabled && (
+              <div>
+                <div style={{ fontSize: 12, color: sub, marginBottom: 4 }}>Threshold Days</div>
+                {editMode ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="number" min={1} max={31}
+                      value={draft.thresholdDays}
+                      onChange={e => setDraft(p => ({ ...p, thresholdDays: parseInt(e.target.value) || 5 }))}
+                      style={{
+                        width: 80, padding: '6px 10px', border: `1px solid ${border}`,
+                        borderRadius: 6, background: inputBg, color: text, fontSize: 13, outline: 'none',
+                      }}
+                    />
+                    <span style={{ fontSize: 12, color: sub }}>days — if active for less, monthly charge is waived</span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 14, fontWeight: 600, color: text }}>
+                    {current.thresholdDays} days
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
-
-      {/* Activity Charges */}
-      <div style={sectionStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          {sectionTitle('Activity Charges')}
-          {canEdit && (
-            <button
-              onClick={() => setAddingActivity(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px',
-                background: 'transparent', border: `1px solid ${border}`,
-                borderRadius: 6, color: text, fontSize: 12, cursor: 'pointer',
-              }}
-            >
-              <IconPlus size={13} /> Add Activity
-            </button>
-          )}
         </div>
 
-        {activities.map(act => (
-          <div key={act.id} style={{
-            display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10,
-            padding: '8px 12px', background: dark ? '#252525' : '#f9f9f9',
-            borderRadius: 7, border: `1px solid ${border}`,
-          }}>
-            <div style={{ flex: 1, fontSize: 13, color: text }}>{act.name}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ fontSize: 11, color: sub }}>Rs.</span>
-              <input
-                type="number" min={0} step={0.01} value={act.charge}
-                disabled={!canEdit}
-                onChange={e => handleActivityChange(act.id, 'charge', parseFloat(e.target.value) || 0)}
-                onBlur={e => handleActivityChange(act.id, 'charge', parseFloat(e.target.value) || 0)}
-                style={{
-                  width: 100, padding: '4px 8px', border: `1px solid ${border}`,
-                  borderRadius: 5, background: inputBg, color: text, fontSize: 12, outline: 'none',
-                }}
-              />
-            </div>
-            <button
-              onClick={() => handleActivityChange(act.id, 'isActive', !act.isActive)}
-              disabled={!canEdit}
-              style={{
-                padding: '3px 10px', borderRadius: 5, border: 'none', fontSize: 11, cursor: 'pointer',
-                background: act.isActive ? 'rgba(22,163,74,0.12)' : (dark ? '#333' : '#f0f0f0'),
-                color: act.isActive ? '#16a34a' : sub,
-              }}
-            >
-              {act.isActive ? 'Active' : 'Off'}
-            </button>
-            {!act.isBuiltIn && canEdit && (
+        {/* Right column — Activity Charges */}
+        <div style={sectionStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            {sectionTitle('Activity Charges')}
+            {canEdit && (
               <button
-                onClick={() => handleDeleteActivity(act.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 2 }}
+                onClick={() => setAddingActivity(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px',
+                  background: 'transparent', border: `1px solid ${border}`,
+                  borderRadius: 6, color: text, fontSize: 12, cursor: 'pointer',
+                }}
               >
-                <IconTrash size={14} />
+                <IconPlus size={13} /> Add Activity
               </button>
             )}
           </div>
-        ))}
 
-        {addingActivity && (
-          <div style={{
-            display: 'flex', gap: 8, alignItems: 'center', marginTop: 10,
-            padding: '10px 12px', background: dark ? '#252525' : '#f9f9f9',
-            borderRadius: 7, border: `1px dashed ${border}`,
-          }}>
-            <input
-              placeholder="Activity name"
-              value={newActivity.name}
-              onChange={e => setNewActivity(p => ({ ...p, name: e.target.value }))}
-              style={{
-                flex: 1, padding: '5px 10px', border: `1px solid ${border}`,
-                borderRadius: 6, background: inputBg, color: text, fontSize: 13, outline: 'none',
-              }}
-            />
-            <span style={{ fontSize: 11, color: sub }}>Rs.</span>
-            <input
-              type="number" min={0} step={0.01} placeholder="0"
-              value={newActivity.charge}
-              onChange={e => setNewActivity(p => ({ ...p, charge: parseFloat(e.target.value) || 0 }))}
-              style={{
-                width: 90, padding: '5px 8px', border: `1px solid ${border}`,
-                borderRadius: 6, background: inputBg, color: text, fontSize: 13, outline: 'none',
-              }}
-            />
-            <button onClick={handleAddActivity}
-              style={{ padding: '5px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
-              Add
-            </button>
-            <button onClick={() => setAddingActivity(false)}
-              style={{ padding: '5px 10px', background: 'transparent', border: `1px solid ${border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: text }}>
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
+          {activities.map(act => (
+            <div key={act.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10,
+              padding: '8px 12px', background: dark ? '#252525' : '#f9f9f9',
+              borderRadius: 7, border: `1px solid ${border}`,
+            }}>
+              <div style={{ flex: 1, fontSize: 13, color: text }}>{act.name}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 11, color: sub }}>Rs.</span>
+                <input
+                  type="number" min={0} step={0.01} value={act.charge}
+                  disabled={!canEdit}
+                  onChange={e => handleActivityChange(act.id, 'charge', parseFloat(e.target.value) || 0)}
+                  onBlur={e => handleActivityChange(act.id, 'charge', parseFloat(e.target.value) || 0)}
+                  style={{
+                    width: 100, padding: '4px 8px', border: `1px solid ${border}`,
+                    borderRadius: 5, background: inputBg, color: text, fontSize: 12, outline: 'none',
+                  }}
+                />
+              </div>
+              <button
+                onClick={() => handleActivityChange(act.id, 'isActive', !act.isActive)}
+                disabled={!canEdit}
+                style={{
+                  padding: '3px 10px', borderRadius: 5, border: 'none', fontSize: 11, cursor: 'pointer',
+                  background: act.isActive ? 'rgba(22,163,74,0.12)' : (dark ? '#333' : '#f0f0f0'),
+                  color: act.isActive ? '#16a34a' : sub,
+                }}
+              >
+                {act.isActive ? 'Active' : 'Off'}
+              </button>
+              {!act.isBuiltIn && canEdit && (
+                <button
+                  onClick={() => handleDeleteActivity(act.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 2 }}
+                >
+                  <IconTrash size={14} />
+                </button>
+              )}
+            </div>
+          ))}
 
-      {/* Formula Preview */}
-      <div style={{ ...sectionStyle, background: dark ? '#1a1a2e' : '#fff8f0', borderColor: dark ? '#2a2a4a' : '#fed7aa' }}>
-        {sectionTitle('Bill Formula')}
-        <div style={{ fontSize: 13, color: text, fontFamily: 'monospace' }}>
-          Device Price + Installation + Activity + Monthly Fixed + Tax = Total
-        </div>
-        <div style={{ fontSize: 12, color: sub, marginTop: 8, fontFamily: 'monospace' }}>
-          {pricing.devicePrice.toLocaleString()} + {pricing.installationCharge.toLocaleString()} + 0 + {pricing.monthlyFixedCharge.toLocaleString()} + {pricing.taxPercent}% ={' '}
-          <strong style={{ color: '#dc2626' }}>
-            {(pricing.devicePrice + pricing.installationCharge + pricing.monthlyFixedCharge * (1 + pricing.taxPercent / 100)).toLocaleString('en-PK', { maximumFractionDigits: 0 })}
-          </strong>
+          {addingActivity && (
+            <div style={{
+              display: 'flex', gap: 8, alignItems: 'center', marginTop: 10,
+              padding: '10px 12px', background: dark ? '#252525' : '#f9f9f9',
+              borderRadius: 7, border: `1px dashed ${border}`,
+            }}>
+              <input
+                placeholder="Activity name"
+                value={newActivity.name}
+                onChange={e => setNewActivity(p => ({ ...p, name: e.target.value }))}
+                style={{
+                  flex: 1, padding: '5px 10px', border: `1px solid ${border}`,
+                  borderRadius: 6, background: inputBg, color: text, fontSize: 13, outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: 11, color: sub }}>Rs.</span>
+              <input
+                type="number" min={0} step={0.01} placeholder="0"
+                value={newActivity.charge}
+                onChange={e => setNewActivity(p => ({ ...p, charge: parseFloat(e.target.value) || 0 }))}
+                style={{
+                  width: 90, padding: '5px 8px', border: `1px solid ${border}`,
+                  borderRadius: 6, background: inputBg, color: text, fontSize: 13, outline: 'none',
+                }}
+              />
+              <button onClick={handleAddActivity}
+                style={{ padding: '5px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
+                Add
+              </button>
+              <button onClick={() => setAddingActivity(false)}
+                style={{ padding: '5px 10px', background: 'transparent', border: `1px solid ${border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: text }}>
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
