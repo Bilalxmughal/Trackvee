@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "com.trackvee.mobile",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/trackvee-app-icon.png"
