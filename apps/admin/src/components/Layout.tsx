@@ -6,6 +6,7 @@ import {
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
   IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
   IconBell, IconUsersGroup, IconUserScan, IconChartBar, IconList, IconTool,
+  IconCurrencyDollar, IconFileInvoice,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -52,14 +53,21 @@ const NAV_SECTIONS: Section[] = [
     ],
   },
   {
+    label: 'Financial',
+    items: [
+      { to: '/financial/pricing',    icon: IconCurrencyDollar, label: 'Pricing' },
+      { to: '/financial/statements', icon: IconFileInvoice,    label: 'Client Statements' },
+    ],
+  },
+  {
     label: 'Administration',
     items: [
-      { to: '/users',      icon: IconUsers,  label: 'User Management' },
-      { to: '/roles',      icon: IconShield, label: 'Role Access' },
-      { to: '/audit-logs', icon: IconList,   label: 'Audit Logs' },
+      { to: '/users',      icon: IconUsers,    label: 'User Management' },
+      { to: '/roles',      icon: IconShield,   label: 'Role Access' },
+      { to: '/audit-logs', icon: IconList,     label: 'Audit Logs' },
       { to: '/reports',    icon: IconChartBar, label: 'Reports' },
       { to: '/settings',   icon: IconSettings, label: 'Settings' },
-      { to: '/setup',      icon: IconBook,   label: 'Setup Guide' },
+      { to: '/setup',      icon: IconBook,     label: 'Setup Guide' },
     ],
   },
 ];
@@ -163,7 +171,7 @@ function LayoutInner() {
       ...s,
       items: s.items
         .filter(i => {
-          const pageKey = i.to.replace('/', '');
+          const pageKey = i.to.replace(/^\//, '').replace(/\//g, '-');
           if (isOrgRole) {
             const feature = ORG_NAV_TO_FEATURE[pageKey];
             return feature ? canOrgDo(role, feature, 'view') : false;

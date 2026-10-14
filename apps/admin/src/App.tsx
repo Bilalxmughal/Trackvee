@@ -22,6 +22,8 @@ import SettingsPage from './pages/SettingsPage';
 import ClientUsersPage from './pages/ClientUsersPage';
 import DriverBehaviorPage from './pages/DriverBehaviorPage';
 import MaintenancePage from './pages/MaintenancePage';
+import PricingPage from './pages/PricingPage';
+import ClientStatementsPage from './pages/ClientStatementsPage';
 import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';;
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -76,6 +78,8 @@ export default function App() {
         <Route path="/audit-logs" element={<RoleRoute page="audit-logs"><AuditLogsPage /></RoleRoute>} />
         <Route path="/reports" element={<RoleRoute page="reports"><ReportsPage /></RoleRoute>} />
         <Route path="/setup" element={<RoleRoute page="setup"><SetupGuidePage /></RoleRoute>} />
+        <Route path="/financial/pricing" element={<RoleRoute page="financial-pricing"><PricingPage /></RoleRoute>} />
+        <Route path="/financial/statements" element={<RoleRoute page="financial-statements"><ClientStatementsPage /></RoleRoute>} />
         <Route path="/settings" element={<SettingsRoute><SettingsPage /></SettingsRoute>} />
         <Route path="/settings/notifications" element={<SettingsRoute><RoleRoute page="notification-sounds"><SettingsPage /></RoleRoute></SettingsRoute>} />
         <Route path="/notification-sounds" element={<RoleRoute page="notification-sounds"><Navigate to="/settings/notifications" replace /></RoleRoute>} />

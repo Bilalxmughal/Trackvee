@@ -19,6 +19,7 @@ import { SpeedZonesModule } from './speed-zones/speed-zones.module.js';
 import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { ReportsModule }   from './reports/reports.module.js';
 import { MaintenanceModule } from './maintenance/maintenance.module.js';
+import { BillingModule } from './billing/billing.module.js';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { MaintenanceModule } from './maintenance/maintenance.module.js';
     AuditLogsModule,
     ReportsModule,
     MaintenanceModule,
+    BillingModule,
   ],
 })
 export class AppModule {}
