@@ -1,6 +1,5 @@
 import {
   IconUsers, IconBuilding, IconTool, IconWorld,
-  IconCar, IconTruck, IconBuildingSkyscraper,
 } from '@tabler/icons-react';
 
 const pillars = [
@@ -10,30 +9,10 @@ const pillars = [
   { title: 'Works across Pakistan', desc: 'Coverage nationwide, with local support.', icon: <IconWorld size={17} stroke={1.8} className="text-brand" /> },
 ];
 
-const useCases = [
-  {
-    title: 'Personal vehicles',
-    desc: 'Stay connected to your family vehicles with real-time location and alerts.',
-    icon: <IconCar size={28} stroke={1.6} className="text-brand" />,
-  },
-  {
-    title: 'Delivery & logistics',
-    desc: 'Keep track of your fleet, improve efficiency and customer service.',
-    icon: <IconTruck size={28} stroke={1.6} className="text-brand" />,
-  },
-  {
-    title: 'Growing businesses',
-    desc: 'A flexible platform that scales from a few vehicles to large fleets.',
-    icon: <IconBuildingSkyscraper size={28} stroke={1.6} className="text-brand" />,
-  },
-];
-
 export default function Features() {
   return (
-    <section className="px-8 lg:px-16 py-20 bg-white border-b-4 border-gray-100">
-
-      {/* Top row: heading left + pillars right */}
-      <div className="flex flex-col lg:flex-row gap-10 lg:gap-20 mb-14">
+    <section className="px-8 lg:px-16 py-20 bg-white border-b border-gray-100">
+      <div className="flex flex-col lg:flex-row gap-10 lg:gap-20">
 
         {/* Left — label + heading + description */}
         <div className="lg:w-1/2">
@@ -70,22 +49,6 @@ export default function Features() {
         </div>
 
       </div>
-
-      {/* Bottom row: 3 large cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {useCases.map(c => (
-          <div key={c.title} className="bg-gray-50 rounded-2xl p-8 flex flex-col gap-6">
-            <div className="w-14 h-14 rounded-xl bg-red-50 flex items-center justify-center">
-              {c.icon}
-            </div>
-            <div>
-              <h4 className="text-xl font-extrabold text-gray-900 mb-2">{c.title}</h4>
-              <p className="text-sm text-gray-500 leading-relaxed">{c.desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
     </section>
   );
 }
