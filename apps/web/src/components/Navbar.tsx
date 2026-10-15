@@ -17,7 +17,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
       <div className="w-full px-8 lg:px-16 flex items-center justify-between h-16">
         <Link href="#home">
-          <Image src="/logo.webp" alt="TrackVee" width={160} height={48} className="h-11 w-auto" priority />
+          <Image src="/logo.webp" alt="TrackVee" width={160} height={48} className="h-14 w-auto" priority />
         </Link>
 
         {/* Desktop links */}

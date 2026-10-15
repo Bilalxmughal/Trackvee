@@ -69,20 +69,20 @@ export default function Hero() {
         </div>
 
         {/* Right: laptop image — full height, no gaps */}
-        <div className="hidden lg:block absolute right-0 top-0 bottom-0 overflow-hidden" style={{ width: '64%' }}>
-          {/* Left-side dark fade */}
+        <div className="hidden lg:flex absolute right-0 top-0 bottom-0 items-center overflow-hidden bg-white" style={{ width: '67%' }}>
+          {/* Left-side white fade */}
           <div
             className="absolute inset-0 z-10 pointer-events-none"
             style={{
-              background: 'linear-gradient(to right, white 0%, white 18%, rgba(255,255,255,0.6) 34%, transparent 55%)',
+              background: 'linear-gradient(to right, white 0%, white 10%, rgba(255,255,255,0.5) 24%, transparent 42%)',
             }}
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/hero-laptop.webp"
             alt="TrackVee Live Map Dashboard"
-            className="w-full h-full object-cover"
-            style={{ objectPosition: '55% center' }}
+            className="w-full h-full object-contain"
+            style={{ objectPosition: 'right center' }}
           />
         </div>
 
