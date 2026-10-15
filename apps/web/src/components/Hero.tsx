@@ -74,7 +74,7 @@ export default function Hero() {
           <div
             className="absolute inset-0 z-10 pointer-events-none"
             style={{
-              background: 'linear-gradient(to right, white 0%, rgba(255,255,255,0.5) 18%, transparent 40%)',
+              background: 'linear-gradient(to right, white 0%, white 18%, rgba(255,255,255,0.6) 34%, transparent 55%)',
             }}
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
