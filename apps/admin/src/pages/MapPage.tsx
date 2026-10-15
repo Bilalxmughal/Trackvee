@@ -643,8 +643,11 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
 
       if (existing) {
         if ((existing.marker as any)._ytStatus !== status || (existing.marker as any)._ytAlert !== alertType) clustersNeedRefresh = true;
-        const emaLat = EMA_ALPHA * pt.latitude + (1 - EMA_ALPHA) * existing.emaLat;
-        const emaLng = EMA_ALPHA * pt.longitude + (1 - EMA_ALPHA) * existing.emaLng;
+        // Skip EMA smoothing when stationary — show raw GPS position immediately to avoid
+        // displaying at an old position when vehicle stops at a new location.
+        const isStationary = pt.speedKmh < 3;
+        const emaLat = isStationary ? pt.latitude : EMA_ALPHA * pt.latitude + (1 - EMA_ALPHA) * existing.emaLat;
+        const emaLng = isStationary ? pt.longitude : EMA_ALPHA * pt.longitude + (1 - EMA_ALPHA) * existing.emaLng;
         Object.assign(existing.ctx, { pt, dv, vc, plate });
         const expd = vc?.organizationId ? orgExpiredIds.has(vc.organizationId) : false;
         const iconKey = liveIconKey(pt, plate, status, alertType, expd);
@@ -658,7 +661,7 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, alertSettingsRef, dis
           ...existing, pt, emaLat, emaLng,
           animFromLat: existing.dispLat, animFromLng: existing.dispLng,
           animToLat: emaLat, animToLng: emaLng,
-          animStart: performance.now(), animDur: POLL_MS * 0.85,
+          animStart: performance.now(), animDur: isStationary ? 0 : POLL_MS * 0.85,
           iconKey,
         };
         next.set(pt.imei, updated);

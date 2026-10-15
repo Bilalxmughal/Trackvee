@@ -395,20 +395,16 @@ export class TelemetryService {
       .map(device => device.imei);
     if (!imeis.length) return [];
 
-    const sub = this.repo
+    // Single DISTINCT ON query avoids the MAX+findOne two-query race where two packets
+    // with the same device timestamp could cause findOne to match the wrong row.
+    const results = await this.repo
       .createQueryBuilder('t')
-      .select('t.imei', 'imei')
-      .addSelect('MAX(t.timestamp)', 'max_ts')
-      .groupBy('t.imei');
-
-    sub.where('t.imei IN (:...imeis)', { imeis });
-
-    const rows = await sub.getRawMany<{ imei: string; max_ts: string }>();
-    if (!rows.length) return [];
-
-    const results = (await Promise.all(
-      rows.map(r => this.repo.findOne({ where: { imei: r.imei, timestamp: new Date(r.max_ts) } }))
-    )).filter((r): r is Telemetry => r !== null);
+      .where('t.imei IN (:...imeis)', { imeis })
+      .distinctOn(['t.imei'])
+      .orderBy('t.imei', 'ASC')
+      .addOrderBy('t.timestamp', 'DESC')
+      .addOrderBy('t.createdAt', 'DESC')
+      .getMany();
     if (!results.length) return [];
 
     // Only query status samples for devices already authorized above.
