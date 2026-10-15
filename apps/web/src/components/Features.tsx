@@ -30,7 +30,7 @@ const useCases = [
 
 export default function Features() {
   return (
-    <section className="px-8 lg:px-16 py-16 bg-white">
+    <section className="px-8 lg:px-16 py-20 bg-white border-b-4 border-gray-100">
 
       {/* Top row: heading left + pillars right */}
       <div className="flex flex-col lg:flex-row gap-10 lg:gap-20 mb-14">
