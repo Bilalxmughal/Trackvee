@@ -53,7 +53,7 @@ export default function Navbar() {
           {/* Mobile App CTA */}
           <a
             href="#mobile-app"
-            className="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 text-xs font-semibold px-3.5 py-2 rounded-md hover:border-brand hover:text-brand transition-colors"
+            className="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 text-sm font-semibold px-3.5 py-2.5 rounded-md hover:border-brand hover:text-brand transition-colors"
           >
             <IconDeviceMobile size={14} stroke={2} />
             Get the App
