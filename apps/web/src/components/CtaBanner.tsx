@@ -110,7 +110,12 @@ export default function CtaBanner() {
           </div>
           <div className="border-t border-gray-100 py-4 flex flex-wrap justify-between items-center gap-3">
             <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} TrackVee. All rights reserved.</p>
-            <p className="text-xs text-gray-400">GPS Vehicle Tracking in Pakistan</p>
+            <div className="flex flex-wrap gap-4">
+              <Link href="/case-study" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">Case Study</Link>
+              <Link href="/contact" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">Contact</Link>
+              <Link href="/privacy" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">Terms of Service</Link>
+            </div>
           </div>
         </div>
       </footer>
