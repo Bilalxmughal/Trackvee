@@ -1,20 +1,35 @@
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const links = [
   { label: 'How it works', href: '#how-it-works' },
   { label: 'Solutions', href: '#solutions' },
+  { label: 'Mobile App', href: '#mobile-app' },
   { label: 'Packages', href: '#packages' },
   { label: 'Contact', href: '#contact' },
 ];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const scrolled = window.scrollY;
+      const total = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(total > 0 ? (scrolled / total) * 100 : 0);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 bg-white shadow-sm">
+      {/* Scroll progress bar */}
+      <div className="absolute bottom-0 left-0 h-[2px] bg-brand transition-all duration-100" style={{ width: `${progress}%` }} />
+
       <div className="w-full px-8 lg:px-16 flex items-center justify-between h-16">
         <Link href="#home">
           <Image src="/logo.webp" alt="TrackVee" width={160} height={48} className="h-12 w-auto mix-blend-multiply" priority />

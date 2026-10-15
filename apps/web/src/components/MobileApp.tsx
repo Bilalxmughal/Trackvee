@@ -9,7 +9,7 @@ const appFeatures = [
 
 export default function MobileApp() {
   return (
-    <section className="min-h-screen flex flex-col justify-center px-8 lg:px-16 py-20 bg-gray-50">
+    <section id="mobile-app" className="min-h-screen flex flex-col justify-center px-8 lg:px-16 py-20 bg-gray-50">
 
       <div className="flex flex-col lg:flex-row items-center gap-16">
 
