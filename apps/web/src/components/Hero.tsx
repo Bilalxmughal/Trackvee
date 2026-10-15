@@ -82,7 +82,7 @@ export default function Hero() {
             src="/hero-laptop.webp"
             alt="TrackVee Live Map Dashboard"
             className="w-full h-full object-cover"
-            style={{ objectPosition: '80% center' }}
+            style={{ objectPosition: '65% center' }}
           />
         </div>
 
