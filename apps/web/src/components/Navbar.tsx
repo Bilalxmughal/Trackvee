@@ -34,7 +34,7 @@ export default function Navbar() {
       />
 
       <div className="w-full px-8 lg:px-16 flex items-center justify-between h-16">
-        <Link href="#home">
+        <Link href="/">
           <Image src="/logo.webp" alt="TrackVee" width={160} height={48} className="h-12 w-auto mix-blend-multiply" priority />
         </Link>
 
