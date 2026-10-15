@@ -88,6 +88,7 @@ export default function CtaBanner() {
                 {['How it works', 'Solutions', 'Packages'].map(l => (
                   <li key={l}><a href={`#${l.toLowerCase().replace(/\s/g, '-')}`} className="text-xs text-gray-500 hover:text-gray-900 transition-colors">{l}</a></li>
                 ))}
+                <li><Link href="/blog" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">Blog</Link></li>
               </ul>
             </div>
             <div>
