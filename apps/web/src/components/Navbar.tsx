@@ -58,6 +58,16 @@ export default function Navbar() {
             <IconDeviceMobile size={14} stroke={2} />
             Get the App
           </a>
+          {/* Live Demo CTA */}
+          <a
+            href="https://app.trackvee.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 border border-brand text-brand text-sm font-semibold px-3.5 py-2.5 rounded-md hover:bg-red-50 transition-colors"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse inline-block" />
+            Live Demo
+          </a>
           <a href="#contact" className="inline-flex items-center bg-brand text-white text-sm font-semibold px-5 py-2.5 rounded-md hover:bg-brand-dark transition-colors">
             Get a quote
           </a>
