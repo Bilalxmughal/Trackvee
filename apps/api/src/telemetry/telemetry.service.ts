@@ -296,6 +296,9 @@ export class TelemetryService {
 
     if (latestIsFresh && latest && latest.speedKmh <= 2) {
       // GPS-based path: recent stationary GPS packet — use segment logic
+      // stop_started_at = last moving packet timestamp (best estimate of when vehicle
+      // actually stopped, not when we first received a stationary packet which can be
+      // up to parked-interval seconds later).
       const stationaryRun = await this.repo.query<{ stop_started_at: Date | string | null; sample_count: string }[]>(`
         WITH last_moving AS (
           (
@@ -329,7 +332,9 @@ export class TelemetryService {
         ), latest_segment AS (
           SELECT segment_id FROM stationary_segments ORDER BY timestamp DESC LIMIT 1
         )
-        SELECT MIN(timestamp) AS stop_started_at, COUNT(*)::text AS sample_count
+        SELECT
+          (SELECT timestamp FROM last_moving LIMIT 1) AS stop_started_at,
+          COUNT(*)::text AS sample_count
         FROM stationary_segments
         WHERE segment_id = (SELECT segment_id FROM latest_segment)
       `, [imei]);
