@@ -154,7 +154,7 @@ export default function Contact() {
                     key={t}
                     type="button"
                     onClick={() => toggleContactType(t)}
-                    className={`px-4 py-1.5 text-xs font-semibold border transition-colors ${
+                    className={`px-4 py-1.5 text-xs font-semibold border rounded-lg transition-colors ${
                       form.contactTypes.includes(t)
                         ? 'border-brand text-brand'
                         : 'border-gray-200 text-gray-400 hover:border-brand hover:text-brand'
@@ -176,7 +176,7 @@ export default function Contact() {
               className="w-full text-sm text-gray-900 placeholder-gray-300 focus:outline-none bg-transparent resize-none"
             />
           </div>
-          <button className="flex items-center gap-2 bg-brand text-white font-semibold px-8 py-3 text-sm hover:bg-brand-dark transition-colors">
+          <button className="flex items-center gap-2 bg-brand text-white font-semibold px-8 py-3 text-sm rounded-lg hover:bg-brand-dark transition-colors">
             <IconSend size={15} stroke={2} />
             Send message
           </button>
