@@ -79,7 +79,7 @@ export default function Contact() {
       <div className="flex flex-col lg:flex-row gap-10 lg:gap-16">
 
         {/* Left — form */}
-        <div className="lg:w-3/5 bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+        <div className="lg:w-3/5">
           <h3 className="text-lg font-bold text-gray-900 mb-6">Send us a message</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
