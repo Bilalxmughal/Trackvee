@@ -2,11 +2,11 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { IconDeviceMobile } from '@tabler/icons-react';
 
 const links = [
   { label: 'How it works', href: '#how-it-works' },
   { label: 'Solutions', href: '#solutions' },
-  { label: 'Mobile App', href: '#mobile-app' },
   { label: 'Packages', href: '#packages' },
   { label: 'Contact', href: '#contact' },
 ];
@@ -27,8 +27,11 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 bg-white shadow-sm">
-      {/* Scroll progress bar */}
-      <div className="absolute bottom-0 left-0 h-[2px] bg-brand transition-all duration-100" style={{ width: `${progress}%` }} />
+      {/* Scroll progress bar — scaleX is GPU-accelerated, no layout thrash */}
+      <div
+        className="absolute bottom-0 left-0 h-[2px] w-full bg-brand origin-left will-change-transform"
+        style={{ transform: `scaleX(${progress / 100})` }}
+      />
 
       <div className="w-full px-8 lg:px-16 flex items-center justify-between h-16">
         <Link href="#home">
@@ -46,9 +49,19 @@ export default function Navbar() {
           ))}
         </ul>
 
-        <a href="#contact" className="hidden md:inline-flex items-center bg-brand text-white text-sm font-semibold px-5 py-2.5 rounded-md hover:bg-brand-dark transition-colors">
-          Get a quote
-        </a>
+        <div className="hidden md:flex items-center gap-3">
+          {/* Mobile App CTA */}
+          <a
+            href="#mobile-app"
+            className="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 text-xs font-semibold px-3.5 py-2 rounded-md hover:border-brand hover:text-brand transition-colors"
+          >
+            <IconDeviceMobile size={14} stroke={2} />
+            Get the App
+          </a>
+          <a href="#contact" className="inline-flex items-center bg-brand text-white text-sm font-semibold px-5 py-2.5 rounded-md hover:bg-brand-dark transition-colors">
+            Get a quote
+          </a>
+        </div>
 
         {/* Mobile hamburger */}
         <button className="md:hidden p-2" onClick={() => setOpen(!open)} aria-label="Menu">
