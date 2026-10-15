@@ -47,45 +47,43 @@ export default function FAQ() {
 
         {/* Left — heading */}
         <div className="lg:w-1/3 lg:sticky lg:top-24">
-          <span className="text-xs font-bold tracking-widest uppercase text-brand flex items-center gap-2 mb-4">
+          <span className="text-xs font-bold tracking-widest uppercase text-brand flex items-center gap-2 mb-4 reveal-left">
             <span className="w-1.5 h-1.5 rounded-full bg-brand inline-block" />
             FAQ
           </span>
-          <h2 className="text-4xl xl:text-5xl font-extrabold tracking-tight text-gray-900 mb-5 leading-tight">
+          <h2 className="text-4xl xl:text-5xl font-extrabold tracking-tight text-gray-900 mb-5 leading-tight reveal-left" style={{ transitionDelay: '0.1s' }}>
             Common questions.
           </h2>
-          <p className="text-gray-500 text-base leading-relaxed mb-8">
+          <p className="text-gray-500 text-base leading-relaxed mb-8 reveal-left" style={{ transitionDelay: '0.2s' }}>
             Everything you need to know before getting started with TrackVee.
           </p>
           <a
             href="#contact"
-            className="inline-flex items-center gap-2 bg-brand text-white font-semibold px-6 py-3 rounded-xl text-sm hover:bg-brand-dark transition-colors"
+            className="inline-flex items-center gap-2 bg-brand text-white font-semibold px-6 py-3 rounded-xl text-sm hover:bg-brand-dark transition-colors reveal-left"
+            style={{ transitionDelay: '0.3s' }}
           >
             Still have questions? Contact us
           </a>
         </div>
 
         {/* Right — accordion */}
-        <div className="lg:w-2/3 w-full space-y-3">
+        <div className="lg:w-2/3 w-full divide-y divide-gray-100 reveal-right" style={{ transitionDelay: '0.2s' }}>
           {faqs.map((f, i) => (
-            <div
-              key={i}
-              className={`bg-white rounded-2xl border transition-colors ${open === i ? 'border-brand/30' : 'border-gray-100'}`}
-            >
+            <div key={i}>
               <button
                 onClick={() => setOpen(open === i ? null : i)}
-                className="w-full flex items-center justify-between px-6 py-5 text-left"
+                className="w-full flex items-center justify-between py-5 text-left group"
               >
-                <span className="text-sm font-bold text-gray-900 pr-4">{f.q}</span>
-                <span className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors ${open === i ? 'bg-brand text-white' : 'bg-gray-100 text-gray-500'}`}>
+                <span className={`text-sm font-semibold pr-4 transition-colors ${open === i ? 'text-brand' : 'text-gray-900 group-hover:text-brand'}`}>{f.q}</span>
+                <span className="shrink-0 text-gray-400 group-hover:text-brand transition-colors">
                   {open === i
-                    ? <IconMinus size={14} stroke={2.5} />
-                    : <IconPlus size={14} stroke={2.5} />
+                    ? <IconMinus size={16} stroke={2} />
+                    : <IconPlus size={16} stroke={2} />
                   }
                 </span>
               </button>
               {open === i && (
-                <div className="px-6 pb-5">
+                <div className="pb-5">
                   <p className="text-sm text-gray-500 leading-relaxed">{f.a}</p>
                 </div>
               )}

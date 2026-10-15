@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import CookieNotice from '@/components/CookieNotice';
+import ScrollAnimations from '@/components/ScrollAnimations';
 
 export const metadata: Metadata = {
   title: 'TrackVee — GPS Vehicle Tracking in Pakistan',
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning>
         {children}
         <CookieNotice />
+        <ScrollAnimations />
       </body>
     </html>
   );

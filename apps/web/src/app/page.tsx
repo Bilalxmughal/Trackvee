@@ -10,6 +10,7 @@ import FAQ from '@/components/FAQ';
 import Contact from '@/components/Contact';
 import CtaBanner from '@/components/CtaBanner';
 import WhatsAppButton from '@/components/WhatsAppButton';
+import ScrollToTop from '@/components/ScrollToTop';
 
 export default function Home() {
   return (
@@ -28,6 +29,7 @@ export default function Home() {
         <CtaBanner />
       </main>
       <WhatsAppButton />
+      <ScrollToTop />
     </>
   );
 }

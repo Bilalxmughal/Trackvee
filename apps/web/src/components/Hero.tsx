@@ -53,20 +53,20 @@ export default function Hero() {
 
         {/* Left: white content */}
         <div className="relative z-10 flex flex-col justify-center px-8 lg:px-16 py-16 w-full lg:w-[43%] bg-white">
-          <span className="text-xs font-bold tracking-widest uppercase text-brand flex items-center gap-1.5 mb-5">
+          <span className="text-xs font-bold tracking-widest uppercase text-brand flex items-center gap-1.5 mb-5 hero-reveal" style={{ animationDelay: '0s' }}>
             <span className="w-1.5 h-1.5 rounded-full bg-brand inline-block" />
             GPS Vehicle Tracking in Pakistan
           </span>
 
-          <h1 className="text-5xl xl:text-[4.2rem] font-extrabold leading-[1.06] tracking-tight text-gray-900 mb-6">
+          <h1 className="text-5xl xl:text-[4.2rem] font-extrabold leading-[1.06] tracking-tight text-gray-900 mb-6 hero-reveal" style={{ animationDelay: '0.1s' }}>
             Know where every vehicle is.
           </h1>
 
-          <p className="text-xl text-gray-500 mb-9 max-w-[24rem] leading-relaxed">
+          <p className="text-xl text-gray-500 mb-9 max-w-[24rem] leading-relaxed hero-reveal" style={{ animationDelay: '0.2s' }}>
             Connect your fleet, track vehicles in real time, and stay in control — from a single car to large fleets.
           </p>
 
-          <div className="flex flex-wrap gap-3 mb-10">
+          <div className="flex flex-wrap gap-3 mb-10 hero-reveal" style={{ animationDelay: '0.3s' }}>
             <a href="#packages" className="bg-brand text-white font-semibold px-8 py-4 rounded-md text-base hover:bg-brand-dark transition-colors">
               View packages
             </a>
@@ -75,7 +75,7 @@ export default function Hero() {
             </a>
           </div>
 
-          <div className="flex flex-wrap gap-6">
+          <div className="flex flex-wrap gap-6 hero-reveal" style={{ animationDelay: '0.4s' }}>
             {badges.map(b => (
               <div key={b.label} className="flex items-center gap-2 text-base text-gray-400">
                 <span className="text-brand">{b.icon}</span>

@@ -37,17 +37,17 @@ export default function Features() {
 
         {/* Left — label + heading + description + buttons */}
         <div className="lg:w-1/2 flex flex-col justify-center">
-          <span className="text-xs font-bold tracking-widest uppercase text-brand flex items-center gap-2 mb-5">
+          <span className="text-xs font-bold tracking-widest uppercase text-brand flex items-center gap-2 mb-5 reveal-left">
             <span className="w-1.5 h-1.5 rounded-full bg-brand inline-block" />
             Built for businesses and individuals
           </span>
-          <h2 className="text-4xl xl:text-[3.2rem] font-extrabold tracking-tight text-gray-900 leading-[1.08] mb-5">
+          <h2 className="text-4xl xl:text-[3.2rem] font-extrabold tracking-tight text-gray-900 leading-[1.08] mb-5 reveal-left" style={{ transitionDelay: '0.1s' }}>
             Keep your vehicles moving, with confidence.
           </h2>
-          <p className="text-gray-500 text-lg leading-relaxed mb-8 max-w-md">
+          <p className="text-gray-500 text-lg leading-relaxed mb-8 max-w-md reveal-left" style={{ transitionDelay: '0.2s' }}>
             From personal vehicles to delivery fleets, TrackVee helps you stay in control with reliable GPS tracking, professional installation and local support.
           </p>
-          <div className="flex gap-3">
+          <div className="flex gap-3 reveal-left" style={{ transitionDelay: '0.3s' }}>
             <a href="#packages" className="bg-brand text-white font-semibold px-7 py-3.5 rounded-md text-sm hover:bg-brand-dark transition-colors">
               View packages
             </a>
@@ -59,8 +59,8 @@ export default function Features() {
 
         {/* Right — 2×2 pillars */}
         <div className="lg:w-1/2 grid grid-cols-2 gap-4">
-          {pillars.map(f => (
-            <div key={f.title} className="bg-white rounded-2xl p-6 border border-gray-100 flex flex-col gap-3">
+          {pillars.map((f, i) => (
+            <div key={f.title} className="bg-white rounded-2xl p-6 border border-gray-100 flex flex-col gap-3 reveal" style={{ transitionDelay: `${0.1 + i * 0.08}s` }}>
               <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
                 {f.icon}
               </div>
@@ -83,8 +83,8 @@ export default function Features() {
 
       {/* Bottom: use case cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {cases.map(c => (
-          <div key={c.title} className="bg-white rounded-2xl p-8 flex flex-col gap-5 border border-gray-100">
+        {cases.map((c, i) => (
+          <div key={c.title} className="bg-white rounded-2xl p-8 flex flex-col gap-5 border border-gray-100 reveal" style={{ transitionDelay: `${i * 0.1}s` }}>
             <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
               {c.icon}
             </div>
