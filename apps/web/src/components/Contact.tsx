@@ -60,7 +60,7 @@ export default function Contact() {
   };
 
   return (
-    <section id="contact" className="min-h-screen flex flex-col justify-center px-8 lg:px-16 py-20 bg-gray-50">
+    <section id="contact" className="min-h-screen flex flex-col justify-center px-8 lg:px-16 py-20 bg-white">
 
       {/* Heading */}
       <div className="mb-12">

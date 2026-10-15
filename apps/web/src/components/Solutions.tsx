@@ -56,7 +56,7 @@ const whys = [
 
 export default function Solutions() {
   return (
-    <section id="solutions" className="min-h-screen flex flex-col bg-gray-50">
+    <section id="solutions" className="min-h-screen flex flex-col bg-white">
 
       {/* Top half — Solutions */}
       <div className="flex-1 flex flex-col justify-center px-8 lg:px-16 py-10">

@@ -31,7 +31,7 @@ export default function CtaBanner() {
     <div className="min-h-screen flex flex-col">
 
       {/* How it works */}
-      <div id="how-it-works" className="flex-1 flex flex-col justify-center px-8 lg:px-16 py-16 bg-white">
+      <div id="how-it-works" className="flex-1 flex flex-col justify-center px-8 lg:px-16 py-16 bg-gray-50">
         <div className="mb-12">
           <span className="text-xs font-bold tracking-widest uppercase text-brand">How it works</span>
           <h2 className="mt-2 text-4xl font-extrabold tracking-tight text-gray-900 leading-tight mb-3">
