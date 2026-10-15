@@ -49,13 +49,13 @@ export default function Navbar() {
           ))}
         </ul>
 
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-2">
           {/* Mobile App CTA */}
           <a
             href="#mobile-app"
-            className="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 text-sm font-semibold px-3.5 py-2.5 rounded-md hover:border-brand hover:text-brand transition-colors"
+            className="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 text-xs font-semibold px-3 py-2 rounded-md hover:border-brand hover:text-brand transition-colors"
           >
-            <IconDeviceMobile size={14} stroke={2} />
+            <IconDeviceMobile size={13} stroke={2} />
             Get the App
           </a>
           {/* Live Demo CTA */}
@@ -63,7 +63,7 @@ export default function Navbar() {
             href="https://app.trackvee.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 border border-brand text-brand text-sm font-semibold px-3.5 py-2.5 rounded-md hover:bg-red-50 transition-colors"
+            className="inline-flex items-center gap-1.5 border border-brand text-brand text-xs font-semibold px-3 py-2 rounded-md hover:bg-red-50 transition-colors"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse inline-block" />
             Live Demo
