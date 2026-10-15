@@ -334,7 +334,7 @@ export class TelemetryService {
         WHERE segment_id = (SELECT segment_id FROM latest_segment)
       `, [imei]);
       const run = stationaryRun[0];
-      if (run?.stop_started_at && Number(run.sample_count) >= 2) {
+      if (run?.stop_started_at && Number(run.sample_count) >= 1) {
         stopDuration = Math.max(0, Math.floor((now - new Date(run.stop_started_at).getTime()) / 1000));
       }
     } else if (deviceAlive && latest && latestAge !== null && latestAge > 5 * 60_000) {
