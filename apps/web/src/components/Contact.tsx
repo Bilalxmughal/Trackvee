@@ -182,38 +182,44 @@ export default function Contact() {
           </button>
         </div>
 
-        {/* Right — contact info cards */}
-        <div className="lg:w-2/5 flex flex-col gap-4">
-          {info.map(i => (
-            <div key={i.label} className="bg-white rounded-2xl px-5 py-4 border border-gray-100 flex items-center gap-4 shadow-sm">
-              <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-                {i.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{i.label}</p>
-                {i.href ? (
-                  <a href={i.href} target={i.href.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer"
-                    className="text-sm font-bold text-gray-800 hover:text-brand transition-colors block truncate">
-                    {i.value}
-                  </a>
-                ) : (
-                  <p className="text-sm font-bold text-gray-800">{i.value}</p>
-                )}
-                <p className="text-xs text-gray-400 mt-0.5">{i.sub}</p>
-              </div>
-            </div>
-          ))}
+        {/* Right — flat contact info */}
+        <div className="lg:w-2/5 flex flex-col justify-center">
 
-          <div className="bg-white rounded-2xl px-5 py-4 border border-gray-100 flex items-center gap-4 shadow-sm">
-            <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-              <IconClock size={22} stroke={1.8} className="text-brand" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Business hours</p>
-              <p className="text-sm font-bold text-gray-800">Mon – Sat: 9:00 AM – 6:00 PM</p>
-              <p className="text-xs text-gray-400 mt-0.5">Sunday closed</p>
+          <p className="text-xs font-bold tracking-widest uppercase text-gray-400 mb-6">Contact details</p>
+
+          <div className="divide-y divide-gray-100">
+            {info.map(i => (
+              <div key={i.label} className="flex items-center gap-4 py-5">
+                <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                  {i.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-400 mb-0.5">{i.label}</p>
+                  {i.href ? (
+                    <a href={i.href} target={i.href.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer"
+                      className="text-sm font-bold text-gray-900 hover:text-brand transition-colors block truncate">
+                      {i.value}
+                    </a>
+                  ) : (
+                    <p className="text-sm font-bold text-gray-900">{i.value}</p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-0.5">{i.sub}</p>
+                </div>
+              </div>
+            ))}
+
+            <div className="flex items-center gap-4 py-5">
+              <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                <IconClock size={20} stroke={1.8} className="text-brand" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">Business hours</p>
+                <p className="text-sm font-bold text-gray-900">Mon – Sat: 9:00 AM – 6:00 PM</p>
+                <p className="text-xs text-gray-400 mt-0.5">Sunday closed</p>
+              </div>
             </div>
           </div>
+
         </div>
 
       </div>
