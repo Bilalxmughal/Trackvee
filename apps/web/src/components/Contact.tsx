@@ -81,49 +81,49 @@ export default function Contact() {
         {/* Left — form */}
         <div className="lg:w-3/5">
           <h3 className="text-lg font-bold text-gray-900 mb-6">Send us a message</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Full name</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 mb-2">
+            <div className="border-b border-gray-200 focus-within:border-brand transition-colors py-3">
+              <label className="text-xs text-gray-400 block mb-1">Full name</label>
               <input
                 type="text"
                 placeholder="Muhammad Ali"
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-brand transition-colors bg-gray-50"
+                className="w-full text-sm text-gray-900 placeholder-gray-300 focus:outline-none bg-transparent"
               />
             </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Phone number</label>
-              <div className={`flex items-center border rounded-xl overflow-hidden bg-gray-50 transition-colors ${errors.phone ? 'border-red-400' : 'border-gray-200 focus-within:border-brand'}`}>
-                <span className="px-3 text-sm font-semibold text-gray-500 border-r border-gray-200 bg-gray-100 py-3 shrink-0">+92</span>
+            <div className={`border-b transition-colors py-3 ${errors.phone ? 'border-red-400' : 'border-gray-200 focus-within:border-brand'}`}>
+              <label className="text-xs text-gray-400 block mb-1">Phone number</label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-400 shrink-0">+92</span>
                 <input
                   type="tel"
                   placeholder="300 1234567"
                   value={form.phone}
                   onChange={e => handlePhone(e.target.value)}
                   maxLength={12}
-                  className="flex-1 px-3 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none bg-transparent"
+                  className="flex-1 text-sm text-gray-900 placeholder-gray-300 focus:outline-none bg-transparent"
                 />
               </div>
               {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
             </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Email address</label>
+            <div className={`border-b transition-colors py-3 ${errors.email ? 'border-red-400' : 'border-gray-200 focus-within:border-brand'}`}>
+              <label className="text-xs text-gray-400 block mb-1">Email address</label>
               <input
                 type="email"
                 placeholder="you@example.com"
                 value={form.email}
                 onChange={e => handleEmail(e.target.value)}
-                className={`w-full border rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none transition-colors bg-gray-50 ${errors.email ? 'border-red-400' : 'border-gray-200 focus:border-brand'}`}
+                className="w-full text-sm text-gray-900 placeholder-gray-300 focus:outline-none bg-transparent"
               />
               {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
             </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">I am a</label>
+            <div className="border-b border-gray-200 focus-within:border-brand transition-colors py-3">
+              <label className="text-xs text-gray-400 block mb-1">I am a</label>
               <select
                 value={form.type}
                 onChange={e => setForm({ ...form, type: e.target.value, vehicles: '' })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-brand transition-colors bg-gray-50"
+                className="w-full text-sm text-gray-900 focus:outline-none bg-transparent appearance-none cursor-pointer"
               >
                 <option value="">Select type</option>
                 <option value="Individual">Individual</option>
@@ -131,12 +131,12 @@ export default function Contact() {
               </select>
             </div>
             {form.type === 'Business' && (
-              <div className="sm:col-span-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Number of vehicles</label>
+              <div className="sm:col-span-2 border-b border-gray-200 focus-within:border-brand transition-colors py-3">
+                <label className="text-xs text-gray-400 block mb-1">Number of vehicles</label>
                 <select
                   value={form.vehicles}
                   onChange={e => setForm({ ...form, vehicles: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:border-brand transition-colors bg-gray-50"
+                  className="w-full text-sm text-gray-900 focus:outline-none bg-transparent appearance-none cursor-pointer"
                 >
                   <option value="">Select range</option>
                   <option value="1-5">1 – 5 vehicles</option>
@@ -146,18 +146,18 @@ export default function Contact() {
                 </select>
               </div>
             )}
-            <div className="sm:col-span-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Preferred contact method</label>
-              <div className="flex gap-3 flex-wrap">
+            <div className="sm:col-span-2 pt-5">
+              <label className="text-xs text-gray-400 block mb-3">Preferred contact method</label>
+              <div className="flex gap-2 flex-wrap">
                 {['Call', 'WhatsApp', 'Email'].map(t => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => toggleContactType(t)}
-                    className={`px-5 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
+                    className={`px-4 py-1.5 text-xs font-semibold border transition-colors ${
                       form.contactTypes.includes(t)
-                        ? 'bg-brand text-white border-brand'
-                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-brand hover:text-brand'
+                        ? 'border-brand text-brand'
+                        : 'border-gray-200 text-gray-400 hover:border-brand hover:text-brand'
                     }`}
                   >
                     {t}
@@ -166,18 +166,18 @@ export default function Contact() {
               </div>
             </div>
           </div>
-          <div className="mb-6">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Message (optional)</label>
+          <div className="border-b border-gray-200 focus-within:border-brand transition-colors py-3 mb-8">
+            <label className="text-xs text-gray-400 block mb-1">Message (optional)</label>
             <textarea
-              rows={4}
+              rows={3}
               placeholder="Tell us about your requirements..."
               value={form.message}
               onChange={e => setForm({ ...form, message: e.target.value })}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-brand transition-colors resize-none bg-gray-50"
+              className="w-full text-sm text-gray-900 placeholder-gray-300 focus:outline-none bg-transparent resize-none"
             />
           </div>
-          <button className="flex items-center gap-2 bg-brand text-white font-semibold px-8 py-3.5 rounded-xl text-sm hover:bg-brand-dark transition-colors w-full justify-center">
-            <IconSend size={16} stroke={2} />
+          <button className="flex items-center gap-2 bg-brand text-white font-semibold px-8 py-3 text-sm hover:bg-brand-dark transition-colors">
+            <IconSend size={15} stroke={2} />
             Send message
           </button>
         </div>
