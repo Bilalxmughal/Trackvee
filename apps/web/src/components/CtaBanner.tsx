@@ -65,14 +65,14 @@ export default function CtaBanner() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-white pt-14 pb-8 px-8 lg:px-16">
+      <footer className="bg-white px-8 lg:px-16 pt-10 pb-0">
         <div className="w-full">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
             <div>
               <Link href="#home">
                 <Image src="/logo.webp" alt="TrackVee" width={140} height={40} className="h-9 w-auto mb-3 mix-blend-multiply" />
               </Link>
-              <p className="text-sm text-gray-500 max-w-xs mb-5">Reliable GPS vehicle tracking for individuals and businesses across Pakistan.</p>
+              <p className="text-sm text-gray-500 max-w-xs mb-4">Reliable GPS vehicle tracking for individuals and businesses across Pakistan.</p>
               <div className="flex gap-2">
                 {socials.map(s => (
                   <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label}
@@ -83,36 +83,38 @@ export default function CtaBanner() {
               </div>
             </div>
             <div>
-              <h5 className="text-sm font-bold text-gray-900 mb-4">Product</h5>
-              <ul className="space-y-2.5">
+              <h5 className="text-sm font-bold text-gray-900 mb-3">Product</h5>
+              <ul className="space-y-2">
                 {['How it works', 'Solutions', 'Packages'].map(l => (
                   <li key={l}><a href={`#${l.toLowerCase().replace(/\s/g, '-')}`} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">{l}</a></li>
                 ))}
               </ul>
             </div>
             <div>
-              <h5 className="text-sm font-bold text-gray-900 mb-4">Solutions</h5>
-              <ul className="space-y-2.5">
+              <h5 className="text-sm font-bold text-gray-900 mb-3">Solutions</h5>
+              <ul className="space-y-2">
                 {['Individuals (B2C)', 'Businesses (B2B)', 'SaaS Platform'].map(l => (
                   <li key={l}><a href="#solutions" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">{l}</a></li>
                 ))}
               </ul>
             </div>
             <div>
-              <h5 className="text-sm font-bold text-gray-900 mb-4">Contact</h5>
-              <ul className="space-y-2.5">
+              <h5 className="text-sm font-bold text-gray-900 mb-3">Contact</h5>
+              <ul className="space-y-2">
                 <li><span className="text-sm text-gray-500 select-all">support@trackvee.com</span></li>
                 <li><span className="text-sm text-gray-500 select-all">sales@trackvee.com</span></li>
                 <li><span className="text-sm text-gray-500">Lahore, Pakistan</span></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-100 pt-6 flex flex-wrap justify-between items-center gap-3">
-            <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} TrackVee. All rights reserved.</p>
-            <p className="text-xs text-gray-400">GPS Vehicle Tracking in Pakistan</p>
-          </div>
         </div>
       </footer>
+
+      {/* Copyright bar */}
+      <div className="bg-gray-900 px-8 lg:px-16 py-4 flex flex-wrap justify-between items-center gap-3">
+        <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} TrackVee. All rights reserved.</p>
+        <p className="text-xs text-gray-400">GPS Vehicle Tracking in Pakistan</p>
+      </div>
 
     </div>
   );
