@@ -35,7 +35,7 @@ export default function Hero() {
       <div className="flex flex-1 min-h-0">
 
         {/* Left: white content */}
-        <div className="relative z-10 flex flex-col justify-center px-8 lg:px-16 py-16 w-full lg:w-[38%] bg-white">
+        <div className="relative z-10 flex flex-col justify-center px-8 lg:px-16 py-16 w-full lg:w-[43%] bg-white">
           <span className="text-xs font-bold tracking-widest uppercase text-brand flex items-center gap-1.5 mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-brand inline-block" />
             GPS Vehicle Tracking in Pakistan
@@ -74,7 +74,7 @@ export default function Hero() {
           <div
             className="absolute inset-0 z-10 pointer-events-none"
             style={{
-              background: 'linear-gradient(to right, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 22%, transparent 48%)',
+              background: 'linear-gradient(to right, white 0%, rgba(255,255,255,0.5) 18%, transparent 40%)',
             }}
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
