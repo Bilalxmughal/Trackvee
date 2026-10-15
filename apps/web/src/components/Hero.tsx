@@ -31,10 +31,10 @@ export default function Hero() {
       className="relative flex flex-col"
       style={{ minHeight: 'calc(100vh - 64px)' }}
     >
-      {/* Main two-column row */}
+      {/* ── Main two-column row ── */}
       <div className="flex flex-1 min-h-0">
 
-        {/* ── Left: white content ── */}
+        {/* Left: white content */}
         <div className="relative z-10 flex flex-col justify-center px-8 lg:px-16 py-16 w-full lg:w-[46%] bg-white">
           <span className="text-xs font-bold tracking-widest uppercase text-brand flex items-center gap-1.5 mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-brand inline-block" />
@@ -68,84 +68,27 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* ── Right: full-height map + floating card ── */}
-        <div className="hidden lg:block absolute right-0 top-0 bottom-0" style={{ width: '56%' }}>
-
-          {/* Map background — cropped to show only map area */}
+        {/* Right: laptop image — full height, properly contained */}
+        <div className="hidden lg:flex absolute right-0 top-0 bottom-0 items-center justify-center bg-gray-50" style={{ width: '56%' }}>
+          {/* Left-side white fade */}
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 z-10 pointer-events-none"
             style={{
-              backgroundImage: 'url(/hero-map.webp)',
-              backgroundSize: '160%',
-              backgroundPosition: '63% 42%',
+              background: 'linear-gradient(to right, white 0%, rgba(255,255,255,0.5) 14%, transparent 32%)',
             }}
           />
-
-          {/* Subtle dark overlay for readability */}
-          <div className="absolute inset-0 bg-black/10" />
-
-          {/* Left-side white fade to blend with content */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: 'linear-gradient(to right, white 0%, rgba(255,255,255,0.6) 18%, transparent 42%)',
-            }}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/hero-laptop.webp"
+            alt="TrackVee Live Map Dashboard"
+            className="w-full h-full object-contain object-center"
+            style={{ padding: '24px 32px 24px 0' }}
           />
-
-          {/* ── Floating vehicle card (like Moffu's review card) ── */}
-          <div className="absolute top-1/2 -translate-y-1/2 left-14 bg-white rounded-2xl shadow-2xl w-72 overflow-hidden">
-
-            {/* Card header */}
-            <div className="flex items-center gap-2.5 px-5 pt-5 pb-4">
-              <div className="w-9 h-9 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
-                <IconMapPin size={18} stroke={1.8} className="text-brand" />
-              </div>
-              <span className="font-bold text-gray-900 text-base">Live Location</span>
-              <div className="ml-auto flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-xs text-green-600 font-semibold">Live</span>
-              </div>
-            </div>
-
-            {/* Vehicle info */}
-            <div className="mx-5 bg-gray-50 rounded-xl px-4 py-3.5 mb-4">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="font-extrabold text-gray-900">LHR-2048</span>
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">Moving</span>
-              </div>
-              <div className="text-sm font-semibold text-gray-700 mb-0.5">62 km/h</div>
-              <div className="text-xs text-gray-400">Gulberg III, Lahore · Just now</div>
-            </div>
-
-            {/* Mini map preview */}
-            <div
-              className="mx-5 mb-4 h-28 rounded-xl overflow-hidden relative"
-              style={{
-                backgroundImage: 'url(/hero-map.webp)',
-                backgroundSize: '320%',
-                backgroundPosition: '56% 38%',
-              }}
-            >
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-5 h-5 bg-brand rounded-full shadow-lg ring-2 ring-white" />
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex gap-2 px-5 pb-5">
-              <a href="#" className="flex-1 bg-brand text-white text-sm font-semibold py-2.5 rounded-xl text-center hover:bg-brand-dark transition-colors">
-                View Map
-              </a>
-              <a href="#" className="flex-1 border border-gray-200 text-gray-700 text-sm font-semibold py-2.5 rounded-xl text-center hover:border-gray-300 transition-colors">
-                History
-              </a>
-            </div>
-          </div>
         </div>
 
       </div>
 
-      {/* ── Feature strip — bottom of viewport ── */}
+      {/* ── Feature strip — bottom ── */}
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 border-t border-gray-100 bg-white">
         {features.map((f, i) => (
           <div
