@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 const links = [
-  { label: 'How it works', href: '#home' },
+  { label: 'How it works', href: '#how-it-works' },
   { label: 'Solutions', href: '#solutions' },
   { label: 'Packages', href: '#packages' },
   { label: 'Contact', href: '#contact' },
@@ -14,10 +14,10 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+    <nav className="sticky top-0 z-50 bg-white shadow-sm">
       <div className="w-full px-8 lg:px-16 flex items-center justify-between h-16">
         <Link href="#home">
-          <Image src="/logo.webp" alt="TrackVee" width={160} height={48} className="h-14 w-auto" priority />
+          <Image src="/logo.webp" alt="TrackVee" width={160} height={48} className="h-12 w-auto mix-blend-multiply" priority />
         </Link>
 
         {/* Desktop links */}
