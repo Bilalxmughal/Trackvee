@@ -68,7 +68,7 @@ export default function Navbar() {
             <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse inline-block" />
             Live Demo
           </a>
-          <a href="#contact" className="inline-flex items-center bg-brand text-white text-sm font-semibold px-5 py-2.5 rounded-md hover:bg-brand-dark transition-colors">
+          <a href="#contact" className="inline-flex items-center bg-brand text-white text-xs font-semibold px-3 py-2 rounded-md hover:bg-brand-dark transition-colors">
             Get a quote
           </a>
         </div>
