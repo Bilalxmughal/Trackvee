@@ -26,6 +26,7 @@ import PricingPage from './pages/PricingPage';
 import ClientStatementsPage from './pages/ClientStatementsPage';
 import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';
 import { ToastProvider } from './contexts/ToastContext';
+import LiveSharePage from './pages/LiveSharePage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -58,6 +59,7 @@ export default function App() {
     <ToastProvider>
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/live/:token" element={<LiveSharePage />} />
 
       <Route element={<RequireAuth><OrgRolePermsProvider><Layout /></OrgRolePermsProvider></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />

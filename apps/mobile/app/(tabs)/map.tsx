@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import MapView, { AnimatedRegion, Marker, UrlTile, type LatLng, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -8,8 +8,11 @@ import { useFleet, displayVehicleName, getFleetStatus, type FleetItem, type Live
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
 import { theme } from '../../src/theme';
+import api from '../../src/lib/api';
 import logo from '../../assets/trackvee-logo.png';
 import carIcon from '../../assets/car-icon.png';
+
+interface VehicleGroup { id: string; name: string; vehicleIds: string[]; }
 
 const STATUS: Record<string, string> = { moving: theme.moving, idle: theme.idle, parked: theme.secondary, offline: theme.offline };
 const DEFAULT_REGION: Region = { latitude: 24.8607, longitude: 67.0011, latitudeDelta: 0.14, longitudeDelta: 0.14 };
@@ -55,18 +58,30 @@ export default function LiveMapScreen() {
   const { canDo } = usePortalPermissions();
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [groups, setGroups] = useState<VehicleGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<'street' | 'satellite' | 'hybrid' | 'terrain'>('street');
   const [styleOpen, setStyleOpen] = useState(false);
+
+  useEffect(() => { api.get<VehicleGroup[]>('/vehicle-groups').then(r => setGroups(r.data)).catch(() => {}); }, []);
   const [fitted, setFitted] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const fittingRef = useRef(false);
   const [region, setRegion] = useState<Region>(DEFAULT_REGION);
   const regionRef = useRef<Region>(DEFAULT_REGION);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
+  const groupVehicleIds = useMemo(() => {
+    if (!selectedGroupId) return null;
+    const group = groups.find(g => g.id === selectedGroupId);
+    return group ? new Set(group.vehicleIds) : null;
+  }, [groups, selectedGroupId]);
+
   const filtered = useMemo(() => items.filter(item => {
     const text = `${item.vehicle?.licensePlate ?? ''} ${displayVehicleName(item.vehicle)}`.toLowerCase();
-    return text.includes(query.toLowerCase()) && !!item.point?.gpsValid && Number.isFinite(item.point.latitude) && Number.isFinite(item.point.longitude);
-  }), [items, query]);
+    const matchesQuery = text.includes(query.toLowerCase());
+    const matchesGroup = !groupVehicleIds || groupVehicleIds.has(item.vehicle?.id ?? '');
+    return matchesQuery && matchesGroup && !!item.point?.gpsValid && Number.isFinite(item.point.latitude) && Number.isFinite(item.point.longitude);
+  }), [items, query, groupVehicleIds]);
   const clustered = useMemo(() => {
     if (!mapSize.width || !mapSize.height) return filtered.map(item => ({ key: item.device.imei, items: [item], latitude: item.point!.latitude, longitude: item.point!.longitude }));
     const latCell = Math.max(region.latitudeDelta * 64 / mapSize.height, 0.00008);
@@ -162,9 +177,19 @@ export default function LiveMapScreen() {
           <TextInput autoFocus value={query} onChangeText={setQuery} placeholder="Search plate or vehicle" placeholderTextColor={theme.muted} style={styles.searchInput} returnKeyType="search" accessibilityLabel="Search vehicles" />
           <Text style={styles.vehicleCount}>{filtered.length}</Text>
         </View>}
+        {groups.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.groupPillsScroll} contentContainerStyle={styles.groupPillsContent}>
+          <Pressable onPress={() => setSelectedGroupId(null)} style={[styles.groupPill, !selectedGroupId && styles.groupPillActive]}>
+            <Text style={[styles.groupPillText, !selectedGroupId && styles.groupPillTextActive]}>All</Text>
+          </Pressable>
+          {groups.map(group => (
+            <Pressable key={group.id} onPress={() => setSelectedGroupId(prev => prev === group.id ? null : group.id)} style={[styles.groupPill, selectedGroupId === group.id && styles.groupPillActive]}>
+              <Text style={[styles.groupPillText, selectedGroupId === group.id && styles.groupPillTextActive]}>{group.name}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>}
       </View>
 
-      <View style={[styles.mapActions, { top: Math.max(insets.top, 10) + (searchOpen ? 160 : 110) }]}>
+      <View style={[styles.mapActions, { top: Math.max(insets.top, 10) + (searchOpen ? 160 : 110) + (groups.length > 0 ? 44 : 0) }]}>
         <Pressable onPress={() => setStyleOpen(value => !value)} style={styles.mapButton} accessibilityRole="button" accessibilityLabel="Map type"><TablerIcon name="layers" size={19} color={theme.ink} /></Pressable>
         {styleOpen && <View style={styles.styleMenu}>
           {(Platform.OS === 'ios' ? ['street', 'satellite', 'hybrid'] : ['street', 'satellite', 'hybrid', 'terrain']).map(style => <Pressable key={style} onPress={() => { setMapStyle(style as typeof mapStyle); setStyleOpen(false); }} style={styles.styleOption} accessibilityRole="button" accessibilityLabel={`${style[0]!.toUpperCase() + style.slice(1)} map`}><Text style={[styles.styleOptionText, mapStyle === style && styles.styleOptionSelected]}>{style[0]!.toUpperCase() + style.slice(1)}</Text></Pressable>)}
@@ -175,10 +200,6 @@ export default function LiveMapScreen() {
       </View>
 
       <View style={[styles.bottomOverlay, { bottom: 3 }]}>
-        {canDo('vehicles') && <Pressable onPress={() => router.push('/vehicles')} style={styles.fleetSummary}>
-          <Text style={styles.fleetSummaryTitle}>{items.length} {items.length === 1 ? 'Vehicle' : 'Vehicles'}</Text>
-          <Text style={styles.viewList}>View list ›</Text>
-        </Pressable>}
         <View style={styles.statusRow}>
           {(['moving', 'idle', 'parked', 'offline'] as const).map(status => {
             const count = items.filter(item => getFleetStatus(item.point) === status).length;
@@ -224,4 +245,10 @@ const styles = StyleSheet.create({
   statusDivider:{position:'absolute',right:0,height:30,width:1,backgroundColor:theme.border,top:'50%',marginTop:-15},
   errorText: { color: theme.red, fontSize: 12, marginTop: 5 },
   attribution: { alignSelf: 'flex-end', fontSize: 9, color: '#475569', backgroundColor: 'rgba(255,255,255,0.86)', paddingHorizontal: 4, marginTop: 4 },
+  groupPillsScroll: { marginTop: 8 },
+  groupPillsContent: { paddingRight: 8, gap: 6, flexDirection: 'row' },
+  groupPill: { height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
+  groupPillActive: { backgroundColor: theme.red, borderColor: theme.red },
+  groupPillText: { fontSize: 11, fontWeight: '600', color: theme.ink },
+  groupPillTextActive: { color: '#fff' },
 });

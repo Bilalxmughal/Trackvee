@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Param, Query, Body, UseGuards, Headers, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { Controller, Get, Post, Param, Query, Body, UseGuards, Headers, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TelemetryService } from './telemetry.service.js';
 import { DevicesService } from '../devices/devices.service.js';
@@ -131,6 +132,28 @@ export class TelemetryController {
       if (!allowedDevices.some(device => device.imei === imei)) throw new NotFoundException();
     }
     return this.telemetryService.getLatest(imei);
+  }
+
+  @Get('live-public/:token')
+  async getLivePublic(@Param('token') token: string) {
+    const [payload, sig] = token.split('.');
+    if (!payload || !sig) throw new BadRequestException('Invalid token');
+    const secret = process.env['SHARE_SECRET'] ?? process.env['JWT_SECRET'] ?? 'change-me';
+    const expectedSig = createHmac('sha256', secret).update(payload).digest('hex');
+    const sigBuf = Buffer.from(sig, 'hex');
+    const expectedBuf = Buffer.from(expectedSig, 'hex');
+    if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) throw new UnauthorizedException('Invalid share token');
+    let parsed: { vehicleId: string; expiresAt: number };
+    try { parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')); }
+    catch { throw new BadRequestException('Malformed token'); }
+    if (!parsed.vehicleId || !parsed.expiresAt || Date.now() > parsed.expiresAt) throw new UnauthorizedException('Share link expired');
+    const device = await this.devicesService.findByVehicleId(parsed.vehicleId);
+    if (!device) throw new NotFoundException('Vehicle not found');
+    const latest = await this.telemetryService.getLatest(device.imei);
+    return {
+      vehicle: { id: device.vehicle?.id, licensePlate: device.vehicle?.licensePlate, name: device.vehicle?.name, make: device.vehicle?.make, model: device.vehicle?.model },
+      point: latest,
+    };
   }
 
   @ApiBearerAuth()

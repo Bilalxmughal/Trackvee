@@ -48,6 +48,10 @@ export class DevicesService {
     return this.repo.findOne({ where: { imei }, relations: { vehicle: true } });
   }
 
+  async findByVehicleId(vehicleId: string): Promise<Device | null> {
+    return this.repo.findOne({ where: { vehicleId }, relations: { vehicle: true } });
+  }
+
   async findOne(id: string): Promise<Device> {
     const device = await this.repo.findOne({ where: { id }, relations: { vehicle: true } });
     if (!device) throw new NotFoundException('Device not found');

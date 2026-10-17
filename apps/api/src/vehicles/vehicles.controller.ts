@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode, Req } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode, Req, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { VehiclesService } from './vehicles.service.js';
@@ -71,6 +72,19 @@ export class VehiclesController {
     const result = await this.vehiclesService.remove(id, user);
     this.audit.log({ user, ip: getIp(req) }, { action: 'delete', entityType: 'vehicle', entityId: id }).catch(() => {});
     return result;
+  }
+
+  @Post(':id/live-share')
+  @HttpCode(200)
+  async createLiveShare(@Param('id') id: string, @CurrentUser() user: User) {
+    const vehicle = await this.vehiclesService.findOne(id, user);
+    const secret = process.env['SHARE_SECRET'] ?? process.env['JWT_SECRET'] ?? 'change-me';
+    const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+    const payload = Buffer.from(JSON.stringify({ vehicleId: vehicle.id, expiresAt })).toString('base64url');
+    const sig = createHmac('sha256', secret).update(payload).digest('hex');
+    const token = `${payload}.${sig}`;
+    const baseUrl = process.env['WEB_SHARE_URL'] ?? 'https://admin.trackvee.com';
+    return { url: `${baseUrl}/live/${token}` };
   }
 
   @Post(':id/command')
