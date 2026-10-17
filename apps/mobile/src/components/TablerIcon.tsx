@@ -43,6 +43,9 @@ const PATHS: Record<string, string[]> = {
   battery: ['M6 7h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z', 'M22 11v4', 'M8 10v6', 'M12 10v6'],
   signal: ['M3 20h2', 'M7 20v-4', 'M12 20v-9', 'M17 20V6', 'M22 20V3'],
   cpu: ['M5 5h14v14H5z', 'M9 9h6v6H9z', 'M9 1v4', 'M15 1v4', 'M9 19v4', 'M15 19v4', 'M1 9h4', 'M1 15h4', 'M19 9h4', 'M19 15h4'],
+  sun: ['M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6', 'M12 3v2', 'M12 19v2', 'M3 12h2', 'M19 12h2', 'M5.64 5.64l1.42 1.42', 'M16.95 16.95l1.41 1.41', 'M5.64 18.36l1.42-1.42', 'M16.95 7.05l1.41-1.41'],
+  moon: ['M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z'],
+  monitor: ['M5 3h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', 'M9 21h6', 'M12 17v4'],
 };
 
 export function TablerIcon({ name, size = 22, color = '#111827', strokeWidth = 1.8 }: { name: string; size?: number; color?: string; strokeWidth?: number }) {

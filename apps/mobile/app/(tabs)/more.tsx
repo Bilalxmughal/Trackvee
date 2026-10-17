@@ -62,17 +62,17 @@ function ToolRow({ icon, title, subtitle, t, onPress }: { icon: string; title: s
 const MODES: { mode: ThemeMode; label: string; icon: string }[] = [
   { mode: 'light', label: 'Light', icon: 'sun' },
   { mode: 'dark', label: 'Dark', icon: 'moon' },
-  { mode: 'system', label: 'System', icon: 'device-desktop' },
+  { mode: 'system', label: 'System', icon: 'monitor' },
 ];
 
 function AppearanceRow({ themeMode, setThemeMode, t }: { themeMode: ThemeMode; setThemeMode: (m: ThemeMode) => void; t: ReturnType<typeof useTheme> }) {
   return (
     <View style={[styles.toolRow, styles.appearanceRow, { borderColor: t.border }]}>
-      <View style={styles.toolIcon}><TablerIcon name="palette" size={19} color={t.red} /></View>
+      <View style={styles.toolIcon}><TablerIcon name="sun" size={19} color={t.red} /></View>
       <Text style={[styles.toolTitle, { color: t.ink }]}>Appearance</Text>
       <View style={styles.modePills}>
         {MODES.map(({ mode, label, icon }) => (
-          <Pressable key={mode} onPress={() => setThemeMode(mode)} style={[styles.modePill, { borderColor: t.border, backgroundColor: t.bg2 }, themeMode === mode && { borderColor: t.red, backgroundColor: t.red }]}>
+          <Pressable key={mode} onPress={() => setThemeMode(mode)} style={[styles.modePill, { backgroundColor: themeMode === mode ? t.red : t.bg2 }]}>
             <TablerIcon name={icon} size={13} color={themeMode === mode ? '#fff' : t.secondary} />
             <Text style={[styles.modePillText, { color: themeMode === mode ? '#fff' : t.secondary }]}>{label}</Text>
           </Pressable>
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 },
   title: { fontSize: 25, fontWeight: '700', marginBottom: 14 },
-  profile: { minHeight: 84, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderTopWidth: 1, gap: 13 },
+  profile: { minHeight: 84, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, gap: 13 },
   avatar: { height: 48, width: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 17, fontWeight: '700' },
   profileText: { flex: 1 },
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   toolSubtitle: { fontSize: 11, marginTop: 3 },
   appearanceRow: { minHeight: 56, flexWrap: 'nowrap' },
   modePills: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
-  modePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 7, borderWidth: 1.5 },
+  modePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 7 },
   modePillText: { fontSize: 11, fontWeight: '600' },
   infoRow: { minHeight: 43, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1 },
   infoLabel: { fontSize: 13 },
