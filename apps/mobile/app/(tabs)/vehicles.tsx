@@ -168,7 +168,7 @@ export default function VehiclesScreen() {
           </View>
         </Pressable>
         <Pressable onPress={() => setMenuImei(item.device.imei)} style={s.cardMenu} accessibilityLabel={`Actions for ${plate}`}>
-          <TablerIcon name="more-vertical" size={18} color={theme.secondary} />
+          <TablerIcon name="more-vertical" size={18} color={theme.red} />
         </Pressable>
       </View>
     );
@@ -189,7 +189,7 @@ export default function VehiclesScreen() {
         </Pressable>
         <Text style={s.groupVehicleSpeed}>{status === 'offline' ? 'Offline' : `${Math.round(point?.speedKmh ?? 0)} km/h`}</Text>
         <Pressable onPress={() => setMenuImei(item.device.imei)} style={s.cardMenu} accessibilityLabel={`Actions for ${plate}`}>
-          <TablerIcon name="more-vertical" size={17} color={theme.secondary} />
+          <TablerIcon name="more-vertical" size={17} color={theme.red} />
         </Pressable>
       </View>
     );
@@ -405,7 +405,7 @@ const s = StyleSheet.create({
   groupActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   groupActionBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
 
-  card: { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'stretch' },
+  card: { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'stretch', borderBottomWidth: 1, borderBottomColor: theme.border },
   cardAccent: { width: 3 },
   cardBody: { flex: 1, paddingVertical: 11, paddingLeft: 11, paddingRight: 4 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
@@ -418,7 +418,7 @@ const s = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6, backgroundColor: '#f1f5f9' },
   chipText: { fontSize: 10, fontWeight: '600', color: theme.secondary },
   updatedText: { fontSize: 9, color: theme.muted, marginLeft: 'auto' },
-  cardMenu: { width: 36, alignItems: 'center', justifyContent: 'center' },
+  cardMenu: { width: 36, alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: theme.border },
   groupVehicleRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: theme.border, paddingRight: 4 },
   groupVehicleAccent: { width: 3, alignSelf: 'stretch' },
   groupVehicleBody: { flex: 1, paddingVertical: 11, paddingLeft: 11, paddingRight: 4 },
@@ -447,7 +447,7 @@ const s = StyleSheet.create({
   menuText: { color: theme.ink, fontSize: 12 },
 
   groupShade: { flex: 1, backgroundColor: 'rgba(0,0,0,0.36)', justifyContent: 'flex-end' },
-  groupModalCard: { backgroundColor: '#fff', borderTopLeftRadius: 14, borderTopRightRadius: 14, paddingTop: 17, paddingHorizontal: 16, paddingBottom: 22, maxHeight: '88%' },
+  groupModalCard: { backgroundColor: '#fff', borderTopLeftRadius: 14, borderTopRightRadius: 14, paddingTop: 17, paddingHorizontal: 16, paddingBottom: 22, maxHeight: '94%' },
   groupModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   groupModalTitle: { color: theme.ink, fontSize: 17, fontWeight: '700' },
   groupNameInput: { height: 42, borderWidth: 1, borderColor: theme.border, borderRadius: 6, paddingHorizontal: 11, color: theme.ink, fontSize: 13 },
