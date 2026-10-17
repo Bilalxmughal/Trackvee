@@ -5,11 +5,13 @@ import { useAuth } from '../../src/auth/AuthProvider';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { useTheme } from '../../src/hooks/useTheme';
+import { useThemeContext, type ThemeMode } from '../../src/contexts/ThemeContext';
 
 export default function MoreScreen() {
   const t = useTheme();
   const { user, logout } = useAuth();
   const { canDo } = usePortalPermissions();
+  const { themeMode, setThemeMode } = useThemeContext();
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Account';
   const signOut = () => Alert.alert('Sign out', 'Are you sure you want to sign out?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign out', style: 'destructive', onPress: () => { void logout(); } }]);
 
@@ -34,7 +36,8 @@ export default function MoreScreen() {
       </> : null}
 
       <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>PREFERENCES</Text>
-      <ToolRow icon="settings" title="Settings" subtitle="Notifications, appearance and fleet updates" t={t} onPress={() => router.push('/settings')} />
+      <AppearanceRow themeMode={themeMode} setThemeMode={setThemeMode} t={t} />
+      <ToolRow icon="settings" title="Settings" subtitle="Notifications and fleet updates" t={t} onPress={() => router.push('/settings')} />
 
       <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>ACCOUNT</Text>
       <View style={[styles.infoRow, { borderColor: t.border }]}><Text style={[styles.infoLabel, { color: t.secondary }]}>Organization</Text><Text style={[styles.infoValue, { color: t.ink }]} numberOfLines={1}>{user?.organizationName || '—'}</Text></View>
@@ -56,6 +59,29 @@ function ToolRow({ icon, title, subtitle, t, onPress }: { icon: string; title: s
   );
 }
 
+const MODES: { mode: ThemeMode; label: string; icon: string }[] = [
+  { mode: 'light', label: 'Light', icon: 'sun' },
+  { mode: 'dark', label: 'Dark', icon: 'moon' },
+  { mode: 'system', label: 'System', icon: 'device-desktop' },
+];
+
+function AppearanceRow({ themeMode, setThemeMode, t }: { themeMode: ThemeMode; setThemeMode: (m: ThemeMode) => void; t: ReturnType<typeof useTheme> }) {
+  return (
+    <View style={[styles.toolRow, styles.appearanceRow, { borderColor: t.border }]}>
+      <View style={styles.toolIcon}><TablerIcon name="palette" size={19} color={t.red} /></View>
+      <Text style={[styles.toolTitle, { color: t.ink }]}>Appearance</Text>
+      <View style={styles.modePills}>
+        {MODES.map(({ mode, label, icon }) => (
+          <Pressable key={mode} onPress={() => setThemeMode(mode)} style={[styles.modePill, { borderColor: t.border, backgroundColor: t.bg2 }, themeMode === mode && { borderColor: t.red, backgroundColor: t.red }]}>
+            <TablerIcon name={icon} size={13} color={themeMode === mode ? '#fff' : t.secondary} />
+            <Text style={[styles.modePillText, { color: themeMode === mode ? '#fff' : t.secondary }]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 },
@@ -73,6 +99,10 @@ const styles = StyleSheet.create({
   toolText: { flex: 1 },
   toolTitle: { fontSize: 13, fontWeight: '600' },
   toolSubtitle: { fontSize: 11, marginTop: 3 },
+  appearanceRow: { minHeight: 56, flexWrap: 'nowrap' },
+  modePills: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
+  modePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 7, borderWidth: 1.5 },
+  modePillText: { fontSize: 11, fontWeight: '600' },
   infoRow: { minHeight: 43, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1 },
   infoLabel: { fontSize: 13 },
   infoValue: { maxWidth: '60%', fontSize: 13, textTransform: 'capitalize' },

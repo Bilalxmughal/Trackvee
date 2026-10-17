@@ -7,19 +7,11 @@ import { usePortalPermissions } from '../src/auth/PortalPermissionsProvider';
 import { TablerIcon } from '../src/components/TablerIcon';
 import { getAlertSoundEnabled, getFleetRefreshOnResume, hasCachedPushRegistration, isPushNotificationsEnabled, setAlertSoundEnabled, setFleetRefreshOnResume, syncAlertSoundPreference, syncPushRegistration, unregisterPushToken } from '../src/lib/pushNotifications';
 import { useTheme } from '../src/hooks/useTheme';
-import { useThemeContext, type ThemeMode } from '../src/contexts/ThemeContext';
 import type { AppTheme } from '../src/theme';
-
-const MODES: { mode: ThemeMode; label: string; icon: string }[] = [
-  { mode: 'light', label: 'Light', icon: 'sun' },
-  { mode: 'dark', label: 'Dark', icon: 'moon' },
-  { mode: 'system', label: 'System', icon: 'device-desktop' },
-];
 
 export default function SettingsScreen() {
   const { canDo, loading: permissionsLoading } = usePortalPermissions();
   const t = useTheme();
-  const { themeMode, setThemeMode } = useThemeContext();
   const s = useMemo(() => createStyles(t), [t]);
   const [loading, setLoading] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -92,19 +84,9 @@ export default function SettingsScreen() {
   return <SafeAreaView style={s.container} edges={['top']}>
     <View style={s.header}>
       <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.back}><TablerIcon name="back" size={20} color={t.ink}/></Pressable>
-      <View style={s.headerTitleWrap}><Text style={s.title}>Settings</Text><Text style={s.subtitle}>Notifications, appearance and fleet updates</Text></View>
+      <View style={s.headerTitleWrap}><Text style={s.title}>Settings</Text><Text style={s.subtitle}>Notifications and fleet updates</Text></View>
     </View>
     {loading || permissionsLoading ? <View style={s.loading}><ActivityIndicator color={t.red}/></View> : <ScrollView contentContainerStyle={s.content}>
-      <Text style={s.section}>APPEARANCE</Text>
-      <View style={s.pills}>
-        {MODES.map(({ mode, label, icon }) => (
-          <Pressable key={mode} onPress={() => setThemeMode(mode)} style={[s.pill, themeMode === mode && s.pillActive]}>
-            <TablerIcon name={icon} size={14} color={themeMode === mode ? '#fff' : t.secondary} />
-            <Text style={[s.pillText, { color: themeMode === mode ? '#fff' : t.secondary }]}>{label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
       {canDo('alerts') ? <>
         <Text style={s.section}>NOTIFICATIONS</Text>
         <PreferenceRow title="Mobile push notifications" description="Receive enabled fleet alerts on this device, including while Trackvee is closed." value={pushEnabled} disabled={pushBusy} onChange={togglePush} s={s} t={t} />
@@ -132,10 +114,6 @@ function createStyles(t: AppTheme) {
     header: { minHeight: 70, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, borderBottomWidth: 1, borderColor: t.border, gap: 10 },
     back: { width: 38, height: 42, justifyContent: 'center' }, headerTitleWrap: { flex: 1 }, title: { color: t.ink, fontSize: 17, fontWeight: '700' }, subtitle: { color: t.secondary, fontSize: 11, marginTop: 3 },
     content: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 30 }, section: { color: t.secondary, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginTop: 24, marginBottom: 7 },
-    pills: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-    pill: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 36, borderRadius: 8, borderWidth: 1.5, borderColor: t.border, backgroundColor: t.bg2 },
-    pillActive: { borderColor: t.red, backgroundColor: t.red },
-    pillText: { fontSize: 12, fontWeight: '600' },
     row: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderColor: t.border, paddingVertical: 12 }, copy: { flex: 1 }, rowTitle: { color: t.ink, fontSize: 13, fontWeight: '600' }, rowDescription: { color: t.secondary, fontSize: 11, lineHeight: 16, marginTop: 4 }, disabled: { opacity: 0.5 },
     note: { color: t.secondary, fontSize: 11, lineHeight: 17, marginTop: 9 }, info: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginTop: 13, paddingVertical: 11 }, infoText: { flex: 1, color: t.secondary, fontSize: 10, lineHeight: 16 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   });
