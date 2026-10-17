@@ -40,12 +40,27 @@ export default function MoreScreen() {
       <ToolRow icon="settings" title="Settings" subtitle="Notifications and fleet updates" t={t} onPress={() => router.push('/settings')} />
 
       <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>ACCOUNT</Text>
-      <View style={[styles.infoRow, { borderColor: t.border }]}><Text style={[styles.infoLabel, { color: t.secondary }]}>Organization</Text><Text style={[styles.infoValue, { color: t.ink }]} numberOfLines={1}>{user?.organizationName || '—'}</Text></View>
-      <View style={[styles.infoRow, { borderColor: t.border }]}><Text style={[styles.infoLabel, { color: t.secondary }]}>Account role</Text><Text style={[styles.infoValue, { color: t.ink }]}>{user?.role.replace('client_', '').replaceAll('_', ' ') || '—'}</Text></View>
-      <Pressable onPress={signOut} style={styles.signOut}><TablerIcon name="logout" size={18} color={t.red} /><Text style={[styles.signOutText, { color: t.red }]}>Sign out</Text></Pressable>
+      <InfoRow icon="building" title={user?.organizationName || '—'} subtitle="Organization" t={t} />
+      <InfoRow icon="shield" title={user?.role.replace('client_', '').replaceAll('_', ' ') || '—'} subtitle="Account role" t={t} />
+      <Pressable onPress={signOut} style={[styles.toolRow, { borderColor: t.border }]}>
+        <View style={styles.toolIcon}><TablerIcon name="logout" size={19} color={t.red} /></View>
+        <Text style={[styles.toolTitle, { color: t.red }]}>Sign out</Text>
+      </Pressable>
       <Text style={[styles.version, { color: t.muted }]}>Trackvee Mobile · Expo SDK 57</Text>
     </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function InfoRow({ icon, title, subtitle, t }: { icon: string; title: string; subtitle: string; t: ReturnType<typeof useTheme> }) {
+  return (
+    <View style={[styles.toolRow, { borderColor: t.border }]}>
+      <View style={styles.toolIcon}><TablerIcon name={icon} size={19} color={t.red} /></View>
+      <View style={styles.toolText}>
+        <Text style={[styles.toolTitle, { color: t.ink }]} numberOfLines={1}>{title}</Text>
+        <Text style={[styles.toolSubtitle, { color: t.secondary }]}>{subtitle}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -103,10 +118,5 @@ const styles = StyleSheet.create({
   modePills: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   modePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 7 },
   modePillText: { fontSize: 11, fontWeight: '600' },
-  infoRow: { minHeight: 43, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1 },
-  infoLabel: { fontSize: 13 },
-  infoValue: { maxWidth: '60%', fontSize: 13, textTransform: 'capitalize' },
-  signOut: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 18 },
-  signOutText: { fontSize: 14, fontWeight: '600' },
   version: { textAlign: 'center', marginTop: 20, fontSize: 11 },
 });

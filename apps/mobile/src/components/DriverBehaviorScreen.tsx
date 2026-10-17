@@ -209,8 +209,10 @@ export default function DriverBehaviorScreen() {
       {settingsLoading ? <View style={s.center}><ActivityIndicator color={t.red}/><Text style={s.secondary}>Loading settings…</Text></View> : <>
         <SettingsSection title="DETECTION THRESHOLDS" fields={DETECTION_FIELDS} settings={settings} onChange={(key, value) => { setSettings(current => ({ ...current, [key]: value })); setSaved(false); }}/>
         <SettingsSection title="SCORE DEDUCTIONS · POINTS PER EVENT" fields={DEDUCTION_FIELDS} settings={settings} onChange={(key, value) => { setSettings(current => ({ ...current, [key]: value })); setSaved(false); }}/>
-        {settingsError ? <Text style={s.errorText}>{settingsError}</Text> : null}
-        <View style={s.saveRow}><Pressable onPress={() => void saveSettings()} disabled={saving} style={[s.saveButton, saving && s.disabled]}><Text style={s.saveText}>{saving ? 'Saving…' : saved ? 'Saved' : 'Save Settings'}</Text></Pressable></View>
+        {settingsError ? <Text style={s.settingsError}>{settingsError}</Text> : null}
+        <Pressable onPress={() => void saveSettings()} disabled={saving} style={[s.saveButton, saving && s.disabled]}>
+          {saving ? <ActivityIndicator color="#fff"/> : <Text style={s.saveText}>{saved ? '✓ Saved' : 'Save Settings'}</Text>}
+        </Pressable>
       </>}
     </ScrollView>}
   </SafeAreaView>;
@@ -295,8 +297,11 @@ function SettingsSection<T extends keyof Settings>({ title, fields, settings, on
   const t = useTheme();
   const s = useMemo(() => createStyles(t), [t]);
   return <View style={s.settingsSection}><Text style={s.sectionTitle}>{title}</Text>{fields.map(field => <View key={field.key} style={s.settingRow}>
-    <View style={s.settingLabelWrap}><Text style={s.settingLabel}>{field.label}</Text>{field.unit ? <Text style={s.settingUnit}>{field.unit}</Text> : null}</View>
-    <TextInput value={String(settings[field.key])} onChangeText={text => onChange(field.key, Number(text.replace(',', '.')) || 0)} keyboardType="decimal-pad" selectTextOnFocus style={s.settingInput} accessibilityLabel={`${field.label}${field.unit ? ` in ${field.unit}` : ''}`}/>
+    <Text style={s.settingLabel}>{field.label}</Text>
+    <View style={s.settingInputWrap}>
+      <TextInput value={String(settings[field.key])} onChangeText={text => onChange(field.key, Number(text.replace(',', '.')) || 0)} keyboardType="decimal-pad" selectTextOnFocus style={s.settingInput} accessibilityLabel={`${field.label}${field.unit ? ` in ${field.unit}` : ''}`}/>
+      {field.unit ? <Text style={s.settingUnit}>{field.unit}</Text> : null}
+    </View>
   </View>)}</View>;
 }
 
@@ -312,6 +317,16 @@ function createStyles(t: AppTheme) {
     vehicleRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderColor: t.border }, rank: { width: 26, color: t.muted, fontSize: 11, fontVariant: ['tabular-nums'] }, vehicleCopy: { flex: 1, minWidth: 0 }, vehicleTitle: { color: t.ink, fontSize: 13, fontWeight: '700' }, vehicleSub: { color: t.secondary, fontSize: 10, marginTop: 2 }, eventCounts: { color: t.secondary, fontSize: 9, marginTop: 5 }, scoreCol: { minWidth: 42, alignItems: 'center' }, rowScore: { fontSize: 18, fontWeight: '700' },
     emptyScores: { flex: 1, minHeight: 230, alignItems: 'center', justifyContent: 'center', gap: 8 }, emptyTitle: { color: t.ink, fontSize: 14, fontWeight: '600' }, secondary: { color: t.secondary, fontSize: 11 }, errorBox: { margin: 15, paddingVertical: 16, borderBottomWidth: 1, borderColor: t.border }, errorText: { color: t.red, fontSize: 12 },
     detailContent: { paddingHorizontal: 14, paddingTop: 15, paddingBottom: 32 }, summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 9 }, summaryCell: { width: '50%', minHeight: 82, padding: 11, borderWidth: 0.5, borderColor: t.border }, summaryHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 }, summaryLabel: { color: t.secondary, fontSize: 10 }, summaryValue: { color: t.ink, fontSize: 22, fontWeight: '700', marginTop: 7 }, trendHeading: { marginTop: 23 }, chartWrap: { marginTop: 10, height: 164, borderBottomWidth: 1, borderColor: t.border }, chartEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' }, eventsHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 21, marginBottom: 7 }, emptyEvents: { minHeight: 64, justifyContent: 'center', borderBottomWidth: 1, borderColor: t.border }, eventRow: { minHeight: 63, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: 1, borderColor: t.border }, eventIcon: { width: 24, alignItems: 'center' }, eventCopy: { flex: 1, minWidth: 0 }, eventTitle: { color: t.ink, fontSize: 11, fontWeight: '600' }, eventTime: { color: t.secondary, fontSize: 9, marginTop: 4 }, severity: { fontSize: 9, fontWeight: '600' }, mapAction: { width: 34, height: 42, alignItems: 'center', justifyContent: 'center' },
-    settingsContent: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 30 }, settingsSection: { marginBottom: 23 }, settingRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottomWidth: 1, borderColor: t.border }, settingLabelWrap: { flex: 1 }, settingLabel: { color: t.ink, fontSize: 11 }, settingUnit: { color: t.secondary, fontSize: 9, marginTop: 3 }, settingInput: { width: 86, height: 38, borderBottomWidth: 1, borderColor: t.border, paddingHorizontal: 7, color: t.ink, fontSize: 12, textAlign: 'right' }, saveRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 5 }, saveButton: { minWidth: 130, minHeight: 43, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, backgroundColor: t.red, borderRadius: 7 }, saveText: { color: '#fff', fontSize: 12, fontWeight: '700' }, disabled: { opacity: 0.6 },
+    settingsContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 },
+    settingsSection: { marginBottom: 26 },
+    settingRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottomWidth: 1, borderColor: t.border },
+    settingLabel: { flex: 1, color: t.ink, fontSize: 13, fontWeight: '500' },
+    settingInputWrap: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+    settingUnit: { color: t.secondary, fontSize: 11, minWidth: 44 },
+    settingInput: { width: 80, height: 40, borderWidth: 1, borderColor: t.border, borderRadius: 7, paddingHorizontal: 10, color: t.ink, fontSize: 13, textAlign: 'right', backgroundColor: t.inputBg },
+    saveButton: { minHeight: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: t.red, borderRadius: 8, marginTop: 8 },
+    saveText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+    settingsError: { color: t.red, fontSize: 12, marginBottom: 10 },
+    disabled: { opacity: 0.6 },
   });
 }

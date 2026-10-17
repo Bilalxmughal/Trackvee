@@ -46,6 +46,8 @@ const PATHS: Record<string, string[]> = {
   sun: ['M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6', 'M12 3v2', 'M12 19v2', 'M3 12h2', 'M19 12h2', 'M5.64 5.64l1.42 1.42', 'M16.95 16.95l1.41 1.41', 'M5.64 18.36l1.42-1.42', 'M16.95 7.05l1.41-1.41'],
   moon: ['M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z'],
   monitor: ['M5 3h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', 'M9 21h6', 'M12 17v4'],
+  building: ['M3 21h18', 'M5 3h14a2 2 0 0 1 2 2v16H3V5a2 2 0 0 1 2-2z', 'M9 21v-6h6v6', 'M9 9h1v1H9z', 'M14 9h1v1h-1z', 'M9 13h1v1H9z', 'M14 13h1v1h-1z'],
+  shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'],
 };
 
 export function TablerIcon({ name, size = 22, color = '#111827', strokeWidth = 1.8 }: { name: string; size?: number; color?: string; strokeWidth?: number }) {
