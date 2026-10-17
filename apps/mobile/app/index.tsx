@@ -1,15 +1,26 @@
 import { useMemo } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import logo from '../assets/trackvee-logo.png';
+import { useAuth } from '../src/auth/AuthProvider';
 import { useTheme } from '../src/hooks/useTheme';
 import type { AppTheme } from '../src/theme';
 
 export default function GetStartedScreen() {
   const t = useTheme();
   const styles = useMemo(() => createStyles(t), [t]);
+  const { user, loading } = useAuth();
+
+  if (loading || user) {
+    return (
+      <SafeAreaView style={[styles.safe, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={t.red} size="large" />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>

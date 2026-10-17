@@ -71,7 +71,7 @@ function NavigationRoot() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.surface }, animation: 'fade' }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
-        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
         <Stack.Screen name="alert-rule" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
         <Stack.Screen name="users" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
         <Stack.Screen name="vehicle/[imei]" />
