@@ -42,6 +42,7 @@ export default function VehiclesScreen() {
   const [cutItem, setCutItem] = useState<FleetItem | null>(null);
   const [immobilizerOverride, setImmobilizerOverride] = useState<Record<string, boolean>>({});
 
+  const loadGroups = () => { api.get<VehicleGroup[]>('/vehicle-groups').then(r => { setGroups(r.data); }).catch(() => { setGroups([]); }); };
   useEffect(() => { let active = true; api.get<VehicleGroup[]>('/vehicle-groups').then(r => { if (active) setGroups(r.data); }).catch(() => { if (active) setGroups([]); }); return () => { active = false; }; }, []);
 
   const sections = useMemo(() => {
@@ -111,7 +112,7 @@ export default function VehiclesScreen() {
     <View style={s.search}><TablerIcon name="search" size={17} color={theme.secondary}/><TextInput value={query} onChangeText={setQuery} placeholder="Search vehicle or plate..." placeholderTextColor={theme.muted} style={s.searchInput} accessibilityLabel="Search vehicles" /></View>
     <View style={s.filters}>{(['all','moving','idle','parked','offline'] as Filter[]).map(value => <Pressable key={value} onPress={() => setFilter(value)} style={[s.filter, filter === value && s.filterActive]}><Text style={[s.filterText, filter === value && s.filterTextActive]}>{value[0]!.toUpperCase() + value.slice(1)}</Text></Pressable>)}</View>
     {error ? <Pressable onPress={reload} style={s.error}><Text style={s.errorText}>{error}  Retry</Text></Pressable> : null}
-    <FlatList data={sections} keyExtractor={row => row.key} refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} tintColor={theme.red} />} contentContainerStyle={!sections.length ? s.empty : undefined} renderItem={({ item: row }) => {
+    <FlatList data={sections} keyExtractor={row => row.key} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { reload(); loadGroups(); }} tintColor={theme.red} />} contentContainerStyle={!sections.length ? s.empty : undefined} renderItem={({ item: row }) => {
       if (row.kind === 'group') {
         const group = groups.find(entry => `group-${entry.id}` === row.key);
         return <View style={s.groupHeader}><Text style={s.groupTitle}>{row.title}</Text><Text style={s.groupCount}> · {row.count}</Text>{group && canDo('vehicles','edit') && <Pressable onPress={() => openEditGroup(group)} style={s.groupEdit}><Text style={s.groupEditText}>Edit</Text></Pressable>}{group && canDo('vehicles','delete') && <Pressable onPress={() => deleteGroup(group)} style={s.groupEdit}><Text style={s.groupDeleteText}>Delete</Text></Pressable>}</View>;
