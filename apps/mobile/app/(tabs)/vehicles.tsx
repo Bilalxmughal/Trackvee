@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import { Asset } from 'expo-asset';
 import { useFleet, displayVehicleName, getFleetStatus, type FleetItem } from '../../src/hooks/useFleet';
 import { TablerIcon } from '../../src/components/TablerIcon';
@@ -105,7 +106,6 @@ export default function VehiclesScreen() {
       await asset.downloadAsync();
       let logoSrc = '';
       if (asset.localUri) {
-        const { FileSystem } = await import('expo-file-system');
         const b64 = await FileSystem.readAsStringAsync(asset.localUri, { encoding: FileSystem.EncodingType.Base64 });
         logoSrc = `data:image/png;base64,${b64}`;
       }
