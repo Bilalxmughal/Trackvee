@@ -136,6 +136,14 @@ export default function VehiclesScreen() {
     const gpsValid = point?.gpsValid;
     const sats = point?.satellites ?? 0;
     const accentColor = ignition === true ? '#16a34a' : STATUS_COLOR[status];
+    const ignBg = ignition === true ? '#dcfce7' : ignition === false ? '#fee2e2' : '#f1f5f9';
+    const ignClr = ignition === true ? '#16a34a' : ignition === false ? '#dc2626' : theme.muted;
+    const gpsBg = !gpsValid ? '#f1f5f9' : sats >= 6 ? '#dcfce7' : sats >= 3 ? '#fef3c7' : '#fee2e2';
+    const gpsClr = !gpsValid ? theme.muted : sats >= 6 ? '#16a34a' : sats >= 3 ? '#d97706' : '#dc2626';
+    const batBg = voltage == null ? '#f1f5f9' : voltage > 12 ? '#dcfce7' : voltage > 11 ? '#fef3c7' : '#fee2e2';
+    const batClr = voltage == null ? theme.muted : voltage > 12 ? '#16a34a' : voltage > 11 ? '#d97706' : '#dc2626';
+    const sigBg = signal == null ? '#f1f5f9' : signal >= 60 ? '#dcfce7' : signal >= 30 ? '#fef3c7' : '#fee2e2';
+    const sigClr = signal == null ? theme.muted : signal >= 60 ? '#16a34a' : signal >= 30 ? '#d97706' : '#dc2626';
     return (
       <View style={s.card}>
         <View style={[s.cardAccent, { backgroundColor: accentColor }]} />
@@ -148,21 +156,21 @@ export default function VehiclesScreen() {
             <Text style={s.speedText}>{status === 'offline' ? 'Offline' : `${Math.round(point?.speedKmh ?? 0)} km/h`}</Text>
           </View>
           <View style={s.cardChips}>
-            <View style={[s.chip, { backgroundColor: ignition === true ? '#dcfce7' : '#f1f5f9' }]}>
-              <TablerIcon name="power" size={12} color={ignition === true ? '#16a34a' : theme.muted} />
-              <Text style={[s.chipText, { color: ignition === true ? '#16a34a' : theme.muted }]}>{ignition === true ? 'ON' : ignition === false ? 'OFF' : '—'}</Text>
+            <View style={[s.chip, { backgroundColor: ignBg }]}>
+              <TablerIcon name="power" size={12} color={ignClr} />
+              <Text style={[s.chipText, { color: ignClr }]}>{ignition === true ? 'ON' : ignition === false ? 'OFF' : '—'}</Text>
             </View>
-            <View style={s.chip}>
-              <TablerIcon name="map-pin" size={12} color={gpsValid ? theme.secondary : theme.muted} />
-              <Text style={[s.chipText, { color: gpsValid ? theme.secondary : theme.muted }]}>{sats} sat</Text>
+            <View style={[s.chip, { backgroundColor: gpsBg }]}>
+              <TablerIcon name="map-pin" size={12} color={gpsClr} />
+              <Text style={[s.chipText, { color: gpsClr }]}>{sats} sat</Text>
             </View>
-            <View style={s.chip}>
-              <TablerIcon name="battery" size={12} color={theme.secondary} />
-              <Text style={s.chipText}>{voltage != null ? `${voltage.toFixed(1)}V` : '—'}</Text>
+            <View style={[s.chip, { backgroundColor: batBg }]}>
+              <TablerIcon name="battery" size={12} color={batClr} />
+              <Text style={[s.chipText, { color: batClr }]}>{voltage != null ? `${voltage.toFixed(1)}V` : '—'}</Text>
             </View>
-            <View style={s.chip}>
-              <TablerIcon name="signal" size={12} color={theme.secondary} />
-              <Text style={s.chipText}>{signal == null ? '—' : `${signal}%`}</Text>
+            <View style={[s.chip, { backgroundColor: sigBg }]}>
+              <TablerIcon name="signal" size={12} color={sigClr} />
+              <Text style={[s.chipText, { color: sigClr }]}>{signal == null ? '—' : `${signal}%`}</Text>
             </View>
             <Text style={s.updatedText}>{ageLabel(point?.timestamp)}</Text>
           </View>
@@ -377,7 +385,7 @@ const s = StyleSheet.create({
   addGroup: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   addGroupText: { color: theme.red, fontSize: 12, fontWeight: '600' },
 
-  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: theme.border, borderBottomWidth: 1, borderBottomColor: theme.border },
+  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.border },
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 11, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: theme.red },
   tabText: { color: theme.secondary, fontSize: 12, fontWeight: '600' },
@@ -418,7 +426,7 @@ const s = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6, backgroundColor: '#f1f5f9' },
   chipText: { fontSize: 10, fontWeight: '600', color: theme.secondary },
   updatedText: { fontSize: 9, color: theme.muted, marginLeft: 'auto' },
-  cardMenu: { width: 36, alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: theme.border },
+  cardMenu: { width: 36, alignItems: 'center', justifyContent: 'center' },
   groupVehicleRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: theme.border, paddingRight: 4 },
   groupVehicleAccent: { width: 3, alignSelf: 'stretch' },
   groupVehicleBody: { flex: 1, paddingVertical: 11, paddingLeft: 11, paddingRight: 4 },
