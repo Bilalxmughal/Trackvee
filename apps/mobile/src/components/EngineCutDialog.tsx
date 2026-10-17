@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import api from '../lib/api';
-import { theme } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
+import type { AppTheme } from '../theme';
 
 interface Props {
   visible: boolean;
@@ -13,6 +14,8 @@ interface Props {
 }
 
 export function EngineCutDialog({ visible, imei, plate, immobilized, onClose, onSuccess }: Props) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [digits, setDigits] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -33,7 +36,7 @@ export function EngineCutDialog({ visible, imei, plate, immobilized, onClose, on
     <View style={styles.shade}><View style={styles.card}>
       <Text style={styles.title}>{immobilized ? 'Engine Restore Confirm' : 'Engine Cut Confirm'}</Text>
       <Text style={styles.body}>Vehicle: <Text style={styles.plate}>{plate}</Text>{'\n'}Enter the last 4 digits printed on the device label to confirm:</Text>
-      <TextInput autoFocus value={digits} onChangeText={value => { setDigits(value.replace(/\D/g, '').slice(0, 4)); setError(''); }} keyboardType="number-pad" maxLength={4} placeholder="_ _ _ _" placeholderTextColor={theme.muted} style={[styles.input, error ? styles.inputError : null]} accessibilityLabel="Last four digits on the device label" onSubmitEditing={() => void submit()} />
+      <TextInput autoFocus value={digits} onChangeText={value => { setDigits(value.replace(/\D/g, '').slice(0, 4)); setError(''); }} keyboardType="number-pad" maxLength={4} placeholder="_ _ _ _" placeholderTextColor={t.muted} style={[styles.input, error ? styles.inputError : null]} accessibilityLabel="Last four digits on the device label" onSubmitEditing={() => void submit()} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={styles.actions}>
         <Pressable onPress={onClose} style={styles.cancel}><Text style={styles.cancelText}>Cancel</Text></Pressable>
@@ -43,17 +46,17 @@ export function EngineCutDialog({ visible, imei, plate, immobilized, onClose, on
   </Modal>;
 }
 
-const styles = StyleSheet.create({
+function createStyles(t: AppTheme) { return StyleSheet.create({
   shade: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  card: { width: '100%', maxWidth: 320, backgroundColor: '#fff', borderRadius: 14, padding: 24 },
-  title: { fontSize: 15, fontWeight: '700', color: theme.red },
-  body: { marginTop: 6, marginBottom: 16, fontSize: 12.5, color: theme.secondary, lineHeight: 19 },
-  plate: { fontWeight: '700', color: theme.ink },
-  input: { height: 49, borderWidth: 1.5, borderColor: theme.border, borderRadius: 8, backgroundColor: '#f9fafb', color: theme.ink, textAlign: 'center', fontSize: 20, letterSpacing: 8 },
-  inputError: { borderColor: theme.red }, error: { color: theme.red, fontSize: 11.5, marginTop: 6 },
+  card: { width: '100%', maxWidth: 320, backgroundColor: t.card, borderRadius: 14, padding: 24 },
+  title: { fontSize: 15, fontWeight: '700', color: t.red },
+  body: { marginTop: 6, marginBottom: 16, fontSize: 12.5, color: t.secondary, lineHeight: 19 },
+  plate: { fontWeight: '700', color: t.ink },
+  input: { height: 49, borderWidth: 1.5, borderColor: t.border, borderRadius: 8, backgroundColor: t.inputBg, color: t.ink, textAlign: 'center', fontSize: 20, letterSpacing: 8 },
+  inputError: { borderColor: t.red }, error: { color: t.red, fontSize: 11.5, marginTop: 6 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 16 },
-  cancel: { flex: 1, height: 39, borderWidth: 1, borderColor: theme.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  cancelText: { color: theme.secondary, fontSize: 13 },
-  confirm: { flex: 1, height: 39, backgroundColor: theme.red, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  cancel: { flex: 1, height: 39, borderWidth: 1, borderColor: t.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  cancelText: { color: t.secondary, fontSize: 13 },
+  confirm: { flex: 1, height: 39, backgroundColor: t.red, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   confirmText: { color: '#fff', fontSize: 13, fontWeight: '600' }, disabled: { opacity: 0.6 },
-});
+}); }

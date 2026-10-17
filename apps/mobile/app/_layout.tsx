@@ -5,7 +5,6 @@ import * as Notifications from 'expo-notifications';
 import { AuthProvider, useAuth } from '../src/auth/AuthProvider';
 import { PortalPermissionsProvider } from '../src/auth/PortalPermissionsProvider';
 import { ThemeProvider, useThemeContext } from '../src/contexts/ThemeContext';
-import { theme } from '../src/theme';
 import { getAlertSoundEnabled, getPushTokenListener } from '../src/lib/pushNotifications';
 
 Notifications.setNotificationHandler({

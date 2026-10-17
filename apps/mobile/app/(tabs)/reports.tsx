@@ -7,7 +7,8 @@ import * as Sharing from 'expo-sharing';
 import api from '../../src/lib/api';
 import type { FleetVehicle } from '../../src/hooks/useFleet';
 import { TablerIcon } from '../../src/components/TablerIcon';
-import { theme } from '../../src/theme';
+import { useTheme } from '../../src/hooks/useTheme';
+import type { AppTheme } from '../../src/theme';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
 
 type ReportType =
@@ -124,6 +125,8 @@ function makeCsv(result: ReportResult) {
 }
 
 export default function ReportsScreen() {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [vehicles, setVehicles] = useState<FleetVehicle[]>([]);
   const [groups, setGroups] = useState<VehicleGroup[]>([]);
   const [geofences, setGeofences] = useState<GeofenceOption[]>([]);
@@ -311,7 +314,7 @@ export default function ReportsScreen() {
       <View style={{ flex: 1 }}>
         <View style={styles.header}>
           <View><Text style={styles.title}>Reports</Text><Text style={styles.subtitle}>Fleet activity and trip summaries</Text></View>
-          <TablerIcon name="report" size={23} color={theme.red} />
+          <TablerIcon name="report" size={23} color={t.red} />
         </View>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <Text style={styles.label}>Report Type</Text>
@@ -348,10 +351,10 @@ export default function ReportsScreen() {
           {result ? <View style={styles.preview}>
             <View style={styles.previewHeader}>
               <View style={{ flex: 1 }}><Text style={styles.previewTitle}>{REPORTS.find(item => item.id === result.type)?.label ?? 'Report Preview'}</Text><Text style={styles.previewMeta}>{result.vehicleCount} vehicle{result.vehicleCount === 1 ? '' : 's'} · {result.rowCount} rows · {displayPkt(from)} to {displayPkt(to)}</Text></View>
-              <Pressable accessibilityLabel="Share CSV report" disabled={exporting} onPress={exportCsv} style={styles.exportButton}>{exporting ? <ActivityIndicator size="small" color={theme.red} /> : <><TablerIcon name="report" size={16} color={theme.red} /><Text style={styles.exportText}>CSV</Text></>}</Pressable>
+              <Pressable accessibilityLabel="Share CSV report" disabled={exporting} onPress={exportCsv} style={styles.exportButton}>{exporting ? <ActivityIndicator size="small" color={t.red} /> : <><TablerIcon name="report" size={16} color={t.red} /><Text style={styles.exportText}>CSV</Text></>}</Pressable>
             </View>
-            <Pressable onPress={() => { setSaveTitle(`${report.label} · ${period}`); setSaveModalOpen(true); }} style={styles.saveCurrent}><TablerIcon name="bookmark" size={15} color={theme.red} /><Text style={styles.saveCurrentText}>Save current filters</Text></Pressable>
-            <View style={styles.resultSearch}><TablerIcon name="search" size={16} color={theme.secondary} /><TextInput value={resultSearch} onChangeText={setResultSearch} placeholder="Search report results" placeholderTextColor={theme.muted} style={styles.resultSearchInput} /></View>
+            <Pressable onPress={() => { setSaveTitle(`${report.label} · ${period}`); setSaveModalOpen(true); }} style={styles.saveCurrent}><TablerIcon name="bookmark" size={15} color={t.red} /><Text style={styles.saveCurrentText}>Save current filters</Text></Pressable>
+            <View style={styles.resultSearch}><TablerIcon name="search" size={16} color={t.secondary} /><TextInput value={resultSearch} onChangeText={setResultSearch} placeholder="Search report results" placeholderTextColor={t.muted} style={styles.resultSearchInput} /></View>
             <ScrollView horizontal showsHorizontalScrollIndicator>
               <View>
                 <View style={styles.tableHeader}>{result.columns.map((column, index) => <Text key={`${column}-${index}`} style={styles.cellHeader}>{column}</Text>)}</View>
@@ -363,22 +366,22 @@ export default function ReportsScreen() {
           </View> : null}
 
           <View style={styles.savedSection}>
-            <View style={styles.savedHeader}><Text style={styles.savedTitle}>Saved Reports</Text><Pressable accessibilityLabel="Refresh saved reports" onPress={refreshSaved}><TablerIcon name="refresh" size={17} color={theme.secondary} /></Pressable></View>
-            {savedLoading ? <ActivityIndicator style={{ marginVertical: 16 }} color={theme.red} /> : null}
+            <View style={styles.savedHeader}><Text style={styles.savedTitle}>Saved Reports</Text><Pressable accessibilityLabel="Refresh saved reports" onPress={refreshSaved}><TablerIcon name="refresh" size={17} color={t.secondary} /></Pressable></View>
+            {savedLoading ? <ActivityIndicator style={{ marginVertical: 16 }} color={t.red} /> : null}
             {!savedLoading && !saved.length ? <Text style={styles.noSaved}>Saved filter sets will appear here.</Text> : null}
             {!savedLoading ? saved.map(entry => <View key={entry.id} style={styles.savedRow}>
               <Pressable onPress={() => loadSaved(entry)} style={{ flex: 1 }}><Text numberOfLines={1} style={styles.savedName}>{entry.title}</Text><Text style={styles.savedMeta}>{REPORTS.find(item => item.id === entry.type)?.label ?? entry.type} · {entry.userName ?? 'Saved report'}</Text></Pressable>
-              {deleteId === entry.id ? <View style={styles.deleteActions}><Pressable onPress={() => deleteSaved(entry.id)}><Text style={styles.deleteConfirm}>Delete</Text></Pressable><Pressable onPress={() => setDeleteId(null)}><Text style={styles.cancelDelete}>Cancel</Text></Pressable></View> : <Pressable accessibilityLabel={`Delete ${entry.title}`} onPress={() => setDeleteId(entry.id)} style={styles.deleteButton}><TablerIcon name="trash" size={16} color={theme.secondary} /></Pressable>}
+              {deleteId === entry.id ? <View style={styles.deleteActions}><Pressable onPress={() => deleteSaved(entry.id)}><Text style={styles.deleteConfirm}>Delete</Text></Pressable><Pressable onPress={() => setDeleteId(null)}><Text style={styles.cancelDelete}>Cancel</Text></Pressable></View> : <Pressable accessibilityLabel={`Delete ${entry.title}`} onPress={() => setDeleteId(entry.id)} style={styles.deleteButton}><TablerIcon name="trash" size={16} color={t.secondary} /></Pressable>}
             </View>) : null}
           </View>
         </ScrollView>
 
         <Modal visible={picker !== null} transparent animationType="slide" onRequestClose={() => setPicker(null)}>
           <View style={styles.modalBackdrop}><View style={styles.sheet}>
-            <View style={styles.sheetHeader}><Text style={styles.sheetTitle}>{pickerTitle}</Text><Pressable onPress={() => setPicker(null)} accessibilityLabel="Close"><TablerIcon name="close" size={20} color={theme.ink} /></Pressable></View>
+            <View style={styles.sheetHeader}><Text style={styles.sheetTitle}>{pickerTitle}</Text><Pressable onPress={() => setPicker(null)} accessibilityLabel="Close"><TablerIcon name="close" size={20} color={t.ink} /></Pressable></View>
             {picker === 'vehicles' ? <>
               <View style={styles.vehicleTools}><Pressable onPress={() => { setSelected(null); setResult(null); }}><Text style={styles.toolText}>Select all</Text></Pressable><Pressable onPress={() => { setSelected([]); setResult(null); }}><Text style={styles.toolText}>Deselect all</Text></Pressable></View>
-              <View style={styles.vehicleSearch}><TablerIcon name="search" size={17} color={theme.secondary} /><TextInput value={vehicleSearch} onChangeText={setVehicleSearch} placeholder="Search vehicles" placeholderTextColor={theme.muted} style={styles.vehicleSearchInput} /></View>
+              <View style={styles.vehicleSearch}><TablerIcon name="search" size={17} color={t.secondary} /><TextInput value={vehicleSearch} onChangeText={setVehicleSearch} placeholder="Search vehicles" placeholderTextColor={t.muted} style={styles.vehicleSearchInput} /></View>
               <VehicleSelectionList vehicles={vehicles} groups={groups} query={vehicleSearch} selected={selected} onToggleVehicle={toggleVehicle} onToggleGroup={toggleGroup} />
               <Pressable onPress={() => setPicker(null)} style={styles.done}><Text style={styles.doneText}>Done · {chosen.length} selected</Text></Pressable>
             </> : <ScrollView style={styles.choiceList}>
@@ -400,7 +403,7 @@ export default function ReportsScreen() {
         <Modal visible={saveModalOpen} transparent animationType="fade" onRequestClose={() => setSaveModalOpen(false)}>
           <View style={styles.saveBackdrop}><View style={styles.saveCard}>
             <Text style={styles.sheetTitle}>Save Report Filters</Text><Text style={styles.saveHint}>Save this setup to reuse the same vehicles, dates and report options.</Text>
-            <TextInput autoFocus value={saveTitle} onChangeText={setSaveTitle} placeholder="Report name" placeholderTextColor={theme.muted} style={styles.saveInput} maxLength={80} />
+            <TextInput autoFocus value={saveTitle} onChangeText={setSaveTitle} placeholder="Report name" placeholderTextColor={t.muted} style={styles.saveInput} maxLength={80} />
             <View style={styles.saveActions}><Pressable onPress={() => setSaveModalOpen(false)} style={styles.cancelButton}><Text style={styles.cancelText}>Cancel</Text></Pressable><Pressable disabled={!saveTitle.trim()} onPress={saveCurrent} style={[styles.done, !saveTitle.trim() && styles.disabled]}><Text style={styles.doneText}>Save</Text></Pressable></View>
           </View></View>
         </Modal>
@@ -445,19 +448,24 @@ function VehicleSelectionList({ vehicles, groups, query, selected, onToggleVehic
 }
 
 function CheckBox({ checked, partial = false }: { checked: boolean; partial?: boolean }) {
+  const t = useTheme(); const styles = useMemo(() => createStyles(t), [t]);
   return <View style={[styles.checkbox, (checked || partial) && styles.checkboxOn]}><Text style={styles.check}>{checked ? '✓' : partial ? '−' : ''}</Text></View>;
 }
 function ChoiceRow({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={styles.choiceRow}><Text style={[styles.choiceLabel, { flex: 1 }]}>{label}</Text>{selected ? <TablerIcon name="check" size={17} color={theme.red} /> : null}</Pressable>;
+  const t = useTheme(); const styles = useMemo(() => createStyles(t), [t]);
+  return <Pressable onPress={onPress} style={styles.choiceRow}><Text style={[styles.choiceLabel, { flex: 1 }]}>{label}</Text>{selected ? <TablerIcon name="check" size={17} color={t.red} /> : null}</Pressable>;
 }
 function DateField({ label, value, onPress }: { label: string; value: string; onPress: () => void }) {
+  const t = useTheme(); const styles = useMemo(() => createStyles(t), [t]);
   return <Pressable accessibilityRole="button" onPress={onPress} style={styles.dateBox}><Text style={styles.dateLabel}>{label}</Text><Text numberOfLines={1} style={styles.dateValue}>{displayPkt(value)}</Text></Pressable>;
 }
 function FilterNumber({ label, value, placeholder, onChange, min, max }: { label: string; value: string; placeholder: string; onChange: (value: string) => void; min: number; max: number }) {
-  return <View style={styles.numberFilter}><Text style={styles.label}>{label}</Text><TextInput value={value} onChangeText={text => onChange(text.replace(/[^0-9]/g, '').slice(0, 3))} keyboardType="number-pad" placeholder={placeholder} placeholderTextColor={theme.muted} style={styles.numberInput} accessibilityLabel={`${label}, from ${min} to ${max}`} />{value && (Number(value) < min || Number(value) > max) ? <Text style={styles.validationHint}>Enter a value from {min} to {max}.</Text> : null}</View>;
+  const t = useTheme(); const styles = useMemo(() => createStyles(t), [t]);
+  return <View style={styles.numberFilter}><Text style={styles.label}>{label}</Text><TextInput value={value} onChangeText={text => onChange(text.replace(/[^0-9]/g, '').slice(0, 3))} keyboardType="number-pad" placeholder={placeholder} placeholderTextColor={t.muted} style={styles.numberInput} accessibilityLabel={`${label}, from ${min} to ${max}`} />{value && (Number(value) < min || Number(value) > max) ? <Text style={styles.validationHint}>Enter a value from {min} to {max}.</Text> : null}</View>;
 }
 
 function DateTimePickerModal({ value, visible, onClose, onApply }: { value: string; visible: boolean; onClose: () => void; onApply: (value: string) => void }) {
+  const t = useTheme(); const styles = useMemo(() => createStyles(t), [t]);
   const initial = parsePkt(value);
   const [draft, setDraft] = useState<PktParts>(initial);
   const [month, setMonth] = useState({ year: initial.year, month: initial.month });
@@ -485,7 +493,7 @@ function DateTimePickerModal({ value, visible, onClose, onApply }: { value: stri
   const monthTitle = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(month.year, month.month - 1, 1)));
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={styles.pickerScrim}><View style={styles.pickerCard}>
-      <View style={styles.pickerHeader}><Pressable accessibilityLabel="Previous month" onPress={() => changeMonth(-1)} style={styles.pickerArrow}><TablerIcon name="back" size={17} color={theme.ink} /></Pressable><Text style={styles.pickerTitle}>{monthTitle}</Text><Pressable accessibilityLabel="Next month" onPress={() => changeMonth(1)} style={styles.pickerArrow}><TablerIcon name="forward" size={17} color={theme.ink} /></Pressable></View>
+      <View style={styles.pickerHeader}><Pressable accessibilityLabel="Previous month" onPress={() => changeMonth(-1)} style={styles.pickerArrow}><TablerIcon name="back" size={17} color={t.ink} /></Pressable><Text style={styles.pickerTitle}>{monthTitle}</Text><Pressable accessibilityLabel="Next month" onPress={() => changeMonth(1)} style={styles.pickerArrow}><TablerIcon name="forward" size={17} color={t.ink} /></Pressable></View>
       <View style={styles.calendarGrid}>
         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => <Text key={`${day}-${index}`} style={styles.calendarWeekday}>{day}</Text>)}
         {Array.from({ length: firstWeekday }, (_, index) => <View key={`blank-${index}`} style={styles.calendarDay} />)}
@@ -506,36 +514,36 @@ function DateTimePickerModal({ value, visible, onClose, onApply }: { value: stri
   </Modal>;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: { minHeight: 70, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: theme.border },
-  title: { fontSize: 24, fontWeight: '700', color: theme.ink }, subtitle: { marginTop: 3, color: theme.secondary, fontSize: 12 },
-  body: { padding: 18, paddingBottom: 34 }, label: { color: theme.ink, fontSize: 12, fontWeight: '600', marginTop: 14, marginBottom: 7 },
-  select: { minHeight: 46, borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  selectText: { flex: 1, fontSize: 14, color: theme.ink, marginRight: 10 }, chevron: { fontSize: 20, color: theme.secondary, marginTop: -6 },
-  dateRow: { flexDirection: 'row', gap: 10, marginTop: 14 }, dateBox: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 10 },
-  dateLabel: { fontSize: 10, color: theme.secondary, marginBottom: 5 }, dateValue: { fontSize: 12, color: theme.ink, fontWeight: '600' },
-  numberFilter: { marginTop: 2 }, numberInput: { minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, color: theme.ink, fontSize: 14 }, validationHint: { marginTop: 5, color: theme.red, fontSize: 11 },
-  generate: { height: 49, backgroundColor: theme.red, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 18 }, pressed: { opacity: 0.84 }, disabled: { opacity: 0.55 }, generateText: { color: '#fff', fontWeight: '700', fontSize: 14 }, error: { color: theme.red, fontSize: 12, marginTop: 10 },
-  preview: { marginTop: 24, borderTopWidth: 1, borderColor: theme.border, paddingTop: 14 }, previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 }, previewTitle: { color: theme.ink, fontSize: 16, fontWeight: '700' }, previewMeta: { color: theme.secondary, fontSize: 10, marginTop: 4 },
-  exportButton: { minWidth: 58, height: 36, paddingHorizontal: 10, borderWidth: 1, borderColor: theme.border, borderRadius: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }, exportText: { color: theme.red, fontWeight: '700', fontSize: 12 },
-  saveCurrent: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12 }, saveCurrentText: { color: theme.red, fontSize: 12, fontWeight: '600' },
-  resultSearch: { height: 40, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: theme.border, borderRadius: 7, marginBottom: 10 }, resultSearchInput: { flex: 1, padding: 0, fontSize: 12, color: theme.ink },
-  tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: theme.border, backgroundColor: theme.canvas }, cellHeader: { width: 132, paddingHorizontal: 8, paddingVertical: 10, color: theme.secondary, fontSize: 11, fontWeight: '700' },
-  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: theme.border }, cell: { width: 132, paddingHorizontal: 8, paddingVertical: 11, color: theme.ink, fontSize: 12 }, summaryRow: { flexDirection: 'row', borderTopWidth: 2, borderColor: theme.border, backgroundColor: theme.canvas }, summaryCell: { width: 132, paddingHorizontal: 8, paddingVertical: 10, color: theme.ink, fontSize: 11, fontWeight: '700' }, noRows: { padding: 18, color: theme.secondary, fontSize: 12 },
-  savedSection: { marginTop: 28, borderTopWidth: 1, borderColor: theme.border, paddingTop: 17 }, savedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }, savedTitle: { color: theme.ink, fontSize: 15, fontWeight: '700' }, noSaved: { color: theme.secondary, fontSize: 12, paddingVertical: 12 },
-  savedRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderColor: theme.border }, savedName: { color: theme.ink, fontSize: 13, fontWeight: '600' }, savedMeta: { color: theme.secondary, fontSize: 10, marginTop: 4 }, deleteButton: { width: 36, height: 40, alignItems: 'center', justifyContent: 'center' }, deleteActions: { flexDirection: 'row', gap: 12 }, deleteConfirm: { color: theme.red, fontWeight: '700', fontSize: 11 }, cancelDelete: { color: theme.secondary, fontSize: 11 },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.38)', justifyContent: 'flex-end' }, sheet: { maxHeight: '86%', backgroundColor: '#fff', borderTopLeftRadius: 12, borderTopRightRadius: 12, paddingBottom: 25 },
-  sheetHeader: { height: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: theme.border }, sheetTitle: { fontSize: 16, fontWeight: '700', color: theme.ink },
-  vehicleTools: { flexDirection: 'row', justifyContent: 'flex-end', gap: 20, paddingHorizontal: 18, paddingVertical: 12 }, toolText: { color: theme.red, fontSize: 12, fontWeight: '600' },
-  vehicleSearch: { height: 42, marginHorizontal: 18, marginBottom: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: theme.border, borderRadius: 8 }, vehicleSearchInput: { flex: 1, padding: 0, fontSize: 13, color: theme.ink }, choiceList: { paddingHorizontal: 18 },
-  groupHeading: { color: theme.secondary, fontSize: 11, fontWeight: '700', paddingTop: 14, paddingBottom: 6, textTransform: 'uppercase' }, groupRow: { minHeight: 45, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderColor: theme.border, backgroundColor: theme.canvas, paddingHorizontal: 8 }, groupName: { flex: 1, color: theme.ink, fontSize: 12, fontWeight: '700' }, groupCount: { color: theme.secondary, fontSize: 11 },
-  choiceRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: 1, borderColor: theme.border, paddingHorizontal: 4 }, choiceLabel: { color: theme.ink, fontSize: 14, fontWeight: '500' }, choiceHint: { color: theme.secondary, fontSize: 11, marginTop: 3 },
-  checkbox: { height: 19, width: 19, borderWidth: 1, borderColor: theme.muted, borderRadius: 3, alignItems: 'center', justifyContent: 'center' }, checkboxOn: { borderColor: theme.red, backgroundColor: theme.red }, check: { color: '#fff', fontSize: 13, fontWeight: '700', lineHeight: 16 },
-  done: { minHeight: 44, backgroundColor: theme.red, borderRadius: 7, alignItems: 'center', justifyContent: 'center', marginHorizontal: 18, marginTop: 12, paddingHorizontal: 16 }, doneText: { color: '#fff', fontWeight: '700', fontSize: 13 }, emptyChoices: { padding: 18, color: theme.secondary, fontSize: 12 },
-  saveBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.38)', justifyContent: 'center', padding: 22 }, saveCard: { backgroundColor: '#fff', borderRadius: 10, padding: 18, elevation: 8 }, saveHint: { color: theme.secondary, fontSize: 12, lineHeight: 18, marginTop: 7, marginBottom: 14 }, saveInput: { height: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 7, paddingHorizontal: 11, color: theme.ink, fontSize: 13 }, saveActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 }, cancelButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 14 }, cancelText: { color: theme.secondary, fontSize: 13, fontWeight: '600' },
-  pickerScrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.38)', justifyContent: 'center', padding: 18 }, pickerCard: { width: '100%', maxWidth: 420, alignSelf: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 16, elevation: 8 }, pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }, pickerArrow: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }, pickerTitle: { fontSize: 15, fontWeight: '700', color: theme.ink },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' }, calendarWeekday: { width: '14.2857%', textAlign: 'center', paddingVertical: 7, color: theme.secondary, fontSize: 10, fontWeight: '700' }, calendarDay: { width: '14.2857%', height: 38, alignItems: 'center', justifyContent: 'center' }, calendarDayActive: { backgroundColor: theme.red, borderRadius: 20 }, calendarDayText: { fontSize: 12, color: theme.ink }, calendarDayTextActive: { color: '#fff', fontWeight: '700' },
-  timePicker: { position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 15, borderTopWidth: 1, borderColor: theme.border, marginTop: 11, paddingTop: 27 }, timeLabel: { position: 'absolute', left: 0, top: 9, color: theme.secondary, fontSize: 10 }, timeUnit: { alignItems: 'center', gap: 4 }, timeStep: { width: 38, height: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.canvas, borderRadius: 6 }, timeStepText: { fontSize: 16, color: theme.ink }, timeNumber: { fontSize: 16, color: theme.ink, fontWeight: '700' }, timeColon: { fontSize: 18, fontWeight: '700', color: theme.ink }, meridiem: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: theme.canvas, borderRadius: 6 }, meridiemText: { fontSize: 12, fontWeight: '700', color: theme.ink },
-  pickerActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 }, applyButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 18, backgroundColor: theme.red, borderRadius: 7 },
-});
+function createStyles(t: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  header: { minHeight: 70, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: t.border },
+  title: { fontSize: 24, fontWeight: '700', color: t.ink }, subtitle: { marginTop: 3, color: t.secondary, fontSize: 12 },
+  body: { padding: 18, paddingBottom: 34 }, label: { color: t.ink, fontSize: 12, fontWeight: '600', marginTop: 14, marginBottom: 7 },
+  select: { minHeight: 46, borderWidth: 1, borderColor: t.border, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectText: { flex: 1, fontSize: 14, color: t.ink, marginRight: 10 }, chevron: { fontSize: 20, color: t.secondary, marginTop: -6 },
+  dateRow: { flexDirection: 'row', gap: 10, marginTop: 14 }, dateBox: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: t.border, borderRadius: 8, padding: 10 },
+  dateLabel: { fontSize: 10, color: t.secondary, marginBottom: 5 }, dateValue: { fontSize: 12, color: t.ink, fontWeight: '600' },
+  numberFilter: { marginTop: 2 }, numberInput: { minHeight: 44, borderWidth: 1, borderColor: t.border, borderRadius: 8, paddingHorizontal: 12, color: t.ink, fontSize: 14 }, validationHint: { marginTop: 5, color: t.red, fontSize: 11 },
+  generate: { height: 49, backgroundColor: t.red, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 18 }, pressed: { opacity: 0.84 }, disabled: { opacity: 0.55 }, generateText: { color: '#fff', fontWeight: '700', fontSize: 14 }, error: { color: t.red, fontSize: 12, marginTop: 10 },
+  preview: { marginTop: 24, borderTopWidth: 1, borderColor: t.border, paddingTop: 14 }, previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 }, previewTitle: { color: t.ink, fontSize: 16, fontWeight: '700' }, previewMeta: { color: t.secondary, fontSize: 10, marginTop: 4 },
+  exportButton: { minWidth: 58, height: 36, paddingHorizontal: 10, borderWidth: 1, borderColor: t.border, borderRadius: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }, exportText: { color: t.red, fontWeight: '700', fontSize: 12 },
+  saveCurrent: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12 }, saveCurrentText: { color: t.red, fontSize: 12, fontWeight: '600' },
+  resultSearch: { height: 40, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: t.border, borderRadius: 7, marginBottom: 10 }, resultSearchInput: { flex: 1, padding: 0, fontSize: 12, color: t.ink },
+  tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: t.border, backgroundColor: t.bg2 }, cellHeader: { width: 132, paddingHorizontal: 8, paddingVertical: 10, color: t.secondary, fontSize: 11, fontWeight: '700' },
+  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: t.border }, cell: { width: 132, paddingHorizontal: 8, paddingVertical: 11, color: t.ink, fontSize: 12 }, summaryRow: { flexDirection: 'row', borderTopWidth: 2, borderColor: t.border, backgroundColor: t.bg2 }, summaryCell: { width: 132, paddingHorizontal: 8, paddingVertical: 10, color: t.ink, fontSize: 11, fontWeight: '700' }, noRows: { padding: 18, color: t.secondary, fontSize: 12 },
+  savedSection: { marginTop: 28, borderTopWidth: 1, borderColor: t.border, paddingTop: 17 }, savedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }, savedTitle: { color: t.ink, fontSize: 15, fontWeight: '700' }, noSaved: { color: t.secondary, fontSize: 12, paddingVertical: 12 },
+  savedRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderColor: t.border }, savedName: { color: t.ink, fontSize: 13, fontWeight: '600' }, savedMeta: { color: t.secondary, fontSize: 10, marginTop: 4 }, deleteButton: { width: 36, height: 40, alignItems: 'center', justifyContent: 'center' }, deleteActions: { flexDirection: 'row', gap: 12 }, deleteConfirm: { color: t.red, fontWeight: '700', fontSize: 11 }, cancelDelete: { color: t.secondary, fontSize: 11 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.38)', justifyContent: 'flex-end' }, sheet: { maxHeight: '86%', backgroundColor: t.bg, borderTopLeftRadius: 12, borderTopRightRadius: 12, paddingBottom: 25 },
+  sheetHeader: { height: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: t.border }, sheetTitle: { fontSize: 16, fontWeight: '700', color: t.ink },
+  vehicleTools: { flexDirection: 'row', justifyContent: 'flex-end', gap: 20, paddingHorizontal: 18, paddingVertical: 12 }, toolText: { color: t.red, fontSize: 12, fontWeight: '600' },
+  vehicleSearch: { height: 42, marginHorizontal: 18, marginBottom: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: t.border, borderRadius: 8 }, vehicleSearchInput: { flex: 1, padding: 0, fontSize: 13, color: t.ink }, choiceList: { paddingHorizontal: 18 },
+  groupHeading: { color: t.secondary, fontSize: 11, fontWeight: '700', paddingTop: 14, paddingBottom: 6, textTransform: 'uppercase' }, groupRow: { minHeight: 45, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderColor: t.border, backgroundColor: t.bg2, paddingHorizontal: 8 }, groupName: { flex: 1, color: t.ink, fontSize: 12, fontWeight: '700' }, groupCount: { color: t.secondary, fontSize: 11 },
+  choiceRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: 1, borderColor: t.border, paddingHorizontal: 4 }, choiceLabel: { color: t.ink, fontSize: 14, fontWeight: '500' }, choiceHint: { color: t.secondary, fontSize: 11, marginTop: 3 },
+  checkbox: { height: 19, width: 19, borderWidth: 1, borderColor: t.muted, borderRadius: 3, alignItems: 'center', justifyContent: 'center' }, checkboxOn: { borderColor: t.red, backgroundColor: t.red }, check: { color: '#fff', fontSize: 13, fontWeight: '700', lineHeight: 16 },
+  done: { minHeight: 44, backgroundColor: t.red, borderRadius: 7, alignItems: 'center', justifyContent: 'center', marginHorizontal: 18, marginTop: 12, paddingHorizontal: 16 }, doneText: { color: '#fff', fontWeight: '700', fontSize: 13 }, emptyChoices: { padding: 18, color: t.secondary, fontSize: 12 },
+  saveBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.38)', justifyContent: 'center', padding: 22 }, saveCard: { backgroundColor: t.bg, borderRadius: 10, padding: 18, elevation: 8 }, saveHint: { color: t.secondary, fontSize: 12, lineHeight: 18, marginTop: 7, marginBottom: 14 }, saveInput: { height: 44, borderWidth: 1, borderColor: t.border, borderRadius: 7, paddingHorizontal: 11, color: t.ink, fontSize: 13 }, saveActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 }, cancelButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 14 }, cancelText: { color: t.secondary, fontSize: 13, fontWeight: '600' },
+  pickerScrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.38)', justifyContent: 'center', padding: 18 }, pickerCard: { width: '100%', maxWidth: 420, alignSelf: 'center', backgroundColor: t.bg, borderRadius: 12, padding: 16, elevation: 8 }, pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }, pickerArrow: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }, pickerTitle: { fontSize: 15, fontWeight: '700', color: t.ink },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' }, calendarWeekday: { width: '14.2857%', textAlign: 'center', paddingVertical: 7, color: t.secondary, fontSize: 10, fontWeight: '700' }, calendarDay: { width: '14.2857%', height: 38, alignItems: 'center', justifyContent: 'center' }, calendarDayActive: { backgroundColor: t.red, borderRadius: 20 }, calendarDayText: { fontSize: 12, color: t.ink }, calendarDayTextActive: { color: '#fff', fontWeight: '700' },
+  timePicker: { position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 15, borderTopWidth: 1, borderColor: t.border, marginTop: 11, paddingTop: 27 }, timeLabel: { position: 'absolute', left: 0, top: 9, color: t.secondary, fontSize: 10 }, timeUnit: { alignItems: 'center', gap: 4 }, timeStep: { width: 38, height: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg2, borderRadius: 6 }, timeStepText: { fontSize: 16, color: t.ink }, timeNumber: { fontSize: 16, color: t.ink, fontWeight: '700' }, timeColon: { fontSize: 18, fontWeight: '700', color: t.ink }, meridiem: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: t.bg2, borderRadius: 6 }, meridiemText: { fontSize: 12, fontWeight: '700', color: t.ink },
+  pickerActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 }, applyButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 18, backgroundColor: t.red, borderRadius: 7 },
+}); }

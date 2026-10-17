@@ -7,7 +7,8 @@ import { FleetAlertForm, type AlertVehicle, type AlertVehicleGroup, type AlertZo
 import { TablerIcon } from '../src/components/TablerIcon';
 import { useAuth } from '../src/auth/AuthProvider';
 import { usePortalPermissions } from '../src/auth/PortalPermissionsProvider';
-import { theme } from '../src/theme';
+import { useTheme } from '../src/contexts/ThemeContext';
+import type { AppTheme } from '../src/theme';
 
 interface Device { imei: string; vehicle: { id: string; name: string; licensePlate: string | null; make?: string | null; model?: string | null } | null; }
 interface OrgPerm { vehicleIds?: string[] | null; }
@@ -67,9 +68,12 @@ export default function AlertRuleScreen() {
     return () => { active = false; };
   }, [action, canDo, permissionsLoading, ruleId, user?.id, user?.role]);
 
-  if (loading || permissionsLoading) return <SafeAreaView style={s.center} edges={['top', 'bottom']}><ActivityIndicator color={theme.red}/><Text style={s.status}>Loading alert form…</Text></SafeAreaView>;
+  const t = useTheme();
+  const s = useMemo(() => createStyles(t), [t]);
+
+  if (loading || permissionsLoading) return <SafeAreaView style={s.center} edges={['top', 'bottom']}><ActivityIndicator color={t.red}/><Text style={s.status}>Loading alert form…</Text></SafeAreaView>;
   if (error || !formData) return <SafeAreaView style={s.screen} edges={['top', 'bottom']}>
-    <View style={s.header}><Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back to alerts"><TablerIcon name="back" size={21} color={theme.ink}/></Pressable><Text style={s.title}>Alert Rule</Text><View style={s.backSlot}/></View>
+    <View style={s.header}><Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back to alerts"><TablerIcon name="back" size={21} color={t.ink}/></Pressable><Text style={s.title}>Alert Rule</Text><View style={s.backSlot}/></View>
     <View style={s.center}><Text style={s.error}>{error || 'Alert form is unavailable.'}</Text><Pressable onPress={() => router.back()} style={s.backButton}><Text style={s.backText}>Back to alerts</Text></Pressable></View>
   </SafeAreaView>;
 
@@ -84,14 +88,14 @@ export default function AlertRuleScreen() {
   />;
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 24 },
-  status: { color: theme.secondary, fontSize: 12, marginTop: 10 },
-  header: { minHeight: 54, paddingHorizontal: 18, borderBottomWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { color: theme.ink, fontSize: 16, fontWeight: '700' },
+function createStyles(t: AppTheme) { return StyleSheet.create({
+  screen: { flex: 1, backgroundColor: t.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg, padding: 24 },
+  status: { color: t.secondary, fontSize: 12, marginTop: 10 },
+  header: { minHeight: 54, paddingHorizontal: 18, borderBottomWidth: 1, borderColor: t.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { color: t.ink, fontSize: 16, fontWeight: '700' },
   backSlot: { width: 22 },
-  error: { color: theme.secondary, fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  error: { color: t.secondary, fontSize: 13, textAlign: 'center', lineHeight: 19 },
   backButton: { minHeight: 42, marginTop: 18, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
-  backText: { color: theme.red, fontSize: 13, fontWeight: '700' },
-});
+  backText: { color: t.red, fontSize: 13, fontWeight: '700' },
+}); }

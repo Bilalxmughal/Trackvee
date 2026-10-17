@@ -7,21 +7,22 @@ import Svg, { Path } from 'react-native-svg';
 import { useFleet, displayVehicleName, getFleetStatus, type FleetItem, type LivePoint } from '../../src/hooks/useFleet';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
-import { theme } from '../../src/theme';
+import { useTheme } from '../../src/hooks/useTheme';
+import type { AppTheme } from '../../src/theme';
 import api from '../../src/lib/api';
 import logo from '../../assets/trackvee-logo.png';
 import carIcon from '../../assets/car-icon.png';
 
 interface VehicleGroup { id: string; name: string; vehicleIds: string[]; }
-
-const STATUS: Record<string, string> = { moving: theme.moving, idle: theme.idle, parked: theme.secondary, offline: theme.offline };
 const DEFAULT_REGION: Region = { latitude: 24.8607, longitude: 67.0011, latitudeDelta: 0.14, longitudeDelta: 0.14 };
 
 function VehicleMarker({ item, onPress }: { item: FleetItem; onPress: () => void }) {
+  const t = useTheme();
   const point = item.point as LivePoint;
   const coordinate = useRef(new AnimatedRegion({ latitude: point.latitude, longitude: point.longitude, latitudeDelta: 0, longitudeDelta: 0 })).current;
   const state = getFleetStatus(point);
-  const color = STATUS[state] ?? theme.offline;
+  const statusColors: Record<string, string> = { moving: t.moving, idle: t.idle, parked: t.secondary, offline: t.offline };
+  const color = statusColors[state] ?? t.offline;
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
   const lastPress = useRef(0);
   const handlePress = () => {
@@ -52,6 +53,8 @@ function VehicleMarker({ item, onPress }: { item: FleetItem; onPress: () => void
 }
 
 export default function LiveMapScreen() {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView | null>(null);
   const { items, error, reload } = useFleet();
@@ -165,7 +168,7 @@ export default function LiveMapScreen() {
           <Image source={logo} resizeMode="contain" style={styles.logo} accessibilityLabel="Trackvee" />
           <View style={styles.topActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={searchOpen ? 'Close search' : 'Search vehicles'} onPress={() => { if (searchOpen) setQuery(''); setSearchOpen(value => !value); }} style={styles.iconButton}>
-              <TablerIcon name={searchOpen ? 'close' : 'search'} size={20} color={theme.ink} />
+              <TablerIcon name={searchOpen ? 'close' : 'search'} size={20} color={t.ink} />
             </Pressable>
             {canDo('alerts') && <Pressable accessibilityRole="button" accessibilityLabel="Open alerts" onPress={() => router.push('/alerts')} style={styles.iconButton}>
               <TablerIcon name="bell" size={21} color={theme.ink} />
@@ -173,8 +176,8 @@ export default function LiveMapScreen() {
           </View>
         </View>
         {searchOpen && <View style={styles.searchBar}>
-          <TablerIcon name="search" size={19} color={theme.secondary} />
-          <TextInput autoFocus value={query} onChangeText={setQuery} placeholder="Search plate or vehicle" placeholderTextColor={theme.muted} style={styles.searchInput} returnKeyType="search" accessibilityLabel="Search vehicles" />
+          <TablerIcon name="search" size={19} color={t.secondary} />
+          <TextInput autoFocus value={query} onChangeText={setQuery} placeholder="Search plate or vehicle" placeholderTextColor={t.muted} style={styles.searchInput} returnKeyType="search" accessibilityLabel="Search vehicles" />
           <Text style={styles.vehicleCount}>{filtered.length}</Text>
         </View>}
         {groups.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.groupPillsScroll} contentContainerStyle={styles.groupPillsContent}>
@@ -190,20 +193,21 @@ export default function LiveMapScreen() {
       </View>
 
       <View style={[styles.mapActions, { top: Math.max(insets.top, 10) + (searchOpen ? 160 : 110) + (groups.length > 0 ? 44 : 0) }]}>
-        <Pressable onPress={() => setStyleOpen(value => !value)} style={styles.mapButton} accessibilityRole="button" accessibilityLabel="Map type"><TablerIcon name="layers" size={19} color={theme.ink} /></Pressable>
+        <Pressable onPress={() => setStyleOpen(value => !value)} style={styles.mapButton} accessibilityRole="button" accessibilityLabel="Map type"><TablerIcon name="layers" size={19} color={t.ink} /></Pressable>
         {styleOpen && <View style={styles.styleMenu}>
           {(Platform.OS === 'ios' ? ['street', 'satellite', 'hybrid'] : ['street', 'satellite', 'hybrid', 'terrain']).map(style => <Pressable key={style} onPress={() => { setMapStyle(style as typeof mapStyle); setStyleOpen(false); }} style={styles.styleOption} accessibilityRole="button" accessibilityLabel={`${style[0]!.toUpperCase() + style.slice(1)} map`}><Text style={[styles.styleOptionText, mapStyle === style && styles.styleOptionSelected]}>{style[0]!.toUpperCase() + style.slice(1)}</Text></Pressable>)}
         </View>}
         <Pressable onPress={() => void zoom(0.5)} style={styles.mapButton} accessibilityLabel="Zoom in"><Text style={styles.zoomInText}>+</Text></Pressable>
         <Pressable onPress={() => void zoom(2)} style={styles.mapButton} accessibilityLabel="Zoom out"><Text style={styles.zoomOutText}>−</Text></Pressable>
-        <Pressable onPress={fitFleet} style={styles.mapButton} accessibilityLabel="Fit vehicles"><TablerIcon name="locate" size={19} color={theme.ink} /></Pressable>
+        <Pressable onPress={fitFleet} style={styles.mapButton} accessibilityLabel="Fit vehicles"><TablerIcon name="locate" size={19} color={t.ink} /></Pressable>
       </View>
 
       <View style={[styles.bottomOverlay, { bottom: 3 }]}>
         <View style={styles.statusRow}>
           {(['moving', 'idle', 'parked', 'offline'] as const).map(status => {
+            const dotColors: Record<string, string> = { moving: t.moving, idle: t.idle, parked: t.secondary, offline: t.offline };
             const count = items.filter(item => getFleetStatus(item.point) === status).length;
-            return <View key={status} style={styles.statusItem}><View style={styles.statusMetric}><View style={[styles.statusDot, { backgroundColor: STATUS[status] }]} /><Text style={styles.statusValue}>{count}</Text></View><Text style={styles.statusLabel}>{status[0]!.toUpperCase() + status.slice(1)}</Text>{status !== 'offline' && <View pointerEvents="none" style={styles.statusDivider}/>}</View>;
+            return <View key={status} style={styles.statusItem}><View style={styles.statusMetric}><View style={[styles.statusDot, { backgroundColor: dotColors[status] }]} /><Text style={styles.statusValue}>{count}</Text></View><Text style={styles.statusLabel}>{status[0]!.toUpperCase() + status.slice(1)}</Text>{status !== 'offline' && <View pointerEvents="none" style={styles.statusDivider}/>}</View>;
           })}
         </View>
         {error ? <Pressable onPress={reload}><Text style={styles.errorText}>{error}  Retry</Text></Pressable> : null}
@@ -213,42 +217,42 @@ export default function LiveMapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(t: AppTheme) { return StyleSheet.create({
   fill: { flex: 1, backgroundColor: '#e9edf0' },
   topOverlay: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: 16 },
   topRow: { height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logo: { height: 34, width: 135 },
-  iconButton: { width: 42, height: 42, borderRadius: 10, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.border },
-  searchBar: { height: 48, paddingHorizontal: 13, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  searchInput: { flex: 1, padding: 0, color: theme.ink, fontSize: 14 },
-  vehicleCount: { fontSize: 12, color: theme.secondary, fontVariant: ['tabular-nums'] },
+  iconButton: { width: 42, height: 42, borderRadius: 10, backgroundColor: t.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.border },
+  searchBar: { height: 48, paddingHorizontal: 13, backgroundColor: t.card, borderRadius: 10, borderWidth: 1, borderColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  searchInput: { flex: 1, padding: 0, color: t.ink, fontSize: 14 },
+  vehicleCount: { fontSize: 12, color: t.secondary, fontVariant: ['tabular-nums'] },
   mapActions: { position: 'absolute', right: 14, alignItems: 'flex-end', gap: 7 },
-  styleMenu: { position: 'absolute', right: 50, top: 0, width: 110, backgroundColor: '#fff', borderWidth: 1, borderColor: theme.border, borderRadius: 8, elevation: 4, overflow: 'hidden' },
-  styleOption: { minHeight: 40, paddingHorizontal: 12, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: theme.border },
-  styleOptionText: { fontSize: 12, color: theme.ink },
-  styleOptionSelected: { color: theme.red, fontWeight: '700' },
-  mapButton: { height: 42, width: 42, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  zoomInText: { fontSize: 25, lineHeight: 28, color: theme.red, fontWeight: '400' },
-  zoomOutText: { fontSize: 25, lineHeight: 28, color: theme.ink, fontWeight: '400' },
+  styleMenu: { position: 'absolute', right: 50, top: 0, width: 110, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 8, elevation: 4, overflow: 'hidden' },
+  styleOption: { minHeight: 40, paddingHorizontal: 12, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: t.border },
+  styleOptionText: { fontSize: 12, color: t.ink },
+  styleOptionSelected: { color: t.red, fontWeight: '700' },
+  mapButton: { height: 42, width: 42, borderRadius: 10, borderWidth: 1, borderColor: t.border, backgroundColor: t.card, alignItems: 'center', justifyContent: 'center' },
+  zoomInText: { fontSize: 25, lineHeight: 28, color: t.red, fontWeight: '400' },
+  zoomOutText: { fontSize: 25, lineHeight: 28, color: t.ink, fontWeight: '400' },
   markerWrap: { alignItems: 'center' }, carImage: { width: 27, height: 35 },
   plateLabel: { backgroundColor: '#fff', borderRadius: 4, paddingRight: 5, flexDirection: 'row', alignItems: 'stretch', marginTop: 2, elevation: 2, overflow: 'hidden' },
   plateStatusBar: { width: 3, marginRight: 4 },
-  plateText: { color: theme.ink, fontSize: 9, fontWeight: '700', paddingVertical: 3 },
-  clusterMarker: { height: 38, minWidth: 38, paddingHorizontal: 7, borderRadius: 20, backgroundColor: theme.red, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', elevation: 4 },
+  plateText: { color: '#111827', fontSize: 9, fontWeight: '700', paddingVertical: 3 },
+  clusterMarker: { height: 38, minWidth: 38, paddingHorizontal: 7, borderRadius: 20, backgroundColor: t.red, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', elevation: 4 },
   clusterCount: { fontSize: 13, fontWeight: '700', color: '#fff', fontVariant: ['tabular-nums'] },
-  fleetSummary: { backgroundColor: '#fff', minHeight: 38, borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  fleetSummaryTitle: { color: theme.ink, fontSize: 13, fontWeight: '700' }, viewList: { color: theme.secondary, fontSize: 11, fontWeight: '600' },
+  fleetSummary: { backgroundColor: t.card, minHeight: 38, borderWidth: 1, borderColor: t.border, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  fleetSummaryTitle: { color: t.ink, fontSize: 13, fontWeight: '700' }, viewList: { color: t.secondary, fontSize: 11, fontWeight: '600' },
   bottomOverlay: { position: 'absolute', left: 12, right: 12 },
-  statusRow: { flexDirection: 'row', marginBottom: 5, minHeight: 62, backgroundColor: '#fff', borderWidth: 1, borderColor: theme.border, borderRadius: 8, overflow:'hidden' },
-  statusItem: { flex: 1, minHeight: 60, paddingVertical: 7, alignItems: 'center', justifyContent: 'center', position:'relative' }, statusMetric: { minHeight: 22, flexDirection:'row', alignItems:'center', justifyContent:'center', columnGap:5 }, statusDot: { height: 6, width: 6, borderRadius: 3 }, statusLabel: { fontSize: 9, lineHeight: 13, color: theme.secondary, textAlign: 'center', marginTop: 2 }, statusValue: { fontSize: 13, color: theme.ink, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  statusDivider:{position:'absolute',right:0,height:30,width:1,backgroundColor:theme.border,top:'50%',marginTop:-15},
-  errorText: { color: theme.red, fontSize: 12, marginTop: 5 },
+  statusRow: { flexDirection: 'row', marginBottom: 5, minHeight: 62, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 8, overflow:'hidden' },
+  statusItem: { flex: 1, minHeight: 60, paddingVertical: 7, alignItems: 'center', justifyContent: 'center', position:'relative' }, statusMetric: { minHeight: 22, flexDirection:'row', alignItems:'center', justifyContent:'center', columnGap:5 }, statusDot: { height: 6, width: 6, borderRadius: 3 }, statusLabel: { fontSize: 9, lineHeight: 13, color: t.secondary, textAlign: 'center', marginTop: 2 }, statusValue: { fontSize: 13, color: t.ink, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  statusDivider:{position:'absolute',right:0,height:30,width:1,backgroundColor:t.border,top:'50%',marginTop:-15},
+  errorText: { color: t.red, fontSize: 12, marginTop: 5 },
   attribution: { alignSelf: 'flex-end', fontSize: 9, color: '#475569', backgroundColor: 'rgba(255,255,255,0.86)', paddingHorizontal: 4, marginTop: 4 },
   groupPillsScroll: { marginTop: 8 },
   groupPillsContent: { paddingRight: 8, gap: 6, flexDirection: 'row' },
-  groupPill: { height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
-  groupPillActive: { backgroundColor: theme.red, borderColor: theme.red },
-  groupPillText: { fontSize: 11, fontWeight: '600', color: theme.ink },
+  groupPill: { height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
+  groupPillActive: { backgroundColor: t.red, borderColor: t.red },
+  groupPillText: { fontSize: 11, fontWeight: '600', color: t.ink },
   groupPillTextActive: { color: '#fff' },
-});
+}); }

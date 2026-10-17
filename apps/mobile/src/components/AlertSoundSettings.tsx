@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import type { AudioSource } from 'expo-audio';
 import { MOBILE_ALERT_SOUNDS, syncPushRegistration } from '../lib/pushNotifications';
 import { cacheDynamicNotificationSound, getDynamicNotificationSounds } from '../lib/dynamicNotificationSounds';
 import type { DynamicNotificationSound } from '../lib/dynamicNotificationSounds';
-import { theme } from '../theme';
+import { useTheme } from '../contexts/ThemeContext';
+import type { AppTheme } from '../theme';
 import { TablerIcon } from './TablerIcon';
 
 export type MobileAlertSoundId = string;
@@ -58,6 +59,8 @@ export function AlertSoundSettings({ enabled, soundEnabled, soundId, onSoundEnab
   onSoundEnabledChange: (value: boolean) => void;
   onSoundIdChange: (value: MobileAlertSoundId) => void;
 }) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const [previewId, setPreviewId] = useState<MobileAlertSoundId | null>(null);
   const [previewSource, setPreviewSource] = useState<AudioSource | null>(null);
   const [customSounds, setCustomSounds] = useState<DynamicNotificationSound[]>([]);
@@ -99,7 +102,7 @@ export function AlertSoundSettings({ enabled, soundEnabled, soundId, onSoundEnab
         <Text style={styles.title}>Notification sound</Text>
         <Text style={styles.hint}>Choose whether this alert plays a sound.</Text>
       </View>
-      <Switch value={soundEnabled} onValueChange={onSoundEnabledChange} trackColor={{ true: theme.red }} accessibilityLabel="Notification sound" />
+      <Switch value={soundEnabled} onValueChange={onSoundEnabledChange} trackColor={{ true: t.red }} accessibilityLabel="Notification sound" />
     </View>
     {soundEnabled ? <View style={styles.options}>
       {allSounds.map((tone, index) => {
@@ -109,11 +112,11 @@ export function AlertSoundSettings({ enabled, soundEnabled, soundId, onSoundEnab
         return <View key={tone.id} style={[styles.option, index > 0 && styles.separator]}>
           <Pressable onPress={() => { if (available) onSoundIdChange(tone.id); }} style={styles.selectTone} accessibilityRole="radio" accessibilityState={{ selected, disabled: !available }} accessibilityLabel={`${tone.name} notification sound`}>
             <View style={[styles.radio, selected && styles.radioSelected]}>{selected ? <View style={styles.radioDot} /> : null}</View>
-            <Text style={[styles.optionText, selected && styles.selectedText, !available && { color: theme.muted }]}>{tone.name}</Text>
+            <Text style={[styles.optionText, selected && styles.selectedText, !available && { color: t.muted }]}>{tone.name}</Text>
             {selected ? <Text style={styles.selectedMark}>Selected</Text> : null}
           </Pressable>
           {available ? <Pressable onPress={() => void playPreview(tone.id)} style={[styles.previewButton, previewing && styles.previewButtonActive]} accessibilityRole="button" accessibilityLabel={`${previewing ? 'Stop' : 'Play'} ${tone.name} sound preview`}>
-            <TablerIcon name={previewing ? 'pause' : 'play'} size={13} color={previewing ? '#fff' : theme.red} />
+            <TablerIcon name={previewing ? 'pause' : 'play'} size={13} color={previewing ? '#fff' : t.red} />
             <Text style={[styles.previewText, previewing && styles.previewTextActive]}>{previewing ? 'Stop' : 'Play'}</Text>
           </Pressable> : null}
         </View>;
@@ -124,23 +127,23 @@ export function AlertSoundSettings({ enabled, soundEnabled, soundId, onSoundEnab
   </View>;
 }
 
-const styles = StyleSheet.create({
-  container: { paddingTop: 12, marginTop: 10, borderTopWidth: 1, borderTopColor: theme.border },
+function createStyles(t: AppTheme) { return StyleSheet.create({
+  container: { paddingTop: 12, marginTop: 10, borderTopWidth: 1, borderTopColor: t.border },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  title: { color: theme.ink, fontSize: 12, fontWeight: '700' },
-  hint: { color: theme.secondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
+  title: { color: t.ink, fontSize: 12, fontWeight: '700' },
+  hint: { color: t.secondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
   options: { marginTop: 6 },
   option: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8 },
   selectTone: { flex: 1, minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  separator: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+  separator: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.border },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: '#9ca3af', alignItems: 'center', justifyContent: 'center' },
-  radioSelected: { borderColor: theme.red },
-  radioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: theme.red },
-  optionText: { flex: 1, color: theme.secondary, fontSize: 12 },
-  selectedText: { color: theme.ink, fontWeight: '600' },
-  selectedMark: { color: theme.red, fontSize: 10, fontWeight: '600' },
-  previewButton: { minWidth: 66, height: 29, borderWidth: 1, borderColor: theme.border, borderRadius: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
-  previewButtonActive: { backgroundColor: theme.red, borderColor: theme.red },
-  previewText: { color: theme.red, fontSize: 10, fontWeight: '600' },
+  radioSelected: { borderColor: t.red },
+  radioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: t.red },
+  optionText: { flex: 1, color: t.secondary, fontSize: 12 },
+  selectedText: { color: t.ink, fontWeight: '600' },
+  selectedMark: { color: t.red, fontSize: 10, fontWeight: '600' },
+  previewButton: { minWidth: 66, height: 29, borderWidth: 1, borderColor: t.border, borderRadius: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  previewButtonActive: { backgroundColor: t.red, borderColor: t.red },
+  previewText: { color: t.red, fontSize: 10, fontWeight: '600' },
   previewTextActive: { color: '#fff' },
-});
+}); }
