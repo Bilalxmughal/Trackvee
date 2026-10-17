@@ -94,30 +94,123 @@ export default function AlertsScreen() {
     <View style={s.header}>
       <View><Text style={s.title}>Alerts</Text><Text style={s.subtitle}>Rules for your fleet</Text></View>
       <View style={s.headerActions}>
-        {canDo('alerts', 'add') ? <Pressable onPress={openNew} accessibilityRole="button" accessibilityLabel="Create alert rule" style={s.add}><TablerIcon name="plus" size={22} color={t.red}/></Pressable> : null}
-        <Pressable onPress={() => void load()} accessibilityLabel="Refresh alerts" style={s.refresh}><TablerIcon name="refresh" size={18} color={t.ink} /></Pressable>
+        {canDo('alerts', 'add') ? <Pressable onPress={openNew} accessibilityRole="button" accessibilityLabel="Create alert rule" style={s.addBtn}><TablerIcon name="plus" size={20} color="#fff"/></Pressable> : null}
+        <Pressable onPress={() => void load()} accessibilityLabel="Refresh alerts" style={s.iconBtn}><TablerIcon name="refresh" size={18} color={t.ink} /></Pressable>
       </View>
     </View>
-    <View style={s.pushRow}><View style={{ flex: 1 }}><Text style={s.pushTitle}>Mobile notifications</Text><Text style={s.pushSubtitle}>{pushState === 'enabled' ? 'Enabled on this device' : 'Get alert updates on this device'}</Text></View>{pushState === 'enabled' ? <Text style={s.enabled}>Enabled</Text> : pushState === 'unknown' ? <ActivityIndicator size="small" color={t.secondary}/> : <Pressable onPress={() => void enablePush()} disabled={pushBusy} style={s.enableButton}>{pushBusy ? <ActivityIndicator size="small" color={t.red} /> : <Text style={s.enableText}>Enable</Text>}</Pressable>}</View>
-    <View style={s.searchBox}><TablerIcon name="search" size={17} color={t.secondary}/><TextInput value={query} onChangeText={setQuery} placeholder="Search alert rules" placeholderTextColor={t.muted} style={s.searchInput}/></View>
-    <View style={s.filters}>{(['all', 'active', 'inactive'] as Filter[]).map(value => <Pressable key={value} onPress={() => setFilter(value)} style={[s.filter, filter === value && s.filterSelected]}><Text style={[s.filterText, filter === value && s.filterTextSelected]}>{label(value)} ({counts[value]})</Text></Pressable>)}</View>
-    {error ? <Pressable onPress={() => void load()} style={s.error}><Text style={s.errorText}>{error}  Retry</Text></Pressable> : null}
-    <FlatList data={visibleAlerts} keyExtractor={item => item.id} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={t.red} />} contentContainerStyle={!visibleAlerts.length ? s.empty : undefined} renderItem={({ item }) => {
-      const editAllowed = canManage(item, 'edit');
-      const deleteAllowed = canManage(item, 'delete');
-      const targetText = item.fleetWide || !item.vehicleImeis.length ? 'All vehicles' : `${item.vehicleImeis.length} ${item.vehicleImeis.length === 1 ? 'vehicle' : 'vehicles'}`;
-      return <View style={s.rule}>
-        <View style={[s.ruleLine, { backgroundColor: item.active ? t.red : t.border }]}/>
-        <View style={s.ruleMain}><Text style={s.ruleName}>{item.name}</Text><Text style={s.ruleMeta}>{label(item.type)} · {targetText}</Text></View>
-        <Text style={[s.state, { color: item.active ? t.red : t.muted }]}>{item.active ? 'Active' : 'Inactive'}</Text>
-        {editAllowed || deleteAllowed ? <Pressable accessibilityRole="button" accessibilityLabel={`Actions for ${item.name}`} style={s.more} onPress={() => Alert.alert('Alert rule actions', item.name, [
-          ...(editAllowed ? [{ text: 'Edit', onPress: () => openEdit(item) }] : []),
-          ...(deleteAllowed ? [{ text: 'Delete', style: 'destructive' as const, onPress: () => remove(item) }] : []),
-          { text: 'Cancel', style: 'cancel' as const },
-        ])}><TablerIcon name="more-vertical" size={18} color={t.secondary}/></Pressable> : null}
-      </View>;
-    }} ListEmptyComponent={<View style={s.emptyCopy}><TablerIcon name="bell" size={28} color={t.muted} /><Text style={s.emptyTitle}>{loading ? 'Loading alerts…' : 'No alert rules'}</Text><Text style={s.emptySubtitle}>{loading ? '' : query ? 'Try another search.' : 'Create an alert rule to monitor your fleet.'}</Text>{!loading && !alerts.length && canDo('alerts','add') ? <Pressable onPress={openNew} style={s.emptyAction}><TablerIcon name="plus" size={16} color={t.red}/><Text style={s.emptyActionText}>New alert rule</Text></Pressable> : null}</View>} />
+
+    <Pressable onPress={pushState !== 'enabled' && pushState !== 'unknown' ? () => void enablePush() : undefined} style={[s.pushCard, { borderColor: t.border }]}>
+      <View style={[s.pushIcon, { backgroundColor: `${t.red}14` }]}><TablerIcon name="bell" size={18} color={t.red} /></View>
+      <View style={{ flex: 1 }}>
+        <Text style={[s.pushTitle, { color: t.ink }]}>Mobile Notifications</Text>
+        <Text style={[s.pushSubtitle, { color: t.secondary }]}>{pushState === 'enabled' ? 'Enabled on this device' : 'Tap to enable push alerts'}</Text>
+      </View>
+      {pushState === 'enabled'
+        ? <View style={s.enabledBadge}><Text style={[s.enabledText, { color: '#15803d' }]}>Enabled</Text></View>
+        : pushState === 'unknown'
+          ? <ActivityIndicator size="small" color={t.secondary}/>
+          : <View style={[s.enableBtn, { borderColor: t.red }]}>{pushBusy ? <ActivityIndicator size="small" color={t.red} /> : <Text style={[s.enableBtnText, { color: t.red }]}>Enable</Text>}</View>}
+    </Pressable>
+
+    <View style={[s.search, { borderBottomColor: t.border }]}>
+      <TablerIcon name="search" size={16} color={t.secondary}/>
+      <TextInput value={query} onChangeText={setQuery} placeholder="Search alert rules" placeholderTextColor={t.muted} style={[s.searchInput, { color: t.ink }]}/>
+    </View>
+
+    <View style={s.pillRow}>
+      {(['all', 'active', 'inactive'] as Filter[]).map(value => (
+        <Pressable key={value} onPress={() => setFilter(value)} style={[s.pill, { backgroundColor: filter === value ? t.red : t.bg2 }]}>
+          <Text style={[s.pillText, { color: filter === value ? '#fff' : t.secondary, fontWeight: filter === value ? '600' : '500' }]}>{label(value)} {counts[value]}</Text>
+        </Pressable>
+      ))}
+    </View>
+
+    {error ? <Pressable onPress={() => void load()} style={s.errorRow}><Text style={[s.errorText, { color: t.red }]}>{error}  Retry</Text></Pressable> : null}
+
+    <FlatList
+      data={visibleAlerts}
+      keyExtractor={item => item.id}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={t.red} />}
+      contentContainerStyle={!visibleAlerts.length ? s.empty : s.listContent}
+      renderItem={({ item }) => {
+        const editAllowed = canManage(item, 'edit');
+        const deleteAllowed = canManage(item, 'delete');
+        const targetText = item.fleetWide || !item.vehicleImeis.length ? 'All vehicles' : `${item.vehicleImeis.length} ${item.vehicleImeis.length === 1 ? 'vehicle' : 'vehicles'}`;
+        const activeBg = item.active ? `${t.red}14` : t.bg2;
+        const activeColor = item.active ? t.red : t.muted;
+        return (
+          <View style={[s.rule, { borderBottomColor: t.border }]}>
+            <View style={[s.ruleAccent, { backgroundColor: item.active ? t.red : t.border }]}/>
+            <View style={s.ruleMain}>
+              <Text style={[s.ruleName, { color: t.ink }]} numberOfLines={1}>{item.name}</Text>
+              <Text style={[s.ruleMeta, { color: t.secondary }]} numberOfLines={1}>{label(item.type)} · {targetText}</Text>
+            </View>
+            <View style={[s.statusBadge, { backgroundColor: activeBg, borderRadius: 5, overflow: 'hidden' }]}>
+              <Text style={[s.statusText, { color: activeColor }]}>{item.active ? 'Active' : 'Inactive'}</Text>
+            </View>
+            {editAllowed || deleteAllowed
+              ? <Pressable accessibilityRole="button" accessibilityLabel={`Actions for ${item.name}`} style={s.moreBtn} onPress={() => Alert.alert('Alert rule actions', item.name, [
+                  ...(editAllowed ? [{ text: 'Edit', onPress: () => openEdit(item) }] : []),
+                  ...(deleteAllowed ? [{ text: 'Delete', style: 'destructive' as const, onPress: () => remove(item) }] : []),
+                  { text: 'Cancel', style: 'cancel' as const },
+                ])}><TablerIcon name="more-vertical" size={18} color={t.secondary}/></Pressable>
+              : null}
+          </View>
+        );
+      }}
+      ListEmptyComponent={
+        <View style={s.emptyCopy}>
+          <TablerIcon name="bell" size={36} color={t.muted} />
+          <Text style={[s.emptyTitle, { color: t.ink }]}>{loading ? 'Loading alerts…' : 'No alert rules'}</Text>
+          <Text style={[s.emptySubtitle, { color: t.secondary }]}>{loading ? '' : query ? 'Try another search.' : 'Create an alert rule to monitor your fleet.'}</Text>
+          {!loading && !alerts.length && canDo('alerts', 'add')
+            ? <Pressable onPress={openNew} style={s.emptyAction}>
+                <TablerIcon name="plus" size={15} color={t.red}/>
+                <Text style={[s.emptyActionText, { color: t.red }]}>New alert rule</Text>
+              </Pressable>
+            : null}
+        </View>
+      }
+    />
   </SafeAreaView>;
 }
 
-function createStyles(t: AppTheme) { return StyleSheet.create({ container: { flex: 1, backgroundColor: t.bg }, header: { minHeight: 62, paddingHorizontal: 18, paddingTop: 9, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, title: { fontSize: 25, fontWeight: '700', color: t.ink }, subtitle: { fontSize: 13, color: t.secondary, marginTop: 3 }, headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 }, add: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }, refresh: { width: 38, height: 38, borderRadius: 9, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' }, pushRow: { minHeight: 62, marginHorizontal: 18, marginBottom: 9, paddingHorizontal: 0, borderWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 }, pushTitle: { color: t.ink, fontWeight: '600', fontSize: 13 }, pushSubtitle: { color: t.secondary, fontSize: 11, marginTop: 4 }, enableButton: { minWidth: 72, height: 34, borderRadius: 7, borderWidth: 1, borderColor: t.red, alignItems: 'center', justifyContent: 'center' }, enableText: { color: t.red, fontWeight: '600', fontSize: 12 }, enabled: { color: t.red, fontWeight: '600', fontSize: 12 }, searchBox: { height: 42, marginHorizontal: 18, paddingHorizontal: 10, borderWidth: 1, borderColor: t.border, borderRadius: 7, flexDirection: 'row', alignItems: 'center', gap: 8 }, searchInput: { flex: 1, color: t.ink, fontSize: 12, paddingVertical: 6 }, filters: { flexDirection: 'row', paddingHorizontal: 18, marginTop: 9, marginBottom: 4, borderBottomWidth: 1, borderColor: t.border }, filter: { paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' }, filterSelected: { borderBottomColor: t.red }, filterText: { color: t.secondary, fontSize: 11 }, filterTextSelected: { color: t.red, fontWeight: '700' }, rule: { minHeight: 69, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderBottomWidth: 1, borderColor: t.border, gap: 10 }, ruleLine: { width: 3, height: 39 }, ruleMain: { flex: 1, minWidth: 0 }, ruleName: { color: t.ink, fontSize: 13, fontWeight: '700' }, ruleMeta: { color: t.secondary, fontSize: 11, marginTop: 5, textTransform: 'capitalize' }, state: { fontSize: 11, fontWeight: '600' }, more: { width: 28, height: 36, alignItems: 'center', justifyContent: 'center' }, empty: { flexGrow: 1, justifyContent: 'center' }, emptyCopy: { alignItems: 'center', padding: 30 }, emptyTitle: { marginTop: 14, fontSize: 15, fontWeight: '600', color: t.ink }, emptySubtitle: { marginTop: 6, fontSize: 12, color: t.secondary, textAlign: 'center' }, emptyAction: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 16, padding: 8 }, emptyActionText: { fontSize: 12, color: t.red, fontWeight: '700' }, error: { paddingHorizontal: 18, paddingVertical: 10 }, errorText: { color: t.red, fontSize: 11 } }); }
+function createStyles(t: AppTheme) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  header: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 26, fontWeight: '700', color: t.ink, letterSpacing: -0.4 },
+  subtitle: { fontSize: 13, color: t.secondary, marginTop: 2 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  addBtn: { width: 36, height: 36, borderRadius: 9, backgroundColor: t.red, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 36, height: 36, borderRadius: 9, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
+  pushCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 12, padding: 13, borderWidth: 1, borderRadius: 10 },
+  pushIcon: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  pushTitle: { fontSize: 13, fontWeight: '600' },
+  pushSubtitle: { fontSize: 11, marginTop: 2 },
+  enabledBadge: { backgroundColor: '#dcfce7', borderRadius: 5, paddingHorizontal: 9, paddingVertical: 4, overflow: 'hidden' },
+  enabledText: { fontSize: 11, fontWeight: '600' },
+  enableBtn: { borderWidth: 1, borderRadius: 7, paddingHorizontal: 12, paddingVertical: 6 },
+  enableBtnText: { fontSize: 12, fontWeight: '600' },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
+  searchInput: { flex: 1, fontSize: 14, paddingVertical: 2 },
+  pillRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
+  pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  pillText: { fontSize: 12 },
+  listContent: { paddingBottom: 20 },
+  rule: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, gap: 10 },
+  ruleAccent: { width: 3, height: 36, borderRadius: 2 },
+  ruleMain: { flex: 1, minWidth: 0 },
+  ruleName: { fontSize: 14, fontWeight: '600' },
+  ruleMeta: { fontSize: 12, marginTop: 3, textTransform: 'capitalize' },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  statusText: { fontSize: 11, fontWeight: '600' },
+  moreBtn: { width: 32, height: 36, alignItems: 'center', justifyContent: 'center' },
+  errorRow: { paddingHorizontal: 16, paddingVertical: 8 },
+  errorText: { fontSize: 12 },
+  empty: { flexGrow: 1, justifyContent: 'center' },
+  emptyCopy: { alignItems: 'center', padding: 36 },
+  emptyTitle: { marginTop: 14, fontSize: 16, fontWeight: '600' },
+  emptySubtitle: { marginTop: 6, fontSize: 13, textAlign: 'center', lineHeight: 20 },
+  emptyAction: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 18, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8, backgroundColor: `${t.red}14` },
+  emptyActionText: { fontSize: 13, fontWeight: '600' },
+}); }
