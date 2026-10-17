@@ -72,9 +72,11 @@ export default function SettingsPage() {
 
   const TABS = [
     ...(canViewCities ? [{ key: 'cities' as const, label: 'Cities', icon: IconMapPin }] : []),
-    ...(canViewSounds ? [{ key: 'notifications' as const, label: 'Notifications', icon: IconBellRinging }] : []),
+    ...(canViewSounds ? [{ key: 'notifications' as const, label: 'Alert Notifications', icon: IconBellRinging }] : []),
     ...(canViewCities ? [{ key: 'website' as const, label: 'Website Settings', icon: IconWorld }] : []),
   ];
+
+  const activeTabLabel = TABS.find(t => t.key === activeTab)?.label ?? '';
 
   return (
     <div>
@@ -86,7 +88,14 @@ export default function SettingsPage() {
         ) : undefined
       } />
 
-      <div style={{ display: 'flex', height: 'calc(100vh - 110px)' }}>
+      {/* Breadcrumb */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 20px', fontSize: 12, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>
+        <span style={{ color: 'var(--muted)' }}>Settings</span>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>›</span>
+        <span style={{ color: '#dc2626', fontWeight: 500 }}>{activeTabLabel}</span>
+      </div>
+
+      <div style={{ display: 'flex', height: 'calc(100vh - 130px)' }}>
         {/* Left panel */}
         <div style={{ width: 220, flexShrink: 0, borderRight: `1px solid ${dark ? '#2a2a2a' : 'var(--border)'}`, overflowY: 'auto' }}>
           <div style={{ padding: '10px 16px 6px', fontSize: 10, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 1 }}>

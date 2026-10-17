@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { IconRefresh, IconSearch, IconDownload } from '@tabler/icons-react';
+import CustomSelect from '../components/CustomSelect';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
@@ -24,13 +25,9 @@ interface Telemetry {
   timestamp: string;
 }
 
-const sel: React.CSSProperties = {
-  height: 30, padding: '0 8px', border: '1px solid var(--input-border)',
-  borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer',
-};
 const inp: React.CSSProperties = {
-  height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)',
-  borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180,
+  height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)',
+  borderRadius: 6, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180,
 };
 
 function exportCSV(data: Telemetry[], plateMap: Map<string, string>) {
@@ -139,13 +136,13 @@ export default function TelemetryPage() {
             <input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} style={{ accentColor: '#dc2626' }} />
             Auto 5s
           </label>
-          <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--input-bg)', color: 'var(--text2)', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: 'var(--input-bg)', color: 'var(--text2)', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
             <IconRefresh size={13} /> Refresh
           </button>
           <button
             onClick={() => exportCSV(filtered, devicePlateMap)}
             disabled={filtered.length === 0}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: filtered.length === 0 ? 'var(--input-bg)' : '#dc2626', color: filtered.length === 0 ? 'var(--text2)' : '#fff', border: filtered.length === 0 ? '1px solid var(--input-border)' : 'none', borderRadius: 3, fontSize: 12, cursor: filtered.length === 0 ? 'not-allowed' : 'pointer', opacity: filtered.length === 0 ? 0.5 : 1 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', background: filtered.length === 0 ? 'var(--input-bg)' : '#dc2626', color: filtered.length === 0 ? 'var(--text2)' : '#fff', border: filtered.length === 0 ? '1px solid var(--input-border)' : 'none', borderRadius: 8, fontSize: 12, cursor: filtered.length === 0 ? 'not-allowed' : 'pointer', opacity: filtered.length === 0 ? 0.5 : 1 }}
           >
             <IconDownload size={13} /> Export CSV
           </button>
@@ -160,11 +157,11 @@ export default function TelemetryPage() {
             onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')}
             onBlur={e => (e.currentTarget.style.borderColor = 'var(--input-border)')} />
         </div>
-        <select value={ignFilter} onChange={e => setIgnFilter(e.target.value)} style={sel}>
-          <option value="">All Ignition</option>
-          <option value="on">On</option>
-          <option value="off">Off</option>
-        </select>
+        <CustomSelect value={ignFilter} onChange={setIgnFilter} options={[
+          { value: '', label: 'All Ignition' },
+          { value: 'on', label: 'On' },
+          { value: 'off', label: 'Off' },
+        ]} />
         <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Timestamp range" />
         {(q || ignFilter || dateRange) && (
           <button onClick={() => { setQ(''); setIgnFilter(''); setDateRange(undefined); }}

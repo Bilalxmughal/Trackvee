@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconArrowLeft, IconPlus, IconTrash, IconPencil, IconDownload } from '@tabler/icons-react';
+import CustomSelect from '../components/CustomSelect';
 import api from '../api/client';
 import { useToast } from '../contexts/ToastContext';
 import PageHeader from '../components/PageHeader';
@@ -22,7 +23,7 @@ const SERVICE_TYPES = ['Engine Oil','Tuning','Oil Filter','Air Filter','AC Filte
 const formatDate = (value: string | null | undefined) => value ? `${value.slice(8,10)}-${value.slice(5,7)}-${value.slice(0,4)}` : '—';
 const dateInput = (value: string | null, onChange: (value: string | null) => void) => <div style={{ position: 'relative' }}><input readOnly value={value ? formatDate(value) : ''} placeholder="DD-MM-YYYY" style={input}/><input aria-label="Choose date" type="date" value={value ?? ''} onChange={e => onChange(e.target.value || null)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}/></div>;
 const field: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5 };
-const input: React.CSSProperties = { height: 34, border: '1px solid var(--input-border)', borderRadius: 4, background: 'var(--input-bg)', color: 'var(--input-color)', padding: '0 9px', fontSize: 12, outline: 'none' };
+const input: React.CSSProperties = { height: 34, border: '1px solid var(--input-border)', borderRadius: 6, background: 'var(--input-bg)', color: 'var(--input-color)', padding: '0 9px', fontSize: 12, outline: 'none' };
 const statusColor = { completed: '#6b7280', scheduled: '#6b7280', upcoming: '#b45309', overdue: '#dc2626' };
 
 export default function MaintenancePage() {
@@ -88,7 +89,7 @@ export default function MaintenancePage() {
     <div style={{ padding: '0 24px 24px' }}>
       {error && <div role="alert" style={{ color: '#dc2626', fontSize: 12, marginBottom: 10 }}>{error}</div>}
       <div style={{ display: 'flex', alignItems: 'end', gap: 14, margin: '8px 0 16px' }}>
-        <label style={{ ...field, width: 280 }}><span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Client organization</span><select value={orgId} onChange={e => setOrgId(e.target.value)} style={input}><option value="">Select organization</option>{orgs.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>
+        <div style={{ ...field, width: 280 }}><span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 5 }}>Client organization</span><CustomSelect value={orgId} onChange={setOrgId} options={[{ value: '', label: 'Select organization' }, ...orgs.map(org => ({ value: org.id, label: org.name }))]} /></div>
         <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--muted)' }}><span>{rows.length} service records</span><span style={{ color: '#b45309' }}>{rows.filter(r => r.status === 'upcoming').length} upcoming</span><span style={{ color: '#dc2626' }}>{rows.filter(r => r.status === 'overdue').length} overdue</span></div>
       </div>
       {form && <div style={{ marginBottom: 18, borderBottom: '1px solid var(--border)', padding: '8px 0 16px' }}>

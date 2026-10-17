@@ -11,6 +11,7 @@ import { useCityFilter } from '../contexts/CityFilterContext';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
 import DateRangePicker from '../components/DateRangePicker';
+import CustomSelect from '../components/CustomSelect';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
@@ -181,12 +182,16 @@ export default function ClientsPage() {
             onFocus={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.1)'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; }} />
         </div>
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={sel}>
-          <option value="">All Types</option><option value="b2b">B2B</option><option value="b2c">B2C</option>
-        </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
-          <option value="">All Status</option><option value="true">Active</option><option value="false">Inactive</option>
-        </select>
+        <CustomSelect value={typeFilter} onChange={setTypeFilter} options={[
+          { value: '', label: 'All Types' },
+          { value: 'b2b', label: 'B2B' },
+          { value: 'b2c', label: 'B2C' },
+        ]} />
+        <CustomSelect value={statusFilter} onChange={setStatusFilter} options={[
+          { value: '', label: 'All Status' },
+          { value: 'true', label: 'Active' },
+          { value: 'false', label: 'Inactive' },
+        ]} />
         <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Created date" />
         {(q || statusFilter || typeFilter || dateRange) && (
           <button onClick={() => { setQ(''); setStatusFilter(''); setTypeFilter(''); setDateRange(undefined); }}

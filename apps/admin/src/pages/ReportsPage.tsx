@@ -4,6 +4,7 @@ import {
   IconFileSpreadsheet, IconFileTypeCsv, IconPrinter,
   IconSearch, IconTrash, IconBookmark, IconRefresh, IconChevronDown,
 } from '@tabler/icons-react';
+import CustomSelect from '../components/CustomSelect';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
@@ -78,12 +79,12 @@ const PERIODS = [
 ];
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-const inp: React.CSSProperties = { height:30, padding:'0 8px', border:'1px solid var(--input-border)', borderRadius:3, fontSize:12, color:'var(--input-color)', background:'var(--input-bg)', outline:'none', width:'100%' };
+const inp: React.CSSProperties = { height:34, padding:'0 8px', border:'1px solid var(--input-border)', borderRadius:6, fontSize:12, color:'var(--input-color)', background:'var(--input-bg)', outline:'none', width:'100%' };
 const sel: React.CSSProperties = { ...inp, cursor:'pointer' };
 const lbl: React.CSSProperties = { fontSize:11, fontWeight:600, color:'var(--text-muted)', marginBottom:4, display:'block' };
 const field = (w?: number): React.CSSProperties => ({ display:'flex', flexDirection:'column', minWidth: w ?? 140 });
 const btnS = (variant:'primary'|'outline'|'ghost'|'danger'): React.CSSProperties => ({
-  height:30, padding:'0 14px', borderRadius:3, fontSize:12, fontWeight:500, cursor:'pointer',
+  height:34, padding:'0 14px', borderRadius: variant==='primary' ? 8 : 6, fontSize:12, fontWeight:500, cursor:'pointer',
   display:'flex', alignItems:'center', gap:5, whiteSpace:'nowrap',
   ...(variant==='primary' ? {background:'#dc2626',color:'#fff',border:'1px solid #dc2626'} : {}),
   ...(variant==='outline' ? {background:'transparent',color:'var(--text)',border:'1px solid var(--input-border)'} : {}),
@@ -332,13 +333,7 @@ export default function ReportsPage() {
 
           <div style={field(190)}>
             <span style={lbl}>Report Type</span>
-            <select style={sel} value={reportType} onChange={e=>{setReportType(e.target.value as ReportType);setResult(null);}}>
-              {['Travel','Activity','Speed','Events','Geofence'].map(g=>(
-                <optgroup key={g} label={g}>
-                  {REPORT_TYPES.filter(r=>r.group===g).map(r=><option key={r.value} value={r.value}>{r.label}</option>)}
-                </optgroup>
-              ))}
-            </select>
+            <CustomSelect value={reportType} onChange={v=>{setReportType(v as ReportType);setResult(null);}} options={REPORT_TYPES.map(r=>({value:r.value,label:`${r.group} — ${r.label}`}))} minWidth={190} />
           </div>
 
           <div style={field(210)}>
@@ -348,10 +343,7 @@ export default function ReportsPage() {
 
           <div style={field(130)}>
             <span style={lbl}>Period</span>
-            <select style={sel} value={activePeriod} onChange={e=>{const p=PERIODS.find(x=>x.label===e.target.value);if(p)applyPeriod(p);}}>
-              <option value="">Custom</option>
-              {PERIODS.map(p=><option key={p.label} value={p.label}>{p.label}</option>)}
-            </select>
+            <CustomSelect value={activePeriod} onChange={v=>{const p=PERIODS.find(x=>x.label===v);if(p)applyPeriod(p);else setActivePeriod('');}} options={[{value:'',label:'Custom'},...PERIODS.map(p=>({value:p.label,label:p.label}))]} minWidth={130} />
           </div>
 
           <div style={field(160)}>
@@ -385,20 +377,12 @@ export default function ReportsPage() {
 
           <div style={field(100)}>
             <span style={lbl}>Group By</span>
-            <select style={sel} value={groupBy} onChange={e=>setGroupBy(e.target.value as ''|'day'|'week'|'month')}>
-              <option value="">None</option>
-              <option value="day">Day</option>
-              <option value="week">Week</option>
-              <option value="month">Month</option>
-            </select>
+            <CustomSelect value={groupBy} onChange={v=>setGroupBy(v as ''|'day'|'week'|'month')} options={[{value:'',label:'None'},{value:'day',label:'Day'},{value:'week',label:'Week'},{value:'month',label:'Month'}]} minWidth={100} />
           </div>
           {opts.includes('geofence') && (
             <div style={field(170)}>
               <span style={lbl}>Geofence</span>
-              <select style={sel} value={selectedGFs[0]??''} onChange={e=>setSelectedGFs(e.target.value?[e.target.value]:[])}>
-                <option value="">All Geofences</option>
-                {geofences.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
+              <CustomSelect value={selectedGFs[0]??''} onChange={v=>setSelectedGFs(v?[v]:[])} options={[{value:'',label:'All Geofences'},...geofences.map(g=>({value:g.id,label:g.name}))]} minWidth={170} />
             </div>
           )}
 

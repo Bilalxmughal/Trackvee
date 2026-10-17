@@ -179,7 +179,7 @@ export default function AuditLogsPage() {
           <thead>
             <tr style={{ borderBottom: '2px solid var(--table-border)' }}>
               {['Timestamp', 'Action', 'Entity Type', 'Entity Name', 'User', 'Role', 'Client', 'IP', 'Status'].map(h => (
-                <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>
+                <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 2 }}>{h}</th>
               ))}
             </tr>
           </thead>
