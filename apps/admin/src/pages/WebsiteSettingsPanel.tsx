@@ -9,6 +9,7 @@ import {
 import api from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
 import { inputStyle } from '../components/FormField';
+import { useToast as useGlobalToast } from '../contexts/ToastContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PartnerItem { name: string; logoUrl: string; abbr: string; enabled: boolean; }
@@ -266,7 +267,7 @@ function PartnerModal({ mode: initMode, data, onClose, onSave }: PartnerModalPro
 export default function WebsiteSettingsPanel() {
   const [activeTab, setActiveTab] = useState<TabKey>('hero');
   const { dark } = useTheme();
-  const { toasts, show: toast } = useToast();
+  const { toast } = useGlobalToast();
 
   // ── State ──
   const [heroImage,  setHeroImage]  = useState('/hero-laptop.webp');
@@ -349,7 +350,6 @@ export default function WebsiteSettingsPanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <ToastContainer toasts={toasts} />
 
       {/* ── Tab Bar ── */}
       <div style={{ display: 'flex', padding: '10px 20px 0', borderBottom: `1px solid ${dark ? '#222' : '#eee'}`, background: dark ? '#0f0f0f' : '#fff', flexShrink: 0, gap: 2, flexWrap: 'wrap' }}>

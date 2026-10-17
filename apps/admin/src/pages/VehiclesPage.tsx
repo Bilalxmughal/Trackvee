@@ -3,6 +3,7 @@ import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconHistory } from 
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
+import { useToast } from '../contexts/ToastContext';
 import SkeletonTable from '../components/SkeletonTable';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
@@ -42,6 +43,7 @@ const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border:
 const empty = { licensePlate: '', make: '', model: '', year: '', cityId: '', lifecycleStatus: 'active' as Vehicle['lifecycleStatus'], expiresAt: '', organizationId: '' };
 
 export default function VehiclesPage() {
+  const { toast } = useToast();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +113,7 @@ export default function VehiclesPage() {
       setVehicles(rows => rows.map(row => row.id === detailVehicle.id ? { ...row, lifecycleStatus: 'active', isActive: true } : row));
       await load();
       await openDetails({ ...detailVehicle, lifecycleStatus: 'active', isActive: true });
+      toast(currentDevice ? 'Device replaced' : 'Device assigned');
     } catch (error: any) {
       const message = error?.response?.data?.message;
       setDeviceConflict(Array.isArray(message) ? message.join('. ') : message ?? 'Unable to assign this device.');
@@ -124,6 +127,7 @@ export default function VehiclesPage() {
       await api.post(`/vehicles/${detailVehicle.id}/device-assignment`, { deviceId: null, reason: 'Device removed from vehicle' });
       setVehicles(rows => rows.map(row => row.id === detailVehicle.id ? { ...row, lifecycleStatus: 'expired', isActive: false } : row));
       await openDetails({ ...detailVehicle, lifecycleStatus: 'expired', isActive: false });
+      toast('Device removed from vehicle');
     } catch (error: any) { setDeviceConflict(error?.response?.data?.message ?? 'Unable to remove this device.'); }
     finally { setDeviceSaving(false); }
   };
@@ -151,7 +155,8 @@ export default function VehiclesPage() {
         if (canManageLifecycle && (lifecycleStatus !== 'active' || expiresAt)) await api.patch(`/vehicles/${created.data.id}/lifecycle`, { lifecycleStatus, expiresAt: expiresAt || null });
       }
       await load(); closeModal();
-    } catch { } finally { setSaving(false); }
+      toast(editing ? 'Vehicle updated' : 'Vehicle added');
+    } catch { toast('Failed to save vehicle', 'error'); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -159,10 +164,10 @@ export default function VehiclesPage() {
     setDeletingId(true);
     try {
       const result = await api.delete<{ archived: boolean }>(`/vehicles/${deleting.id}`);
-      if (result.data.archived) setVehicles(rows => rows.map(row => row.id === deleting.id ? { ...row, lifecycleStatus: 'archived', isActive: false } : row));
-      else setVehicles(v => v.filter(x => x.id !== deleting.id));
+      if (result.data.archived) { setVehicles(rows => rows.map(row => row.id === deleting.id ? { ...row, lifecycleStatus: 'archived', isActive: false } : row)); toast('Vehicle archived'); }
+      else { setVehicles(v => v.filter(x => x.id !== deleting.id)); toast('Vehicle deleted'); }
       setDeleting(null);
-    } catch { } finally { setDeletingId(false); }
+    } catch { toast('Failed to delete vehicle', 'error'); } finally { setDeletingId(false); }
   };
 
   const filtered = vehicles.filter(v => {

@@ -4,6 +4,7 @@ import { IconPlus, IconSearch, IconEdit, IconTrash, IconUserScan, IconBan, IconC
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import api from '../api/client';
+import { useToast } from '../contexts/ToastContext';
 import { fmtDate } from '../utils/date';
 import { useAuth } from '../contexts/AuthContext';
 import { useOrgRolePerms } from '../contexts/OrgRolePermsContext';
@@ -129,6 +130,7 @@ function OrgSelector({ orgs, value, onChange, placeholder }: {
 const ORG_ROLES_SET = new Set(['client_owner', 'client_super_admin', 'client_admin', 'client_user']);
 
 export default function ClientUsersPage() {
+  const { toast } = useToast();
   const { user: me, loginAs } = useAuth();
   const [searchParams] = useSearchParams();
 
@@ -262,26 +264,27 @@ export default function ClientUsersPage() {
         await api.put(`/org-permissions/${userId}`, { ...perm, orgId: form.organizationId });
       }
       await load(); setModal(false); setEditing(null);
-    } catch { } finally { setSaving(false); }
+      toast(editing ? 'User updated' : 'User added');
+    } catch { toast('Failed to save user', 'error'); } finally { setSaving(false); }
   };
 
   const handleRevoke = async () => {
     if (!revokeTarget) return;
     setRevoking(true);
-    try { await api.post(`/users/${revokeTarget.id}/revoke`); setRevokeTarget(null); await load(); }
-    catch { } finally { setRevoking(false); }
+    try { await api.post(`/users/${revokeTarget.id}/revoke`); setRevokeTarget(null); await load(); toast('Access revoked'); }
+    catch { toast('Failed to revoke access', 'error'); } finally { setRevoking(false); }
   };
 
   const handleDelete = async () => {
     if (!deleting) return;
     setDeletingId(true);
-    try { await api.delete(`/users/${deleting.id}`); setUsers(u => u.filter(x => x.id !== deleting.id)); setDeleting(null); }
-    catch { } finally { setDeletingId(false); }
+    try { await api.delete(`/users/${deleting.id}`); setUsers(u => u.filter(x => x.id !== deleting.id)); setDeleting(null); toast('User deleted'); }
+    catch { toast('Failed to delete user', 'error'); } finally { setDeletingId(false); }
   };
 
   const handleLoginAs = async (u: OrgUser) => {
     try { await loginAs(u.id); }
-    catch { alert('Failed to impersonate user'); }
+    catch { toast('Failed to impersonate user', 'error'); }
   };
 
   const filtered = users.filter(u => {

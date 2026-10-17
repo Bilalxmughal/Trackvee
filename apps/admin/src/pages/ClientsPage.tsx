@@ -4,6 +4,7 @@ import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconEyeOff, IconDow
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
+import { useToast } from '../contexts/ToastContext';
 import SkeletonTable from '../components/SkeletonTable';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
@@ -42,6 +43,7 @@ function handlePhone(val: string, set: (k: string, v: unknown) => void) {
 }
 
 export default function ClientsPage() {
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [plateMap, setPlateMap] = useState<Map<string, string[]>>(new Map());
@@ -129,7 +131,8 @@ export default function ClientsPage() {
       if (editing) await api.patch(`/organizations/${editing.id}`, payload);
       else await api.post('/organizations', payload);
       await load(); closeModal();
-    } catch { } finally { setSaving(false); }
+      toast(editing ? 'Client updated' : 'Client added');
+    } catch { toast('Failed to save client', 'error'); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -137,7 +140,8 @@ export default function ClientsPage() {
     try {
       await api.delete(`/organizations/${deleting.id}`);
       setClients(cs => cs.filter(x => x.id !== deleting.id)); setDeleting(null);
-    } catch { } finally { setDeletingId(false); }
+      toast('Client deleted');
+    } catch { toast('Failed to delete client', 'error'); } finally { setDeletingId(false); }
   };
 
   const filtered = clients.filter(c => {

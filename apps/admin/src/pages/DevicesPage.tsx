@@ -3,6 +3,7 @@ import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
 import type { DateRange } from '../components/DateRangePicker';
 import { format } from 'date-fns';
 import api from '../api/client';
+import { useToast } from '../contexts/ToastContext';
 import { fmtDate } from '../utils/date';
 import SkeletonTable from '../components/SkeletonTable';
 import { useCityFilter } from '../contexts/CityFilterContext';
@@ -53,6 +54,7 @@ function lastSeenLabel(ts: string | null) {
 }
 
 export default function DevicesPage() {
+  const { toast } = useToast();
   const [devices, setDevices] = useState<Device[]>([]);
   const [summary, setSummary] = useState<InventorySummary>({ total: 0, assigned: 0, inStock: 0 });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -102,10 +104,10 @@ export default function DevicesPage() {
     setSaving(true);
     try {
       const payload = { ...form, cityId: form.cityId || null };
-      if (editing) await api.patch(`/devices/${editing.id}`, payload);
-      else await api.post('/devices', payload);
+      if (editing) { await api.patch(`/devices/${editing.id}`, payload); toast('Device updated'); }
+      else { await api.post('/devices', payload); toast('Device added'); }
       await load(); closeModal();
-    } catch { } finally { setSaving(false); }
+    } catch { toast('Failed to save device', 'error'); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -115,7 +117,8 @@ export default function DevicesPage() {
       await api.delete(`/devices/${deleting.id}`);
       setDevices(d => d.filter(x => x.id !== deleting.id));
       setDeleting(null);
-    } catch (error: any) { window.alert(error?.response?.data?.message ?? 'Unable to delete this device'); } finally { setDeletingId(false); }
+      toast('Device deleted');
+    } catch (error: any) { toast(error?.response?.data?.message ?? 'Unable to delete this device', 'error'); } finally { setDeletingId(false); }
   };
 
   // The API applies this filter through the selected user's effective vehicle

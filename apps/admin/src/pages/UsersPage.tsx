@@ -3,6 +3,7 @@ import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconCheck, IconMinu
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
+import { useToast } from '../contexts/ToastContext';
 import { fmtDate } from '../utils/date';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import PageHeader from '../components/PageHeader';
@@ -59,6 +60,7 @@ const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border:
 const empty = { firstName: '', lastName: '', email: '', password: '', role: 'client_super_admin', cityId: '', isActive: true, organizationId: '' };
 
 export default function UsersPage() {
+  const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,7 +153,8 @@ export default function UsersPage() {
         await api.put(`/org-permissions/${userId}`, { ...perm, orgId: form.organizationId });
       }
       await load(); closeModal();
-    } catch { } finally { setSaving(false); }
+      toast(editing ? 'User updated' : 'User added');
+    } catch { toast('Failed to save user', 'error'); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -161,7 +164,8 @@ export default function UsersPage() {
       await api.delete(`/users/${deleting.id}`);
       setUsers(u => u.filter(x => x.id !== deleting.id));
       setDeleting(null);
-    } catch { } finally { setDeletingId(false); }
+      toast('User deleted');
+    } catch { toast('Failed to delete user', 'error'); } finally { setDeletingId(false); }
   };
 
   const filtered = users.filter(u => {

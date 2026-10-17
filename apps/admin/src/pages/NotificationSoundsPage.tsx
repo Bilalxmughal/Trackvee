@@ -3,6 +3,7 @@ import { IconBellRinging, IconPlayerPause, IconPlayerPlay, IconPlus, IconUpload 
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface Sound {
   id: string;
@@ -18,6 +19,7 @@ const MAX_UPLOAD_BYTES = 900 * 1024;
 
 export default function NotificationSoundsPage({ embedded = false }: { embedded?: boolean }) {
   const { dark } = useTheme();
+  const { toast } = useToast();
   const [sounds, setSounds] = useState<Sound[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
@@ -31,7 +33,7 @@ export default function NotificationSoundsPage({ embedded = false }: { embedded?
   const surface = dark ? '#1a1a1a' : '#fff';
   const secondary = dark ? '#999' : '#6b7280';
 
-  const load = () => api.get<Sound[]>('/alerts/sounds?includeInactive=true').then(r => setSounds(r.data)).catch(() => setError('Could not load notification sounds.')).finally(() => setLoading(false));
+  const load = () => api.get<Sound[]>('/alerts/sounds?includeInactive=true').then(r => setSounds(r.data)).catch(() => {}).finally(() => setLoading(false));
   useEffect(() => {
     void load();
     return () => {
@@ -58,18 +60,19 @@ export default function NotificationSoundsPage({ embedded = false }: { embedded?
       if (input) input.value = '';
       setLoading(true);
       await load();
+      toast('Sound uploaded successfully');
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(typeof message === 'string' ? message : 'Sound upload failed. Check that the file is a supported PCM WAV.');
+      toast(typeof message === 'string' ? message : 'Sound upload failed. Check that the file is a supported PCM WAV.', 'error');
     } finally { setSaving(false); }
   }
 
   async function toggleActive(sound: Sound) {
-    setError('');
     try {
       const { data } = await api.patch<Sound>(`/alerts/sounds/${sound.id}`, { isActive: !sound.isActive });
       setSounds(current => current.map(item => item.id === sound.id ? data : item));
-    } catch { setError('Could not update sound status.'); }
+      toast(data.isActive ? 'Sound activated' : 'Sound deactivated');
+    } catch { toast('Could not update sound status.', 'error'); }
   }
 
   async function preview(sound: Sound) {
@@ -83,10 +86,10 @@ export default function NotificationSoundsPage({ embedded = false }: { embedded?
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.onended = () => setPlayingId(null);
-      audio.onerror = () => { setPlayingId(null); setError('This sound could not be played.'); };
+      audio.onerror = () => { setPlayingId(null); toast('This sound could not be played.', 'error'); };
       await audio.play();
       setPlayingId(sound.id);
-    } catch { setError('Could not preview this sound.'); }
+    } catch { toast('Could not preview this sound.', 'error'); }
   }
 
   return <div>

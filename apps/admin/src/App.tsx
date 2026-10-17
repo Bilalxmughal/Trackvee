@@ -24,7 +24,8 @@ import DriverBehaviorPage from './pages/DriverBehaviorPage';
 import MaintenancePage from './pages/MaintenancePage';
 import PricingPage from './pages/PricingPage';
 import ClientStatementsPage from './pages/ClientStatementsPage';
-import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';;
+import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';
+import { ToastProvider } from './contexts/ToastContext';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -54,6 +55,7 @@ export default function App() {
   if (loading) return <Spinner style={{ height: '100vh' }} />;
 
   return (
+    <ToastProvider>
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
 
@@ -86,5 +88,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
+    </ToastProvider>
   );
 }

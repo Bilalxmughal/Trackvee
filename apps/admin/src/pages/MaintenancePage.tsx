@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconArrowLeft, IconPlus, IconTrash, IconPencil } from '@tabler/icons-react';
 import api from '../api/client';
+import { useToast } from '../contexts/ToastContext';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../contexts/AuthContext';
 import { canPerformAction } from '../config/roles';
@@ -25,6 +26,7 @@ const input: React.CSSProperties = { height: 34, border: '1px solid var(--input-
 const statusColor = { completed: '#6b7280', scheduled: '#6b7280', upcoming: '#b45309', overdue: '#dc2626' };
 
 export default function MaintenancePage() {
+  const { toast } = useToast();
   const { user } = useAuth();
   const role = (user?.role ?? 'viewer') as UserRole;
   const can = (action: 'view'|'add'|'edit'|'delete') => canPerformAction(role, 'maintenance', action);
@@ -59,10 +61,11 @@ export default function MaintenancePage() {
       if (editing) await api.put(`/maintenance/${editing}`, payload);
       else await api.post(`/maintenance?organizationId=${encodeURIComponent(orgId)}`, payload);
       setForm(null); setEditing(null); await load();
+      toast(editing ? 'Service record updated' : 'Service record added');
     } catch (e) { const message = (e as { response?: { data?: { message?: string } } }).response?.data?.message; setError(typeof message === 'string' ? message : 'The service record could not be saved.'); }
     finally { setSaving(false); }
   };
-  const remove = async (row: Row) => { if (!window.confirm(`Delete the ${row.serviceType} service record?`)) return; try { await api.delete(`/maintenance/${row.id}`); await load(); } catch { setError('The service record could not be deleted.'); } };
+  const remove = async (row: Row) => { if (!window.confirm(`Delete the ${row.serviceType} service record?`)) return; try { await api.delete(`/maintenance/${row.id}`); await load(); toast('Service record deleted'); } catch { toast('Could not delete service record', 'error'); } };
   const setValue = <K extends keyof Form>(key: K, value: Form[K]) => setForm(current => current ? { ...current, [key]: value } : current);
 
   return <div>
