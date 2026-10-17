@@ -20,6 +20,7 @@ interface MobileFeature  { title: string; desc: string; }
 interface MobileAppSettings { heading: string; description: string; points: MobileFeature[]; playStoreUrl: string; appStoreUrl: string; imageUrl: string; }
 interface PackageItem { name: string; desc: string; features: string[]; featured: boolean; ctaLabel: string; ctaLink: string; }
 interface ContactSettings { whatsapp: string; phone: string; emailSales: string; emailSupport: string; address: string; hours: string; hoursSub: string; }
+interface CtaItem { label: string; href: string; visible: boolean; }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 const mkReviews = (): ReviewItem[] => [
@@ -61,9 +62,15 @@ const mkContact = (): ContactSettings => ({
   address: 'Lahore, Pakistan', hours: 'Mon – Sat: 9:00 AM – 6:00 PM', hoursSub: 'Sunday closed',
 });
 const emptyPartner = (): PartnerItem => ({ name: '', logoUrl: '', abbr: '', enabled: true });
+const mkCtas = (): CtaItem[] => [
+  { label: 'WebTrack',    href: 'https://portal.trackvee.com', visible: true },
+  { label: 'Get the App', href: '#mobile-app',                 visible: true },
+  { label: 'Live Demo',   href: 'https://app.trackvee.com',    visible: true },
+  { label: 'Get a quote', href: '#contact',                    visible: true },
+];
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
-type TabKey = 'hero' | 'partners' | 'reviews' | 'solutions' | 'mobileApp' | 'packages' | 'contact';
+type TabKey = 'hero' | 'partners' | 'reviews' | 'solutions' | 'mobileApp' | 'packages' | 'contact' | 'cta';
 const TABS: { key: TabKey; label: string; Icon: React.ElementType }[] = [
   { key: 'hero',      label: 'Hero',         Icon: IconPhoto },
   { key: 'partners',  label: 'Partners',     Icon: IconUsers },
@@ -72,6 +79,7 @@ const TABS: { key: TabKey; label: string; Icon: React.ElementType }[] = [
   { key: 'mobileApp', label: 'Mobile App',   Icon: IconDeviceMobile },
   { key: 'packages',  label: 'Packages',     Icon: IconPackage },
   { key: 'contact',   label: 'Get in Touch', Icon: IconPhone },
+  { key: 'cta',       label: 'Navbar CTAs',  Icon: IconLink },
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -277,6 +285,7 @@ export default function WebsiteSettingsPanel() {
   const [mobileApp,  setMobileApp]  = useState<MobileAppSettings>(mkMobileApp());
   const [packages,   setPackages]   = useState<PackageItem[]>(mkPackages());
   const [contact,    setContact]    = useState<ContactSettings>(mkContact());
+  const [ctas,       setCtas]       = useState<CtaItem[]>(mkCtas());
 
   const [saving,  setSaving]  = useState<Record<string, boolean>>({});
   const [saved,   setSaved]   = useState<Record<string, boolean>>({});
@@ -309,6 +318,7 @@ export default function WebsiteSettingsPanel() {
       if (d.mobileApp) setMobileApp(d.mobileApp as MobileAppSettings);
       if (d.packages)  setPackages(d.packages as PackageItem[]);
       if (d.contact)   setContact(d.contact as ContactSettings);
+      if (d.cta)       setCtas(d.cta as CtaItem[]);
     }).catch(() => {});
   }, []);
 
@@ -808,6 +818,48 @@ export default function WebsiteSettingsPanel() {
               </div>
             </div>
 
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>Changes appear on trackvee.com within ~60 seconds after saving.</p>
+          </div>
+        )}
+
+        {/* ────── NAVBAR CTAs ────── */}
+        {activeTab === 'cta' && (
+          <div style={{ maxWidth: 560 }}>
+            <SectionTitle sub="Website topbar ke 4 CTAs ko yahan se manage karo">Navbar CTAs</SectionTitle>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              {ctas.map((cta, i) => (
+                <div key={i} style={{ ...card(), display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>CTA {i + 1}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{cta.visible ? 'Visible' : 'Hidden'}</span>
+                      <button type="button" onClick={() => setCtas(p => p.map((c, j) => j === i ? { ...c, visible: !c.visible } : c))}
+                        style={{ border: 0, background: 'none', cursor: 'pointer', color: cta.visible ? '#16a34a' : '#9ca3af', padding: 0, display: 'flex', alignItems: 'center' }}>
+                        {cta.visible ? <IconToggleRight size={22} /> : <IconToggleLeft size={22} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Label</div>
+                      <input style={inp} value={cta.label} placeholder="Button label"
+                        onChange={e => setCtas(p => p.map((c, j) => j === i ? { ...c, label: e.target.value } : c))} />
+                    </div>
+                    <div style={{ flex: 2 }}>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>Link / URL</div>
+                      <div style={{ position: 'relative' }}>
+                        <IconLink size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+                        <input style={{ ...inp, paddingLeft: 28 }} value={cta.href} placeholder="https://… or #anchor"
+                          onChange={e => setCtas(p => p.map((c, j) => j === i ? { ...c, href: e.target.value } : c))} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <SaveBtn saving={!!saving.cta} saved={!!saved.cta} onClick={() => saveKey('cta', ctas, 'Navbar CTAs saved!')} />
+            </div>
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>Changes appear on trackvee.com within ~60 seconds after saving.</p>
           </div>
         )}

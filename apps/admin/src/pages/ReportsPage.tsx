@@ -333,7 +333,18 @@ export default function ReportsPage() {
 
           <div style={field(190)}>
             <span style={lbl}>Report Type</span>
-            <CustomSelect value={reportType} onChange={v=>{setReportType(v as ReportType);setResult(null);}} options={REPORT_TYPES.map(r=>({value:r.value,label:`${r.group} — ${r.label}`}))} minWidth={190} />
+            <CustomSelect value={reportType} onChange={v=>{setReportType(v as ReportType);setResult(null);}} options={(() => {
+              const groups = ['Travel','Activity','Speed','Events','Geofence'];
+              const out: {value:string;label:string;isGroup?:boolean}[] = [];
+              groups.forEach(g => {
+                const items = REPORT_TYPES.filter(r => r.group === g);
+                if (items.length) {
+                  out.push({ value: `__${g}`, label: g, isGroup: true });
+                  items.forEach(r => out.push({ value: r.value, label: r.label }));
+                }
+              });
+              return out;
+            })()} minWidth={190} />
           </div>
 
           <div style={field(210)}>
@@ -434,11 +445,11 @@ export default function ReportsPage() {
           </div>
 
           {/* Table */}
-          <div style={{overflowX:'auto',padding:'0 20px'}}>
+          <div style={{overflowX:'auto',overflowY:'auto',padding:'0 20px',maxHeight:'calc(100vh - 420px)'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
               <thead>
                 <tr style={{background:'var(--bg2)',borderBottom:'2px solid var(--border)'}}>
-                  {result.columns.map(c=><th key={c} style={{padding:'7px 10px',textAlign:'left',fontWeight:600,fontSize:11,color:'var(--text-muted)',whiteSpace:'nowrap'}}>{c}</th>)}
+                  {result.columns.map(c=><th key={c} style={{padding:'7px 10px',textAlign:'left',fontWeight:600,fontSize:11,color:'var(--text-muted)',whiteSpace:'nowrap',position:'sticky',top:0,background:'var(--bg2)',zIndex:2}}>{c}</th>)}
                 </tr>
               </thead>
               <tbody>

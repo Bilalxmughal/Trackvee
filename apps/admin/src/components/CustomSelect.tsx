@@ -4,6 +4,7 @@ import { IconChevronDown } from '@tabler/icons-react';
 interface Option {
   value: string;
   label: string;
+  isGroup?: boolean;
 }
 
 interface CustomSelectProps {
@@ -59,13 +60,26 @@ export default function CustomSelect({ value, onChange, options, placeholder = '
           borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,.12)',
           zIndex: 500, maxHeight: 240, overflowY: 'auto',
         }}>
-          {options.map(o => (
+          {options.map((o, i) => o.isGroup ? (
+            <div
+              key={`group-${i}`}
+              style={{
+                padding: '6px 12px 3px',
+                fontSize: 10, fontWeight: 700, color: 'var(--muted)',
+                textTransform: 'uppercase', letterSpacing: 0.6,
+                borderTop: i > 0 ? '1px solid var(--border2)' : undefined,
+                background: 'transparent', cursor: 'default',
+              }}
+            >
+              {o.label}
+            </div>
+          ) : (
             <button
               key={o.value}
               type="button"
               onClick={() => { onChange(o.value); setOpen(false); }}
               style={{
-                display: 'block', width: '100%', padding: '8px 12px',
+                display: 'block', width: '100%', padding: '7px 12px 7px 20px',
                 border: 0, borderBottom: '1px solid var(--border2)',
                 background: o.value === value ? 'rgba(220,38,38,.06)' : 'transparent',
                 color: o.value === value ? '#dc2626' : 'var(--text)',

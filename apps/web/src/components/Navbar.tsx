@@ -50,6 +50,15 @@ export default function Navbar() {
         </ul>
 
         <div className="hidden md:flex items-center gap-2">
+          {/* WebTrack portal link */}
+          <a
+            href="https://portal.trackvee.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors px-2 py-2"
+          >
+            WebTrack
+          </a>
           {/* Mobile App CTA */}
           <a
             href="#mobile-app"

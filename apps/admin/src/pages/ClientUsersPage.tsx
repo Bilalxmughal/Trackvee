@@ -1,4 +1,4 @@
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { IconPlus, IconSearch, IconEdit, IconTrash, IconUserScan, IconBan, IconCheck, IconMinus, IconShieldCheck, IconDownload } from '@tabler/icons-react';
 import CustomSelect from '../components/CustomSelect';
@@ -124,6 +124,45 @@ function OrgSelector({ orgs, value, onChange, placeholder }: {
         </div>
       )}
       {open && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />}
+    </div>
+  );
+}
+
+function OrgFilterSelect({ orgs, value, onChange }: { orgs: Org[]; value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+  const current = orgs.find(o => o.id === value);
+  const filtered = orgs.filter(o => o.name.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div ref={root} style={{ position: 'relative' }}>
+      <button type="button" onClick={() => setOpen(v => !v)}
+        style={{ ...sel, minWidth: 140, textAlign: 'left', fontWeight: 400 }}>
+        {current?.name ?? 'All Orgs'}
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', zIndex: 600, top: 'calc(100% + 3px)', left: 0, minWidth: 230, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,.16)' }}>
+          <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search orgs…"
+            style={{ ...inp, width: '100%', paddingLeft: 10, borderRadius: '6px 6px 0 0' }} />
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            <button type="button" onClick={() => { onChange(''); setQ(''); setOpen(false); }}
+              style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, background: value === '' ? 'rgba(220,38,38,.06)' : 'transparent', textAlign: 'left', cursor: 'pointer', color: value === '' ? '#dc2626' : 'var(--text)', fontSize: 12 }}>
+              All Orgs
+            </button>
+            {filtered.map(o => (
+              <button key={o.id} type="button" onClick={() => { onChange(o.id); setQ(''); setOpen(false); }}
+                style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, borderTop: '1px solid var(--border2)', background: o.id === value ? 'rgba(220,38,38,.06)' : 'transparent', textAlign: 'left', cursor: 'pointer', color: o.id === value ? '#dc2626' : 'var(--text)', fontSize: 12 }}>
+                {o.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -351,10 +390,7 @@ export default function ClientUsersPage() {
           { value: 'client_user', label: 'Client User' },
         ]} minWidth={150} />
         {!isOrgScoped && (
-          <CustomSelect value={orgFilter} onChange={setOrgFilter} options={[
-            { value: '', label: 'All Orgs' },
-            ...orgs.map(o => ({ value: o.id, label: o.name })),
-          ]} minWidth={140} />
+          <OrgFilterSelect orgs={orgs} value={orgFilter} onChange={setOrgFilter} />
         )}
         <CustomSelect value={statusFilter} onChange={setStatusFilter} options={[
           { value: '', label: 'All Status' }, { value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' },

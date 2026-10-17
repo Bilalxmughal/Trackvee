@@ -189,7 +189,7 @@ export default function AuditLogsPage() {
             ) : logs.length === 0 ? (
               <tr><td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No audit logs found</td></tr>
             ) : logs.map(log => (
-              <tr key={log.id} style={{ borderBottom: '1px solid var(--table-border)' }}>
+              <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '7px 10px', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{fmtDate(log.timestamp)}</td>
                 <td style={{ padding: '7px 10px' }}>
                   <span style={flat(ACTION_COLOR[log.action] ?? '#888')}>{ACTION_LABELS[log.action] ?? log.action}</span>
