@@ -78,6 +78,8 @@ export default function CustomSelect({ value, onChange, options, placeholder = '
               key={o.value}
               type="button"
               onClick={() => { onChange(o.value); setOpen(false); }}
+              onMouseEnter={e => { if (o.value !== value) e.currentTarget.style.background = 'var(--bg2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = o.value === value ? 'rgba(220,38,38,.06)' : 'transparent'; }}
               style={{
                 display: 'block', width: '100%', padding: '7px 12px 7px 20px',
                 border: 0, borderBottom: '1px solid var(--border2)',

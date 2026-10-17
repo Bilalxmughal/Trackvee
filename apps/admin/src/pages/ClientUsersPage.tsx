@@ -151,11 +151,15 @@ function OrgFilterSelect({ orgs, value, onChange }: { orgs: Org[]; value: string
             style={{ ...inp, width: '100%', paddingLeft: 10, borderRadius: '6px 6px 0 0' }} />
           <div style={{ maxHeight: 220, overflowY: 'auto' }}>
             <button type="button" onClick={() => { onChange(''); setQ(''); setOpen(false); }}
+              onMouseEnter={e => { if (value !== '') e.currentTarget.style.background = 'var(--bg2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = value === '' ? 'rgba(220,38,38,.06)' : 'transparent'; }}
               style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, background: value === '' ? 'rgba(220,38,38,.06)' : 'transparent', textAlign: 'left', cursor: 'pointer', color: value === '' ? '#dc2626' : 'var(--text)', fontSize: 12 }}>
               All Orgs
             </button>
             {filtered.map(o => (
               <button key={o.id} type="button" onClick={() => { onChange(o.id); setQ(''); setOpen(false); }}
+                onMouseEnter={e => { if (o.id !== value) e.currentTarget.style.background = 'var(--bg2)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = o.id === value ? 'rgba(220,38,38,.06)' : 'transparent'; }}
                 style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, borderTop: '1px solid var(--border2)', background: o.id === value ? 'rgba(220,38,38,.06)' : 'transparent', textAlign: 'left', cursor: 'pointer', color: o.id === value ? '#dc2626' : 'var(--text)', fontSize: 12 }}>
                 {o.name}
               </button>
