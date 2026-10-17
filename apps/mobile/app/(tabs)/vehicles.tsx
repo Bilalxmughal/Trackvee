@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { Asset } from 'expo-asset';
 import { useFleet, displayVehicleName, getFleetStatus, type FleetItem } from '../../src/hooks/useFleet';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { EngineCutDialog } from '../../src/components/EngineCutDialog';
@@ -96,24 +99,66 @@ export default function VehiclesScreen() {
   const menuItem = items.find(item => item.device.imei === menuImei);
   const plateFor = (item: FleetItem) => item.vehicle?.licensePlate || `#${item.vehicle?.displayId ?? item.device.displayId}`;
 
-  const exportCSV = () => {
-    const header = 'Plate,Name,Status,Speed (km/h),Ignition,GPS Sats,Battery (V),Signal (%),Last Update';
-    const rows = items.map(item => {
-      const pt = item.point;
-      const status = getFleetStatus(pt);
-      return [
-        plateFor(item),
-        displayVehicleName(item.vehicle) ?? '',
-        status,
-        Math.round(pt?.speedKmh ?? 0),
-        pt?.ignition === true ? 'ON' : pt?.ignition === false ? 'OFF' : '',
-        pt?.satellites ?? '',
-        pt?.voltageLevel != null ? pt.voltageLevel.toFixed(1) : '',
-        pt?.gsmSignal ?? '',
-        pt?.timestamp ? new Date(pt.timestamp).toLocaleString() : '',
-      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
-    });
-    void Share.share({ message: [header, ...rows].join('\n'), title: 'Vehicles Export' });
+  const exportPDF = async () => {
+    try {
+      const asset = Asset.fromModule(require('../../assets/trackvee-logo.png'));
+      await asset.downloadAsync();
+      let logoSrc = '';
+      if (asset.localUri) {
+        const { FileSystem } = await import('expo-file-system');
+        const b64 = await FileSystem.readAsStringAsync(asset.localUri, { encoding: FileSystem.EncodingType.Base64 });
+        logoSrc = `data:image/png;base64,${b64}`;
+      }
+      const now = new Date().toLocaleString();
+      const statusDot = (status: string) => {
+        const colors: Record<string, string> = { moving: '#16a34a', idle: '#f59e0b', parked: '#6b7280', offline: '#9ca3af' };
+        return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colors[status] ?? '#9ca3af'};margin-right:5px;vertical-align:middle"></span>`;
+      };
+      const rows = items.map(item => {
+        const pt = item.point;
+        const status = getFleetStatus(pt);
+        const speed = status === 'offline' ? '—' : `${Math.round(pt?.speedKmh ?? 0)} km/h`;
+        const ign = pt?.ignition === true ? '<span style="color:#16a34a;font-weight:600">ON</span>' : pt?.ignition === false ? '<span style="color:#dc2626;font-weight:600">OFF</span>' : '—';
+        const lastUpdate = pt?.timestamp ? new Date(pt.timestamp).toLocaleString() : '—';
+        return `<tr>
+          <td>${plateFor(item)}</td>
+          <td style="color:#64748b">${displayVehicleName(item.vehicle) ?? '—'}</td>
+          <td>${statusDot(status)}${status.charAt(0).toUpperCase() + status.slice(1)}</td>
+          <td style="text-align:center">${speed}</td>
+          <td style="text-align:center">${ign}</td>
+          <td style="text-align:center;color:#64748b">${lastUpdate}</td>
+        </tr>`;
+      }).join('');
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>
+        body { font-family: -apple-system, Helvetica, sans-serif; margin: 0; padding: 32px; color: #0f172a; }
+        .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e21d48; padding-bottom: 16px; margin-bottom: 24px; }
+        .logo { height: 36px; }
+        .meta { text-align: right; font-size: 11px; color: #64748b; }
+        .meta strong { display: block; font-size: 16px; color: #0f172a; font-weight: 700; margin-bottom: 2px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 9px 10px; text-align: left; font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+        td { padding: 9px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) td { background: #fafafa; }
+        .footer { margin-top: 24px; font-size: 10px; color: #94a3b8; text-align: center; }
+      </style></head><body>
+      <div class="header">
+        ${logoSrc ? `<img class="logo" src="${logoSrc}" />` : '<span style="font-size:20px;font-weight:800;color:#e21d48">Trackvee</span>'}
+        <div class="meta"><strong>Fleet Report</strong>Generated: ${now}<br>${items.length} vehicle${items.length !== 1 ? 's' : ''}</div>
+      </div>
+      <table>
+        <thead><tr><th>Plate</th><th>Vehicle</th><th>Status</th><th style="text-align:center">Speed</th><th style="text-align:center">Ignition</th><th style="text-align:center">Last Update</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="footer">Trackvee Fleet Management &bull; ${now}</div>
+      </body></html>`;
+      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Export Fleet Report' });
+      else Alert.alert('Sharing not available', 'PDF saved but sharing is not supported on this device.');
+    } catch {
+      Alert.alert('Export Failed', 'Could not generate the PDF. Please try again.');
+    }
   };
 
   const openNewGroup = () => { setEditingGroup(null); setGroupName(''); setGroupVehicleIds([]); setGroupVehicleSearch(''); setCollapsedVehicleGroups({}); setGroupError(''); setGroupModalOpen(true); };
@@ -233,7 +278,7 @@ export default function VehiclesScreen() {
       <Text style={[s.title, { color: t.ink }]}>Vehicles</Text>
       <View style={s.headerRight}>
         <Text style={[s.count, { color: t.secondary }]}>{items.length} vehicles</Text>
-        <Pressable onPress={exportCSV} style={s.iconBtn} accessibilityLabel="Export vehicle list">
+        <Pressable onPress={() => void exportPDF()} style={s.iconBtn} accessibilityLabel="Export vehicle list as PDF">
           <TablerIcon name="download" size={18} color={t.secondary} />
         </Pressable>
         {canDo('vehicles', 'add') && <Pressable onPress={openNewGroup} style={s.addGroup} accessibilityRole="button" accessibilityLabel="Create vehicle group">

@@ -11,7 +11,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.trackvee.mobile",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       },
       "entitlements": {
         "aps-environment": "production"
@@ -61,7 +63,8 @@
           "locationWhenInUsePermission": "Allow Trackvee to resolve the address of a selected vehicle history point."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-asset"
     ],
     "extra": {
       "router": {},
