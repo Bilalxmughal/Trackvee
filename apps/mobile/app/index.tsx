@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import logo from '../assets/trackvee-logo.png';
-import appIcon from '../assets/splash-icon.png';
+import appIcon from '../assets/favicon.png';
 import { useAuth } from '../src/auth/AuthProvider';
 import { useTheme } from '../src/hooks/useTheme';
 import type { AppTheme } from '../src/theme';
