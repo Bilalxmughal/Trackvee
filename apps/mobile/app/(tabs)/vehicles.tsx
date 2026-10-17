@@ -135,45 +135,61 @@ export default function VehiclesScreen() {
     const signal = point?.gsmSignal;
     const gpsValid = point?.gpsValid;
     const sats = point?.satellites ?? 0;
+    const accentColor = ignition === true ? '#16a34a' : STATUS_COLOR[status];
     return (
       <View style={s.card}>
-        <View style={[s.cardAccent, { backgroundColor: STATUS_COLOR[status] }]} />
+        <View style={[s.cardAccent, { backgroundColor: accentColor }]} />
         <Pressable onPress={() => go(item, 'detail')} style={s.cardBody} accessibilityRole="button" accessibilityLabel={`Open ${plate}`}>
           <View style={s.cardTop}>
             <View style={s.cardTopLeft}>
               <Text numberOfLines={1} style={s.plate}>{plate}</Text>
               <Text numberOfLines={1} style={s.vehicleName}>{displayVehicleName(item.vehicle)}</Text>
             </View>
-            <View style={s.cardTopRight}>
-              <View style={[s.statusBadge, { backgroundColor: STATUS_BG[status] }]}>
-                <View style={[s.statusDot, { backgroundColor: STATUS_COLOR[status] }]} />
-                <Text style={[s.statusText, { color: STATUS_TEXT_COLOR[status] }]}>{status[0]!.toUpperCase() + status.slice(1)}</Text>
-              </View>
-              <Text style={s.speedText}>{status === 'offline' ? '—' : `${Math.round(point?.speedKmh ?? 0)} km/h`}</Text>
-            </View>
+            <Text style={s.speedText}>{status === 'offline' ? 'Offline' : `${Math.round(point?.speedKmh ?? 0)} km/h`}</Text>
           </View>
           <View style={s.cardChips}>
             <View style={[s.chip, { backgroundColor: ignition === true ? '#dcfce7' : '#f1f5f9' }]}>
               <TablerIcon name="power" size={12} color={ignition === true ? '#16a34a' : theme.muted} />
               <Text style={[s.chipText, { color: ignition === true ? '#16a34a' : theme.muted }]}>{ignition === true ? 'ON' : ignition === false ? 'OFF' : '—'}</Text>
             </View>
-            <View style={[s.chip, { backgroundColor: gpsValid ? '#dbeafe' : '#f1f5f9' }]}>
-              <TablerIcon name="map-pin" size={12} color={gpsValid ? '#2563eb' : theme.muted} />
-              <Text style={[s.chipText, { color: gpsValid ? '#2563eb' : theme.muted }]}>{sats} sat</Text>
+            <View style={s.chip}>
+              <TablerIcon name="map-pin" size={12} color={gpsValid ? theme.secondary : theme.muted} />
+              <Text style={[s.chipText, { color: gpsValid ? theme.secondary : theme.muted }]}>{sats} sat</Text>
             </View>
-            <View style={[s.chip, { backgroundColor: '#fef9c3' }]}>
-              <TablerIcon name="battery" size={12} color="#ca8a04" />
-              <Text style={[s.chipText, { color: '#ca8a04' }]}>{voltage != null ? `${voltage.toFixed(1)}V` : '—'}</Text>
+            <View style={s.chip}>
+              <TablerIcon name="battery" size={12} color={theme.secondary} />
+              <Text style={s.chipText}>{voltage != null ? `${voltage.toFixed(1)}V` : '—'}</Text>
             </View>
-            <View style={[s.chip, { backgroundColor: '#f0fdf4' }]}>
-              <TablerIcon name="signal" size={12} color="#16a34a" />
-              <Text style={[s.chipText, { color: '#16a34a' }]}>{signal == null ? '—' : `${signal}%`}</Text>
+            <View style={s.chip}>
+              <TablerIcon name="signal" size={12} color={theme.secondary} />
+              <Text style={s.chipText}>{signal == null ? '—' : `${signal}%`}</Text>
             </View>
             <Text style={s.updatedText}>{ageLabel(point?.timestamp)}</Text>
           </View>
         </Pressable>
         <Pressable onPress={() => setMenuImei(item.device.imei)} style={s.cardMenu} accessibilityLabel={`Actions for ${plate}`}>
           <TablerIcon name="more-vertical" size={18} color={theme.secondary} />
+        </Pressable>
+      </View>
+    );
+  };
+
+  const renderGroupVehicleRow = (item: FleetItem) => {
+    const point = item.point;
+    const status = getFleetStatus(point);
+    const plate = plateFor(item);
+    const ignition = point?.ignition;
+    const accentColor = ignition === true ? '#16a34a' : STATUS_COLOR[status];
+    return (
+      <View key={item.device.imei} style={s.groupVehicleRow}>
+        <View style={[s.groupVehicleAccent, { backgroundColor: accentColor }]} />
+        <Pressable onPress={() => go(item, 'detail')} style={s.groupVehicleBody} accessibilityRole="button">
+          <Text numberOfLines={1} style={s.plate}>{plate}</Text>
+          <Text numberOfLines={1} style={s.vehicleName}>{displayVehicleName(item.vehicle)}</Text>
+        </Pressable>
+        <Text style={s.groupVehicleSpeed}>{status === 'offline' ? 'Offline' : `${Math.round(point?.speedKmh ?? 0)} km/h`}</Text>
+        <Pressable onPress={() => setMenuImei(item.device.imei)} style={s.cardMenu} accessibilityLabel={`Actions for ${plate}`}>
+          <TablerIcon name="more-vertical" size={17} color={theme.secondary} />
         </Pressable>
       </View>
     );
@@ -276,11 +292,7 @@ export default function VehiclesScreen() {
                 {counts.parked > 0 && <View style={[s.statusChip, { backgroundColor: '#f1f5f9' }]}><View style={[s.statusDot, { backgroundColor: theme.secondary }]} /><Text style={[s.statusChipText, { color: '#475569' }]}>{counts.parked} Parked</Text></View>}
                 {counts.offline > 0 && <View style={[s.statusChip, { backgroundColor: '#f8fafc' }]}><View style={[s.statusDot, { backgroundColor: theme.offline }]} /><Text style={[s.statusChipText, { color: '#94a3b8' }]}>{counts.offline} Offline</Text></View>}
               </View>
-              {expanded && members.map(item => (
-                <View key={item.device.imei} style={s.groupCardVehicle}>
-                  {renderVehicleCard(item)}
-                </View>
-              ))}
+              {expanded && members.map(item => renderGroupVehicleRow(item))}
             </View>
           );
         })}
@@ -385,7 +397,7 @@ const s = StyleSheet.create({
 
   listContent: { paddingBottom: 20 },
 
-  groupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 16, paddingBottom: 6 },
+  groupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, marginTop: 6, backgroundColor: '#f8fafc' },
   groupHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   groupTitle: { color: theme.ink, fontSize: 12, fontWeight: '700' },
   groupCountBadge: { backgroundColor: '#f1f5f9', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
@@ -393,23 +405,24 @@ const s = StyleSheet.create({
   groupActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   groupActionBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
 
-  card: { marginHorizontal: 12, marginBottom: 8, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'stretch', overflow: 'hidden' },
-  cardAccent: { width: 4 },
+  card: { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'stretch' },
+  cardAccent: { width: 3 },
   cardBody: { flex: 1, paddingVertical: 11, paddingLeft: 11, paddingRight: 4 },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 9 },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
   cardTopLeft: { flex: 1, minWidth: 0 },
-  cardTopRight: { alignItems: 'flex-end', gap: 4, marginLeft: 8 },
   plate: { fontSize: 14, fontWeight: '700', color: theme.ink },
   vehicleName: { fontSize: 11, color: theme.secondary, marginTop: 2 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12 },
   statusDot: { width: 5, height: 5, borderRadius: 3 },
-  statusText: { fontSize: 10, fontWeight: '700' },
-  speedText: { fontSize: 11, fontWeight: '600', color: theme.secondary },
+  speedText: { fontSize: 11, fontWeight: '600', color: theme.secondary, marginLeft: 8 },
   cardChips: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6 },
-  chipText: { fontSize: 10, fontWeight: '600' },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6, backgroundColor: '#f1f5f9' },
+  chipText: { fontSize: 10, fontWeight: '600', color: theme.secondary },
   updatedText: { fontSize: 9, color: theme.muted, marginLeft: 'auto' },
   cardMenu: { width: 36, alignItems: 'center', justifyContent: 'center' },
+  groupVehicleRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: theme.border, paddingRight: 4 },
+  groupVehicleAccent: { width: 3, alignSelf: 'stretch' },
+  groupVehicleBody: { flex: 1, paddingVertical: 11, paddingLeft: 11, paddingRight: 4 },
+  groupVehicleSpeed: { fontSize: 11, fontWeight: '600', color: theme.secondary },
 
   groupCard: { marginHorizontal: 12, marginTop: 10, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' },
   groupCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 13 },
@@ -422,7 +435,6 @@ const s = StyleSheet.create({
   groupStatusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingBottom: 12 },
   statusChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
   statusChipText: { fontSize: 10, fontWeight: '600' },
-  groupCardVehicle: { borderTopWidth: 1, borderTopColor: theme.border },
 
   emptyGroups: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 10 },
 
