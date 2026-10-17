@@ -205,6 +205,8 @@ function DeviceRow({ row }: { row: DeviceHealth }) {
 }
 
 function Metric({ label, value, detail, color }: { label: string; value: string; detail: string; color: string }) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   return <View style={styles.metric}><Text style={styles.metricLabel}>{label}</Text><Text style={[styles.metricValue, { color }]} numberOfLines={1}>{value}</Text><Text style={styles.metricDetail} numberOfLines={1}>{detail}</Text></View>;
 }
 

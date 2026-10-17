@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platfo
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import { TablerIcon } from './TablerIcon';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../hooks/useTheme';
 import type { AppTheme } from '../theme';
 import { usePortalPermissions } from '../auth/PortalPermissionsProvider';
 import { AlertSoundSettings, MobileAlertSoundId } from './AlertSoundSettings';

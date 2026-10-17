@@ -7,7 +7,7 @@ import { FleetAlertForm, type AlertVehicle, type AlertVehicleGroup, type AlertZo
 import { TablerIcon } from '../src/components/TablerIcon';
 import { useAuth } from '../src/auth/AuthProvider';
 import { usePortalPermissions } from '../src/auth/PortalPermissionsProvider';
-import { useTheme } from '../src/contexts/ThemeContext';
+import { useTheme } from '../src/hooks/useTheme';
 import type { AppTheme } from '../src/theme';
 
 interface Device { imei: string; vehicle: { id: string; name: string; licensePlate: string | null; make?: string | null; model?: string | null } | null; }

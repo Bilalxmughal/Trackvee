@@ -6,7 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useFleet, displayVehicleName, getFleetStatus } from '../../src/hooks/useFleet';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { EngineCutDialog } from '../../src/components/EngineCutDialog';
-import { useTheme } from '../../src/contexts/ThemeContext';
+import { useTheme } from '../../src/hooks/useTheme';
 import type { AppTheme } from '../../src/theme';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
 import api from '../../src/lib/api';

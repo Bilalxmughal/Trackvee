@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { VehicleAlertsPanel } from '../../../src/components/VehicleAlertsPanel';
 import { usePortalPermissions } from '../../../src/auth/PortalPermissionsProvider';
 import { ActivityIndicator, View } from 'react-native';
-import { useTheme } from '../../../src/contexts/ThemeContext';
+import { useTheme } from '../../../src/hooks/useTheme';
 
 export default function VehicleAlertsRoute() {
   const { imei } = useLocalSearchParams<{ imei: string }>();

@@ -5,7 +5,7 @@ import type { AudioSource } from 'expo-audio';
 import { MOBILE_ALERT_SOUNDS, syncPushRegistration } from '../lib/pushNotifications';
 import { cacheDynamicNotificationSound, getDynamicNotificationSounds } from '../lib/dynamicNotificationSounds';
 import type { DynamicNotificationSound } from '../lib/dynamicNotificationSounds';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../hooks/useTheme';
 import type { AppTheme } from '../theme';
 import { TablerIcon } from './TablerIcon';
 

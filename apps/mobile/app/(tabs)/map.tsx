@@ -18,6 +18,7 @@ const DEFAULT_REGION: Region = { latitude: 24.8607, longitude: 67.0011, latitude
 
 function VehicleMarker({ item, onPress }: { item: FleetItem; onPress: () => void }) {
   const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const point = item.point as LivePoint;
   const coordinate = useRef(new AnimatedRegion({ latitude: point.latitude, longitude: point.longitude, latitudeDelta: 0, longitudeDelta: 0 })).current;
   const state = getFleetStatus(point);
@@ -171,7 +172,7 @@ export default function LiveMapScreen() {
               <TablerIcon name={searchOpen ? 'close' : 'search'} size={20} color={t.ink} />
             </Pressable>
             {canDo('alerts') && <Pressable accessibilityRole="button" accessibilityLabel="Open alerts" onPress={() => router.push('/alerts')} style={styles.iconButton}>
-              <TablerIcon name="bell" size={21} color={theme.ink} />
+              <TablerIcon name="bell" size={21} color={t.ink} />
             </Pressable>}
           </View>
         </View>
