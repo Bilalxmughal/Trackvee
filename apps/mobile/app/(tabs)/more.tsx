@@ -5,42 +5,18 @@ import { useAuth } from '../../src/auth/AuthProvider';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { useTheme } from '../../src/hooks/useTheme';
-import { useThemeContext, type ThemeMode } from '../../src/contexts/ThemeContext';
 
 export default function MoreScreen() {
   const t = useTheme();
-  const { themeMode, setThemeMode } = useThemeContext();
   const { user, logout } = useAuth();
   const { canDo } = usePortalPermissions();
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Account';
   const signOut = () => Alert.alert('Sign out', 'Are you sure you want to sign out?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign out', style: 'destructive', onPress: () => { void logout(); } }]);
 
-  const MODES: { mode: ThemeMode; label: string; icon: string }[] = [
-    { mode: 'light', label: 'Light', icon: 'sun' },
-    { mode: 'dark', label: 'Dark', icon: 'moon' },
-    { mode: 'system', label: 'System', icon: 'device-desktop' },
-  ];
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: t.bg }]} edges={['top']}>
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={[styles.title, { color: t.ink }]}>More</Text>
-
-      {/* Dark mode toggle */}
-      <View style={[styles.themeCard, { backgroundColor: t.card, borderColor: t.cardBorder }]}>
-        <View style={styles.themeHeader}>
-          <TablerIcon name="palette" size={16} color={t.red} />
-          <Text style={[styles.themeTitle, { color: t.ink }]}>Appearance</Text>
-        </View>
-        <View style={styles.themePills}>
-          {MODES.map(({ mode, label, icon }) => (
-            <Pressable key={mode} onPress={() => setThemeMode(mode)} style={[styles.themePill, { borderColor: themeMode === mode ? t.red : t.border, backgroundColor: themeMode === mode ? t.red : t.bg2 }]}>
-              <TablerIcon name={icon} size={14} color={themeMode === mode ? '#fff' : t.secondary} />
-              <Text style={[styles.themePillText, { color: themeMode === mode ? '#fff' : t.secondary }]}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
 
       <View style={[styles.profile, { borderColor: t.border }]}>
         <View style={[styles.avatar, { backgroundColor: t.bg2 }]}><Text style={[styles.avatarText, { color: t.ink }]}>{name[0]?.toUpperCase() ?? 'U'}</Text></View>
@@ -58,7 +34,7 @@ export default function MoreScreen() {
       </> : null}
 
       <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>PREFERENCES</Text>
-      <ToolRow icon="settings" title="Notifications & refresh" subtitle="Push alerts and fleet update behavior" t={t} onPress={() => router.push('/settings')} />
+      <ToolRow icon="settings" title="Settings" subtitle="Notifications, appearance and fleet updates" t={t} onPress={() => router.push('/settings')} />
 
       <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>ACCOUNT</Text>
       <View style={[styles.infoRow, { borderColor: t.border }]}><Text style={[styles.infoLabel, { color: t.secondary }]}>Organization</Text><Text style={[styles.infoValue, { color: t.ink }]} numberOfLines={1}>{user?.organizationName || '—'}</Text></View>
@@ -84,12 +60,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 },
   title: { fontSize: 25, fontWeight: '700', marginBottom: 14 },
-  themeCard: { borderRadius: 10, borderWidth: 1, padding: 14, marginBottom: 16 },
-  themeHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
-  themeTitle: { fontSize: 13, fontWeight: '700' },
-  themePills: { flexDirection: 'row', gap: 8 },
-  themePill: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 36, borderRadius: 8, borderWidth: 1.5 },
-  themePillText: { fontSize: 12, fontWeight: '600' },
   profile: { minHeight: 84, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderTopWidth: 1, gap: 13 },
   avatar: { height: 48, width: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 17, fontWeight: '700' },

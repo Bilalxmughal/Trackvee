@@ -6,7 +6,8 @@ import { useAuth } from '../src/auth/AuthProvider';
 import { usePortalPermissions } from '../src/auth/PortalPermissionsProvider';
 import { TablerIcon } from '../src/components/TablerIcon';
 import api from '../src/lib/api';
-import { theme } from '../src/theme';
+import { useTheme } from '../src/hooks/useTheme';
+import type { AppTheme } from '../src/theme';
 
 type Action = 'view' | 'add' | 'edit' | 'delete';
 type Module = { feature: string; prefix: string; label: string; actions: Action[] };
@@ -26,7 +27,7 @@ const MODULES: Module[] = [
   { feature: 'reports', prefix: 'reports', label: 'Reports', actions: ['view'] },
   { feature: 'users', prefix: 'users', label: 'Users', actions: ['view', 'add', 'edit', 'delete'] },
 ];
-const ACTION_COLORS: Record<Action, string> = { view: '#3b82f6', add: '#16a34a', edit: '#f59e0b', delete: theme.red };
+const ACTION_COLORS: Record<Action, string> = { view: '#3b82f6', add: '#16a34a', edit: '#f59e0b', delete: '#dc2626' };
 const ROLE_LEVEL: Record<string, number> = { client_owner: 4, client_super_admin: 3, client_admin: 2, client_user: 1 };
 const ROLE_LABEL: Record<string, string> = { client_owner: 'Owner', client_super_admin: 'Super Admin', client_admin: 'Admin', client_user: 'User' };
 const EMPTY_PERMISSIONS: OrgPermission = {
@@ -50,6 +51,8 @@ function errorText(error: unknown, fallback: string): string {
 }
 
 export default function UsersScreen() {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const { user } = useAuth();
   const { canDo, loading: permissionLoading } = usePortalPermissions();
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -99,7 +102,7 @@ export default function UsersScreen() {
     })(); } },
   ]);
 
-  if (permissionLoading || loading) return <SafeAreaView style={styles.container} edges={['top']}><View style={styles.loading}><ActivityIndicator color={theme.red}/><Text style={styles.secondary}>Loading users…</Text></View></SafeAreaView>;
+  if (permissionLoading || loading) return <SafeAreaView style={styles.container} edges={['top']}><View style={styles.loading}><ActivityIndicator color={t.red}/><Text style={styles.secondary}>Loading users…</Text></View></SafeAreaView>;
   if (editorOpen) return <UserEditor
     initial={editing}
     currentUserId={user?.id ?? ''}
@@ -115,14 +118,14 @@ export default function UsersScreen() {
 
   return <SafeAreaView style={styles.container} edges={['top']}>
     <View style={styles.header}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} hitSlop={10} style={styles.back}><TablerIcon name="back" size={20} color={theme.ink}/></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} hitSlop={10} style={styles.back}><TablerIcon name="back" size={20} color={t.ink}/></Pressable>
       <View style={styles.headerTitle}><Text style={styles.title}>Users</Text><Text style={styles.subtitle}>{users.length} organization users</Text></View>
-      {canDo('users', 'add') ? <Pressable onPress={openNew} accessibilityRole="button" accessibilityLabel="Add user" style={styles.addButton}><TablerIcon name="plus" size={23} color={theme.red}/></Pressable> : null}
+      {canDo('users', 'add') ? <Pressable onPress={openNew} accessibilityRole="button" accessibilityLabel="Add user" style={styles.addButton}><TablerIcon name="plus" size={23} color={t.red}/></Pressable> : null}
     </View>
-    <View style={styles.search}><TablerIcon name="search" size={17} color={theme.secondary}/><TextInput value={query} onChangeText={setQuery} placeholder="Search name or email" placeholderTextColor={theme.muted} style={styles.searchInput} autoCapitalize="none" returnKeyType="search" accessibilityLabel="Search users"/></View>
+    <View style={styles.search}><TablerIcon name="search" size={17} color={t.secondary}/><TextInput value={query} onChangeText={setQuery} placeholder="Search name or email" placeholderTextColor={t.muted} style={styles.searchInput} autoCapitalize="none" returnKeyType="search" accessibilityLabel="Search users"/></View>
     {error ? <Pressable onPress={() => void load(true)} style={styles.error}><Text style={styles.errorText}>{error}  Retry</Text></Pressable> : null}
-    <ScrollView contentContainerStyle={filteredUsers.length ? styles.list : styles.empty} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={theme.red}/> }>
-      {refreshing ? <ActivityIndicator color={theme.red} style={{ marginBottom: 12 }}/> : null}
+    <ScrollView contentContainerStyle={filteredUsers.length ? styles.list : styles.empty} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={t.red}/> }>
+      {refreshing ? <ActivityIndicator color={t.red} style={{ marginBottom: 12 }}/> : null}
       {filteredUsers.map(entry => {
         const self = entry.id === user?.id;
         const manageable = (ROLE_LEVEL[entry.role] ?? 0) < (ROLE_LEVEL[user?.role ?? ''] ?? 0);
@@ -130,10 +133,10 @@ export default function UsersScreen() {
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>{userLabel(entry)}</Text>
             <Text style={styles.userEmail} numberOfLines={1}>{entry.email}</Text>
-            <View style={styles.metaRow}><Text style={styles.userMeta}>{ROLE_LABEL[entry.role] ?? entry.role}</Text><Text style={styles.metaDot}>·</Text><Text style={[styles.userMeta, { color: entry.isActive ? '#15803d' : theme.muted }]}>{entry.isActive ? 'Active' : 'Inactive'}</Text>{self ? <><Text style={styles.metaDot}>·</Text><Text style={styles.userMeta}>You</Text></> : null}</View>
+            <View style={styles.metaRow}><Text style={styles.userMeta}>{ROLE_LABEL[entry.role] ?? entry.role}</Text><Text style={styles.metaDot}>·</Text><Text style={[styles.userMeta, { color: entry.isActive ? '#15803d' : t.muted }]}>{entry.isActive ? 'Active' : 'Inactive'}</Text>{self ? <><Text style={styles.metaDot}>·</Text><Text style={styles.userMeta}>You</Text></> : null}</View>
           </View>
-          {(self || (manageable && canDo('users', 'edit'))) ? <Pressable onPress={() => openEdit(entry)} hitSlop={8} style={styles.rowAction} accessibilityRole="button" accessibilityLabel={`Edit ${userLabel(entry)}`}><TablerIcon name="edit" size={18} color={theme.secondary}/></Pressable> : null}
-          {!self && manageable && canDo('users', 'delete') ? <Pressable onPress={() => deleteUser(entry)} hitSlop={8} style={styles.rowAction} accessibilityRole="button" accessibilityLabel={`Delete ${userLabel(entry)}`}><TablerIcon name="trash" size={18} color={theme.red}/></Pressable> : null}
+          {(self || (manageable && canDo('users', 'edit'))) ? <Pressable onPress={() => openEdit(entry)} hitSlop={8} style={styles.rowAction} accessibilityRole="button" accessibilityLabel={`Edit ${userLabel(entry)}`}><TablerIcon name="edit" size={18} color={t.secondary}/></Pressable> : null}
+          {!self && manageable && canDo('users', 'delete') ? <Pressable onPress={() => deleteUser(entry)} hitSlop={8} style={styles.rowAction} accessibilityRole="button" accessibilityLabel={`Delete ${userLabel(entry)}`}><TablerIcon name="trash" size={18} color={t.red}/></Pressable> : null}
         </View>;
       })}
       {!filteredUsers.length ? <Text style={styles.emptyText}>{query ? 'No users match your search.' : 'No users found.'}</Text> : null}
@@ -150,6 +153,8 @@ function UserEditor({ initial, currentUserId, currentUserRole, vehicleOptions, c
   onClose: () => void;
   onSaved: (user: UserRecord) => void;
 }) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const self = initial?.id === currentUserId;
   const canManageUser = self || (initial ? canDo('users', 'edit') : canDo('users', 'add'));
   const availableRoles = Object.keys(ROLE_LEVEL).filter(role => role !== 'client_owner' && ROLE_LEVEL[role]! < (ROLE_LEVEL[currentUserRole] ?? 0));
@@ -258,7 +263,7 @@ function UserEditor({ initial, currentUserId, currentUserRole, vehicleOptions, c
   return <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
-        <Pressable onPress={onClose} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel="Back to users"><TablerIcon name="back" size={20} color={theme.ink}/></Pressable>
+        <Pressable onPress={onClose} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel="Back to users"><TablerIcon name="back" size={20} color={t.ink}/></Pressable>
         <View style={styles.headerTitle}><Text style={styles.title}>{initial ? 'Edit User' : 'Add User'}</Text><Text style={styles.subtitle}>{initial ? userLabel(initial) : 'Create an organization user'}</Text></View>
       </View>
       {tabs.length > 1 ? <View style={styles.tabs}>{tabs.map(tab => <Pressable key={tab.id} onPress={() => setActiveTab(tab.id)} style={[styles.tab, activeTab === tab.id && styles.tabActive]}><Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>{tab.label}</Text></Pressable>)}</View> : null}
@@ -266,10 +271,10 @@ function UserEditor({ initial, currentUserId, currentUserRole, vehicleOptions, c
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
         {activeTab === 'profile' ? <>
           {!self ? <Field label="Role"><View style={styles.selectBox}><Text style={styles.selectLabel}>{ROLE_LABEL[role] ?? role}</Text><View style={styles.roleChoices}>{availableRoles.map(option => <Pressable key={option} onPress={() => { setRole(option); setPermissions({ ...EMPTY_PERMISSIONS, vehicleIds: vehicleOptions.allVehiclesAllowed ? null : [] }); }} style={[styles.roleOption, role === option && styles.roleOptionActive]}><Text style={[styles.roleOptionText, role === option && styles.roleOptionTextActive]}>{ROLE_LABEL[option]}</Text></Pressable>)}</View></View></Field> : <Field label="Role"><Text style={styles.readOnlyValue}>{ROLE_LABEL[initial?.role ?? role] ?? role}</Text></Field>}
-          <View style={styles.nameFields}><View style={{ flex: 1 }}><Field label="First Name"><TextInput value={firstName} onChangeText={setFirstName} placeholder="First name" placeholderTextColor={theme.muted} style={styles.input}/></Field></View><View style={{ flex: 1 }}><Field label="Last Name"><TextInput value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor={theme.muted} style={styles.input}/></Field></View></View>
-          <Field label="Email"><TextInput value={email} onChangeText={setEmail} placeholder="name@company.com" placeholderTextColor={theme.muted} style={styles.input} keyboardType="email-address" autoCapitalize="none" autoComplete="email"/></Field>
-          <Field label={initial ? 'New Password (optional)' : 'Password'}><View style={styles.passwordInput}><TextInput value={password} onChangeText={setPassword} placeholder={initial ? 'Leave blank to keep current password' : 'At least 8 characters'} placeholderTextColor={theme.muted} style={[styles.input, { flex: 1, borderWidth: 0 }]} secureTextEntry={!showPassword} autoComplete={initial ? 'new-password' : 'new-password'}/><Pressable onPress={() => setShowPassword(value => !value)} style={styles.showPassword}><Text style={styles.showPasswordText}>{showPassword ? 'Hide' : 'Show'}</Text></Pressable></View></Field>
-          {!self ? <View style={styles.switchRow}><View style={{ flex: 1 }}><Text style={styles.fieldLabel}>Account status</Text><Text style={styles.helper}>Inactive users cannot sign in.</Text></View><Text style={[styles.statusText, active ? styles.activeText : styles.inactiveText]}>{active ? 'Active' : 'Inactive'}</Text><Switch value={active} onValueChange={setActive} trackColor={{ false: '#d1d5db', true: '#fca5a5' }} thumbColor={active ? theme.red : '#fff'} /></View> : null}
+          <View style={styles.nameFields}><View style={{ flex: 1 }}><Field label="First Name"><TextInput value={firstName} onChangeText={setFirstName} placeholder="First name" placeholderTextColor={t.muted} style={styles.input}/></Field></View><View style={{ flex: 1 }}><Field label="Last Name"><TextInput value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor={t.muted} style={styles.input}/></Field></View></View>
+          <Field label="Email"><TextInput value={email} onChangeText={setEmail} placeholder="name@company.com" placeholderTextColor={t.muted} style={styles.input} keyboardType="email-address" autoCapitalize="none" autoComplete="email"/></Field>
+          <Field label={initial ? 'New Password (optional)' : 'Password'}><View style={styles.passwordInput}><TextInput value={password} onChangeText={setPassword} placeholder={initial ? 'Leave blank to keep current password' : 'At least 8 characters'} placeholderTextColor={t.muted} style={[styles.input, { flex: 1, borderWidth: 0 }]} secureTextEntry={!showPassword} autoComplete={initial ? 'new-password' : 'new-password'}/><Pressable onPress={() => setShowPassword(value => !value)} style={styles.showPassword}><Text style={styles.showPasswordText}>{showPassword ? 'Hide' : 'Show'}</Text></Pressable></View></Field>
+          {!self ? <View style={styles.switchRow}><View style={{ flex: 1 }}><Text style={styles.fieldLabel}>Account status</Text><Text style={styles.helper}>Inactive users cannot sign in.</Text></View><Text style={[styles.statusText, active ? styles.activeText : styles.inactiveText]}>{active ? 'Active' : 'Inactive'}</Text><Switch value={active} onValueChange={setActive} trackColor={{ false: '#d1d5db', true: '#fca5a5' }} thumbColor={active ? t.red : '#fff'} /></View> : null}
         </> : null}
 
         {activeTab === 'vehicles' ? <>
@@ -278,14 +283,14 @@ function UserEditor({ initial, currentUserId, currentUserRole, vehicleOptions, c
           {vehicleOptions.allVehiclesAllowed ? <Pressable onPress={() => setVehicleScope(true)} style={styles.radioRow}><View style={[styles.radio, permissions.vehicleIds === null && styles.radioActive]}>{permissions.vehicleIds === null ? <View style={styles.radioDot}/> : null}</View><Text style={styles.radioText}>All organization vehicles</Text></Pressable> : <Text style={styles.scopeNote}>You can assign vehicles available to your account only.</Text>}
           <Pressable onPress={() => setVehicleScope(false)} style={styles.radioRow}><View style={[styles.radio, permissions.vehicleIds !== null && styles.radioActive]}>{permissions.vehicleIds !== null ? <View style={styles.radioDot}/> : null}</View><Text style={styles.radioText}>Specific vehicles</Text><Text style={styles.countText}>{permissions.vehicleIds === null ? vehicleOptions.vehicles.length : permissions.vehicleIds?.length ?? 0} selected</Text></Pressable>
           {permissions.vehicleIds !== null ? <>
-            <View style={styles.search}><TablerIcon name="search" size={16} color={theme.secondary}/><TextInput value={vehicleSearch} onChangeText={setVehicleSearch} placeholder="Search vehicles" placeholderTextColor={theme.muted} style={styles.searchInput}/></View>
+            <View style={styles.search}><TablerIcon name="search" size={16} color={t.secondary}/><TextInput value={vehicleSearch} onChangeText={setVehicleSearch} placeholder="Search vehicles" placeholderTextColor={t.muted} style={styles.searchInput}/></View>
             <View style={styles.selectionTools}><Text style={styles.helper}>{vehicleOptions.vehicles.length} vehicles available</Text><View style={{ flex: 1 }}/><Pressable onPress={() => setPermissions(p => ({ ...p, vehicleIds: vehicleOptions.vehicles.map(vehicle => vehicle.id) }))}><Text style={styles.toolText}>Select all</Text></Pressable><Pressable onPress={() => setPermissions(p => ({ ...p, vehicleIds: [] }))}><Text style={styles.toolText}>Deselect all</Text></Pressable></View>
             {vehicleGroups.map(group => {
               const collapsed = !!collapsedGroups[group.id];
               const selected = group.ids.filter(id => (permissions.vehicleIds ?? []).includes(id)).length;
               return <View key={group.id} style={styles.vehicleGroup}>
                 <View style={styles.vehicleGroupHeader}>
-                  <Pressable onPress={() => setCollapsedGroups(current => ({ ...current, [group.id]: !current[group.id] }))} style={styles.groupToggle}><TablerIcon name={collapsed ? 'forward' : 'down'} size={15} color={theme.secondary}/><Text style={styles.groupName}>{group.name}</Text><Text style={styles.countText}>{selected}/{group.ids.length}</Text></Pressable>
+                  <Pressable onPress={() => setCollapsedGroups(current => ({ ...current, [group.id]: !current[group.id] }))} style={styles.groupToggle}><TablerIcon name={collapsed ? 'forward' : 'down'} size={15} color={t.secondary}/><Text style={styles.groupName}>{group.name}</Text><Text style={styles.countText}>{selected}/{group.ids.length}</Text></Pressable>
                   <Pressable onPress={() => toggleVehicleSet(group.ids)} style={styles.toolButton}><Text style={styles.toolText}>{selected === group.ids.length ? 'Clear' : 'Select'}</Text></Pressable>
                 </View>
                 {!collapsed ? group.ids.map(id => {
@@ -301,7 +306,7 @@ function UserEditor({ initial, currentUserId, currentUserRole, vehicleOptions, c
         </> : null}
 
         {activeTab === 'permissions' ? <>
-          {!permissionsReady ? <View style={styles.loading}><ActivityIndicator color={theme.red}/><Text style={styles.secondary}>Loading permissions…</Text></View> : <>
+          {!permissionsReady ? <View style={styles.loading}><ActivityIndicator color={t.red}/><Text style={styles.secondary}>Loading permissions…</Text></View> : <>
             {permissionsError ? <Pressable onPress={() => { setPermissionsReady(false); setPermissionsError(''); setPermissionsRetry(value => value + 1); }} style={styles.error}><Text style={styles.errorText}>{permissionsError}  Retry</Text></Pressable> : null}
             <Text style={styles.sectionTitle}>Permission Templates</Text>
             <View style={styles.templates}>{(['View Only', 'Field Staff', 'Manager'] as const).map(template => <Pressable key={template} onPress={() => applyTemplate(template)} style={styles.templateButton}><Text style={styles.templateText}>{template}</Text></Pressable>)}</View>
@@ -332,35 +337,41 @@ function UserEditor({ initial, currentUserId, currentUserRole, vehicleOptions, c
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text>{children}</View>;
+  const t = useTheme();
+  const s = useMemo(() => createStyles(t), [t]);
+  return <View style={s.field}><Text style={s.fieldLabel}>{label}</Text>{children}</View>;
 }
 
-function CheckBox({ checked, color = theme.red }: { checked: boolean; color?: string }) {
-  return <View style={[styles.checkbox, checked && { borderColor: color, backgroundColor: `${color}16` }]}>{checked ? <TablerIcon name="check" size={13} color={color} strokeWidth={2.4}/> : null}</View>;
+function CheckBox({ checked, color = '#dc2626' }: { checked: boolean; color?: string }) {
+  return <View style={[checkboxStyle, checked && { borderColor: color, backgroundColor: `${color}16` }]}>{checked ? <TablerIcon name="check" size={13} color={color} strokeWidth={2.4}/> : null}</View>;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.surface },
-  header: { minHeight: 62, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.border, gap: 12 },
-  back: { width: 30, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1 }, title: { color: theme.ink, fontSize: 19, fontWeight: '700' }, subtitle: { color: theme.secondary, fontSize: 11, marginTop: 2 },
-  addButton: { width: 40, height: 42, alignItems: 'center', justifyContent: 'center' },
-  search: { minHeight: 42, marginHorizontal: 16, marginTop: 12, marginBottom: 4, borderBottomWidth: 1, borderBottomColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  searchInput: { flex: 1, height: 40, paddingHorizontal: 2, color: theme.ink, fontSize: 14 },
-  list: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 30 },
-  userRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.border, gap: 10 },
-  userInfo: { flex: 1, paddingVertical: 10 }, userName: { color: theme.ink, fontSize: 14, fontWeight: '600' }, userEmail: { color: theme.secondary, fontSize: 12, marginTop: 3 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 5 }, userMeta: { color: theme.secondary, fontSize: 11, textTransform: 'capitalize' }, metaDot: { color: theme.muted, fontSize: 12 }, rowAction: { width: 34, height: 40, alignItems: 'center', justifyContent: 'center' },
-  empty: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }, emptyText: { color: theme.secondary, fontSize: 13, textAlign: 'center', padding: 20 },
-  error: { marginHorizontal: 16, marginTop: 12, paddingVertical: 9 }, errorText: { color: theme.red, fontSize: 12 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }, secondary: { color: theme.secondary, fontSize: 12 },
-  tabs: { flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: theme.border }, tab: { minHeight: 42, paddingHorizontal: 14, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' }, tabActive: { borderBottomColor: theme.red }, tabText: { color: theme.secondary, fontSize: 13 }, tabTextActive: { color: theme.red, fontWeight: '600' },
-  form: { paddingHorizontal: 16, paddingTop: 17, paddingBottom: 24 }, field: { marginBottom: 17 }, fieldLabel: { color: theme.ink, fontSize: 12, fontWeight: '600', marginBottom: 6 }, input: { minHeight: 43, borderWidth: 1, borderColor: theme.border, borderRadius: 7, paddingHorizontal: 11, color: theme.ink, fontSize: 13 },
-  nameFields: { flexDirection: 'row', gap: 10 }, passwordInput: { minHeight: 43, borderWidth: 1, borderColor: theme.border, borderRadius: 7, flexDirection: 'row', alignItems: 'center' }, showPassword: { paddingHorizontal: 12, minHeight: 40, justifyContent: 'center' }, showPasswordText: { color: theme.red, fontSize: 12, fontWeight: '600' },
-  selectBox: { borderWidth: 1, borderColor: theme.border, borderRadius: 7, padding: 10 }, selectLabel: { color: theme.ink, fontSize: 13, fontWeight: '600', marginBottom: 9 }, roleChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, roleOption: { borderWidth: 1, borderColor: theme.border, borderRadius: 6, paddingVertical: 7, paddingHorizontal: 10 }, roleOptionActive: { borderColor: theme.red, backgroundColor: '#fff5f5' }, roleOptionText: { color: theme.secondary, fontSize: 11 }, roleOptionTextActive: { color: theme.red, fontWeight: '600' }, readOnlyValue: { color: theme.ink, fontSize: 13, paddingVertical: 8 },
-  switchRow: { minHeight: 60, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderBottomWidth: 1, borderColor: theme.border, gap: 12, marginTop: 2 }, helper: { color: theme.secondary, fontSize: 11, lineHeight: 16 }, statusText: { fontSize: 12, fontWeight: '600' }, activeText: { color: '#15803d' }, inactiveText: { color: theme.muted },
-  sectionTitle: { color: theme.ink, fontSize: 14, fontWeight: '700', marginTop: 8, marginBottom: 7 }, radioRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: theme.border }, radio: { width: 18, height: 18, borderWidth: 1.5, borderColor: '#9ca3af', borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, radioActive: { borderColor: theme.red }, radioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: theme.red }, radioText: { color: theme.ink, fontSize: 12, flex: 1 }, countText: { color: theme.secondary, fontSize: 11 }, scopeNote: { color: theme.secondary, fontSize: 11, marginVertical: 8 }, selectionTools: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 14 }, toolText: { color: theme.red, fontSize: 11, fontWeight: '600' },
-  vehicleGroup: { borderTopWidth: 1, borderTopColor: theme.border }, vehicleGroupHeader: { minHeight: 42, flexDirection: 'row', alignItems: 'center' }, groupToggle: { flex: 1, minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 8 }, groupName: { color: theme.ink, fontSize: 12, fontWeight: '600', flex: 1 }, toolButton: { paddingHorizontal: 6, paddingVertical: 8 }, vehicleChoice: { minHeight: 49, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 21, borderTopWidth: 1, borderTopColor: '#f1f2f4' }, vehiclePlate: { color: theme.ink, fontSize: 12, fontWeight: '600' }, vehicleSubtitle: { color: theme.secondary, fontSize: 10, marginTop: 2 }, checkbox: { width: 20, height: 20, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
-  templates: { flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 15 }, templateButton: { flex: 1, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.border, borderRadius: 6 }, templateText: { color: theme.ink, fontSize: 11, fontWeight: '500' }, permissionHeader: { minHeight: 34, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.border }, moduleLabel: { width: 108, color: theme.ink, fontSize: 11, fontWeight: '600' }, actionHeader: { width: 52, textAlign: 'center', fontSize: 9, fontWeight: '700' }, permissionRow: { minHeight: 45, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#f1f2f4' }, permissionCell: { width: 52, alignItems: 'center', justifyContent: 'center', minHeight: 42 }, dash: { color: '#d1d5db', fontSize: 13 },
-  formError: { color: theme.red, fontSize: 12, marginTop: 8 }, footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, borderTopWidth: 1, borderTopColor: theme.border, backgroundColor: '#fff' }, cancelButton: { minHeight: 44, minWidth: 100, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.border, borderRadius: 7 }, cancelText: { color: theme.secondary, fontSize: 13, fontWeight: '500' }, saveButton: { flex: 1, minHeight: 44, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.red, borderRadius: 7 }, saveDisabled: { opacity: 0.55 }, saveText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-});
+const checkboxStyle = StyleSheet.create({ box: { width: 20, height: 20, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 4, alignItems: 'center', justifyContent: 'center' } }).box;
+
+function createStyles(t: AppTheme) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: t.surface },
+    header: { minHeight: 62, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border, gap: 12 },
+    back: { width: 30, height: 40, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { flex: 1 }, title: { color: t.ink, fontSize: 19, fontWeight: '700' }, subtitle: { color: t.secondary, fontSize: 11, marginTop: 2 },
+    addButton: { width: 40, height: 42, alignItems: 'center', justifyContent: 'center' },
+    search: { minHeight: 42, marginHorizontal: 16, marginTop: 12, marginBottom: 4, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    searchInput: { flex: 1, height: 40, paddingHorizontal: 2, color: t.ink, fontSize: 14 },
+    list: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 30 },
+    userRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border, gap: 10 },
+    userInfo: { flex: 1, paddingVertical: 10 }, userName: { color: t.ink, fontSize: 14, fontWeight: '600' }, userEmail: { color: t.secondary, fontSize: 12, marginTop: 3 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 5 }, userMeta: { color: t.secondary, fontSize: 11, textTransform: 'capitalize' }, metaDot: { color: t.muted, fontSize: 12 }, rowAction: { width: 34, height: 40, alignItems: 'center', justifyContent: 'center' },
+    empty: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }, emptyText: { color: t.secondary, fontSize: 13, textAlign: 'center', padding: 20 },
+    error: { marginHorizontal: 16, marginTop: 12, paddingVertical: 9 }, errorText: { color: t.red, fontSize: 12 },
+    loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }, secondary: { color: t.secondary, fontSize: 12 },
+    tabs: { flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: t.border }, tab: { minHeight: 42, paddingHorizontal: 14, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' }, tabActive: { borderBottomColor: t.red }, tabText: { color: t.secondary, fontSize: 13 }, tabTextActive: { color: t.red, fontWeight: '600' },
+    form: { paddingHorizontal: 16, paddingTop: 17, paddingBottom: 24 }, field: { marginBottom: 17 }, fieldLabel: { color: t.ink, fontSize: 12, fontWeight: '600', marginBottom: 6 }, input: { minHeight: 43, borderWidth: 1, borderColor: t.border, borderRadius: 7, paddingHorizontal: 11, color: t.ink, fontSize: 13 },
+    nameFields: { flexDirection: 'row', gap: 10 }, passwordInput: { minHeight: 43, borderWidth: 1, borderColor: t.border, borderRadius: 7, flexDirection: 'row', alignItems: 'center' }, showPassword: { paddingHorizontal: 12, minHeight: 40, justifyContent: 'center' }, showPasswordText: { color: t.red, fontSize: 12, fontWeight: '600' },
+    selectBox: { borderWidth: 1, borderColor: t.border, borderRadius: 7, padding: 10 }, selectLabel: { color: t.ink, fontSize: 13, fontWeight: '600', marginBottom: 9 }, roleChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, roleOption: { borderWidth: 1, borderColor: t.border, borderRadius: 6, paddingVertical: 7, paddingHorizontal: 10 }, roleOptionActive: { borderColor: t.red, backgroundColor: `${t.red}16` }, roleOptionText: { color: t.secondary, fontSize: 11 }, roleOptionTextActive: { color: t.red, fontWeight: '600' }, readOnlyValue: { color: t.ink, fontSize: 13, paddingVertical: 8 },
+    switchRow: { minHeight: 60, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderBottomWidth: 1, borderColor: t.border, gap: 12, marginTop: 2 }, helper: { color: t.secondary, fontSize: 11, lineHeight: 16 }, statusText: { fontSize: 12, fontWeight: '600' }, activeText: { color: '#15803d' }, inactiveText: { color: t.muted },
+    sectionTitle: { color: t.ink, fontSize: 14, fontWeight: '700', marginTop: 8, marginBottom: 7 }, radioRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: t.border }, radio: { width: 18, height: 18, borderWidth: 1.5, borderColor: '#9ca3af', borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, radioActive: { borderColor: t.red }, radioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: t.red }, radioText: { color: t.ink, fontSize: 12, flex: 1 }, countText: { color: t.secondary, fontSize: 11 }, scopeNote: { color: t.secondary, fontSize: 11, marginVertical: 8 }, selectionTools: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 14 }, toolText: { color: t.red, fontSize: 11, fontWeight: '600' },
+    vehicleGroup: { borderTopWidth: 1, borderTopColor: t.border }, vehicleGroupHeader: { minHeight: 42, flexDirection: 'row', alignItems: 'center' }, groupToggle: { flex: 1, minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 8 }, groupName: { color: t.ink, fontSize: 12, fontWeight: '600', flex: 1 }, toolButton: { paddingHorizontal: 6, paddingVertical: 8 }, vehicleChoice: { minHeight: 49, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 21, borderTopWidth: 1, borderTopColor: t.border2 }, vehiclePlate: { color: t.ink, fontSize: 12, fontWeight: '600' }, vehicleSubtitle: { color: t.secondary, fontSize: 10, marginTop: 2 }, checkbox: { width: 20, height: 20, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
+    templates: { flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 15 }, templateButton: { flex: 1, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.border, borderRadius: 6 }, templateText: { color: t.ink, fontSize: 11, fontWeight: '500' }, permissionHeader: { minHeight: 34, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }, moduleLabel: { width: 108, color: t.ink, fontSize: 11, fontWeight: '600' }, actionHeader: { width: 52, textAlign: 'center', fontSize: 9, fontWeight: '700' }, permissionRow: { minHeight: 45, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border2 }, permissionCell: { width: 52, alignItems: 'center', justifyContent: 'center', minHeight: 42 }, dash: { color: '#d1d5db', fontSize: 13 },
+    formError: { color: t.red, fontSize: 12, marginTop: 8 }, footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, borderTopWidth: 1, borderTopColor: t.border, backgroundColor: t.bg }, cancelButton: { minHeight: 44, minWidth: 100, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: t.border, borderRadius: 7 }, cancelText: { color: t.secondary, fontSize: 13, fontWeight: '500' }, saveButton: { flex: 1, minHeight: 44, justifyContent: 'center', alignItems: 'center', backgroundColor: t.red, borderRadius: 7 }, saveDisabled: { opacity: 0.55 }, saveText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  });
+}
