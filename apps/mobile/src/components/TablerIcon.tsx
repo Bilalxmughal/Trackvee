@@ -22,6 +22,7 @@ const PATHS: Record<string, string[]> = {
   pause: ['M8 5v14', 'M16 5v14'],
   layers: ['m12 2 9 5-9 5-9-5 9-5z', 'm3 12 9 5 9-5', 'm3 17 9 5 9-5'],
   plus: ['M12 5v14', 'M5 12h14'],
+  download: ['M12 5v14', 'm7 14 5 5 5-5', 'M5 19h14'],
   check: ['m5 12 4 4L19 6'],
   minus: ['M5 12h14'],
   edit: ['M12 20h9', 'M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z'],
