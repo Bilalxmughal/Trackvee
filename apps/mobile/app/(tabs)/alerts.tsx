@@ -99,18 +99,6 @@ export default function AlertsScreen() {
       </View>
     </View>
 
-    <Pressable onPress={pushState !== 'enabled' && pushState !== 'unknown' ? () => void enablePush() : undefined} style={[s.pushCard, { borderColor: t.border }]}>
-      <View style={[s.pushIcon, { backgroundColor: `${t.red}14` }]}><TablerIcon name="bell" size={18} color={t.red} /></View>
-      <View style={{ flex: 1 }}>
-        <Text style={[s.pushTitle, { color: t.ink }]}>Mobile Notifications</Text>
-        <Text style={[s.pushSubtitle, { color: t.secondary }]}>{pushState === 'enabled' ? 'Enabled on this device' : 'Tap to enable push alerts'}</Text>
-      </View>
-      {pushState === 'enabled'
-        ? <View style={s.enabledBadge}><Text style={[s.enabledText, { color: '#15803d' }]}>Enabled</Text></View>
-        : pushState === 'unknown'
-          ? <ActivityIndicator size="small" color={t.secondary}/>
-          : <View style={[s.enableBtn, { borderColor: t.red }]}>{pushBusy ? <ActivityIndicator size="small" color={t.red} /> : <Text style={[s.enableBtnText, { color: t.red }]}>Enable</Text>}</View>}
-    </Pressable>
 
     <View style={[s.search, { borderBottomColor: t.border }]}>
       <TablerIcon name="search" size={16} color={t.secondary}/>
