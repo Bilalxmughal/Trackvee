@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { AuthProvider, useAuth } from '../src/auth/AuthProvider';
 import { PortalPermissionsProvider } from '../src/auth/PortalPermissionsProvider';
+import { ThemeProvider, useThemeContext } from '../src/contexts/ThemeContext';
 import { theme } from '../src/theme';
 import { getAlertSoundEnabled, getPushTokenListener } from '../src/lib/pushNotifications';
 
@@ -60,15 +61,15 @@ function NavigationRoot() {
     if (!user && sessionRestoreFailed && segments[0] !== 'login') { router.replace('/login'); return; }
     if (!user && !publicRoute) router.replace('/');
     if (user && publicRoute) {
-      router.dismissAll();
       router.replace('/map');
     }
   }, [loading, user, sessionRestoreFailed, segments, router]);
 
+  const { isDark, theme: t } = useThemeContext();
   return (
     <>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.surface }, animation: 'fade' }}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.surface }, animation: 'fade' }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
         <Stack.Screen name="(tabs)" />
@@ -87,5 +88,5 @@ function NavigationRoot() {
 }
 
 export default function RootLayout() {
-  return <AuthProvider><PortalPermissionsProvider><NavigationRoot /></PortalPermissionsProvider></AuthProvider>;
+  return <ThemeProvider><AuthProvider><PortalPermissionsProvider><NavigationRoot /></PortalPermissionsProvider></AuthProvider></ThemeProvider>;
 }

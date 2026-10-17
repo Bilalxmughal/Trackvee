@@ -4,19 +4,20 @@ import { ActivityIndicator, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
-import { theme } from '../../src/theme';
+import { useTheme } from '../../src/hooks/useTheme';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const t = useTheme();
   const { canDo, loading } = usePortalPermissions();
-  const icon = (name: string) => ({ color, focused }: { color: ColorValue; focused: boolean; size: number }) => <TablerIcon name={name} size={22} color={focused ? theme.red : String(color)} />;
-  if (loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}><ActivityIndicator color={theme.red} /></View>;
+  const icon = (name: string) => ({ color, focused }: { color: ColorValue; focused: boolean; size: number }) => <TablerIcon name={name} size={22} color={focused ? t.red : String(color)} />;
+  if (loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg }}><ActivityIndicator color={t.red} /></View>;
   return (
     <Tabs screenOptions={{
       headerShown: false,
-      tabBarActiveTintColor: theme.red,
-      tabBarInactiveTintColor: theme.secondary,
-      tabBarStyle: { height: 56 + insets.bottom, paddingTop: 6, paddingBottom: Math.max(insets.bottom, 5), borderTopColor: theme.border, backgroundColor: '#fff', elevation: 0 },
+      tabBarActiveTintColor: t.red,
+      tabBarInactiveTintColor: t.secondary,
+      tabBarStyle: { height: 56 + insets.bottom, paddingTop: 6, paddingBottom: Math.max(insets.bottom, 5), borderTopColor: t.border, backgroundColor: t.bg, elevation: 0 },
       tabBarLabelStyle: { fontSize: 11, fontWeight: '500', marginBottom: 0 },
     }}>
       <Tabs.Screen name="map" options={{ title: 'Map', tabBarIcon: icon('map') }} />

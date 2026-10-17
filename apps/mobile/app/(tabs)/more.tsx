@@ -4,44 +4,109 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/auth/AuthProvider';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
 import { TablerIcon } from '../../src/components/TablerIcon';
-import { theme } from '../../src/theme';
+import { useTheme } from '../../src/hooks/useTheme';
+import { useThemeContext, type ThemeMode } from '../../src/contexts/ThemeContext';
 
 export default function MoreScreen() {
+  const t = useTheme();
+  const { themeMode, setThemeMode } = useThemeContext();
   const { user, logout } = useAuth();
   const { canDo } = usePortalPermissions();
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Account';
   const signOut = () => Alert.alert('Sign out', 'Are you sure you want to sign out?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign out', style: 'destructive', onPress: () => { void logout(); } }]);
+
+  const MODES: { mode: ThemeMode; label: string; icon: string }[] = [
+    { mode: 'light', label: 'Light', icon: 'sun' },
+    { mode: 'dark', label: 'Dark', icon: 'moon' },
+    { mode: 'system', label: 'System', icon: 'device-desktop' },
+  ];
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.bg }]} edges={['top']}>
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.title}>More</Text>
-      <View style={styles.profile}>
-        <View style={styles.avatar}><Text style={styles.avatarText}>{name[0]?.toUpperCase() ?? 'U'}</Text></View>
-        <View style={styles.profileText}><Text style={styles.name}>{name}</Text><Text style={styles.email}>{user?.organizationName || user?.email}</Text></View>
+      <Text style={[styles.title, { color: t.ink }]}>More</Text>
+
+      {/* Dark mode toggle */}
+      <View style={[styles.themeCard, { backgroundColor: t.card, borderColor: t.cardBorder }]}>
+        <View style={styles.themeHeader}>
+          <TablerIcon name="palette" size={16} color={t.red} />
+          <Text style={[styles.themeTitle, { color: t.ink }]}>Appearance</Text>
+        </View>
+        <View style={styles.themePills}>
+          {MODES.map(({ mode, label, icon }) => (
+            <Pressable key={mode} onPress={() => setThemeMode(mode)} style={[styles.themePill, { borderColor: themeMode === mode ? t.red : t.border, backgroundColor: themeMode === mode ? t.red : t.bg2 }]}>
+              <TablerIcon name={icon} size={14} color={themeMode === mode ? '#fff' : t.secondary} />
+              <Text style={[styles.themePillText, { color: themeMode === mode ? '#fff' : t.secondary }]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
+
+      <View style={[styles.profile, { borderColor: t.border }]}>
+        <View style={[styles.avatar, { backgroundColor: t.bg2 }]}><Text style={[styles.avatarText, { color: t.ink }]}>{name[0]?.toUpperCase() ?? 'U'}</Text></View>
+        <View style={styles.profileText}><Text style={[styles.name, { color: t.ink }]}>{name}</Text><Text style={[styles.email, { color: t.secondary }]}>{user?.organizationName || user?.email}</Text></View>
+      </View>
+
       {(canDo('vehicles') || canDo('geofences') || canDo('pois') || canDo('driver-behavior') || canDo('users') || canDo('maintenance')) ? <>
-        <Text style={[styles.sectionLabel, styles.accountLabel]}>FLEET TOOLS</Text>
-        {canDo('vehicles') ? <Pressable onPress={() => router.push('/device-health')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="cpu" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Device Health</Text><Text style={styles.toolSubtitle}>Connection, GPS, signal and power status</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
-        {canDo('maintenance') ? <Pressable onPress={() => router.push('/maintenance')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="tool" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Maintenance</Text><Text style={styles.toolSubtitle}>Service history and due reminders</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
-        {canDo('driver-behavior') ? <Pressable onPress={() => router.push('/behavior')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="activity" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Driver Behavior</Text><Text style={styles.toolSubtitle}>Safety scores, events and settings</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
-        {canDo('geofences') ? <Pressable onPress={() => router.push('/geofences')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="geofence" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Geofences</Text><Text style={styles.toolSubtitle}>Manage circle and polygon zones</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
-        {canDo('pois') ? <Pressable onPress={() => router.push('/pois')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="map-pin" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Points of Interest</Text><Text style={styles.toolSubtitle}>Manage saved locations</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
-        {canDo('users') ? <Pressable onPress={() => router.push('/users')} style={styles.toolRow}><View style={styles.toolIcon}><TablerIcon name="user" size={19} color={theme.red}/></View><View style={styles.toolText}><Text style={styles.toolTitle}>Users</Text><Text style={styles.toolSubtitle}>Manage accounts and access</Text></View><TablerIcon name="forward" size={17} color={theme.muted}/></Pressable> : null}
+        <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>FLEET TOOLS</Text>
+        {canDo('vehicles') ? <ToolRow icon="cpu" title="Device Health" subtitle="Connection, GPS, signal and power status" t={t} onPress={() => router.push('/device-health')} /> : null}
+        {canDo('maintenance') ? <ToolRow icon="tool" title="Maintenance" subtitle="Service history and due reminders" t={t} onPress={() => router.push('/maintenance')} /> : null}
+        {canDo('driver-behavior') ? <ToolRow icon="activity" title="Driver Behavior" subtitle="Safety scores, events and settings" t={t} onPress={() => router.push('/behavior')} /> : null}
+        {canDo('geofences') ? <ToolRow icon="geofence" title="Geofences" subtitle="Manage circle and polygon zones" t={t} onPress={() => router.push('/geofences')} /> : null}
+        {canDo('pois') ? <ToolRow icon="map-pin" title="Points of Interest" subtitle="Manage saved locations" t={t} onPress={() => router.push('/pois')} /> : null}
+        {canDo('users') ? <ToolRow icon="user" title="Users" subtitle="Manage accounts and access" t={t} onPress={() => router.push('/users')} /> : null}
       </> : null}
-      <Text style={[styles.sectionLabel, styles.accountLabel]}>PREFERENCES</Text>
-      <Pressable onPress={() => router.push('/settings')} style={styles.toolRow}>
-        <View style={styles.toolIcon}><TablerIcon name="settings" size={19} color={theme.red}/></View>
-        <View style={styles.toolText}><Text style={styles.toolTitle}>Notifications & refresh</Text><Text style={styles.toolSubtitle}>Push alerts and fleet update behavior</Text></View>
-        <TablerIcon name="forward" size={17} color={theme.muted}/>
-      </Pressable>
-      <Text style={[styles.sectionLabel, styles.accountLabel]}>ACCOUNT</Text>
-      <View style={styles.infoRow}><Text style={styles.infoLabel}>Organization</Text><Text style={styles.infoValue} numberOfLines={1}>{user?.organizationName || '—'}</Text></View>
-      <View style={styles.infoRow}><Text style={styles.infoLabel}>Account role</Text><Text style={styles.infoValue}>{user?.role.replace('client_', '').replaceAll('_', ' ') || '—'}</Text></View>
-      <Pressable onPress={signOut} style={styles.signOut}><TablerIcon name="logout" size={18} color={theme.red} /><Text style={styles.signOutText}>Sign out</Text></Pressable>
-      <Text style={styles.version}>Trackvee Mobile · Expo SDK 57</Text>
+
+      <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>PREFERENCES</Text>
+      <ToolRow icon="settings" title="Notifications & refresh" subtitle="Push alerts and fleet update behavior" t={t} onPress={() => router.push('/settings')} />
+
+      <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>ACCOUNT</Text>
+      <View style={[styles.infoRow, { borderColor: t.border }]}><Text style={[styles.infoLabel, { color: t.secondary }]}>Organization</Text><Text style={[styles.infoValue, { color: t.ink }]} numberOfLines={1}>{user?.organizationName || '—'}</Text></View>
+      <View style={[styles.infoRow, { borderColor: t.border }]}><Text style={[styles.infoLabel, { color: t.secondary }]}>Account role</Text><Text style={[styles.infoValue, { color: t.ink }]}>{user?.role.replace('client_', '').replaceAll('_', ' ') || '—'}</Text></View>
+      <Pressable onPress={signOut} style={styles.signOut}><TablerIcon name="logout" size={18} color={t.red} /><Text style={[styles.signOutText, { color: t.red }]}>Sign out</Text></Pressable>
+      <Text style={[styles.version, { color: t.muted }]}>Trackvee Mobile · Expo SDK 57</Text>
     </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({ container: { flex: 1, backgroundColor: '#fff' }, content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 }, title: { fontSize: 25, color: theme.ink, fontWeight: '700', marginBottom: 18 }, profile: { minHeight: 84, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderTopWidth: 1, borderColor: theme.border, gap: 13 }, avatar: { height: 48, width: 48, borderRadius: 24, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center' }, avatarText: { color: theme.ink, fontSize: 17, fontWeight: '700' }, profileText: { flex: 1 }, name: { color: theme.ink, fontSize: 15, fontWeight: '600' }, email: { color: theme.secondary, fontSize: 12, marginTop: 4 }, sectionLabel: { color: theme.secondary, fontSize: 10, letterSpacing: 0.5, fontWeight: '700', marginTop: 24, marginBottom: 8 }, accountLabel: { marginTop: 25 }, toolRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: 1, borderColor: theme.border }, toolIcon: { width: 34, alignItems: 'center' }, toolText: { flex: 1 }, toolTitle: { color: theme.ink, fontSize: 13, fontWeight: '600' }, toolSubtitle: { color: theme.secondary, fontSize: 11, marginTop: 3 }, infoRow: { minHeight: 43, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderColor: theme.border }, infoLabel: { fontSize: 13, color: theme.secondary }, infoValue: { maxWidth: '60%', fontSize: 13, color: theme.ink, textTransform: 'capitalize' }, signOut: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 18 }, signOutText: { color: theme.red, fontSize: 14, fontWeight: '600' }, version: { color: theme.muted, textAlign: 'center', marginTop: 20, fontSize: 11 } });
+function ToolRow({ icon, title, subtitle, t, onPress }: { icon: string; title: string; subtitle: string; t: ReturnType<typeof useTheme>; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={[styles.toolRow, { borderColor: t.border }]}>
+      <View style={styles.toolIcon}><TablerIcon name={icon} size={19} color={t.red} /></View>
+      <View style={styles.toolText}><Text style={[styles.toolTitle, { color: t.ink }]}>{title}</Text><Text style={[styles.toolSubtitle, { color: t.secondary }]}>{subtitle}</Text></View>
+      <TablerIcon name="forward" size={17} color={t.muted} />
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 },
+  title: { fontSize: 25, fontWeight: '700', marginBottom: 14 },
+  themeCard: { borderRadius: 10, borderWidth: 1, padding: 14, marginBottom: 16 },
+  themeHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
+  themeTitle: { fontSize: 13, fontWeight: '700' },
+  themePills: { flexDirection: 'row', gap: 8 },
+  themePill: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 36, borderRadius: 8, borderWidth: 1.5 },
+  themePillText: { fontSize: 12, fontWeight: '600' },
+  profile: { minHeight: 84, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderTopWidth: 1, gap: 13 },
+  avatar: { height: 48, width: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 17, fontWeight: '700' },
+  profileText: { flex: 1 },
+  name: { fontSize: 15, fontWeight: '600' },
+  email: { fontSize: 12, marginTop: 4 },
+  sectionLabel: { fontSize: 10, letterSpacing: 0.5, fontWeight: '700', marginTop: 24, marginBottom: 8 },
+  accountLabel: { marginTop: 25 },
+  toolRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: 1 },
+  toolIcon: { width: 34, alignItems: 'center' },
+  toolText: { flex: 1 },
+  toolTitle: { fontSize: 13, fontWeight: '600' },
+  toolSubtitle: { fontSize: 11, marginTop: 3 },
+  infoRow: { minHeight: 43, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1 },
+  infoLabel: { fontSize: 13 },
+  infoValue: { maxWidth: '60%', fontSize: 13, textTransform: 'capitalize' },
+  signOut: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 18 },
+  signOutText: { fontSize: 14, fontWeight: '600' },
+  version: { textAlign: 'center', marginTop: 20, fontSize: 11 },
+});
