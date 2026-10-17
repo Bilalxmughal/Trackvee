@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
-import { IconPlus, IconEdit, IconTrash, IconMapPin, IconBellRinging } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconMapPin, IconBellRinging, IconWorld } from '@tabler/icons-react';
 import type { UserRole } from '@yotrack/types';
 import api from '../api/client';
 import { canAccessPage } from '../config/roles';
@@ -14,10 +14,11 @@ import FormField, { inputStyle, selectStyle, FormActions } from '../components/F
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationSoundsPage from './NotificationSoundsPage';
+import WebsiteSettingsPanel from './WebsiteSettingsPanel';
 
 interface City { id: string; displayId: number; name: string; province: string | null; isActive: boolean; createdAt: string; }
 
-type Tab = 'cities' | 'notifications';
+type Tab = 'cities' | 'notifications' | 'website';
 
 const empty = { name: '', province: '', isActive: true };
 
@@ -72,6 +73,7 @@ export default function SettingsPage() {
   const TABS = [
     ...(canViewCities ? [{ key: 'cities' as const, label: 'Cities', icon: IconMapPin }] : []),
     ...(canViewSounds ? [{ key: 'notifications' as const, label: 'Notifications', icon: IconBellRinging }] : []),
+    ...(canViewCities ? [{ key: 'website' as const, label: 'Website Settings', icon: IconWorld }] : []),
   ];
 
   return (
@@ -119,6 +121,7 @@ export default function SettingsPage() {
         {/* Right panel */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {activeTab === 'notifications' && canViewSounds && <NotificationSoundsPage embedded />}
+          {activeTab === 'website' && canViewCities && <WebsiteSettingsPanel />}
           {activeTab === 'cities' && (
             loading ? <SkeletonTable cols={6} /> : (
               <div className="tbl-wrap page-table">

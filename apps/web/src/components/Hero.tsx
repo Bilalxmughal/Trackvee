@@ -24,7 +24,7 @@ const badges = [
   { label: 'Professional setup', icon: <IconTool size={26} stroke={1.8} /> },
 ];
 
-export default function Hero() {
+export default function Hero({ heroImage }: { heroImage?: string }) {
   return (
     <section
       id="home"
@@ -41,7 +41,7 @@ export default function Hero() {
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/hero-laptop.webp"
+          src={heroImage || '/hero-laptop.webp'}
           alt="TrackVee Live Map Dashboard"
           className="w-full h-full object-cover"
           style={{ objectPosition: '45% center' }}

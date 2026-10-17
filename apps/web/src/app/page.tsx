@@ -11,21 +11,24 @@ import Contact from '@/components/Contact';
 import CtaBanner from '@/components/CtaBanner';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import ScrollToTop from '@/components/ScrollToTop';
+import { fetchSiteSettings } from '@/lib/settings';
 
-export default function Home() {
+export default async function Home() {
+  const s = await fetchSiteSettings();
+
   return (
     <>
       <Navbar />
       <main>
-        <Hero />
+        <Hero heroImage={s.hero?.imageUrl} />
         <Features />
-        <Clients />
-        <Testimonials />
-        <Solutions />
-        <MobileApp />
-        <Packages />
+        <Clients partners={s.partners} />
+        <Testimonials reviews={s.reviews} />
+        <Solutions solutions={s.solutions} />
+        <MobileApp settings={s.mobileApp} />
+        <Packages packages={s.packages} />
         <FAQ />
-        <Contact />
+        <Contact contactInfo={s.contact} />
         <CtaBanner />
       </main>
       <WhatsAppButton />

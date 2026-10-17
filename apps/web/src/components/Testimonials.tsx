@@ -1,37 +1,15 @@
 import { IconStarFilled } from '@tabler/icons-react';
+import type { ReviewItem } from '@/lib/settings';
 
-const testimonials = [
-  {
-    name: 'Ahmed Raza',
-    role: 'Fleet Manager · Karachi',
-    text: 'TrackVee has completely changed how we manage our 40-vehicle fleet. Real-time tracking and alerts have reduced fuel costs by 20% in just 3 months.',
-    rating: 5,
-    initials: 'AR',
-  },
-  {
-    name: 'Sadia Malik',
-    role: 'Business Owner · Lahore',
-    text: 'Installation was smooth and the platform is very easy to use. Our delivery team is now more accountable and customers get accurate ETAs.',
-    rating: 5,
-    initials: 'SM',
-  },
-  {
-    name: 'Usman Khan',
-    role: 'Personal vehicle owner · Lahore',
-    text: 'I use TrackVee for my family cars. The alerts when my car moves are a great security feature. Setup was done at my home in under an hour.',
-    rating: 5,
-    initials: 'UK',
-  },
-  {
-    name: 'Tariq Hussain',
-    role: 'Operations Head · Islamabad',
-    text: 'We track 80+ vehicles across Punjab. The geofence alerts and reports have helped us cut unauthorized trips significantly.',
-    rating: 5,
-    initials: 'TH',
-  },
+const DEFAULT_REVIEWS: ReviewItem[] = [
+  { name: 'Ahmed Raza', role: 'Fleet Manager · Karachi', text: 'TrackVee has completely changed how we manage our 40-vehicle fleet. Real-time tracking and alerts have reduced fuel costs by 20% in just 3 months.', rating: 5, initials: 'AR', enabled: true },
+  { name: 'Sadia Malik', role: 'Business Owner · Lahore', text: 'Installation was smooth and the platform is very easy to use. Our delivery team is now more accountable and customers get accurate ETAs.', rating: 5, initials: 'SM', enabled: true },
+  { name: 'Usman Khan', role: 'Personal vehicle owner · Lahore', text: 'I use TrackVee for my family cars. The alerts when my car moves are a great security feature. Setup was done at my home in under an hour.', rating: 5, initials: 'UK', enabled: true },
+  { name: 'Tariq Hussain', role: 'Operations Head · Islamabad', text: 'We track 80+ vehicles across Punjab. The geofence alerts and reports have helped us cut unauthorized trips significantly.', rating: 5, initials: 'TH', enabled: true },
 ];
 
-export default function Testimonials() {
+export default function Testimonials({ reviews }: { reviews?: ReviewItem[] }) {
+  const testimonials = (reviews ?? DEFAULT_REVIEWS).filter(r => r.enabled);
   return (
     <section className="min-h-screen flex flex-col justify-center px-8 lg:px-16 py-20 bg-gray-50">
 
@@ -48,7 +26,7 @@ export default function Testimonials() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className={`grid grid-cols-1 gap-5 ${testimonials.length > 2 ? 'md:grid-cols-2' : 'md:grid-cols-2 max-w-2xl mx-auto'}`}>
         {testimonials.map((t, i) => (
           <div key={t.name} className="bg-white rounded-2xl p-8 border border-gray-100 flex flex-col gap-5 reveal" style={{ transitionDelay: `${i * 0.1}s` }}>
             <div className="flex gap-0.5">

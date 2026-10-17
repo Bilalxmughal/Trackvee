@@ -20,6 +20,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { ReportsModule }   from './reports/reports.module.js';
 import { MaintenanceModule } from './maintenance/maintenance.module.js';
 import { BillingModule } from './billing/billing.module.js';
+import { SiteSettingsModule } from './site-settings/site-settings.module.js';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { BillingModule } from './billing/billing.module.js';
     ReportsModule,
     MaintenanceModule,
     BillingModule,
+    SiteSettingsModule,
   ],
 })
 export class AppModule {}

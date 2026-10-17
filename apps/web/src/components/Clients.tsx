@@ -3,6 +3,7 @@ import {
   IconTruck, IconBuildingStore, IconSchool, IconBuildingFactory2,
   IconHeartHandshake, IconBuildingSkyscraper, IconPlane, IconCar,
 } from '@tabler/icons-react';
+import type { PartnerItem } from '@/lib/settings';
 
 const stats = [
   { value: '500+', label: 'Vehicles tracked' },
@@ -22,19 +23,16 @@ const industries = [
   { label: 'Personal Vehicles', icon: <IconCar size={22} stroke={1.4} /> },
 ];
 
-const partners = [
-  { name: 'Jazz', logo: 'https://logo.clearbit.com/jazz.com.pk' },
-  { name: 'Zong', logo: 'https://logo.clearbit.com/zong.com.pk' },
-  { name: 'Telenor', logo: 'https://logo.clearbit.com/telenor.com.pk' },
-  { name: 'Teltonika', logo: 'https://logo.clearbit.com/teltonika.com' },
-  { name: 'Queclink', logo: 'https://logo.clearbit.com/queclink.com' },
-  { name: 'Auto Telematics', logo: 'https://logo.clearbit.com/autotelematics.com' },
+const DEFAULT_PARTNERS: PartnerItem[] = [
+  { name: 'Jazz', logoUrl: 'https://logo.clearbit.com/jazz.com.pk', abbr: 'Jazz', enabled: true },
+  { name: 'Zong', logoUrl: 'https://logo.clearbit.com/zong.com.pk', abbr: 'Zong', enabled: true },
+  { name: 'Telenor', logoUrl: 'https://logo.clearbit.com/telenor.com.pk', abbr: 'Telenor', enabled: true },
+  { name: 'Teltonika', logoUrl: 'https://logo.clearbit.com/teltonika.com', abbr: 'Teltonika', enabled: true },
+  { name: 'Queclink', logoUrl: 'https://logo.clearbit.com/queclink.com', abbr: 'Queclink', enabled: true },
+  { name: 'Auto Telematics', logoUrl: 'https://logo.clearbit.com/autotelematics.com', abbr: 'ATS-GO', enabled: true },
 ];
 
-const row1 = [...partners, ...partners];
-const row2 = [...partners, ...partners];
-
-function LogoImg({ name, logo }: { name: string; logo: string }) {
+function LogoImg({ name, logo, abbr }: { name: string; logo: string; abbr: string }) {
   return (
     <div className="flex items-center justify-center shrink-0 px-8">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -48,12 +46,15 @@ function LogoImg({ name, logo }: { name: string; logo: string }) {
           if (t.nextSibling) (t.nextSibling as HTMLElement).style.display = 'block';
         }}
       />
-      <span className="hidden text-sm font-bold text-gray-400">{name}</span>
+      <span className="hidden text-sm font-bold text-gray-400">{abbr || name}</span>
     </div>
   );
 }
 
-export default function Clients() {
+export default function Clients({ partners }: { partners?: PartnerItem[] }) {
+  const activePartners = (partners ?? DEFAULT_PARTNERS).filter(p => p.enabled);
+  const row1 = [...activePartners, ...activePartners];
+  const row2 = [...activePartners, ...activePartners];
   return (
     <section className="min-h-screen flex flex-col">
 
@@ -107,12 +108,12 @@ export default function Clients() {
         <div className="flex flex-col gap-6 overflow-hidden">
           <div className="overflow-hidden">
             <div className="flex items-center marquee-track" style={{ width: 'max-content' }}>
-              {row1.map((p, i) => <LogoImg key={`r1-${p.name}-${i}`} {...p} />)}
+              {row1.map((p, i) => <LogoImg key={`r1-${p.name}-${i}`} name={p.name} logo={p.logoUrl} abbr={p.abbr} />)}
             </div>
           </div>
           <div className="overflow-hidden">
             <div className="flex items-center marquee-track" style={{ width: 'max-content', animationDuration: '36s' }}>
-              {row2.map((p, i) => <LogoImg key={`r2-${p.name}-${i}`} {...p} />)}
+              {row2.map((p, i) => <LogoImg key={`r2-${p.name}-${i}`} name={p.name} logo={p.logoUrl} abbr={p.abbr} />)}
             </div>
           </div>
         </div>

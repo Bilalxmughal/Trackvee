@@ -1,39 +1,28 @@
 'use client';
 import { useState } from 'react';
 import { IconPhone, IconMail, IconMapPin, IconBrandWhatsapp, IconSend, IconClock } from '@tabler/icons-react';
+import type { ContactSettings } from '@/lib/settings';
 
-const info = [
-  {
-    icon: <IconBrandWhatsapp size={22} stroke={1.8} className="text-brand" />,
-    label: 'WhatsApp',
-    value: '+92 300 0000000',
-    href: 'https://wa.me/923000000000',
-    sub: 'Fastest response',
-  },
-  {
-    icon: <IconPhone size={22} stroke={1.8} className="text-brand" />,
-    label: 'Phone',
-    value: '+92 300 0000000',
-    href: 'tel:+923000000000',
-    sub: 'Mon – Sat, 9am – 6pm',
-  },
-  {
-    icon: <IconMail size={22} stroke={1.8} className="text-brand" />,
-    label: 'Email',
-    value: 'sales@trackvee.com',
-    href: 'mailto:sales@trackvee.com',
-    sub: 'Reply within 24 hours',
-  },
-  {
-    icon: <IconMapPin size={22} stroke={1.8} className="text-brand" />,
-    label: 'Location',
-    value: 'Lahore, Pakistan',
-    href: null,
-    sub: 'Serving nationwide',
-  },
-];
+export default function Contact({ contactInfo }: { contactInfo?: ContactSettings }) {
+  const c: ContactSettings = contactInfo ?? {
+    whatsapp: '+92 300 0000000',
+    phone: '+92 300 0000000',
+    emailSales: 'sales@trackvee.com',
+    emailSupport: 'support@trackvee.com',
+    address: 'Lahore, Pakistan',
+    hours: 'Mon – Sat: 9:00 AM – 6:00 PM',
+    hoursSub: 'Sunday closed',
+  };
 
-export default function Contact() {
+  const waNumber = c.whatsapp.replace(/\D/g, '');
+  const phoneNumber = c.phone.replace(/\s/g, '');
+
+  const info = [
+    { icon: <IconBrandWhatsapp size={22} stroke={1.8} className="text-brand" />, label: 'WhatsApp', value: c.whatsapp, href: `https://wa.me/${waNumber}`, sub: 'Fastest response' },
+    { icon: <IconPhone size={22} stroke={1.8} className="text-brand" />, label: 'Phone', value: c.phone, href: `tel:${phoneNumber}`, sub: c.hours },
+    { icon: <IconMail size={22} stroke={1.8} className="text-brand" />, label: 'Email', value: c.emailSales, href: `mailto:${c.emailSales}`, sub: 'Reply within 24 hours' },
+    { icon: <IconMapPin size={22} stroke={1.8} className="text-brand" />, label: 'Location', value: c.address, href: null, sub: 'Serving nationwide' },
+  ];
   const [form, setForm] = useState({ name: '', phone: '', email: '', vehicles: '', type: '', contactTypes: [] as string[], message: '' });
   const [errors, setErrors] = useState({ phone: '', email: '' });
 
@@ -214,8 +203,8 @@ export default function Contact() {
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-0.5">Business hours</p>
-                <p className="text-sm font-bold text-gray-900">Mon – Sat: 9:00 AM – 6:00 PM</p>
-                <p className="text-xs text-gray-400 mt-0.5">Sunday closed</p>
+                <p className="text-sm font-bold text-gray-900">{c.hours}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{c.hoursSub}</p>
               </div>
             </div>
           </div>

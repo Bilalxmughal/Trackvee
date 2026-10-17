@@ -1,35 +1,14 @@
-const plans = [
-  {
-    title: 'Individuals (B2C)',
-    desc: 'Simple, reliable tracking for personal vehicles. Keep your loved ones safe.',
-    checks: ['Real-time location', 'Trip history', 'Movement alerts', 'Easy mobile and web access'],
-    icon: (
-      <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
-      </svg>
-    ),
-  },
-  {
-    title: 'Businesses (B2B)',
-    desc: 'Powerful tools for fleets, delivery operations and field teams.',
-    checks: ['Multi-vehicle tracking', 'Driver behavior monitoring', 'Geofences and alerts', 'Detailed reports', 'Team access and permissions'],
-    icon: (
-      <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-        <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/>
-      </svg>
-    ),
-  },
-  {
-    title: 'SaaS Platform',
-    desc: 'A complete platform for businesses that need flexibility, customization and integration.',
-    checks: ['Web-based platform', 'Fleet and user management', 'Custom reports', 'API access (on request)', 'Scales with your business'],
-    icon: (
-      <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-      </svg>
-    ),
-  },
-];
+import type { SolutionsSettings } from '@/lib/settings';
+
+const DEFAULT_SOLUTIONS: SolutionsSettings = {
+  heading: 'One platform for every type of user.',
+  description: 'TrackVee is designed for both individuals (B2C) and businesses (B2B), with a reliable platform that adapts to your needs.',
+  cards: [
+    { heading: 'Individuals (B2C)', subtitle: 'Simple, reliable tracking for personal vehicles. Keep your loved ones safe.', points: ['Real-time location', 'Trip history', 'Movement alerts', 'Easy mobile and web access', '', '', '', ''], learnMoreLabel: 'Learn more', learnMoreUrl: '#contact', openExternal: false },
+    { heading: 'Businesses (B2B)', subtitle: 'Powerful tools for fleets, delivery operations and field teams.', points: ['Multi-vehicle tracking', 'Driver behavior monitoring', 'Geofences and alerts', 'Detailed reports', 'Team access and permissions', '', '', ''], learnMoreLabel: 'Learn more', learnMoreUrl: '#contact', openExternal: false },
+    { heading: 'SaaS Platform', subtitle: 'A complete platform for businesses that need flexibility, customization and integration.', points: ['Web-based platform', 'Fleet and user management', 'Custom reports', 'API access (on request)', 'Scales with your business', '', '', ''], learnMoreLabel: 'Learn more', learnMoreUrl: '#contact', openExternal: false },
+  ],
+};
 
 const whys = [
   {
@@ -54,7 +33,8 @@ const whys = [
   },
 ];
 
-export default function Solutions() {
+export default function Solutions({ solutions }: { solutions?: SolutionsSettings }) {
+  const s = solutions ?? DEFAULT_SOLUTIONS;
   return (
     <section id="solutions" className="min-h-screen flex flex-col bg-white">
 
@@ -62,27 +42,33 @@ export default function Solutions() {
       <div className="flex-1 flex flex-col justify-center px-8 lg:px-16 py-10">
         <div className="mb-8 max-w-2xl">
           <span className="text-xs font-bold tracking-widest uppercase text-brand">Our Solutions</span>
-          <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-gray-900 leading-tight mb-3">
-            One platform for every type of user.
-          </h1>
-          <p className="text-base text-gray-500">TrackVee is designed for both individuals (B2C) and businesses (B2B), with a reliable platform that adapts to your needs.</p>
+          <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-gray-900 leading-tight mb-3">{s.heading}</h1>
+          <p className="text-base text-gray-500">{s.description}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {plans.map(p => (
-            <div key={p.title} className="border border-gray-200 rounded-xl p-6 bg-white flex flex-col">
-              <div className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center mb-4">{p.icon}</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">{p.title}</h3>
-              <p className="text-sm text-gray-500 mb-4">{p.desc}</p>
+          {s.cards.map((card, idx) => (
+            <div key={idx} className="border border-gray-200 rounded-xl p-6 bg-white flex flex-col">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">{card.heading}</h3>
+              <p className="text-sm text-gray-500 mb-4">{card.subtitle}</p>
               <ul className="space-y-1.5 mb-5">
-                {p.checks.map(c => (
-                  <li key={c} className="flex items-start gap-2 text-sm text-gray-500">
+                {(card.points ?? []).filter(p => p.trim()).map(point => (
+                  <li key={point} className="flex items-start gap-2 text-sm text-gray-500">
                     <svg className="w-4 h-4 text-brand mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                    {c}
+                    {point}
                   </li>
                 ))}
               </ul>
-              <a href="#contact" className="block w-full bg-brand text-white text-center font-semibold py-2.5 rounded-lg text-sm hover:bg-brand-dark transition-colors mt-auto">Learn more</a>
+              {card.learnMoreUrl && (
+                <a
+                  href={card.learnMoreUrl}
+                  target={card.openExternal ? '_blank' : undefined}
+                  rel={card.openExternal ? 'noopener noreferrer' : undefined}
+                  className="block w-full bg-brand text-white text-center font-semibold py-2.5 rounded-lg text-sm hover:bg-brand-dark transition-colors mt-auto"
+                >
+                  {card.learnMoreLabel || 'Learn more'}
+                </a>
+              )}
             </div>
           ))}
         </div>
