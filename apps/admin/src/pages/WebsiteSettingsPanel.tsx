@@ -283,18 +283,18 @@ export default function WebsiteSettingsPanel() {
   const [partnerModal, setPartnerModal] = useState<{ mode: 'add'|'edit'|'view'; idx: number } | null>(null);
 
   // Inline-edit indices
-  const [editingReview,   setEditingReview]   = useState<number | null>(null);
-  const [editingSolution, setEditingSolution] = useState<number | null>(null);
-  const [editingMobile,   setEditingMobile]   = useState(false);
-  const [editingPkg,      setEditingPkg]      = useState<number | null>(null);
-  const [editingContact,  setEditingContact]  = useState(false);
+  const [editingReview,    setEditingReview]    = useState<number | null>(null);
+  const [editingSolutions, setEditingSolutions] = useState(false);
+  const [editingMobile,    setEditingMobile]    = useState(false);
+  const [editingPackages,  setEditingPackages]  = useState(false);
+  const [editingContact,   setEditingContact]   = useState(false);
 
   // Drafts for inline edits
-  const [draftReviews,    setDraftReviews]    = useState<ReviewItem[]>([]);
-  const [draftSolutions,  setDraftSolutions]  = useState<SolutionsSettings | null>(null);
-  const [draftMobile,     setDraftMobile]     = useState<MobileAppSettings | null>(null);
-  const [draftPackages,   setDraftPackages]   = useState<PackageItem[]>([]);
-  const [draftContact,    setDraftContact]    = useState<ContactSettings | null>(null);
+  const [draftReviews,   setDraftReviews]   = useState<ReviewItem[]>([]);
+  const [draftSolutions, setDraftSolutions] = useState<SolutionsSettings | null>(null);
+  const [draftMobile,    setDraftMobile]    = useState<MobileAppSettings | null>(null);
+  const [draftPackages,  setDraftPackages]  = useState<PackageItem[]>([]);
+  const [draftContact,   setDraftContact]   = useState<ContactSettings | null>(null);
 
   // ── Load ──
   useEffect(() => {
@@ -518,75 +518,73 @@ export default function WebsiteSettingsPanel() {
         {/* ────── SOLUTIONS ────── */}
         {activeTab === 'solutions' && (
           <div>
-            <SectionTitle sub="Section heading + 3 solution cards">Our Solution</SectionTitle>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <SectionTitle sub="Section heading + 3 solution cards">Our Solution</SectionTitle>
+              {!editingSolutions
+                ? <button onClick={() => { setDraftSolutions({ ...solutions, cards: solutions.cards.map(x => ({ ...x, points: [...x.points] })) }); setEditingSolutions(true); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: dark ? '#222' : '#f0f0f0', border: `1px solid ${dark ? '#333' : '#ddd'}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--text)' }}>
+                    <IconEdit size={14} /> Edit
+                  </button>
+                : <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setEditingSolutions(false)} style={{ padding: '7px 14px', background: 'transparent', border: `1px solid ${dark ? '#333' : '#ddd'}`, borderRadius: 8, fontSize: 13, cursor: 'pointer', color: 'var(--text2)' }}>Cancel</button>
+                    <button onClick={() => { setSolutions(draftSolutions!); setEditingSolutions(false); saveKey('solutions', draftSolutions!, 'Solutions saved!'); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 18px', background: '#dc2626', color: '#fff', border: 0, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      <IconDeviceFloppy size={14} /> Save Changes
+                    </button>
+                  </div>
+              }
+            </div>
+
             {/* Heading card — full width */}
             <div style={{ ...card({ marginBottom: 20 }) }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Section Heading</span>
-              </div>
-              <Field label="Heading"><input style={inp} value={solutions.heading} onChange={e => setSolutions(p => ({ ...p, heading: e.target.value }))} /></Field>
-              <Field label="Description"><textarea style={{ ...inp, minHeight: 52, resize: 'vertical', marginBottom: 0 }} value={solutions.description} onChange={e => setSolutions(p => ({ ...p, description: e.target.value }))} /></Field>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                <SaveBtn saving={!!saving.solutions_heading} saved={!!saved.solutions_heading} onClick={() => saveKey('solutions', solutions, 'Solutions saved!')} />
-              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>Section Heading</div>
+              {!editingSolutions ? (
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{solutions.heading}</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>{solutions.description}</div>
+                </div>
+              ) : (
+                <div>
+                  <Field label="Heading"><input style={inp} value={draftSolutions!.heading} onChange={e => setDraftSolutions(p => ({ ...p!, heading: e.target.value }))} /></Field>
+                  <Field label="Description"><textarea style={{ ...inp, minHeight: 52, resize: 'vertical', marginBottom: 0 }} value={draftSolutions!.description} onChange={e => setDraftSolutions(p => ({ ...p!, description: e.target.value }))} /></Field>
+                </div>
+              )}
             </div>
 
             {/* 3 cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-              {solutions.cards.map((c2, ci) => {
-                const isEditing = editingSolution === ci;
-                const draft = isEditing ? draftSolutions! : solutions;
-                const draftCard = draft.cards[ci];
-                return (
-                  <div key={ci} style={{ ...card({ borderTop: `3px solid #dc2626` }) }}>
-                    {!isEditing ? (
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-                          <div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{c2.heading}</div>
-                            <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{c2.subtitle}</div>
-                          </div>
-                          <button onClick={() => { setDraftSolutions({ ...solutions, cards: solutions.cards.map(x => ({ ...x, points: [...x.points] })) }); setEditingSolution(ci); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: dark ? '#222' : '#f5f5f5', border: `1px solid ${dark ? '#333' : '#eee'}`, borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', color: 'var(--text2)', flexShrink: 0, marginLeft: 8 }}>
-                            <IconEdit size={11} /> Edit
-                          </button>
-                        </div>
-                        <ul style={{ margin: '10px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {(c2.points ?? []).filter(p => p.trim()).map(pt => (
-                            <li key={pt} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
-                              <span style={{ color: '#dc2626', fontSize: 14, lineHeight: 1 }}>✓</span>{pt}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: .5 }}>Editing Card {ci+1}</span>
-                          <button onClick={() => setEditingSolution(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#aaa', display: 'flex', padding: 3 }}><IconX size={14} /></button>
-                        </div>
-                        <Field label="Heading"><input style={inp} value={draftCard.heading} onChange={e => { const cards = draft.cards.map((x, j) => j === ci ? { ...x, heading: e.target.value } : x); setDraftSolutions({ ...draft, cards }); }} /></Field>
-                        <Field label="Subtitle"><textarea style={{ ...inp, minHeight: 52, resize: 'vertical' }} value={draftCard.subtitle} onChange={e => { const cards = draft.cards.map((x, j) => j === ci ? { ...x, subtitle: e.target.value } : x); setDraftSolutions({ ...draft, cards }); }} /></Field>
-                        <label style={{ fontSize: 11, fontWeight: 600, color: dark ? '#666' : '#888', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Points (up to 8)</label>
-                        {[...Array(8)].map((_, pi) => (
-                          <input key={pi} style={{ ...inp, marginBottom: 5, fontSize: 12 }} value={draftCard.points[pi] ?? ''} placeholder={`Point ${pi+1}`}
-                            onChange={e => { const pts = [...draftCard.points]; pts[pi] = e.target.value; const cards = draft.cards.map((x, j) => j === ci ? { ...x, points: pts } : x); setDraftSolutions({ ...draft, cards }); }} />
+              {(editingSolutions ? draftSolutions!.cards : solutions.cards).map((c2, ci) => (
+                <div key={ci} style={{ ...card({ borderTop: `3px solid #dc2626` }) }}>
+                  {!editingSolutions ? (
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{c2.heading}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, marginBottom: 10 }}>{c2.subtitle}</div>
+                      <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {(c2.points ?? []).filter(p => p.trim()).map(pt => (
+                          <li key={pt} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+                            <span style={{ color: '#dc2626', fontSize: 14, lineHeight: 1 }}>✓</span>{pt}
+                          </li>
                         ))}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 4 }}>
-                          <Field label="Button Label"><input style={inp} value={draftCard.learnMoreLabel} onChange={e => { const cards = draft.cards.map((x, j) => j === ci ? { ...x, learnMoreLabel: e.target.value } : x); setDraftSolutions({ ...draft, cards }); }} /></Field>
-                          <Field label="Button Link"><input style={inp} value={draftCard.learnMoreUrl} onChange={e => { const cards = draft.cards.map((x, j) => j === ci ? { ...x, learnMoreUrl: e.target.value } : x); setDraftSolutions({ ...draft, cards }); }} /></Field>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-                          <button onClick={() => { setSolutions(draft); setEditingSolution(null); saveKey('solutions', draft, `Card ${ci+1} saved!`); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: '#dc2626', color: '#fff', border: 0, borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                            <IconDeviceFloppy size={13} /> Save
-                          </button>
-                        </div>
+                      </ul>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 10 }}>Card {ci+1}</div>
+                      <Field label="Heading"><input style={inp} value={c2.heading} onChange={e => { const cards = draftSolutions!.cards.map((x, j) => j === ci ? { ...x, heading: e.target.value } : x); setDraftSolutions(p => ({ ...p!, cards })); }} /></Field>
+                      <Field label="Subtitle"><textarea style={{ ...inp, minHeight: 52, resize: 'vertical' }} value={c2.subtitle} onChange={e => { const cards = draftSolutions!.cards.map((x, j) => j === ci ? { ...x, subtitle: e.target.value } : x); setDraftSolutions(p => ({ ...p!, cards })); }} /></Field>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: dark ? '#666' : '#888', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Points (up to 8)</label>
+                      {[...Array(8)].map((_, pi) => (
+                        <input key={pi} style={{ ...inp, marginBottom: 5, fontSize: 12 }} value={c2.points[pi] ?? ''} placeholder={`Point ${pi+1}`}
+                          onChange={e => { const pts = [...c2.points]; pts[pi] = e.target.value; const cards = draftSolutions!.cards.map((x, j) => j === ci ? { ...x, points: pts } : x); setDraftSolutions(p => ({ ...p!, cards })); }} />
+                      ))}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 4 }}>
+                        <Field label="Button Label"><input style={inp} value={c2.learnMoreLabel} onChange={e => { const cards = draftSolutions!.cards.map((x, j) => j === ci ? { ...x, learnMoreLabel: e.target.value } : x); setDraftSolutions(p => ({ ...p!, cards })); }} /></Field>
+                        <Field label="Button Link"><input style={inp} value={c2.learnMoreUrl} onChange={e => { const cards = draftSolutions!.cards.map((x, j) => j === ci ? { ...x, learnMoreUrl: e.target.value } : x); setDraftSolutions(p => ({ ...p!, cards })); }} /></Field>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -599,7 +597,7 @@ export default function WebsiteSettingsPanel() {
               {!editingMobile
                 ? <button onClick={() => { setDraftMobile({ ...mobileApp, points: mobileApp.points.map(x => ({ ...x })) }); setEditingMobile(true); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: dark ? '#222' : '#f0f0f0', border: `1px solid ${dark ? '#333' : '#ddd'}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--text)' }}>
-                    <IconEdit size={14} /> Edit Section
+                    <IconEdit size={14} /> Edit
                   </button>
                 : <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={() => setEditingMobile(false)} style={{ padding: '7px 14px', background: 'transparent', border: `1px solid ${dark ? '#333' : '#ddd'}`, borderRadius: 8, fontSize: 13, cursor: 'pointer', color: 'var(--text2)' }}>Cancel</button>
@@ -674,70 +672,66 @@ export default function WebsiteSettingsPanel() {
         {/* ────── PACKAGES ────── */}
         {activeTab === 'packages' && (
           <div>
-            <SectionTitle sub="3 pricing plans — featured toggle, edit inline">Package Plans</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-              {packages.map((pkg, pi) => {
-                const isEditing = editingPkg === pi;
-                const draft = isEditing ? draftPackages[pi] : pkg;
-                return (
-                  <div key={pi} style={{ ...card({ borderTop: `3px solid ${pkg.featured ? '#dc2626' : dark ? '#333' : '#e5e7eb'}` }) }}>
-                    {!isEditing ? (
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                          <div>
-                            <div style={{ fontSize: 15, fontWeight: 800, color: pkg.featured ? '#dc2626' : 'var(--text)' }}>{pkg.name}</div>
-                            {pkg.featured && <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '2px 7px', borderRadius: 5, display: 'inline-block', marginTop: 3 }}>★ FEATURED</span>}
-                          </div>
-                          <button onClick={() => { const d = packages.map(x => ({ ...x, features: [...x.features] })); setDraftPackages(d); setEditingPkg(pi); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: dark ? '#222' : '#f5f5f5', border: `1px solid ${dark ? '#333' : '#eee'}`, borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', color: 'var(--text2)' }}>
-                            <IconEdit size={11} /> Edit
-                          </button>
-                        </div>
-                        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>{pkg.desc}</p>
-                        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
-                          {(pkg.features ?? []).filter(f => f.trim()).map(f => (
-                            <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
-                              <span style={{ color: '#dc2626', fontWeight: 700 }}>✓</span>{f}
-                            </li>
-                          ))}
-                        </ul>
-                        <div style={{ fontSize: 12, color: '#aaa' }}>CTA: <strong style={{ color: 'var(--text2)' }}>{pkg.ctaLabel}</strong> → {pkg.ctaLink}</div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: .5 }}>Editing Package {pi+1}</span>
-                          <button onClick={() => setEditingPkg(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#aaa', display: 'flex', padding: 3 }}><IconX size={14} /></button>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                          <Toggle value={draft.featured} onChange={v => { const d = [...draftPackages]; d[pi] = { ...d[pi], featured: v }; if (v) d.forEach((x, j) => { if (j !== pi) d[j] = { ...d[j], featured: false }; }); setDraftPackages(d); }} />
-                          <span style={{ fontSize: 12, color: 'var(--text2)' }}>Featured / Most Popular</span>
-                        </div>
-                        <Field label="Plan Name"><input style={inp} value={draft.name} onChange={e => { const d = [...draftPackages]; d[pi] = { ...d[pi], name: e.target.value }; setDraftPackages(d); }} /></Field>
-                        <Field label="Description"><textarea style={{ ...inp, minHeight: 52, resize: 'vertical', fontSize: 12 }} value={draft.desc} onChange={e => { const d = [...draftPackages]; d[pi] = { ...d[pi], desc: e.target.value }; setDraftPackages(d); }} /></Field>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                          <Field label="Button Label"><input style={{ ...inp, fontSize: 12 }} value={draft.ctaLabel} onChange={e => { const d = [...draftPackages]; d[pi] = { ...d[pi], ctaLabel: e.target.value }; setDraftPackages(d); }} /></Field>
-                          <Field label="Button Link"><input style={{ ...inp, fontSize: 12 }} value={draft.ctaLink} onChange={e => { const d = [...draftPackages]; d[pi] = { ...d[pi], ctaLink: e.target.value }; setDraftPackages(d); }} /></Field>
-                        </div>
-                        <label style={{ fontSize: 11, fontWeight: 600, color: dark ? '#666' : '#888', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Features (up to 8)</label>
-                        {[...Array(8)].map((_, fi) => (
-                          <div key={fi} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                            <span style={{ color: (draft.features[fi] ?? '').trim() ? '#16a34a' : '#ddd', fontSize: 13, flexShrink: 0 }}>✓</span>
-                            <input style={{ ...inp, fontSize: 12, flex: 1 }} value={draft.features[fi] ?? ''} placeholder={`Feature ${fi+1}`}
-                              onChange={e => { const d = [...draftPackages]; const fs = [...d[pi].features]; fs[fi] = e.target.value; d[pi] = { ...d[pi], features: fs }; setDraftPackages(d); }} />
-                          </div>
-                        ))}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-                          <button onClick={() => { setPackages(draftPackages); setEditingPkg(null); saveKey('packages', draftPackages, `${draftPackages[pi].name || 'Package'} saved!`); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: '#dc2626', color: '#fff', border: 0, borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                            <IconDeviceFloppy size={13} /> Save
-                          </button>
-                        </div>
-                      </div>
-                    )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <SectionTitle sub="3 pricing plans — featured toggle">Package Plans</SectionTitle>
+              {!editingPackages
+                ? <button onClick={() => { setDraftPackages(packages.map(x => ({ ...x, features: [...x.features] }))); setEditingPackages(true); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: dark ? '#222' : '#f0f0f0', border: `1px solid ${dark ? '#333' : '#ddd'}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--text)' }}>
+                    <IconEdit size={14} /> Edit
+                  </button>
+                : <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setEditingPackages(false)} style={{ padding: '7px 14px', background: 'transparent', border: `1px solid ${dark ? '#333' : '#ddd'}`, borderRadius: 8, fontSize: 13, cursor: 'pointer', color: 'var(--text2)' }}>Cancel</button>
+                    <button onClick={() => { setPackages(draftPackages); setEditingPackages(false); saveKey('packages', draftPackages, 'Packages saved!'); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 18px', background: '#dc2626', color: '#fff', border: 0, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      <IconDeviceFloppy size={14} /> Save Changes
+                    </button>
                   </div>
-                );
-              })}
+              }
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+              {(editingPackages ? draftPackages : packages).map((pkg, pi) => (
+                <div key={pi} style={{ ...card({ borderTop: `3px solid ${pkg.featured ? '#dc2626' : dark ? '#333' : '#e5e7eb'}` }) }}>
+                  {!editingPackages ? (
+                    <div>
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: pkg.featured ? '#dc2626' : 'var(--text)' }}>{pkg.name}</div>
+                        {pkg.featured && <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fee2e2', padding: '2px 7px', borderRadius: 5, display: 'inline-block', marginTop: 3 }}>★ FEATURED</span>}
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>{pkg.desc}</p>
+                      <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+                        {(pkg.features ?? []).filter(f => f.trim()).map(f => (
+                          <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+                            <span style={{ color: '#dc2626', fontWeight: 700 }}>✓</span>{f}
+                          </li>
+                        ))}
+                      </ul>
+                      <div style={{ fontSize: 12, color: '#aaa' }}>CTA: <strong style={{ color: 'var(--text2)' }}>{pkg.ctaLabel}</strong> → {pkg.ctaLink}</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 10 }}>Package {pi+1}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                        <Toggle value={pkg.featured} onChange={v => { const d = draftPackages.map((x, j) => ({ ...x, featured: j === pi ? v : (v ? false : x.featured) })); setDraftPackages(d); }} />
+                        <span style={{ fontSize: 12, color: 'var(--text2)' }}>Featured / Most Popular</span>
+                      </div>
+                      <Field label="Plan Name"><input style={inp} value={pkg.name} onChange={e => { const d = [...draftPackages]; d[pi] = { ...d[pi], name: e.target.value }; setDraftPackages(d); }} /></Field>
+                      <Field label="Description"><textarea style={{ ...inp, minHeight: 52, resize: 'vertical', fontSize: 12 }} value={pkg.desc} onChange={e => { const d = [...draftPackages]; d[pi] = { ...d[pi], desc: e.target.value }; setDraftPackages(d); }} /></Field>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <Field label="Button Label"><input style={{ ...inp, fontSize: 12 }} value={pkg.ctaLabel} onChange={e => { const d = [...draftPackages]; d[pi] = { ...d[pi], ctaLabel: e.target.value }; setDraftPackages(d); }} /></Field>
+                        <Field label="Button Link"><input style={{ ...inp, fontSize: 12 }} value={pkg.ctaLink} onChange={e => { const d = [...draftPackages]; d[pi] = { ...d[pi], ctaLink: e.target.value }; setDraftPackages(d); }} /></Field>
+                      </div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: dark ? '#666' : '#888', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 5 }}>Features (up to 8)</label>
+                      {[...Array(8)].map((_, fi) => (
+                        <div key={fi} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <span style={{ color: (pkg.features[fi] ?? '').trim() ? '#16a34a' : '#ddd', fontSize: 13, flexShrink: 0 }}>✓</span>
+                          <input style={{ ...inp, fontSize: 12, flex: 1 }} value={pkg.features[fi] ?? ''} placeholder={`Feature ${fi+1}`}
+                            onChange={e => { const d = [...draftPackages]; const fs = [...d[pi].features]; fs[fi] = e.target.value; d[pi] = { ...d[pi], features: fs }; setDraftPackages(d); }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -764,24 +758,24 @@ export default function WebsiteSettingsPanel() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
               {/* WhatsApp */}
-              <div style={card({ borderTop: `3px solid #25d366` })}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#25d366', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 12 }}>WhatsApp</div>
+              <div style={card()}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 12 }}>WhatsApp</div>
                 {editingContact
                   ? <Field label="Number"><input style={inp} value={draftContact!.whatsapp} onChange={e => setDraftContact(p => ({ ...p!, whatsapp: e.target.value }))} placeholder="+92 300 0000000" /></Field>
                   : <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{contact.whatsapp}</div>
                 }
               </div>
               {/* Phone */}
-              <div style={card({ borderTop: `3px solid #3b82f6` })}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 12 }}>Phone</div>
+              <div style={card()}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 12 }}>Phone</div>
                 {editingContact
                   ? <Field label="Number"><input style={inp} value={draftContact!.phone} onChange={e => setDraftContact(p => ({ ...p!, phone: e.target.value }))} placeholder="+92 300 0000000" /></Field>
                   : <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{contact.phone}</div>
                 }
               </div>
               {/* Email */}
-              <div style={card({ borderTop: `3px solid #f59e0b` })}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 12 }}>Email</div>
+              <div style={card()}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 12 }}>Email</div>
                 {editingContact ? (
                   <div>
                     <Field label="Sales"><input style={{ ...inp, fontSize: 12 }} value={draftContact!.emailSales} onChange={e => setDraftContact(p => ({ ...p!, emailSales: e.target.value }))} /></Field>
@@ -795,8 +789,8 @@ export default function WebsiteSettingsPanel() {
                 )}
               </div>
               {/* Hours + Address */}
-              <div style={card({ borderTop: `3px solid #8b5cf6` })}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 12 }}>Hours & Address</div>
+              <div style={card()}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 12 }}>Hours & Address</div>
                 {editingContact ? (
                   <div>
                     <Field label="Hours"><input style={{ ...inp, fontSize: 12 }} value={draftContact!.hours} onChange={e => setDraftContact(p => ({ ...p!, hours: e.target.value }))} /></Field>
@@ -813,10 +807,7 @@ export default function WebsiteSettingsPanel() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: dark ? '#0f1f0f' : '#f0fdf4', border: '1px solid #dcfce7', borderRadius: 8, marginTop: 16 }}>
-              <IconAlertCircle size={14} color="#16a34a" />
-              <span style={{ fontSize: 12, color: '#16a34a' }}>Changes appear on trackvee.com within ~60 seconds after saving.</span>
-            </div>
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>Changes appear on trackvee.com within ~60 seconds after saving.</p>
           </div>
         )}
 
