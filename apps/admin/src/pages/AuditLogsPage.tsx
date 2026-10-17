@@ -1,10 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { IconSearch, IconDownload, IconRefresh } from '@tabler/icons-react';
+import { endOfDay } from 'date-fns';
 import api from '../api/client';
 import { fmtDate } from '../utils/date';
 import PageHeader from '../components/PageHeader';
 import TablePagination from '../components/TablePagination';
 import SkeletonTable from '../components/SkeletonTable';
+import DateRangePicker from '../components/DateRangePicker';
+import type { DateRange } from '../components/DateRangePicker';
+import CustomSelect from '../components/CustomSelect';
 
 interface AuditLog {
   id: string;
@@ -44,19 +48,9 @@ const STATUS_COLOR: Record<string, string> = {
   success: '#16a34a', failed: '#dc2626',
 };
 
-const sel: React.CSSProperties = {
-  height: 30, padding: '0 8px', border: '1px solid var(--input-border)',
-  borderRadius: 3, fontSize: 12, color: 'var(--input-color)',
-  background: 'var(--input-bg)', outline: 'none', cursor: 'pointer',
-};
 const inp: React.CSSProperties = {
-  height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)',
-  borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none',
-  background: 'var(--input-bg)',
-};
-const dateInp: React.CSSProperties = {
-  height: 30, padding: '0 8px', border: '1px solid var(--input-border)',
-  borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none',
+  height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)',
+  borderRadius: 6, fontSize: 12, color: 'var(--input-color)', outline: 'none',
   background: 'var(--input-bg)',
 };
 const flat = (color: string): React.CSSProperties => ({
@@ -76,8 +70,7 @@ export default function AuditLogsPage() {
   const [actorFilter, setActorFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate]   = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const [actors, setActors] = useState<Actor[]>([]);
   const [orgs, setOrgs]   = useState<Org[]>([]);
@@ -90,16 +83,16 @@ export default function AuditLogsPage() {
 
   const buildParams = useCallback((extra?: Record<string, string>) => {
     const p: Record<string, string> = {};
-    if (q)            p.search     = q;
-    if (actionFilter) p.action     = actionFilter;
-    if (entityFilter) p.entityType = entityFilter;
-    if (actorFilter)  p.userId     = actorFilter;
-    if (clientFilter) p.orgId      = clientFilter;
-    if (statusFilter) p.status     = statusFilter;
-    if (fromDate)     p.from       = new Date(fromDate).toISOString();
-    if (toDate)       p.to         = new Date(toDate + 'T23:59:59').toISOString();
+    if (q)                p.search     = q;
+    if (actionFilter)     p.action     = actionFilter;
+    if (entityFilter)     p.entityType = entityFilter;
+    if (actorFilter)      p.userId     = actorFilter;
+    if (clientFilter)     p.orgId      = clientFilter;
+    if (statusFilter)     p.status     = statusFilter;
+    if (dateRange?.from)  p.from       = dateRange.from.toISOString();
+    if (dateRange?.to)    p.to         = endOfDay(dateRange.to).toISOString();
     return { ...p, ...extra };
-  }, [q, actionFilter, entityFilter, actorFilter, clientFilter, statusFilter, fromDate, toDate]);
+  }, [q, actionFilter, entityFilter, actorFilter, clientFilter, statusFilter, dateRange]);
 
   const load = useCallback(async (pg = 0) => {
     setLoading(true);
@@ -139,61 +132,49 @@ export default function AuditLogsPage() {
 
       {/* Filters row */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 20px 14px', alignItems: 'center' }}>
-        {/* Search */}
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <IconSearch size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input style={{ ...inp, width: 200 }} placeholder="Search name, user, ID..." value={q} onChange={e => setQ(e.target.value)} />
         </div>
 
-        {/* Action */}
-        <select style={sel} value={actionFilter} onChange={e => setActionFilter(e.target.value)}>
-          <option value="">All Actions</option>
-          {Object.entries(ACTION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
+        <CustomSelect value={actionFilter} onChange={setActionFilter} options={[
+          { value: '', label: 'All Actions' },
+          ...Object.entries(ACTION_LABELS).map(([k, v]) => ({ value: k, label: v })),
+        ]} />
 
-        {/* Entity Type */}
-        <select style={sel} value={entityFilter} onChange={e => setEntityFilter(e.target.value)}>
-          <option value="">All Entity Types</option>
-          {Object.entries(ENTITY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
+        <CustomSelect value={entityFilter} onChange={setEntityFilter} options={[
+          { value: '', label: 'All Entity Types' },
+          ...Object.entries(ENTITY_LABELS).map(([k, v]) => ({ value: k, label: v })),
+        ]} minWidth={140} />
 
-        {/* Actor */}
-        <select style={sel} value={actorFilter} onChange={e => setActorFilter(e.target.value)}>
-          <option value="">All Users</option>
-          {actors.map(a => <option key={a.id} value={a.id}>{a.name || a.email}</option>)}
-        </select>
+        <CustomSelect value={actorFilter} onChange={setActorFilter} options={[
+          { value: '', label: 'All Users' },
+          ...actors.map(a => ({ value: a.id, label: a.name || a.email })),
+        ]} minWidth={140} />
 
-        {/* Client */}
-        <select style={sel} value={clientFilter} onChange={e => setClientFilter(e.target.value)}>
-          <option value="">All Clients</option>
-          {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-        </select>
+        <CustomSelect value={clientFilter} onChange={setClientFilter} options={[
+          { value: '', label: 'All Clients' },
+          ...orgs.map(o => ({ value: o.id, label: o.name })),
+        ]} minWidth={140} />
 
-        {/* Status */}
-        <select style={sel} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-          <option value="">All Statuses</option>
-          <option value="success">Success</option>
-          <option value="failed">Failed</option>
-        </select>
+        <CustomSelect value={statusFilter} onChange={setStatusFilter} options={[
+          { value: '', label: 'All Statuses' }, { value: 'success', label: 'Success' }, { value: 'failed', label: 'Failed' },
+        ]} />
 
-        {/* Date range */}
-        <input type="date" style={dateInp} value={fromDate} onChange={e => setFromDate(e.target.value)} title="From date" />
-        <input type="date" style={dateInp} value={toDate}   onChange={e => setToDate(e.target.value)}   title="To date" />
+        <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Date range" />
 
-        {/* Refresh */}
-        <button onClick={() => load(0)} style={{ height: 30, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 3, background: 'var(--input-bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-muted)' }}>
+        <button onClick={() => load(0)} style={{ height: 34, padding: '0 10px', border: '1px solid var(--input-border)', borderRadius: 6, background: 'var(--input-bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-muted)' }}>
           <IconRefresh size={13} />
         </button>
 
-        {/* Export */}
-        <button onClick={handleExport} disabled={exporting} style={{ height: 30, padding: '0 12px', border: '1px solid #dc2626', borderRadius: 3, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#dc2626', fontWeight: 500, marginLeft: 'auto' }}>
+        <button onClick={handleExport} disabled={exporting} style={{ height: 34, padding: '0 12px', border: '1px solid #dc2626', borderRadius: 8, background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#dc2626', fontWeight: 500, marginLeft: 'auto' }}>
           <IconDownload size={13} />
           {exporting ? 'Exporting...' : 'Export CSV'}
         </button>
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: 'auto', padding: '0 20px' }}>
+      <div style={{ overflowX: 'auto', overflowY: 'auto', padding: '0 20px', maxHeight: 'calc(100vh - 310px)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ borderBottom: '2px solid var(--table-border)' }}>

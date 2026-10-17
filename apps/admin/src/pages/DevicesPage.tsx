@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, FormEvent } from 'react';
-import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconDownload } from '@tabler/icons-react';
+import CustomSelect from '../components/CustomSelect';
 import type { DateRange } from '../components/DateRangePicker';
 import { format } from 'date-fns';
 import api from '../api/client';
@@ -18,8 +19,8 @@ interface Device { id: string; displayId: number; imei: string; name: string | n
 interface Organization { id: string; name: string; }
 interface InventorySummary { total: number; assigned: number; inStock: number; }
 
-const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
-const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
+const sel: React.CSSProperties = { height: 34, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
+const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
 const empty = { imei: '', name: '', simNumber: '', cityId: '', inventoryStatus: 'in_stock' as Device['inventoryStatus'] };
 
 function SearchableFilter({ options, value, onChange, placeholder }: { options: { id: string; label: string }[]; value: string; onChange: (id: string) => void; placeholder: string }) {
@@ -125,6 +126,17 @@ export default function DevicesPage() {
   // permissions. Filtering here by vehicle creator would hide valid results.
   const filtered = devices;
   const pagination = useTablePagination(filtered, JSON.stringify([q, statusFilter, organizationFilter, dateRange?.from?.getTime(), dateRange?.to?.getTime(), selectedCityId]));
+
+  const exportCSV = () => {
+    const headers = ['ID', 'IMEI', 'Device Name', 'SIM Number', 'Assignment', 'Vehicle', 'Client', 'Connection', 'Last Seen', 'Added'];
+    const csvRows = filtered.map(d => {
+      const online = d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < 5 * 60 * 1000;
+      return [d.displayId, d.imei, d.name ?? '', d.simNumber ?? '', d.inventoryStatus.replace('_', ' '), d.vehicleId ? `${d.vehicleDisplayId ?? ''} ${d.licensePlate ?? ''}`.trim() : '', d.clientName ?? '', online ? 'Online' : 'Offline', lastSeenLabel(d.lastSeenAt), fmtDate(d.createdAt)];
+    });
+    const csv = [headers, ...csvRows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: `devices-${new Date().toISOString().slice(0, 10)}.csv` });
+    a.click(); URL.revokeObjectURL(a.href);
+  };
   const summaryCards: { label: string; value: number; color: string }[] = [
     { label: 'Total Devices', value: summary.total, color: '#111' },
     { label: 'Assigned Devices', value: summary.assigned, color: '#16a34a' },
@@ -134,9 +146,14 @@ export default function DevicesPage() {
   return (
     <div>
       <PageHeader title="Devices" count={devices.length} action={
-        <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-          <IconPlus size={13} /> Add Device
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid #dc2626', borderRadius: 8, background: 'transparent', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconDownload size={13} /> Export
+          </button>
+          <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconPlus size={13} /> Add Device
+          </button>
+        </div>
       } />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(150px, 1fr))', gap: 12, padding: '14px 24px', borderBottom: '1px solid var(--border)' }}>
@@ -149,9 +166,10 @@ export default function DevicesPage() {
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search IMEI, device, or plate…" style={inp}
             onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
         </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
-          <option value="">All Assignment States</option><option value="assigned">Assigned</option><option value="in_stock">In Stock</option><option value="maintenance">Maintenance</option><option value="retired">Retired</option>
-        </select>
+        <CustomSelect value={statusFilter} onChange={setStatusFilter} options={[
+          { value: '', label: 'All Assignment States' }, { value: 'assigned', label: 'Assigned' },
+          { value: 'in_stock', label: 'In Stock' }, { value: 'maintenance', label: 'Maintenance' }, { value: 'retired', label: 'Retired' },
+        ]} minWidth={160} />
         <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Added date" />
         <SearchableFilter options={organizations.map(org => ({ id: org.id, label: org.name }))} value={organizationFilter} onChange={setOrganizationFilter} placeholder="Search client…" />
         {(q || statusFilter || dateRange || organizationFilter) && <button onClick={() => { setQ(''); setStatusFilter(''); setDateRange(undefined); setOrganizationFilter(''); }} style={{ fontSize: 11, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer' }}>Clear filters</button>}

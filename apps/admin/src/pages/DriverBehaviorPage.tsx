@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   IconActivity, IconX, IconEye, IconTrash,
   IconAlertTriangle, IconGauge, IconArrowNarrowRight, IconRotateClockwise,
-  IconChevronDown, IconChevronRight, IconMapPin, IconArrowLeft,
+  IconChevronDown, IconChevronRight, IconMapPin, IconArrowLeft, IconDownload,
 } from '@tabler/icons-react';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
@@ -468,6 +468,14 @@ export default function DriverBehaviorPage() {
 
   const sortedRows = [...rows].sort((a, b) => b.score - a.score);
 
+  const exportCSV = () => {
+    const headers = ['Rank', 'License Plate', 'Make/Model', 'Client', 'Score', 'Harsh Brake', 'Rapid Accel', 'Sharp Turn', 'Overspeed'];
+    const csvRows = sortedRows.map((row, i) => [i + 1, row.vehicleLicensePlate ?? '', ([row.vehicleMake, row.vehicleModel].filter(Boolean).join(' ') || row.vehicleName) ?? '', row.orgName ?? '', row.score.toFixed(0), row.harshBrakeCount, row.rapidAccelCount, row.sharpTurnCount, row.overspeedCount]);
+    const csv = [headers, ...csvRows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: `driver-behavior-${new Date().toISOString().slice(0, 10)}.csv` });
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
   const tabs: { key: 'scores' | 'settings'; label: string }[] = [
     { key: 'scores', label: 'Driver Scores' },
     ...(showSettings ? [{ key: 'settings' as const, label: 'Settings' }] : []),
@@ -589,8 +597,8 @@ export default function DriverBehaviorPage() {
         {tab === 'scores' && (
           <>
             {/* Filters */}
-            {isAdmin && (
-              <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              {isAdmin && (
                 <div style={{ width: 240 }}>
                   <SearchableSelect
                     value={selectedOrgId}
@@ -601,8 +609,11 @@ export default function DriverBehaviorPage() {
                     style={{ height: 32, fontSize: 12, padding: '0 10px' }}
                   />
                 </div>
-              </div>
-            )}
+              )}
+              <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid #dc2626', borderRadius: 8, background: 'transparent', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer', marginLeft: isAdmin ? 0 : 'auto' }}>
+                <IconDownload size={13} /> Export
+              </button>
+            </div>
 
             {loading ? <SkeletonTable cols={isAdmin ? 10 : 9} /> : (
               <div className="tbl-wrap">

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState, FormEvent, useRef } from 'react';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconHistory } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconHistory, IconDownload } from '@tabler/icons-react';
+import CustomSelect from '../components/CustomSelect';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
@@ -38,8 +39,8 @@ function DeviceSearchSelect({ devices, value, onChange }: { devices: InventoryDe
     {open && <div style={{ position: 'absolute', zIndex: 600, top: 'calc(100% + 3px)', left: 0, right: 0, minWidth: 310, background: 'var(--bg)', border: '1px solid var(--border)', boxShadow: '0 8px 24px rgba(0,0,0,.16)' }}><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search device, IMEI, or vehicle…" style={{ ...inp, width: '100%', paddingLeft: 10, borderRadius: 0 }} /><div style={{ maxHeight: 220, overflowY: 'auto' }}>{filtered.map(device => <button key={device.id} type="button" onClick={() => { onChange(device.id); setQuery(''); setOpen(false); }} style={{ display: 'block', width: '100%', padding: '8px 10px', border: 0, borderBottom: '1px solid var(--border2)', background: device.id === value ? 'var(--bg2)' : 'transparent', color: 'var(--text)', textAlign: 'left', cursor: 'pointer', fontSize: 12 }}><strong>Device {device.displayId}</strong> · {device.imei}{device.licensePlate ? <span style={{ color: '#dc2626' }}> · Assigned to {device.licensePlate}</span> : <span style={{ color: '#16a34a' }}> · In stock</span>}</button>)}{!filtered.length && <div style={{ padding: 12, fontSize: 12, color: 'var(--muted)' }}>No devices found</div>}</div></div>}</div>;
 }
 
-const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
-const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
+const sel: React.CSSProperties = { height: 34, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
+const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
 const empty = { licensePlate: '', make: '', model: '', year: '', cityId: '', lifecycleStatus: 'active' as Vehicle['lifecycleStatus'], expiresAt: '', organizationId: '' };
 
 export default function VehiclesPage() {
@@ -183,14 +184,25 @@ export default function VehiclesPage() {
   const getLifecycle = (vehicle: Vehicle): Vehicle['lifecycleStatus'] => vehicle.lifecycleStatus === 'active' && vehicle.expiresAt && Date.parse(vehicle.expiresAt) <= Date.now() ? 'expired' : vehicle.lifecycleStatus;
   const countLifecycle = (key: Vehicle['lifecycleStatus'] | 'all') => key === 'all' ? vehicles.length : vehicles.filter(vehicle => getLifecycle(vehicle) === key).length;
 
+  const exportCSV = () => {
+    const headers = ['ID', 'License Plate', 'Make', 'Model', 'Year', 'Client', 'Lifecycle', 'Added Date', 'Expiry Date'];
+    const csvRows = filtered.map(v => [v.displayId, v.licensePlate ?? '', v.make ?? '', v.model ?? '', v.year ?? '', orgs.find(o => o.id === v.organizationId)?.name ?? '', getLifecycle(v), fmtDate(v.createdAt), v.expiresAt ? fmtDate(v.expiresAt) : '']);
+    const csv = [headers, ...csvRows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: `vehicles-${new Date().toISOString().slice(0, 10)}.csv` });
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
   return (
     <div>
       <PageHeader title="Vehicles" count={vehicles.length} action={
-        canAdd ? (
-          <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-            <IconPlus size={13} /> Add Vehicle
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid #dc2626', borderRadius: 8, background: 'transparent', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconDownload size={13} /> Export
           </button>
-        ) : undefined
+          {canAdd && <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconPlus size={13} /> Add Vehicle
+          </button>}
+        </div>
       } />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 12, padding: '14px 24px', borderBottom: '1px solid var(--border)' }}>
@@ -202,9 +214,10 @@ export default function VehiclesPage() {
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Plate, make, model…" style={inp}
             onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
         </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
-          <option value="">All Lifecycle States</option><option value="active">Active</option><option value="expired">Expired</option><option value="archived">Archived</option>
-        </select>
+        <CustomSelect value={statusFilter} onChange={setStatusFilter} options={[
+          { value: '', label: 'All Lifecycle States' }, { value: 'active', label: 'Active' },
+          { value: 'expired', label: 'Expired' }, { value: 'archived', label: 'Archived' },
+        ]} />
         <ClientSearchSelect orgs={orgs} value={organizationFilter} onChange={setOrganizationFilter} />
         <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Added date" />
         <DateRangePicker value={expiryRange} onChange={setExpiryRange} placeholder="Tracking expiry" />

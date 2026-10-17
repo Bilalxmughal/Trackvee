@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconCpu, IconRefresh, IconSearch } from '@tabler/icons-react';
+import { IconCpu, IconRefresh, IconSearch, IconDownload } from '@tabler/icons-react';
 import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import TablePagination, { useTablePagination } from '../components/TablePagination';
@@ -104,6 +104,14 @@ export default function DeviceHealthPage() {
   const card: React.CSSProperties = { padding: '14px 16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8 };
   const muted: React.CSSProperties = { color: 'var(--muted)', fontSize: 11 };
 
+  const exportCSV = () => {
+    const headers = ['Vehicle', 'IMEI', 'Device Name', 'Connection', 'GPS', 'GSM', 'Power', 'Last Packet', 'Issues'];
+    const csvRows = filtered.map(row => [row.vehicle?.licensePlate || row.vehicle?.name || `Vehicle #${row.vehicle?.displayId ?? ''}` || 'Unassigned', row.imei, row.deviceName ?? '', CONNECTION_LABEL[row.connection], GPS_LABEL[row.gps], row.gsm, row.externalPower, ageLabel(row.lastPacketAt), row.issues.join('; ')]);
+    const csv = [headers, ...csvRows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: `device-health-${new Date().toISOString().slice(0, 10)}.csv` });
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <PageHeader title="Device Health" count={rows.length} action={
@@ -131,6 +139,9 @@ export default function DeviceHealthPage() {
           </div>
           {(['all', 'attention', 'offline'] as const).map(value => <button key={value} onClick={() => setFilter(value)} style={{ border: 'none', borderBottom: `2px solid ${filter === value ? '#dc2626' : 'transparent'}`, padding: '8px 10px', background: 'transparent', color: filter === value ? '#dc2626' : 'var(--muted)', fontSize: 12, cursor: 'pointer', textTransform: 'capitalize' }}>{value === 'all' ? `All (${rows.length})` : value === 'attention' ? `Needs attention (${counts.issues})` : `Offline (${counts.offline})`}</button>)}
           <span style={{ ...muted, marginLeft: 'auto' }}>Auto-refreshes every 30 seconds</span>
+          <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid #dc2626', borderRadius: 8, background: 'transparent', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconDownload size={13} /> Export
+          </button>
         </div>
 
         {error && <div role="alert" style={{ padding: 12, marginBottom: 10, borderLeft: '3px solid #dc2626', background: 'rgba(220,38,38,0.06)', color: '#b91c1c', fontSize: 12 }}>{error}</div>}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { IconArrowLeft, IconPlus, IconTrash, IconPencil } from '@tabler/icons-react';
+import { IconArrowLeft, IconPlus, IconTrash, IconPencil, IconDownload } from '@tabler/icons-react';
 import api from '../api/client';
 import { useToast } from '../contexts/ToastContext';
 import PageHeader from '../components/PageHeader';
@@ -68,8 +68,23 @@ export default function MaintenancePage() {
   const remove = async (row: Row) => { if (!window.confirm(`Delete the ${row.serviceType} service record?`)) return; try { await api.delete(`/maintenance/${row.id}`); await load(); toast('Service record deleted'); } catch { toast('Could not delete service record', 'error'); } };
   const setValue = <K extends keyof Form>(key: K, value: Form[K]) => setForm(current => current ? { ...current, [key]: value } : current);
 
+  const exportCSV = () => {
+    const headers = ['Vehicle', 'Service', 'Date', 'Odometer (km)', 'Provider', 'Cost', 'Status', 'Next Due Date', 'Next Due Odometer'];
+    const csvRows = shown.map(row => [row.vehicle.licensePlate || row.vehicle.name, row.serviceType, formatDate(row.serviceDate), row.odometerKm ?? '', row.provider ?? '', row.cost ?? '', row.status, formatDate(row.nextDueDate), row.nextDueOdometerKm ?? '']);
+    const csv = [headers, ...csvRows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: `maintenance-${new Date().toISOString().slice(0, 10)}.csv` });
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
   return <div>
-    <PageHeader title="Maintenance" action={can('add') && !form ? <button onClick={() => { setError(''); setEditing(null); setForm(blank(vehicles[0]?.id ?? '')); }} style={{ height: 30, display: 'flex', alignItems: 'center', gap: 5, padding: '0 10px', border: 0, borderRadius: 4, background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}><IconPlus size={14}/> Log Service</button> : undefined}/>
+    <PageHeader title="Maintenance" action={
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid #dc2626', borderRadius: 8, background: 'transparent', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+          <IconDownload size={13} /> Export
+        </button>
+        {can('add') && !form && <button onClick={() => { setError(''); setEditing(null); setForm(blank(vehicles[0]?.id ?? '')); }} style={{ height: 34, display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', border: 0, borderRadius: 8, background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}><IconPlus size={14}/> Log Service</button>}
+      </div>
+    }/>
     <div style={{ padding: '0 24px 24px' }}>
       {error && <div role="alert" style={{ color: '#dc2626', fontSize: 12, marginBottom: 10 }}>{error}</div>}
       <div style={{ display: 'flex', alignItems: 'end', gap: 14, margin: '8px 0 16px' }}>

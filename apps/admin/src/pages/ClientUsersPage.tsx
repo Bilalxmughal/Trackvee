@@ -1,6 +1,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconUserScan, IconBan, IconCheck, IconMinus, IconShieldCheck } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconUserScan, IconBan, IconCheck, IconMinus, IconShieldCheck, IconDownload } from '@tabler/icons-react';
+import CustomSelect from '../components/CustomSelect';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import api from '../api/client';
@@ -78,8 +79,8 @@ function portalStatus(lastLoginAt: string | null): { label: string; color: strin
   return { label: 'Dormant', color: '#dc2626' };
 }
 
-const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
-const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
+const sel: React.CSSProperties = { height: 34, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
+const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
 const emptyForm = { clientType: 'b2b' as 'b2b' | 'b2c', firstName: '', lastName: '', email: '', password: '', role: 'client_super_admin', isActive: true, organizationId: '' };
 
 // Searchable org selector component
@@ -298,6 +299,14 @@ export default function ClientUsersPage() {
   });
   const pagination = useTablePagination(filtered, JSON.stringify([q, roleFilter, orgFilter, statusFilter, dateRange?.from?.getTime(), dateRange?.to?.getTime()]));
 
+  const exportCSV = () => {
+    const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Role', 'Organization', 'Status', 'Joined'];
+    const csvRows = filtered.map(u => [u.displayId, u.firstName ?? '', u.lastName ?? '', u.email, u.role, orgs.find(o => o.id === u.organizationId)?.name ?? '', u.isActive ? 'Active' : 'Inactive', fmtDate(u.createdAt)]);
+    const csv = [headers, ...csvRows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: `client-users-${new Date().toISOString().slice(0, 10)}.csv` });
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
   const canAssignPermissions = form.role !== 'client_owner' && !!form.organizationId;
   const tabs = [{ key: 'profile' as const, label: 'Profile' }, ...(canAssignPermissions ? [{ key: 'permissions' as const, label: 'Permissions' }] : [])];
 
@@ -314,13 +323,20 @@ export default function ClientUsersPage() {
       <PageHeader
         title={isOrgScoped ? `${myOrg?.name ?? 'My Org'} — Users` : 'Client Users'}
         count={users.length}
-        action={canShowAddUser ? (
-          <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-            <IconPlus size={13} /> Add User
-          </button>
-        ) : selectedOrgIsB2C ? (
-          <span style={{ fontSize: 12, color: 'var(--muted)', padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 3 }}>Individual account</span>
-        ) : undefined}
+        action={
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid #dc2626', borderRadius: 8, background: 'transparent', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+              <IconDownload size={13} /> Export
+            </button>
+            {canShowAddUser ? (
+              <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+                <IconPlus size={13} /> Add User
+              </button>
+            ) : selectedOrgIsB2C ? (
+              <span style={{ fontSize: 12, color: 'var(--muted)', padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 6 }}>Individual account</span>
+            ) : null}
+          </div>
+        }
       />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
@@ -329,22 +345,20 @@ export default function ClientUsersPage() {
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search name, email…" style={inp}
             onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
         </div>
-        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={sel}>
-          <option value="">All Roles</option>
-          <option value="client_owner">Client Owner</option>
-          <option value="client_super_admin">Client Super Admin</option>
-          <option value="client_admin">Client Admin</option>
-          <option value="client_user">Client User</option>
-        </select>
+        <CustomSelect value={roleFilter} onChange={setRoleFilter} options={[
+          { value: '', label: 'All Roles' }, { value: 'client_owner', label: 'Client Owner' },
+          { value: 'client_super_admin', label: 'Client Super Admin' }, { value: 'client_admin', label: 'Client Admin' },
+          { value: 'client_user', label: 'Client User' },
+        ]} minWidth={150} />
         {!isOrgScoped && (
-          <select value={orgFilter} onChange={e => setOrgFilter(e.target.value)} style={{ ...sel, maxWidth: 160 }}>
-            <option value="">All Orgs</option>
-            {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
+          <CustomSelect value={orgFilter} onChange={setOrgFilter} options={[
+            { value: '', label: 'All Orgs' },
+            ...orgs.map(o => ({ value: o.id, label: o.name })),
+          ]} minWidth={140} />
         )}
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
-          <option value="">All Status</option><option value="true">Active</option><option value="false">Inactive</option>
-        </select>
+        <CustomSelect value={statusFilter} onChange={setStatusFilter} options={[
+          { value: '', label: 'All Status' }, { value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' },
+        ]} />
         <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Joined date" />
         {(q || roleFilter || orgFilter || statusFilter || dateRange) && (
           <button onClick={() => { setQ(''); setRoleFilter(''); setOrgFilter(''); setStatusFilter(''); setDateRange(undefined); }} style={{ fontSize: 11, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer' }}>Clear all</button>

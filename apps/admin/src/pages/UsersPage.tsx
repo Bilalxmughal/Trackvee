@@ -1,5 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconCheck, IconMinus } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconCheck, IconMinus, IconDownload } from '@tabler/icons-react';
+import CustomSelect from '../components/CustomSelect';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
@@ -55,8 +56,8 @@ const roleLabel: Record<string, string> = {
   ops: 'Ops', live_ops: 'Live Ops', agent: 'Agent', chat_support: 'Chat Support', viewer: 'Viewer',
   client_owner: 'Client Owner', client_super_admin: 'Client Super Admin', client_admin: 'Client Admin', client_user: 'Client User',
 };
-const sel: React.CSSProperties = { height: 30, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
-const inp: React.CSSProperties = { height: 30, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 3, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
+const sel: React.CSSProperties = { height: 34, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
+const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
 const empty = { firstName: '', lastName: '', email: '', password: '', role: 'client_super_admin', cityId: '', isActive: true, organizationId: '' };
 
 export default function UsersPage() {
@@ -176,6 +177,14 @@ export default function UsersPage() {
     return true;
   });
 
+  const exportCSV = () => {
+    const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Role', 'Status', 'City', 'Joined'];
+    const csvRows = filtered.map(u => [u.displayId, u.firstName ?? '', u.lastName ?? '', u.email, roleLabel[u.role] ?? u.role, u.isActive ? 'Active' : 'Inactive', u.cityId ?? '', fmtDate(u.createdAt)]);
+    const csv = [headers, ...csvRows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: `users-${new Date().toISOString().slice(0, 10)}.csv` });
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
   const isOrgUser = form.role === 'client_admin';
   const tabs: { key: 'profile' | 'permissions'; label: string }[] = [
     { key: 'profile', label: 'Profile' },
@@ -185,9 +194,14 @@ export default function UsersPage() {
   return (
     <div>
       <PageHeader title="Users" count={users.length} action={
-        <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 3, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-          <IconPlus size={13} /> Add User
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid #dc2626', borderRadius: 8, background: 'transparent', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconDownload size={13} /> Export
+          </button>
+          <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconPlus size={13} /> Add User
+          </button>
+        </div>
       } />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
@@ -196,23 +210,17 @@ export default function UsersPage() {
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search name, email…" style={inp}
             onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
         </div>
-        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={sel}>
-          <option value="">All Roles</option>
-          <option value="super_admin">Super Admin</option>
-          <option value="admin">Admin</option>
-          <option value="ops">Ops</option>
-          <option value="live_ops">Live Ops</option>
-          <option value="agent">Agent</option>
-          <option value="chat_support">Chat Support</option>
-          <option value="viewer">Viewer</option>
-          <option value="client_owner">Client Owner</option>
-          <option value="client_super_admin">Client Super Admin</option>
-          <option value="client_admin">Client Admin</option>
-          <option value="client_user">Client User</option>
-        </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={sel}>
-          <option value="">All Status</option><option value="true">Active</option><option value="false">Inactive</option>
-        </select>
+        <CustomSelect value={roleFilter} onChange={setRoleFilter} options={[
+          { value: '', label: 'All Roles' }, { value: 'super_admin', label: 'Super Admin' },
+          { value: 'admin', label: 'Admin' }, { value: 'ops', label: 'Ops' },
+          { value: 'live_ops', label: 'Live Ops' }, { value: 'agent', label: 'Agent' },
+          { value: 'chat_support', label: 'Chat Support' }, { value: 'viewer', label: 'Viewer' },
+          { value: 'client_owner', label: 'Client Owner' }, { value: 'client_super_admin', label: 'Client Super Admin' },
+          { value: 'client_admin', label: 'Client Admin' }, { value: 'client_user', label: 'Client User' },
+        ]} minWidth={150} />
+        <CustomSelect value={statusFilter} onChange={setStatusFilter} options={[
+          { value: '', label: 'All Status' }, { value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' },
+        ]} />
         <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Joined date" />
         {(q || roleFilter || statusFilter || dateRange) && <button onClick={() => { setQ(''); setRoleFilter(''); setStatusFilter(''); setDateRange(undefined); }} style={{ fontSize: 11, color: '#aaa', border: 'none', background: 'none', cursor: 'pointer' }}>Clear all</button>}
         <span style={{ marginLeft: 'auto', fontSize: 11, color: '#bbb' }}>{filtered.length} results</span>
