@@ -39,6 +39,7 @@ export default function VehiclesScreen() {
   const [groupVehicleSearch, setGroupVehicleSearch] = useState('');
   const [collapsedVehicleGroups, setCollapsedVehicleGroups] = useState<Record<string, boolean>>({});
   const [expandedGroupIds, setExpandedGroupIds] = useState<Record<string, boolean>>({});
+  const [collapsedListGroups, setCollapsedListGroups] = useState<Record<string, boolean>>({});
   const [groupSaving, setGroupSaving] = useState(false);
   const [groupError, setGroupError] = useState('');
   const [query, setQuery] = useState('');
@@ -63,15 +64,19 @@ export default function VehiclesScreen() {
       if (!members.length) continue;
       members.forEach(item => assigned.add(item.device.imei));
       output.push({ kind: 'group', key: `group-${group.id}`, title: group.name, count: members.length });
-      members.forEach(item => output.push({ kind: 'vehicle', key: item.device.imei, item }));
+      if (!collapsedListGroups[`group-${group.id}`]) {
+        members.forEach(item => output.push({ kind: 'vehicle', key: item.device.imei, item }));
+      }
     }
     const ungrouped = filtered.filter(item => !assigned.has(item.device.imei));
     if (ungrouped.length) {
       output.push({ kind: 'group', key: 'group-other', title: 'Other Vehicles', count: ungrouped.length });
-      ungrouped.forEach(item => output.push({ kind: 'vehicle', key: item.device.imei, item }));
+      if (!collapsedListGroups['group-other']) {
+        ungrouped.forEach(item => output.push({ kind: 'vehicle', key: item.device.imei, item }));
+      }
     }
     return output;
-  }, [items, groups, query, filter]);
+  }, [items, groups, query, filter, collapsedListGroups]);
 
   const groupsTabData = useMemo(() => {
     return groups.map(group => {
@@ -209,25 +214,18 @@ export default function VehiclesScreen() {
         contentContainerStyle={[s.listContent, !sections.length && s.empty]}
         renderItem={({ item: row }) => {
           if (row.kind === 'group') {
-            const group = groups.find(entry => `group-${entry.id}` === row.key);
+            const collapsed = !!collapsedListGroups[row.key];
             return (
-              <View style={s.groupHeader}>
+              <Pressable onPress={() => setCollapsedListGroups(prev => ({ ...prev, [row.key]: !collapsed }))} style={s.groupHeader}>
                 <View style={s.groupHeaderLeft}>
                   <TablerIcon name="folder" size={14} color={theme.red} />
                   <Text style={s.groupTitle}>{row.title}</Text>
                   <View style={s.groupCountBadge}><Text style={s.groupCountText}>{row.count}</Text></View>
                 </View>
-                {group && (canDo('vehicles', 'edit') || canDo('vehicles', 'delete')) && (
-                  <View style={s.groupActions}>
-                    {canDo('vehicles', 'edit') && <Pressable onPress={() => openEditGroup(group)} style={s.groupActionBtn} accessibilityLabel="Edit group">
-                      <TablerIcon name="edit" size={15} color={theme.red} />
-                    </Pressable>}
-                    {canDo('vehicles', 'delete') && <Pressable onPress={() => deleteGroup(group)} style={s.groupActionBtn} accessibilityLabel="Delete group">
-                      <TablerIcon name="trash" size={15} color={theme.secondary} />
-                    </Pressable>}
-                  </View>
-                )}
-              </View>
+                <View style={{ transform: [{ rotate: collapsed ? '-90deg' : '0deg' }] }}>
+                  <TablerIcon name="down" size={14} color={theme.secondary} />
+                </View>
+              </Pressable>
             );
           }
           return renderVehicleCard(row.item);
@@ -359,15 +357,15 @@ function MenuAction({ icon, label, onPress, destructive = false }: { icon: strin
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.border },
+  container: { flex: 1, backgroundColor: '#fff' },
+  header: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { fontSize: 22, fontWeight: '700', color: theme.ink },
   count: { fontSize: 11, color: theme.secondary },
-  addGroup: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fff5f5', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 7, borderWidth: 1, borderColor: '#fecaca' },
-  addGroupText: { color: theme.red, fontSize: 11, fontWeight: '700' },
+  addGroup: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  addGroupText: { color: theme.red, fontSize: 12, fontWeight: '600' },
 
-  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.border },
+  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: theme.border, borderBottomWidth: 1, borderBottomColor: theme.border },
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 11, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: theme.red },
   tabText: { color: theme.secondary, fontSize: 12, fontWeight: '600' },
@@ -377,7 +375,7 @@ const s = StyleSheet.create({
   tabBadgeText: { fontSize: 10, color: theme.secondary, fontWeight: '700' },
   tabBadgeTextActive: { color: theme.red },
 
-  search: { height: 42, marginHorizontal: 14, marginTop: 10, marginBottom: 6, paddingHorizontal: 11, borderWidth: 1, borderColor: theme.border, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff' },
+  search: { height: 42, marginHorizontal: 14, marginTop: 10, marginBottom: 6, paddingHorizontal: 11, borderWidth: 1, borderColor: theme.border, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f8fafc' },
   searchInput: { flex: 1, color: theme.ink, fontSize: 13 },
   filters: { height: 38, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'stretch', backgroundColor: '#fff', borderBottomWidth: 1, borderColor: theme.border, paddingHorizontal: 8 },
   filter: { minWidth: 48, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
