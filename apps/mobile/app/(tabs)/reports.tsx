@@ -421,6 +421,8 @@ function VehicleSelectionList({ vehicles, groups, query, selected, onToggleVehic
   vehicles: FleetVehicle[]; groups: VehicleGroup[]; query: string; selected: string[] | null;
   onToggleVehicle: (id: string) => void; onToggleGroup: (ids: string[]) => void;
 }) {
+  const t = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
   const normalized = query.trim().toLowerCase();
   const matches = (vehicle: FleetVehicle) => `${vehicle.licensePlate ?? ''} ${vehicle.make ?? ''} ${vehicle.model ?? ''} ${vehicle.name}`.toLowerCase().includes(normalized);
   const assigned = new Set(groups.flatMap(group => group.vehicleIds));
