@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { ActivityIndicator, Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import logo from '../assets/trackvee-logo.png';
+import appIcon from '../assets/splash-icon.png';
 import { useAuth } from '../src/auth/AuthProvider';
 import { useTheme } from '../src/hooks/useTheme';
 import type { AppTheme } from '../src/theme';
@@ -13,14 +14,28 @@ export default function GetStartedScreen() {
   const styles = useMemo(() => createStyles(t), [t]);
   const { user, loading } = useAuth();
 
+  const pulse = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     if (!loading && user) router.replace('/map');
   }, [loading, user]);
 
+  useEffect(() => {
+    if (!loading && !user) return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.82, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [loading, user, pulse]);
+
   if (loading || user) {
     return (
       <SafeAreaView style={[styles.safe, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator color={t.red} size="large" />
+        <Animated.Image source={appIcon} style={[styles.splashIcon, { opacity: pulse }]} resizeMode="contain" />
       </SafeAreaView>
     );
   }
@@ -59,6 +74,7 @@ export default function GetStartedScreen() {
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
   safe: { flex: 1, backgroundColor: t.bg },
+  splashIcon: { width: 120, height: 120 },
   content: { flexGrow: 1, paddingHorizontal: 28, paddingTop: 20, paddingBottom: 18 },
   hero: { flex: 1, justifyContent: 'center' },
   logo: { width: 220, height: 62, alignSelf: 'center', marginBottom: 30 },
