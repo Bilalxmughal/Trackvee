@@ -4,8 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
-import { Asset } from 'expo-asset';
 import { useFleet, displayVehicleName, getFleetStatus, type FleetItem } from '../../src/hooks/useFleet';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { EngineCutDialog } from '../../src/components/EngineCutDialog';
@@ -102,13 +100,6 @@ export default function VehiclesScreen() {
 
   const exportPDF = async () => {
     try {
-      const asset = Asset.fromModule(require('../../assets/trackvee-logo.png'));
-      await asset.downloadAsync();
-      let logoSrc = '';
-      if (asset.localUri) {
-        const b64 = await FileSystem.readAsStringAsync(asset.localUri, { encoding: FileSystem.EncodingType.Base64 });
-        logoSrc = `data:image/png;base64,${b64}`;
-      }
       const now = new Date().toLocaleString();
       const statusDot = (status: string) => {
         const colors: Record<string, string> = { moving: '#16a34a', idle: '#f59e0b', parked: '#6b7280', offline: '#9ca3af' };
@@ -144,7 +135,7 @@ export default function VehiclesScreen() {
         .footer { margin-top: 24px; font-size: 10px; color: #94a3b8; text-align: center; }
       </style></head><body>
       <div class="header">
-        ${logoSrc ? `<img class="logo" src="${logoSrc}" />` : '<span style="font-size:20px;font-weight:800;color:#e21d48">Trackvee</span>'}
+        <span style="font-size:22px;font-weight:800;color:#e21d48;letter-spacing:-0.5px">Trackvee</span>
         <div class="meta"><strong>Fleet Report</strong>Generated: ${now}<br>${items.length} vehicle${items.length !== 1 ? 's' : ''}</div>
       </div>
       <table>
