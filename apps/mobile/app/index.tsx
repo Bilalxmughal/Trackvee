@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -12,6 +12,10 @@ export default function GetStartedScreen() {
   const t = useTheme();
   const styles = useMemo(() => createStyles(t), [t]);
   const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && user) router.replace('/map');
+  }, [loading, user]);
 
   if (loading || user) {
     return (
