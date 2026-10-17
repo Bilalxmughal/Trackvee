@@ -4,6 +4,7 @@ import {
   IconStar, IconBulb, IconDeviceMobile, IconPackage, IconPhone,
   IconUpload, IconLink, IconX, IconPlus, IconTrash, IconEdit,
   IconEye, IconToggleLeft, IconToggleRight,
+  IconMapPin, IconBell, IconRoute, IconSettings,
 } from '@tabler/icons-react';
 import api from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
@@ -631,8 +632,8 @@ export default function WebsiteSettingsPanel() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   {mobileApp.points.map((pt, i) => (
                     <div key={i} style={card({ display: 'flex', gap: 12 })}>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15 }}>
-                        {['🗺️','🔔','🕐','📱'][i]}
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#dc2626' }}>
+                        {[<IconMapPin size={16}/>, <IconBell size={16}/>, <IconRoute size={16}/>, <IconSettings size={16}/>][i]}
                       </div>
                       <div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>{pt.title}</div><div style={{ fontSize: 12, color: 'var(--muted)' }}>{pt.desc}</div></div>
                     </div>
