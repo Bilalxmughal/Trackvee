@@ -1361,7 +1361,7 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
   );
 }
 
-function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowHistory, onCreateAlert, hasAlert, onFollow }: {
+function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowHistory, onCreateAlert, hasAlert, onFollow, openMenuId, setOpenMenuId }: {
   pt: LivePoint; plate: string; dark: boolean;
   onViewOnMap: () => void;
   onTripReplay: () => void;
@@ -1369,8 +1369,10 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
   onCreateAlert: () => void;
   hasAlert: boolean;
   onFollow: () => void;
+  openMenuId: string | null;
+  setOpenMenuId: (id: string | null) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const open = openMenuId === pt.imei;
   const [dropPos, setDropPos] = useState({ top: 0, right: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
   const [immoConfirm, setImmoConfirm] = useState<{ action: 'immobilize' | 'activate' } | null>(null);
@@ -1380,10 +1382,10 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
 
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
+    const close = () => setOpenMenuId(null);
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
-  }, [open]);
+  }, [open, setOpenMenuId]);
 
   const handleOpen = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1391,11 +1393,11 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
       const r = btnRef.current.getBoundingClientRect();
       setDropPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
     }
-    setOpen(o => !o);
+    setOpenMenuId(open ? null : pt.imei);
   };
 
   const openImmoConfirm = (action: 'immobilize' | 'activate') => {
-    setOpen(false);
+    setOpenMenuId(null);
     setImmoInput('');
     setImmoError('');
     setImmoConfirm({ action });
@@ -1421,16 +1423,16 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
   const isImmobilized = !!pt.immobilizer;
 
   const items: Array<{ label: string; icon: React.ReactNode; action: () => void; divider?: boolean; red?: boolean }> = [
-    { label: 'Follow Vehicle', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" strokeDasharray="4 2"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg>, action: () => { onFollow(); setOpen(false); } },
+    { label: 'Follow Vehicle', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" strokeDasharray="4 2"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg>, action: () => { onFollow(); setOpenMenuId(null); } },
     { label: '──', icon: null, action: () => {}, divider: true },
-    { label: 'Trip Replay', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21"/></svg>, action: () => { onTripReplay(); setOpen(false); } },
-    { label: 'Street View', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>, action: () => { window.open(svUrl, '_blank', 'noopener'); setOpen(false); } },
+    { label: 'Trip Replay', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21"/></svg>, action: () => { onTripReplay(); setOpenMenuId(null); } },
+    { label: 'Street View', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>, action: () => { window.open(svUrl, '_blank', 'noopener'); setOpenMenuId(null); } },
     { label: '──', icon: null, action: () => {}, divider: true },
-    { label: 'History: Last Hour', icon: <ClockIcon/>, action: () => { onShowHistory('lastHour'); setOpen(false); } },
-    { label: 'History: Today', icon: <CalIcon/>, action: () => { onShowHistory('today'); setOpen(false); } },
-    { label: 'History: Yesterday', icon: <CalIcon/>, action: () => { onShowHistory('yesterday'); setOpen(false); } },
+    { label: 'History: Last Hour', icon: <ClockIcon/>, action: () => { onShowHistory('lastHour'); setOpenMenuId(null); } },
+    { label: 'History: Today', icon: <CalIcon/>, action: () => { onShowHistory('today'); setOpenMenuId(null); } },
+    { label: 'History: Yesterday', icon: <CalIcon/>, action: () => { onShowHistory('yesterday'); setOpenMenuId(null); } },
     { label: '──', icon: null, action: () => {}, divider: true },
-    { label: hasAlert ? 'Edit Alert' : 'Create Alert', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="1" x2="12" y2="4"/></svg>, action: () => { onCreateAlert(); setOpen(false); } },
+    { label: hasAlert ? 'Edit Alert' : 'Create Alert', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="1" x2="12" y2="4"/></svg>, action: () => { onCreateAlert(); setOpenMenuId(null); } },
     { label: '──', icon: null, action: () => {}, divider: true },
     {
       label: isImmobilized ? 'Restore Engine' : 'Cut Engine',
@@ -1504,13 +1506,15 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
 
 // ── Vehicle Row ───────────────────────────────────────────────────────────────
 
-function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, onCreateAlert, hasAlert, onFollow }: {
+function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, onCreateAlert, hasAlert, onFollow, openMenuId, setOpenMenuId }: {
   pt: LivePoint; plate: string; onSelect: () => void; dark: boolean;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
   onCreateAlert: () => void;
   hasAlert: boolean;
   onFollow: () => void;
+  openMenuId: string | null;
+  setOpenMenuId: (id: string | null) => void;
 }) {
   const status = vehicleStatus(pt);
   const [hov, setHov] = useState(false);
@@ -1526,14 +1530,14 @@ function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, on
         <IconBattery level={pt.voltageLevel}/>
         <IconSignal level={pt.gsmSignal}/>
       </div>
-      <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onCreateAlert={onCreateAlert} hasAlert={hasAlert} onFollow={onFollow}/>
+      <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onCreateAlert={onCreateAlert} hasAlert={hasAlert} onFollow={onFollow} openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
     </div>
   );
 }
 
 // ── Group Section ─────────────────────────────────────────────────────────────
 
-function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark, onTripReplay, onShowHistory, onCreateAlert, getHasAlert, onFollow }: {
+function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark, onTripReplay, onShowHistory, onCreateAlert, getHasAlert, onFollow, openMenuId, setOpenMenuId }: {
   group: VehicleGroup; pts: LivePoint[]; deviceMap: DMap;
   onSelect: (imei: string) => void; collapsed: boolean;
   onToggle: () => void; onEdit: () => void; dark: boolean;
@@ -1542,6 +1546,8 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
   onCreateAlert: (imei: string) => void;
   getHasAlert: (imei: string) => boolean;
   onFollow: (imei: string) => void;
+  openMenuId: string | null;
+  setOpenMenuId: (id: string | null) => void;
 }) {
   const gpPts = pts.filter(p => group.imeis.includes(p.imei));
   const [hov, setHov] = useState(false);
@@ -1572,7 +1578,8 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
             onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}
             onCreateAlert={() => onCreateAlert(pt.imei)}
             hasAlert={getHasAlert(pt.imei)}
-            onFollow={() => onFollow(pt.imei)}/>
+            onFollow={() => onFollow(pt.imei)}
+            openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
         );
       })}
     </div>
@@ -2077,6 +2084,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editingGroup, setEditingGroup] = useState<VehicleGroup | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // Build vehicleId → imei reverse map
   const vidToImei = useMemo(() => {
@@ -2196,7 +2204,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
                   onShowHistory={onShowHistory}
                   onCreateAlert={onCreateAlert}
                   getHasAlert={(imei) => (hasAlertImeis.get(imei)?.length ?? 0) > 0}
-                  onFollow={onFollow}/>
+                  onFollow={onFollow}
+                  openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
               );
             })}
             {ungrouped.length > 0 && (
@@ -2211,7 +2220,8 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
                       onShowHistory={(preset) => onShowHistory(pt.imei, plate, preset)}
                       onCreateAlert={() => onCreateAlert(pt.imei)}
                       hasAlert={(hasAlertImeis.get(pt.imei)?.length ?? 0) > 0}
-                      onFollow={() => onFollow(pt.imei)}/>
+                      onFollow={() => onFollow(pt.imei)}
+                      openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
                   );
                 })}
               </>
