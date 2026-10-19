@@ -83,6 +83,18 @@ const logger = createLogger('TcpServer');
 
 async function handleBuffer(socket: Socket, remote: string, buf: Buffer, imeiRef: { value: string | null }): Promise<Buffer> {
   while (buf.length >= 10) {
+    // Extended GT06 packet (7979): 2-byte length field — skip cleanly to avoid
+    // mis-parsing 7878 bytes that appear inside the payload as a new frame.
+    if (buf[0] === 0x79 && buf[1] === 0x79) {
+      if (buf.length < 6) break; // need start(2)+len(2)+at least proto+end to know total
+      const extLength = buf.readUInt16BE(2);
+      const extTotal = extLength + 6; // 2(start) + 2(len) + extLength(proto+data+serial+crc) + 2(end)
+      if (buf.length < extTotal) break;
+      logger.debug(`[${imeiRef.value ?? remote}] Extended GT06 (7979) proto=0x${buf[4]?.toString(16)} len=${extLength} — skipped`);
+      buf = buf.slice(extTotal);
+      continue;
+    }
+
     if (buf[0] !== 0x78 || buf[1] !== 0x78) {
       // Not a valid GT06 start — skip until we find one
       const idx = buf.indexOf(Buffer.from([0x78, 0x78]), 1);
@@ -92,9 +104,8 @@ async function handleBuffer(socket: Socket, remote: string, buf: Buffer, imeiRef
     }
 
     const length = buf[2]!;
-    const totalLen = length + 5; // 2(start) + 1(len byte) + length bytes + 2(end \r\n) - but length includes proto..crc
-    // Actual total: 2 + 1 + (length) + 2 = length + 5 — but length includes serial(2)+crc(2) already
     // GT06: total packet = 2(start) + 1(len) + [length bytes: proto + data + serial(2) + crc(2)] + 2(end)
+    const totalLen = length + 5;
     if (buf.length < totalLen) break; // wait for more data
 
     const result = parseGt06Frame(buf);
