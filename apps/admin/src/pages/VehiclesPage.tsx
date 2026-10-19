@@ -58,6 +58,7 @@ export default function VehiclesPage() {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Vehicle | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState(false);
   const [detailVehicle, setDetailVehicle] = useState<Vehicle | null>(null);
   const [assignmentRows, setAssignmentRows] = useState<DeviceAssignment[]>([]);
@@ -255,12 +256,30 @@ export default function VehiclesPage() {
                 <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{fmtDate(v.createdAt)}</td>
                 <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{v.expiresAt ? fmtDate(v.expiresAt) : '—'}</td>
                 <td style={{ padding: '10px 14px' }}>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button onClick={() => void openDetails(v)} title="Vehicle details and tracker history" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#888', padding: 4, borderRadius: 3 }}><IconEye size={14} /></button>
-                    {canEdit && <button onClick={() => openEdit(v)} title="Edit vehicle" aria-label="Edit vehicle" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>}
-                    {canDelete && <button onClick={() => setDeleting(v)} title="Delete vehicle" aria-label="Delete vehicle" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconTrash size={14} /></button>}
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); setOpenMenuId(prev => prev === v.id ? null : v.id); }}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#888', padding: '4px 6px', borderRadius: 4, fontSize: 16, lineHeight: 1, letterSpacing: 1 }}
+                    >•••</button>
+                    {openMenuId === v.id && (
+                      <>
+                        <div onClick={() => setOpenMenuId(null)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />
+                        <div style={{ position: 'absolute', right: 0, top: '100%', zIndex: 100, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)', minWidth: 150, overflow: 'hidden' }}>
+                          <button onClick={() => { setOpenMenuId(null); void openDetails(v); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text)', fontSize: 13, textAlign: 'left' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg2)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                            <IconEye size={14} /> View Details
+                          </button>
+                          {canEdit && <button onClick={() => { setOpenMenuId(null); openEdit(v); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text)', fontSize: 13, textAlign: 'left' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg2)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                            <IconEdit size={14} /> Edit
+                          </button>}
+                          {canDelete && <button onClick={() => { setOpenMenuId(null); setDeleting(v); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 13, textAlign: 'left' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg2)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                            <IconTrash size={14} /> Delete
+                          </button>}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
