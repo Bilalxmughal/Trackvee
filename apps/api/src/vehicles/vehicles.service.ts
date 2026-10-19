@@ -69,9 +69,14 @@ export class VehiclesService {
 
   async update(id: string, data: Partial<Vehicle>, user: User): Promise<Vehicle> {
     if (CLIENT_ROLES.has(user.role)) await assertClientFeatureAccess(user, 'vehicles', 'edit', this.orgPerms, this.rolePerms);
-    const vehicle = await this.findOne(id, user);
-    Object.assign(vehicle, CLIENT_ROLES.has(user.role) ? this.clientEditableFields(data) : data);
-    return this.repo.save(vehicle);
+    await this.findOne(id, user); // access check
+    const vehicle = await this.repo.findOneOrFail({ where: { id } }); // fresh entity for save
+    const updates = CLIENT_ROLES.has(user.role) ? this.clientEditableFields(data) : data;
+    Object.assign(vehicle, updates);
+    if ('organizationId' in updates && vehicle.organizationId === null) {
+      vehicle.organization = null;
+    }
+    return this.effectiveLifecycle(await this.repo.save(vehicle));
   }
 
   async remove(id: string, user: User): Promise<{ archived: boolean }> {

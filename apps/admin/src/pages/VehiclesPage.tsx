@@ -157,7 +157,7 @@ export default function VehiclesPage() {
       }
       await load(); closeModal();
       toast(editing ? 'Vehicle updated' : 'Vehicle added');
-    } catch { toast('Failed to save vehicle', 'error'); } finally { setSaving(false); }
+    } catch (err: any) { const msg = err?.response?.data?.message; toast(Array.isArray(msg) ? msg.join('. ') : (msg ?? 'Failed to save vehicle'), 'error'); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
