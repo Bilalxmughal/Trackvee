@@ -1,10 +1,13 @@
-import { useEffect, useState, useMemo } from 'react';
-import { IconUsers, IconBuildingSkyscraper, IconCar, IconCpu, IconBell, IconZzz, IconParking, IconWifi, IconWifiOff, IconKey, IconKeyOff, IconAlertTriangle, IconActivity } from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { IconUsers, IconBuildingSkyscraper, IconCar, IconCpu, IconBell, IconZzz, IconParking, IconWifi, IconWifiOff, IconKey, IconKeyOff, IconAlertTriangle, IconActivity, IconRefresh, IconCheck, IconX, IconTrendingUp } from '@tabler/icons-react';
+import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { useCityFilter } from '../contexts/CityFilterContext';
 import { useTheme } from '../contexts/ThemeContext';
+import DateRangePicker, { type DateRange } from '../components/DateRangePicker';
 
+// ── Interfaces ────────────────────────────────────────────────────────────────
 interface Stats { users: number; organizations: number; vehicles: number; devices: number; }
 interface LivePoint { imei: string; speedKmh: number; ignition?: boolean | null; timestamp: string; }
 interface DeviceHealthRow {
@@ -14,7 +17,13 @@ interface DeviceHealthRow {
   issues: string[]; vehicle?: { licensePlate: string | null } | null;
 }
 interface AlertRow { id: string; name: string; type: string; active: boolean; }
+interface ClientRow {
+  id: string; displayId?: number; name: string; type?: string;
+  companyName?: string | null; isActive: boolean; createdAt: string;
+  vehicleCount: number; deviceCount: number;
+}
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function getGreeting(): { text: string; sub: string } {
   const h = new Date().getHours();
   if (h >= 5 && h < 12) return { text: 'Good morning', sub: 'Hope your day is going well.' };
@@ -31,7 +40,24 @@ function vehicleStatus(pt: LivePoint): 'moving' | 'idle' | 'parked' | 'offline' 
   return 'parked';
 }
 
-// ── Donut Chart ───────────────────────────────────────────────────────────────
+function clientHealthScore(c: ClientRow): { score: number; label: string; color: string } {
+  if (!c.isActive) return { score: 0, label: 'Inactive', color: '#9ca3af' };
+  const hasVehicles = c.vehicleCount > 0;
+  const hasDevices = c.deviceCount > 0;
+  if (hasVehicles && hasDevices) return { score: 100, label: 'Healthy', color: '#16a34a' };
+  if (hasVehicles || hasDevices) return { score: 50, label: 'Partial', color: '#f59e0b' };
+  return { score: 10, label: 'Empty', color: '#dc2626' };
+}
+
+function fmtAgo(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  return `${Math.floor(m / 60)}h ago`;
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
 function DonutChart({ data, size = 120 }: { data: { label: string; value: number; color: string }[]; size?: number }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   if (total === 0) return (
@@ -61,7 +87,14 @@ function DonutChart({ data, size = 120 }: { data: { label: string; value: number
   );
 }
 
-// ── Mini Bar Chart ────────────────────────────────────────────────────────────
+function HealthBar({ value, color }: { value: number; color: string }) {
+  return (
+    <div style={{ width: '100%', height: 5, background: '#f0f0f0', borderRadius: 4, overflow: 'hidden' }}>
+      <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: 4, transition: 'width 0.4s ease' }}/>
+    </div>
+  );
+}
+
 function MiniBar({ data, dark }: { data: { label: string; value: number; color: string }[]; dark: boolean }) {
   const max = Math.max(...data.map(d => d.value), 1);
   return (
@@ -79,7 +112,6 @@ function MiniBar({ data, dark }: { data: { label: string; value: number; color: 
   );
 }
 
-// ── Signal Bars ───────────────────────────────────────────────────────────────
 function SignalBars({ level, color }: { level: number; color: string }) {
   return (
     <svg width="14" height="10" viewBox="0 0 14 10">
@@ -90,45 +122,84 @@ function SignalBars({ level, color }: { level: number; color: string }) {
   );
 }
 
-// ── Trend Pill ────────────────────────────────────────────────────────────────
 function TrendPill({ value, total, color }: { value: number; total: number; color: string }) {
   if (!total) return null;
   const pct = Math.round((value / total) * 100);
   return <span style={{ fontSize: 10, fontWeight: 700, color, background: color + '18', borderRadius: 20, padding: '2px 7px' }}>{pct}%</span>;
 }
 
+// ── Main Component ─────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [livePoints, setLivePoints] = useState<LivePoint[]>([]);
   const [devices, setDevices] = useState<DeviceHealthRow[]>([]);
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
+  const [clients, setClients] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<number>(Date.now());
+  const [agoTick, setAgoTick] = useState(0);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const { user } = useAuth();
   const { selectedCityId } = useCityFilter();
   const { dark } = useTheme();
   const { text, sub } = getGreeting();
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'there';
 
-  useEffect(() => {
+  // ── Fetch ────────────────────────────────────────────────────────────────────
+  const fetchAll = useCallback((silent = false) => {
     const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
-    setLoading(true);
+    if (!silent) setLoading(true); else setRefreshing(true);
     Promise.all([
       api.get<{ id: string }[]>(`/users${p}`),
-      api.get<{ id: string }[]>(`/organizations${p}`),
+      api.get<ClientRow[]>(`/organizations${p}`),
       api.get<{ id: string }[]>(`/vehicles${p}`),
       api.get<{ id: string }[]>(`/devices${p}`),
       api.get<LivePoint[]>('/telemetry/live'),
       api.get<DeviceHealthRow[]>(`/telemetry/device-health${p}`),
       api.get<AlertRow[]>('/alerts'),
     ]).then(([u, o, v, d, live, devFull, al]) => {
-      setStats({ users: Array.isArray(u.data) ? u.data.length : 0, organizations: Array.isArray(o.data) ? o.data.length : 0, vehicles: Array.isArray(v.data) ? v.data.length : 0, devices: Array.isArray(d.data) ? d.data.length : 0 });
+      const orgs = Array.isArray(o.data) ? o.data : [];
+      setStats({ users: Array.isArray(u.data) ? u.data.length : 0, organizations: orgs.length, vehicles: Array.isArray(v.data) ? v.data.length : 0, devices: Array.isArray(d.data) ? d.data.length : 0 });
+      setClients(orgs);
       setLivePoints(Array.isArray(live.data) ? live.data : []);
       setDevices(Array.isArray(devFull.data) ? devFull.data : []);
       setAlerts(Array.isArray(al.data) ? al.data : []);
-    }).catch(() => {}).finally(() => setLoading(false));
+      setLastRefreshed(Date.now());
+    }).catch(() => {}).finally(() => { setLoading(false); setRefreshing(false); });
   }, [selectedCityId]);
 
-  // ── Computed stats ─────────────────────────────────────────────────────────
+  // Initial load
+  useEffect(() => { fetchAll(false); }, [fetchAll]);
+
+  // ── Auto-refresh every 60s ───────────────────────────────────────────────────
+  useEffect(() => {
+    intervalRef.current = setInterval(() => fetchAll(true), 60000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetchAll]);
+
+  // Tick "ago" label every 10s
+  useEffect(() => {
+    const t = setInterval(() => setAgoTick(n => n + 1), 10000);
+    return () => clearInterval(t);
+  }, []);
+
+  // ── Date-filtered clients ────────────────────────────────────────────────────
+  const filteredClients = useMemo(() => {
+    if (!dateRange?.from) return clients;
+    return clients.filter(c => {
+      try {
+        return isWithinInterval(parseISO(c.createdAt), {
+          start: startOfDay(dateRange.from!),
+          end: endOfDay(dateRange.to ?? dateRange.from!),
+        });
+      } catch { return true; }
+    });
+  }, [clients, dateRange]);
+
+  // ── Computed stats ───────────────────────────────────────────────────────────
   const statusCounts = useMemo(() => {
     const counts = { moving: 0, idle: 0, parked: 0, offline: 0 };
     livePoints.forEach(pt => counts[vehicleStatus(pt)]++);
@@ -163,8 +234,7 @@ export default function DashboardPage() {
 
   const alertBarData = Object.entries(alertTypeCounts)
     .map(([type, value]) => ({ label: type, value, color: '#dc2626' }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 7);
+    .sort((a, b) => b.value - a.value).slice(0, 7);
 
   const donutData = [
     { label: 'Moving', value: statusCounts.moving, color: '#16a34a' },
@@ -172,24 +242,50 @@ export default function DashboardPage() {
     { label: 'Parked', value: statusCounts.parked, color: '#6b7280' },
     { label: 'Offline', value: statusCounts.offline, color: '#d1d5db' },
   ];
+  const totalLive = activeVehicles;
 
-  const totalLive = livePoints.filter(pt => (Date.now() - new Date(pt.timestamp).getTime()) / 60000 <= 10).length;
+  // Client breakdown stats
+  const clientStats = useMemo(() => {
+    const active = filteredClients.filter(c => c.isActive).length;
+    const inactive = filteredClients.length - active;
+    const healthy = filteredClients.filter(c => clientHealthScore(c).label === 'Healthy').length;
+    const partial = filteredClients.filter(c => clientHealthScore(c).label === 'Partial').length;
+    const empty = filteredClients.filter(c => clientHealthScore(c).label === 'Empty').length;
+    return { active, inactive, healthy, partial, empty };
+  }, [filteredClients]);
 
-  // ── Styles ─────────────────────────────────────────────────────────────────
+  // ── Styles ───────────────────────────────────────────────────────────────────
   const card = { padding: '18px 20px', background: dark ? 'var(--bg2)' : '#fff', borderRadius: 12, border: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}`, boxShadow: dark ? 'none' : '0 1px 4px rgba(0,0,0,0.05)' };
   const sectionLabel = { fontSize: 10, fontWeight: 700, color: '#999', textTransform: 'uppercase' as const, letterSpacing: 0.8, marginBottom: 14 };
+
+  const agoLabel = fmtAgo(Date.now() - lastRefreshed) || '';
+  void agoTick;
 
   return (
     <div style={{ padding: '24px 28px' }}>
 
-      {/* ── Greeting ── */}
-      <div style={{ marginBottom: 26, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+      {/* ── Greeting + Controls ── */}
+      <div style={{ marginBottom: 22, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ fontSize: 21, fontWeight: 700, color: 'var(--text)' }}>{text}, {fullName} 👋</div>
           <div style={{ fontSize: 12, color: '#999', marginTop: 3 }}>{sub}</div>
         </div>
-        {loading && <div style={{ fontSize: 11, color: '#aaa', display: 'flex', alignItems: 'center', gap: 6 }}><IconActivity size={14}/> Loading...</div>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Filter by date" />
+          <button
+            onClick={() => fetchAll(true)}
+            disabled={refreshing || loading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 5, background: dark ? '#1a1a1a' : '#fff', color: refreshing ? '#dc2626' : (dark ? '#aaa' : '#555'), fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            <IconRefresh size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }}/>
+            Refresh
+          </button>
+          <div style={{ fontSize: 11, color: '#aaa', display: 'flex', alignItems: 'center', gap: 5 }}>
+            {loading ? <><IconActivity size={12}/> Loading...</> : <><IconCheck size={12} color="#16a34a"/> Updated {agoLabel}</>}
+          </div>
+        </div>
       </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
       {/* ── Row 1: KPI Cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 16 }}>
@@ -215,8 +311,6 @@ export default function DashboardPage() {
 
       {/* ── Row 3: Charts ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
-
-        {/* Fleet Status Donut */}
         <div style={card}>
           <div style={sectionLabel}>Fleet Status</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -234,7 +328,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Alert Rules Breakdown */}
         <div style={card}>
           <div style={sectionLabel}>Alert Rules by Type</div>
           {alertBarData.length === 0
@@ -246,7 +339,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Device Health */}
         <div style={card}>
           <div style={sectionLabel}>Device Health</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -263,13 +355,129 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 10, fontSize: 11, color: '#aaa' }}>
-            Total: {stats?.devices ?? '—'} devices
-          </div>
+          <div style={{ marginTop: 10, fontSize: 11, color: '#aaa' }}>Total: {stats?.devices ?? '—'} devices</div>
         </div>
       </div>
 
-      {/* ── Row 4: Offline Devices Table ── */}
+      {/* ── Row 4: Business / Client View ── */}
+      <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <IconTrendingUp size={14} color="#dc2626"/>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+          Business / Client View
+          {dateRange?.from && <span style={{ marginLeft: 8, color: '#dc2626', fontWeight: 600, textTransform: 'none', fontSize: 10 }}>· Filtered: {filteredClients.length} of {clients.length} clients</span>}
+        </span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.6fr', gap: 14, marginBottom: 14 }}>
+
+        {/* Feature 1: Subscription Status Overview */}
+        <div style={card}>
+          <div style={sectionLabel}>Subscription Status</div>
+          <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+            <div style={{ flex: 1, textAlign: 'center', padding: '12px 0', background: dark ? '#1a2a1a' : '#f0fdf4', borderRadius: 8 }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a', lineHeight: 1 }}>{clientStats.active}</div>
+              <div style={{ fontSize: 10, color: '#16a34a', fontWeight: 600, marginTop: 5 }}>ACTIVE</div>
+            </div>
+            <div style={{ flex: 1, textAlign: 'center', padding: '12px 0', background: dark ? '#2a1a1a' : '#fef2f2', borderRadius: 8 }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#dc2626', lineHeight: 1 }}>{clientStats.inactive}</div>
+              <div style={{ fontSize: 10, color: '#dc2626', fontWeight: 600, marginTop: 5 }}>INACTIVE</div>
+            </div>
+          </div>
+          {filteredClients.length > 0 && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                <span style={{ fontSize: 11, color: dark ? '#aaa' : '#777' }}>Active rate</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a' }}>{Math.round((clientStats.active / filteredClients.length) * 100)}%</span>
+              </div>
+              <div style={{ width: '100%', height: 6, background: dark ? '#333' : '#f0f0f0', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${(clientStats.active / filteredClients.length) * 100}%`, background: '#16a34a', borderRadius: 4, transition: 'width 0.4s' }}/>
+              </div>
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {filteredClients.filter(c => !c.isActive).slice(0, 3).map(c => (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <IconX size={11} color="#dc2626"/>
+                    <span style={{ fontSize: 11, color: dark ? '#ccc' : '#555', flex: 1 }} title={c.companyName ?? c.name}>{c.companyName ?? c.name}</span>
+                    <span style={{ fontSize: 10, color: '#aaa' }}>{c.vehicleCount}v / {c.deviceCount}d</span>
+                  </div>
+                ))}
+                {clientStats.inactive > 3 && <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>+{clientStats.inactive - 3} more inactive</div>}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Feature 2: Client Health Score Summary */}
+        <div style={card}>
+          <div style={sectionLabel}>Client Health</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {[
+              { label: 'Healthy', count: clientStats.healthy, color: '#16a34a', desc: 'Has vehicles & devices' },
+              { label: 'Partial', count: clientStats.partial, color: '#f59e0b', desc: 'Missing vehicles or devices' },
+              { label: 'Empty', count: clientStats.empty, color: '#dc2626', desc: 'No vehicles or devices' },
+            ].map(row => (
+              <div key={row.label}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                  <div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: row.color }}>{row.label}</span>
+                    <span style={{ fontSize: 10, color: '#aaa', marginLeft: 6 }}>{row.desc}</span>
+                  </div>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: row.color }}>{row.count}</span>
+                </div>
+                <HealthBar value={filteredClients.length ? (row.count / filteredClients.length) * 100 : 0} color={row.color}/>
+              </div>
+            ))}
+          </div>
+          {filteredClients.length > 0 && (
+            <div style={{ marginTop: 14, padding: '10px 12px', background: dark ? '#1a1a1a' : '#f9fafb', borderRadius: 8, fontSize: 11, color: dark ? '#aaa' : '#666', lineHeight: 1.7 }}>
+              <strong style={{ color: 'var(--text)' }}>{Math.round((clientStats.healthy / filteredClients.length) * 100)}%</strong> of clients are fully provisioned.
+            </div>
+          )}
+        </div>
+
+        {/* Feature 3: Per-Client Breakdown Table */}
+        <div style={card}>
+          <div style={sectionLabel}>Per-Client Breakdown</div>
+          {filteredClients.length === 0
+            ? <div style={{ fontSize: 12, color: '#bbb', paddingTop: 8 }}>No clients {dateRange?.from ? 'in selected range' : 'found'}</div>
+            : <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      {['Client', 'Vehicles', 'Devices', 'Status', 'Health'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.4, padding: '0 10px 9px 0', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}` }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredClients.slice(0, 8).map(c => {
+                      const { label, color } = clientHealthScore(c);
+                      return (
+                        <tr key={c.id}>
+                          <td style={{ padding: '8px 10px 8px 0', fontSize: 12, color: 'var(--text)', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}`, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            title={c.companyName ?? c.name}>{c.companyName ?? c.name}</td>
+                          <td style={{ padding: '8px 10px 8px 0', fontSize: 12, fontWeight: 600, color: c.vehicleCount > 0 ? 'var(--text)' : '#aaa', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}` }}>{c.vehicleCount}</td>
+                          <td style={{ padding: '8px 10px 8px 0', fontSize: 12, fontWeight: 600, color: c.deviceCount > 0 ? 'var(--text)' : '#aaa', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}` }}>{c.deviceCount}</td>
+                          <td style={{ padding: '8px 10px 8px 0', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}` }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: c.isActive ? '#16a34a' : '#9ca3af', background: c.isActive ? (dark ? '#1a2a1a' : '#f0fdf4') : (dark ? '#222' : '#f9fafb'), borderRadius: 4, padding: '2px 6px' }}>
+                              {c.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '8px 0', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}` }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color, background: color + '18', borderRadius: 4, padding: '2px 6px' }}>{label}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {filteredClients.length > 8 && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: '#aaa' }}>+{filteredClients.length - 8} more clients</div>
+                )}
+              </div>
+          }
+        </div>
+      </div>
+
+      {/* ── Row 5: Offline Devices Table ── */}
       {devices.filter(d => d.connection === 'offline' || d.connection === 'never_seen').length > 0 && (
         <div style={{ ...card, marginBottom: 14 }}>
           <div style={sectionLabel}>Offline / Never Connected Devices ({devices.filter(d => d.connection === 'offline' || d.connection === 'never_seen').length})</div>
