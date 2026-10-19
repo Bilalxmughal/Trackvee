@@ -4,7 +4,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 @Index(['organizationId', 'vehicleId', 'serviceDate'])
 export class MaintenanceRecord {
   @PrimaryGeneratedColumn('uuid') id: string;
-  @Column({ name: 'organization_id', type: 'uuid' }) organizationId: string;
+  @Column({ name: 'organization_id', type: 'uuid', nullable: true }) organizationId: string | null;
   @Column({ name: 'vehicle_id', type: 'uuid' }) vehicleId: string;
   @Column({ name: 'service_type', type: 'varchar', length: 80 }) serviceType: string;
   @Column({ name: 'service_date', type: 'date' }) serviceDate: string;

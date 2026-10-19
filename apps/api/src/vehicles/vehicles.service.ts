@@ -72,9 +72,17 @@ export class VehiclesService {
     await this.findOne(id, user); // access check
     const vehicle = await this.repo.findOneOrFail({ where: { id } }); // fresh entity for save
     const updates = CLIENT_ROLES.has(user.role) ? this.clientEditableFields(data) : data;
+    const orgChanged = 'organizationId' in updates && updates.organizationId !== vehicle.organizationId;
     Object.assign(vehicle, updates);
     if ('organizationId' in updates && vehicle.organizationId === null) {
       vehicle.organization = null;
+    }
+    // Cascade org change to maintenance_records to keep data consistent
+    if (orgChanged) {
+      await this.dataSource.query(
+        `UPDATE maintenance_records SET organization_id = $1 WHERE vehicle_id = $2`,
+        [updates.organizationId ?? null, id],
+      );
     }
     return this.effectiveLifecycle(await this.repo.save(vehicle));
   }
