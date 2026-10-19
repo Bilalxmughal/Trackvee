@@ -16,6 +16,17 @@ import carIcon from '../../assets/car-icon.png';
 interface VehicleGroup { id: string; name: string; vehicleIds: string[]; }
 const DEFAULT_REGION: Region = { latitude: 24.8607, longitude: 67.0011, latitudeDelta: 0.14, longitudeDelta: 0.14 };
 
+function predictDRMobile(lat: number, lng: number, speedKmh: number, headingDeg: number, elapsedMs: number): { latitude: number; longitude: number } {
+  if (speedKmh < 3) return { latitude: lat, longitude: lng };
+  const distM = (speedKmh / 3.6) * (elapsedMs / 1000);
+  const headRad = (headingDeg * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = (distM * Math.cos(headRad)) / R * (180 / Math.PI);
+  const cosLat = Math.cos(lat * Math.PI / 180);
+  const dLng = cosLat > 0.001 ? (distM * Math.sin(headRad)) / (R * cosLat) * (180 / Math.PI) : 0;
+  return { latitude: lat + dLat, longitude: lng + dLng };
+}
+
 function VehicleMarker({ item, onPress }: { item: FleetItem; onPress: () => void }) {
   const t = useTheme();
   const styles = useMemo(() => createStyles(t), [t]);
@@ -26,6 +37,7 @@ function VehicleMarker({ item, onPress }: { item: FleetItem; onPress: () => void
   const color = statusColors[state] ?? t.offline;
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
   const lastPress = useRef(0);
+  const drBaseRef = useRef({ lat: point.latitude, lng: point.longitude, at: Date.now(), speedKmh: point.speedKmh ?? 0, heading: point.heading ?? 0 });
   const handlePress = () => {
     const now = Date.now();
     if (now - lastPress.current < 700) return;
@@ -37,9 +49,23 @@ function VehicleMarker({ item, onPress }: { item: FleetItem; onPress: () => void
     const timer = setTimeout(() => setTracksViewChanges(false), 450);
     return () => clearTimeout(timer);
   }, [color, point.heading, point.speedKmh]);
+  // On real GPS update: reset dead-reckoning base and animate to new position
   useEffect(() => {
+    drBaseRef.current = { lat: point.latitude, lng: point.longitude, at: Date.now(), speedKmh: point.speedKmh ?? 0, heading: point.heading ?? 0 };
     coordinate.timing({ toValue: 0, latitude: point.latitude, longitude: point.longitude, latitudeDelta: 0, longitudeDelta: 0, duration: 4200, useNativeDriver: false }).start();
   }, [coordinate, point.latitude, point.longitude]);
+  // Dead reckoning: keep marker moving between GPS updates
+  useEffect(() => {
+    const id = setInterval(() => {
+      const b = drBaseRef.current;
+      if (b.speedKmh < 3) return;
+      const elapsed = Date.now() - b.at;
+      if (elapsed < 500) return; // let the GPS animation lead
+      const { latitude, longitude } = predictDRMobile(b.lat, b.lng, b.speedKmh, b.heading, elapsed);
+      coordinate.timing({ toValue: 0, latitude, longitude, latitudeDelta: 0, longitudeDelta: 0, duration: 220, useNativeDriver: false }).start();
+    }, 200);
+    return () => clearInterval(id);
+  }, [coordinate]);
   return (
     <Marker.Animated coordinate={coordinate as unknown as LatLng} onPress={handlePress} onSelect={handlePress} tracksViewChanges={tracksViewChanges} stopPropagation>
       <View style={styles.markerWrap}>

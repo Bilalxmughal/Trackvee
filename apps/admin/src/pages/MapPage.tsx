@@ -2268,23 +2268,69 @@ function ClientRequiredPanel({ dark, feature, onClose }: { dark: boolean; featur
 function FollowMiniMapMarker({ pt, plate }: { pt: LivePoint; plate: string }) {
   const map = useMap();
   const markerRef = useRef<L.Marker | null>(null);
+  const stateRef = useRef({
+    pt,
+    emaLat: pt.latitude, emaLng: pt.longitude,
+    dispLat: pt.latitude, dispLng: pt.longitude,
+    animFromLat: pt.latitude, animFromLng: pt.longitude,
+    animToLat: pt.latitude, animToLng: pt.longitude,
+    animStart: 0, animDur: 0,
+  });
+  const rafRef = useRef<number | null>(null);
 
-  // Create marker once on mount
   useEffect(() => {
     const icon = makeCarIcon(pt.heading ?? 0, vehicleStatus(pt), plate, pt.speedKmh);
     const m = L.marker([pt.latitude, pt.longitude], { icon, zIndexOffset: 100 }).addTo(map);
     markerRef.current = m;
-    return () => { m.remove(); markerRef.current = null; };
+
+    function tick() {
+      rafRef.current = requestAnimationFrame(tick);
+      const s = stateRef.current;
+      const marker = markerRef.current;
+      if (!marker) return;
+      const now = performance.now();
+      let dispLat: number;
+      let dispLng: number;
+      if (s.animDur > 0 && now < s.animStart + s.animDur) {
+        const t = Math.min(1, (now - s.animStart) / s.animDur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        dispLat = s.animFromLat + (s.animToLat - s.animFromLat) * eased;
+        dispLng = s.animFromLng + (s.animToLng - s.animFromLng) * eased;
+      } else {
+        const sinceEnd = now - (s.animStart + s.animDur);
+        if (s.pt.speedKmh >= 3 && sinceEnd > 0) {
+          [dispLat, dispLng] = predictDR(s.animToLat, s.animToLng, s.pt.speedKmh, s.pt.heading ?? 0, sinceEnd);
+        } else {
+          dispLat = s.animToLat;
+          dispLng = s.animToLng;
+        }
+      }
+      stateRef.current.dispLat = dispLat;
+      stateRef.current.dispLng = dispLng;
+      marker.setLatLng([dispLat, dispLng]);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      m.remove();
+      markerRef.current = null;
+      if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
 
-  // Update position + icon when pt changes
   useEffect(() => {
+    const s = stateRef.current;
+    const posChanged = s.pt.timestamp !== pt.timestamp;
+    const EMA_ALPHA = 0.75;
+    const emaLat = posChanged ? EMA_ALPHA * pt.latitude + (1 - EMA_ALPHA) * s.emaLat : s.emaLat;
+    const emaLng = posChanged ? EMA_ALPHA * pt.longitude + (1 - EMA_ALPHA) * s.emaLng : s.emaLng;
+    stateRef.current = posChanged
+      ? { ...s, pt, emaLat, emaLng, animFromLat: s.dispLat, animFromLng: s.dispLng, animToLat: emaLat, animToLng: emaLng, animStart: performance.now(), animDur: pt.speedKmh < 3 ? 0 : 4250 }
+      : { ...s, pt, emaLat: s.emaLat, emaLng: s.emaLng };
     const m = markerRef.current;
-    if (!m) return;
-    m.setLatLng([pt.latitude, pt.longitude]);
-    m.setIcon(makeCarIcon(pt.heading ?? 0, vehicleStatus(pt), plate, pt.speedKmh));
-    map.panTo([pt.latitude, pt.longitude], { animate: true, duration: 0.35 });
+    if (m) m.setIcon(makeCarIcon(pt.heading ?? 0, vehicleStatus(pt), plate, pt.speedKmh));
+    map.panTo([emaLat, emaLng], { animate: true, duration: 0.35 });
   }, [pt, plate, map]);
 
   return null;
