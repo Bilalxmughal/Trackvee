@@ -180,7 +180,7 @@ export default function DashboardPage() {
   const sectionLabel = { fontSize: 10, fontWeight: 700, color: '#999', textTransform: 'uppercase' as const, letterSpacing: 0.8, marginBottom: 14 };
 
   return (
-    <div style={{ padding: '24px 28px', maxWidth: 1400 }}>
+    <div style={{ padding: '24px 28px' }}>
 
       {/* ── Greeting ── */}
       <div style={{ marginBottom: 26, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
