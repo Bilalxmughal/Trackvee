@@ -128,7 +128,7 @@ export class MaintenanceService {
     await this.assertFeature(user, 'edit');
     const existing = await this.records.findOne({ where: { id } });
     if (!existing) throw new NotFoundException('Maintenance record not found');
-    await this.assertVehicle(user, existing.vehicleId, existing.organizationId);
+    await this.assertVehicle(user, existing.vehicleId, existing.organizationId ?? undefined);
     const changes = this.validate({ ...body, vehicleId: undefined }, false);
     this.assertOdometerReminderBaseline(
       changes.odometerKm !== undefined ? changes.odometerKm : existing.odometerKm,
@@ -142,7 +142,7 @@ export class MaintenanceService {
     await this.assertFeature(user, 'delete');
     const existing = await this.records.findOne({ where: { id } });
     if (!existing) throw new NotFoundException('Maintenance record not found');
-    await this.assertVehicle(user, existing.vehicleId, existing.organizationId);
+    await this.assertVehicle(user, existing.vehicleId, existing.organizationId ?? undefined);
     await this.records.remove(existing);
   }
 
