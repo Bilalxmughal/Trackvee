@@ -56,7 +56,29 @@ interface TimelineEvent {
 
 const MOVING_SPEED = 5;
 const POLL_MS = 5000;
+const EMA_ALPHA = 0.75;
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function predictDR(lat: number, lng: number, speedKmh: number, headingDeg: number, elapsedMs: number): [number, number] {
+  if (speedKmh < 3) return [lat, lng];
+  const distM = (speedKmh / 3.6) * (elapsedMs / 1000);
+  const headRad = (headingDeg * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = (distM * Math.cos(headRad)) / R * (180 / Math.PI);
+  const cosLat = Math.cos(lat * Math.PI / 180);
+  const dLng = cosLat > 0.001 ? (distM * Math.sin(headRad)) / (R * cosLat) * (180 / Math.PI) : 0;
+  return [lat + dLat, lng + dLng];
+}
+
+interface MarkerState {
+  marker: L.Marker;
+  pt: LivePoint;
+  emaLat: number; emaLng: number;
+  dispLat: number; dispLng: number;
+  animFromLat: number; animFromLng: number;
+  animToLat: number; animToLng: number;
+  animStart: number; animDur: number;
+}
 
 type Status = 'moving' | 'idle' | 'parked' | 'offline';
 const STATUS_COLOR: Record<Status, string> = { moving: '#16a34a', idle: '#f59e0b', parked: '#6b7280', offline: '#9ca3af' };
@@ -197,8 +219,11 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, onSelect }: {
 }) {
   const map = useMap();
   const groupRef = useRef<L.MarkerClusterGroup | null>(null);
-  const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
+  const stateRef = useRef<Map<string, MarkerState>>(new Map());
+  const rafRef = useRef<number>(0);
+  const animatedImeisRef = useRef<Set<string>>(new Set());
 
+  // RAF animation loop — runs independently of React render cycle
   useEffect(() => {
     if (!groupRef.current) {
       groupRef.current = (L as unknown as { markerClusterGroup: (opts: object) => L.MarkerClusterGroup })
@@ -206,7 +231,47 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, onSelect }: {
       map.addLayer(groupRef.current);
     }
     const group = groupRef.current;
-    const existing = markerMapRef.current;
+    let lastFrame = 0;
+    function rafLoop(now: number) {
+      rafRef.current = requestAnimationFrame(rafLoop);
+      if (now - lastFrame < 33) return;
+      const dt = lastFrame ? now - lastFrame : 33;
+      lastFrame = now;
+      animatedImeisRef.current.forEach(imei => {
+        const s = stateRef.current.get(imei);
+        if (!s) { animatedImeisRef.current.delete(imei); return; }
+        const elapsed = now - s.animStart;
+        if (s.pt.speedKmh < 3 && elapsed >= s.animDur) {
+          s.dispLat = s.animToLat; s.dispLng = s.animToLng;
+          s.marker.setLatLng([s.dispLat, s.dispLng]);
+          animatedImeisRef.current.delete(imei);
+          return;
+        }
+        const t = Math.min(elapsed / s.animDur, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        let lat: number, lng: number;
+        if (t < 1) {
+          lat = s.animFromLat + (s.animToLat - s.animFromLat) * ease;
+          lng = s.animFromLng + (s.animToLng - s.animFromLng) * ease;
+        } else if (s.pt.speedKmh >= 3) {
+          [lat, lng] = predictDR(s.dispLat, s.dispLng, s.pt.speedKmh, s.pt.heading ?? 0, dt);
+        } else {
+          lat = s.animToLat; lng = s.animToLng;
+        }
+        s.dispLat = lat; s.dispLng = lng;
+        s.marker.setLatLng([lat, lng]);
+      });
+    }
+    rafRef.current = requestAnimationFrame(rafLoop);
+    return () => { cancelAnimationFrame(rafRef.current); map.removeLayer(group); stateRef.current.clear(); animatedImeisRef.current.clear(); };
+  }, [map]);
+
+  // Update markers when live points change
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    const prev = stateRef.current;
+    const next = new Map<string, MarkerState>();
     const seen = new Set<string>();
 
     for (const pt of points) {
@@ -216,27 +281,55 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, onSelect }: {
       const plate = fmtPlate(dv, pt.imei);
       const status = vehicleStatus(pt);
       const icon = makeCarIcon(pt.heading ?? 0, status, plate, pt.speedKmh);
+      const existing = prev.get(pt.imei);
 
-      if (existing.has(pt.imei)) {
-        const m = existing.get(pt.imei)!;
-        m.setLatLng([pt.latitude, pt.longitude]);
-        m.setIcon(icon);
+      if (existing) {
+        existing.marker.setIcon(icon);
+        const isStationary = pt.speedKmh < 3;
+        const posChanged = existing.pt.timestamp !== pt.timestamp;
+        const emaLat = isStationary ? pt.latitude : EMA_ALPHA * pt.latitude + (1 - EMA_ALPHA) * existing.emaLat;
+        const emaLng = isStationary ? pt.longitude : EMA_ALPHA * pt.longitude + (1 - EMA_ALPHA) * existing.emaLng;
+
+        let updated: MarkerState;
+        if (!posChanged) {
+          // GPS unchanged — let dead reckoning continue uninterrupted
+          updated = { ...existing, pt, emaLat, emaLng };
+        } else {
+          // New GPS position — start fresh animation from current visual position
+          updated = {
+            ...existing, pt, emaLat, emaLng,
+            animFromLat: existing.dispLat, animFromLng: existing.dispLng,
+            animToLat: emaLat, animToLng: emaLng,
+            animStart: performance.now(), animDur: isStationary ? 0 : POLL_MS * 0.85,
+          };
+        }
+        next.set(pt.imei, updated);
+        if (pt.speedKmh >= 3 || Math.abs(updated.animToLat - updated.animFromLat) > 1e-8 || Math.abs(updated.animToLng - updated.animFromLng) > 1e-8) {
+          animatedImeisRef.current.add(pt.imei);
+        } else {
+          animatedImeisRef.current.delete(pt.imei);
+        }
       } else {
         const marker = L.marker([pt.latitude, pt.longitude], { icon });
         marker.on('click', () => onSelect(pt.imei));
         group.addLayer(marker);
-        existing.set(pt.imei, marker);
+        next.set(pt.imei, {
+          marker, pt,
+          emaLat: pt.latitude, emaLng: pt.longitude,
+          dispLat: pt.latitude, dispLng: pt.longitude,
+          animFromLat: pt.latitude, animFromLng: pt.longitude,
+          animToLat: pt.latitude, animToLng: pt.longitude,
+          animStart: 0, animDur: 1,
+        });
+        if (pt.speedKmh >= 3) animatedImeisRef.current.add(pt.imei);
       }
     }
 
-    for (const [imei, marker] of existing) {
-      if (!seen.has(imei)) { group.removeLayer(marker); existing.delete(imei); }
+    for (const [imei, s] of prev) {
+      if (!seen.has(imei)) { group.removeLayer(s.marker); animatedImeisRef.current.delete(imei); }
     }
+    stateRef.current = next;
   }, [points, deviceMap, vehicleDetails, map, onSelect]);
-
-  useEffect(() => () => {
-    if (groupRef.current) { map.removeLayer(groupRef.current); groupRef.current = null; }
-  }, [map]);
 
   return null;
 }
