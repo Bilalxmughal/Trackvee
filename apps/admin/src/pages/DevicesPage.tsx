@@ -102,13 +102,20 @@ export default function DevicesPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    // Duplicate check against already-loaded devices (exclude self when editing)
+    const others = devices.filter(d => d.id !== editing?.id);
+    if (others.some(d => d.imei === form.imei.trim())) { toast('A device with this IMEI already exists', 'error'); return; }
+    const trimmedName = form.name.trim();
+    if (trimmedName && others.some(d => d.name?.toLowerCase() === trimmedName.toLowerCase())) { toast('A device with this name already exists', 'error'); return; }
+    const trimmedSim = form.simNumber.trim();
+    if (trimmedSim && others.some(d => d.simNumber === trimmedSim)) { toast('A device with this SIM number already exists', 'error'); return; }
     setSaving(true);
     try {
       const payload = { ...form, cityId: form.cityId || null };
       if (editing) { await api.patch(`/devices/${editing.id}`, payload); toast('Device updated'); }
       else { await api.post('/devices', payload); toast('Device added'); }
       await load(); closeModal();
-    } catch { toast('Failed to save device', 'error'); } finally { setSaving(false); }
+    } catch (err: any) { const msg = err?.response?.data?.message; toast(Array.isArray(msg) ? msg.join('. ') : (msg ?? 'Failed to save device'), 'error'); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
