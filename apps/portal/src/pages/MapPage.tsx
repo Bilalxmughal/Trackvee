@@ -198,6 +198,17 @@ async function reverseGeocode(lat: number, lon: number): Promise<string> {
   } catch { return `${lat.toFixed(5)}, ${lon.toFixed(5)}`; }
 }
 
+function predictDR(lat: number, lng: number, speedKmh: number, headingDeg: number, elapsedMs: number): [number, number] {
+  if (speedKmh < 3) return [lat, lng];
+  const distM = (speedKmh / 3.6) * (elapsedMs / 1000);
+  const headRad = (headingDeg * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = (distM * Math.cos(headRad)) / R * (180 / Math.PI);
+  const cosLat = Math.cos((lat * Math.PI) / 180);
+  const dLng = cosLat > 0.001 ? (distM * Math.sin(headRad)) / (R * cosLat) * (180 / Math.PI) : 0;
+  return [lat + dLat, lng + dLng];
+}
+
 // ── Car Icon ──────────────────────────────────────────────────────────────────
 
 function makeCarIcon(heading: number, status: Status, plate: string, speed: number): L.DivIcon {
