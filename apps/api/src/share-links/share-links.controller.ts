@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ShareLinksService } from './share-links.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -11,8 +11,8 @@ export class ShareLinksController {
   constructor(private service: ShareLinksService) {}
 
   @Get('public/:token')
-  getPublic(@Param('token') token: string) {
-    return this.service.getLiveData(token);
+  getPublic(@Param('token') token: string, @Query('track') track?: string) {
+    return this.service.getLiveData(token, track === '1');
   }
 
   @ApiBearerAuth()
@@ -25,14 +25,14 @@ export class ShareLinksController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(@CurrentUser() user: User, @Body() body: { name: string; imei: string; expiresAt?: string | null }) {
+  create(@CurrentUser() user: User, @Body() body: { name: string; imei: string; expiresAt?: string | null; scheduleStart?: string | null; scheduleEnd?: string | null }) {
     return this.service.create(user, body);
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @CurrentUser() user: User, @Body() body: { name?: string; expiresAt?: string | null; isActive?: boolean }) {
+  update(@Param('id') id: string, @CurrentUser() user: User, @Body() body: { name?: string; expiresAt?: string | null; isActive?: boolean; scheduleStart?: string | null; scheduleEnd?: string | null }) {
     return this.service.update(id, user, body);
   }
 

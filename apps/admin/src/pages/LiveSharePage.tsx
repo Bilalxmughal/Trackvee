@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -17,6 +17,8 @@ interface LivePoint {
 interface LiveShareData {
   vehicle: { id: string; licensePlate: string | null; name: string; make: string | null; model: string | null } | null;
   point: LivePoint | null;
+  scheduleStart?: string | null;
+  scheduleEnd?: string | null;
 }
 
 function FlyTo({ lat, lng }: { lat: number; lng: number }) {
@@ -25,23 +27,35 @@ function FlyTo({ lat, lng }: { lat: number; lng: number }) {
   return null;
 }
 
-const carSvg = (heading: number) => `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
-  <g transform="rotate(${heading}, 16, 16)">
-    <ellipse cx="16" cy="16" rx="11" ry="14" fill="#dc2626" stroke="white" stroke-width="2"/>
-    <rect x="10" y="7" width="12" height="8" rx="2" fill="rgba(255,255,255,0.25)"/>
-    <rect x="10" y="21" width="12" height="5" rx="1" fill="rgba(0,0,0,0.15)"/>
-    <circle cx="10" cy="9" r="2.5" fill="rgba(255,255,255,0.9)"/>
-    <circle cx="22" cy="9" r="2.5" fill="rgba(255,255,255,0.9)"/>
-  </g>
-</svg>`;
+function makeMarkerIcon(heading: number, label: string, speedKmh: number) {
+  const rot = (heading + 180) % 360;
+  const speedTxt = `${Math.round(speedKmh)} km/h`;
+  const html = `<div style="display:flex;flex-direction:column;align-items:center;transform:translateX(-50%)">
+    <img src="/car-icon.png" style="width:36px;height:36px;transform:rotate(${rot}deg);filter:drop-shadow(0 2px 6px rgba(0,0,0,0.45))"/>
+    <div style="margin-top:3px;background:rgba(10,10,10,0.82);color:#fff;font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap;pointer-events:none">${label} · ${speedTxt}</div>
+  </div>`;
+  return L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0, 0], iconAnchor: [0, 44] });
+}
 
-function makeMarkerIcon(heading: number) {
-  return L.divIcon({
-    html: carSvg((heading + 180) % 360),
-    className: '',
-    iconSize: [32, 40],
-    iconAnchor: [16, 20],
-  });
+function isWithinSchedule(start: string, end: string): boolean {
+  const now = new Date();
+  const pktMin = (now.getUTCHours() * 60 + now.getUTCMinutes() + 300) % 1440;
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const startMin = (sh ?? 0) * 60 + (sm ?? 0);
+  const endMin = (eh ?? 0) * 60 + (em ?? 0);
+  if (startMin <= endMin) return pktMin >= startMin && pktMin <= endMin;
+  return pktMin >= startMin || pktMin <= endMin;
+}
+
+function fmt12(hhmm: string): string {
+  const [hStr, mStr] = hhmm.split(':');
+  let h = parseInt(hStr ?? '0', 10);
+  const m = mStr ?? '00';
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return `${h}:${m} ${ampm}`;
 }
 
 export default function LiveSharePage() {
@@ -49,14 +63,17 @@ export default function LiveSharePage() {
   const [data, setData] = useState<LiveShareData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const isFirstFetch = useRef(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = async () => {
     try {
       const t = token ?? '';
+      const trackParam = isFirstFetch.current ? '?track=1' : '';
       const endpoint = t.includes('.')
         ? `${API_URL}/telemetry/live-public/${encodeURIComponent(t)}`
-        : `${API_URL}/share-links/public/${encodeURIComponent(t)}`;
+        : `${API_URL}/share-links/public/${encodeURIComponent(t)}${trackParam}`;
+      isFirstFetch.current = false;
       const res = await fetch(endpoint);
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { message?: string };
@@ -84,6 +101,12 @@ export default function LiveSharePage() {
   const lat = point?.latitude ?? 24.8607;
   const lng = point?.longitude ?? 67.0011;
   const hasGps = !!(point?.latitude && point?.longitude);
+  const ignition = point ? (point.speedKmh >= 5 ? true : point.ignition) : null;
+
+  const scheduleStart = data?.scheduleStart;
+  const scheduleEnd = data?.scheduleEnd;
+  const hasSchedule = !!(scheduleStart && scheduleEnd);
+  const inSchedule = hasSchedule ? isWithinSchedule(scheduleStart!, scheduleEnd!) : true;
 
   if (loading) return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif', background: '#f8fafc' }}>
@@ -105,6 +128,18 @@ export default function LiveSharePage() {
     </div>
   );
 
+  if (hasSchedule && !inSchedule) return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', padding: 32, textAlign: 'center' }}>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>🕐</div>
+      <h2 style={{ color: '#111827', margin: '0 0 8px', fontSize: 20 }}>{vehicleLabel}</h2>
+      <p style={{ color: '#6b7280', margin: '0 0 4px', fontSize: 15 }}>Live tracking is not active right now.</p>
+      <p style={{ color: '#374151', fontWeight: 600, margin: 0, fontSize: 14 }}>
+        Tracking active {fmt12(scheduleStart!)} – {fmt12(scheduleEnd!)} PKT
+      </p>
+      <p style={{ color: '#9ca3af', margin: '12px 0 0', fontSize: 11 }}>Powered by <strong style={{ color: '#dc2626' }}>Trackvee</strong></p>
+    </div>
+  );
+
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'system-ui, sans-serif' }}>
       <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
@@ -112,7 +147,8 @@ export default function LiveSharePage() {
           <div style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{vehicleLabel}</div>
           <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
             {data?.vehicle?.make && data?.vehicle?.model ? `${data.vehicle.make} ${data.vehicle.model} · ` : ''}
-            {hasGps ? `${Math.round(point!.speedKmh)} km/h · ${(point && (point.speedKmh >= 5 ? true : point.ignition)) ? 'Ignition ON' : 'Ignition OFF'}` : 'GPS unavailable'}
+            {hasGps ? `${Math.round(point!.speedKmh)} km/h · ${ignition ? 'Ignition ON' : 'Ignition OFF'}` : 'GPS unavailable'}
+            {hasSchedule && <span style={{ marginLeft: 8, color: '#9ca3af' }}>· Active {fmt12(scheduleStart!)}–{fmt12(scheduleEnd!)}</span>}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -135,18 +171,13 @@ export default function LiveSharePage() {
           {hasGps && (
             <>
               <FlyTo lat={lat} lng={lng} />
-              <Marker position={[lat, lng]} icon={makeMarkerIcon(point?.heading ?? 0)}>
-                <Popup>
-                  <strong>{vehicleLabel}</strong><br />
-                  {Math.round(point!.speedKmh)} km/h · {(point && (point.speedKmh >= 5 ? true : point.ignition)) ? 'Ignition ON' : 'Ignition OFF'}
-                </Popup>
-              </Marker>
+              <Marker position={[lat, lng]} icon={makeMarkerIcon(point?.heading ?? 0, vehicleLabel, point?.speedKmh ?? 0)} />
             </>
           )}
         </MapContainer>
       </div>
       <div style={{ background: '#fff', borderTop: '1px solid #e5e7eb', padding: '6px 16px', fontSize: 11, color: '#9ca3af', textAlign: 'center', flexShrink: 0 }}>
-        Powered by <strong style={{ color: '#dc2626' }}>Trackvee</strong> · Updates every 10 seconds
+        Powered by <strong style={{ color: '#dc2626' }}>Trackvee</strong>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { TablerIcon } from '../src/components/TablerIcon';
 import api from '../src/lib/api';
 import { useTheme } from '../src/hooks/useTheme';
@@ -14,9 +14,10 @@ type ShareLink = {
   id: string; token: string; name: string; imei: string;
   expiresAt: string | null; viewCount: number; isActive: boolean;
   createdAt: string;
+  scheduleStart?: string | null; scheduleEnd?: string | null;
   vehicle?: { id: string; licensePlate: string | null; name: string } | null;
 };
-type Form = { name: string; imei: string; expiresAt: string; isActive: boolean };
+type Form = { name: string; imei: string; expiresAt: string; isActive: boolean; scheduleStart: string; scheduleEnd: string };
 
 const today = () => {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
@@ -43,11 +44,12 @@ const linkStatus = (link: ShareLink): 'active' | 'expired' | 'inactive' => {
   return 'active';
 };
 
-const createForm = (): Form => ({ name: '', imei: '', expiresAt: '', isActive: true });
+const createForm = (imei = ''): Form => ({ name: '', imei, expiresAt: '', isActive: true, scheduleStart: '', scheduleEnd: '' });
 
 export default function ShareLinksScreen() {
   const t = useTheme();
   const s = useMemo(() => makeStyles(t), [t]);
+  const { imei: paramImei } = useLocalSearchParams<{ imei?: string }>();
 
   const [links, setLinks] = useState<ShareLink[]>([]);
   const [devices, setDevices] = useState<DeviceOption[]>([]);
@@ -69,14 +71,21 @@ export default function ShareLinksScreen() {
     if (linksResult.status === 'fulfilled') setLinks(linksResult.value.data);
     else Alert.alert('Share Links unavailable', 'Could not load share links. Please try again.');
     if (devicesResult.status === 'fulfilled') {
-      setDevices(devicesResult.value.data.map(d => ({
+      const loaded = devicesResult.value.data.map(d => ({
         imei: d.imei,
         label: d.vehicle?.licensePlate ?? d.vehicle?.name ?? `#${d.displayId}`,
-      })));
+      }));
+      setDevices(loaded);
+      if (paramImei && !refresh) {
+        const match = loaded.find(d => d.imei === paramImei);
+        setForm(createForm(paramImei));
+        setDeviceSearch(match?.label ?? '');
+        setEditing(null);
+      }
     }
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [paramImei]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -85,7 +94,7 @@ export default function ShareLinksScreen() {
 
   const openEdit = (link: ShareLink) => {
     setEditing(link.id);
-    setForm({ name: link.name, imei: link.imei, expiresAt: link.expiresAt?.slice(0, 10) ?? '', isActive: link.isActive });
+    setForm({ name: link.name, imei: link.imei, expiresAt: link.expiresAt?.slice(0, 10) ?? '', isActive: link.isActive, scheduleStart: link.scheduleStart ?? '', scheduleEnd: link.scheduleEnd ?? '' });
     setDeviceSearch('');
   };
 
@@ -94,12 +103,17 @@ export default function ShareLinksScreen() {
     if (!editing && !form.imei) { Alert.alert('Check details', 'Please select a vehicle.'); return; }
     const expiresAt = form.expiresAt ? (parseDate(form.expiresAt) ?? null) : null;
     if (form.expiresAt && !expiresAt) { Alert.alert('Check details', 'Enter expiry as DD-MM-YYYY or leave blank.'); return; }
+    const hasStart = !!form.scheduleStart.trim();
+    const hasEnd = !!form.scheduleEnd.trim();
+    if (hasStart !== hasEnd) { Alert.alert('Check schedule', 'Set both start and end times, or leave both empty.'); return; }
     setSaving(true);
     try {
+      const scheduleStart = form.scheduleStart.trim() || null;
+      const scheduleEnd = form.scheduleEnd.trim() || null;
       if (editing) {
-        await api.patch(`/share-links/${editing}`, { name: form.name.trim(), expiresAt, isActive: form.isActive });
+        await api.patch(`/share-links/${editing}`, { name: form.name.trim(), expiresAt, isActive: form.isActive, scheduleStart, scheduleEnd });
       } else {
-        await api.post('/share-links', { name: form.name.trim(), imei: form.imei, expiresAt });
+        await api.post('/share-links', { name: form.name.trim(), imei: form.imei, expiresAt, scheduleStart, scheduleEnd });
       }
       setForm(null);
       setEditing(null);
@@ -162,7 +176,7 @@ export default function ShareLinksScreen() {
           <Text style={s.subtitle}>{form ? 'Live vehicle location' : `${links.length} link${links.length !== 1 ? 's' : ''}`}</Text>
         </View>
         {!form && (
-          <Pressable onPress={() => { setEditing(null); setDeviceSearch(''); setForm(createForm()); }} style={s.add} accessibilityLabel="New share link">
+          <Pressable onPress={() => { setEditing(null); setDeviceSearch(''); setForm(createForm()); setEditing(null); }} style={s.add} accessibilityLabel="New share link">
             <TablerIcon name="plus" size={22} color={t.red} />
           </Pressable>
         )}
@@ -201,7 +215,7 @@ export default function ShareLinksScreen() {
                       style={[s.vehicleChoice, form.imei === d.imei && s.vehicleChoiceSelected]}
                     >
                       <Text numberOfLines={1} style={[s.vehicleChoiceText, form.imei === d.imei && { color: t.red }]}>
-                        {d.label} <Text style={{ color: t.muted, fontSize: 10 }}>{d.imei}</Text>
+                        {d.label}
                       </Text>
                     </Pressable>
                   ))}
@@ -219,6 +233,30 @@ export default function ShareLinksScreen() {
                   {form.expiresAt ? fmt(form.expiresAt) : 'No expiry (permanent)  ▾'}
                 </Text>
               </Pressable>
+            </View>
+
+            <View style={s.field}>
+              <Text style={s.fieldLabel}>Schedule (optional)</Text>
+              <Text style={[s.fieldLabel, { fontWeight: '400', color: t.muted, fontSize: 11, marginBottom: 6 }]}>Show live data only within these hours (PKT)</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <TextInput
+                  value={form.scheduleStart}
+                  onChangeText={v => update('scheduleStart', v)}
+                  placeholder="09:00"
+                  style={[s.input, { flex: 1 }]}
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={5}
+                />
+                <Text style={{ color: t.muted, fontSize: 13 }}>to</Text>
+                <TextInput
+                  value={form.scheduleEnd}
+                  onChangeText={v => update('scheduleEnd', v)}
+                  placeholder="17:00"
+                  style={[s.input, { flex: 1 }]}
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={5}
+                />
+              </View>
             </View>
 
             {editing != null && (
@@ -259,7 +297,7 @@ export default function ShareLinksScreen() {
           renderItem={({ item }) => {
             const st = linkStatus(item);
             const color = stColor(st);
-            const vehicleLabel = item.vehicle?.licensePlate ?? item.imei;
+            const vehicleLabel = item.vehicle?.licensePlate ?? item.vehicle?.name ?? 'Vehicle';
             return (
               <View style={[s.row, { borderLeftColor: color }]}>
                 <View style={{ flex: 1 }}>
@@ -272,8 +310,9 @@ export default function ShareLinksScreen() {
                   <Text style={s.rowMeta} numberOfLines={1}>
                     {vehicleLabel}
                     {item.expiresAt ? ` · Expires ${fmt(item.expiresAt.slice(0, 10))}` : ' · No expiry'}
+                    {item.scheduleStart && item.scheduleEnd ? ` · ${item.scheduleStart}–${item.scheduleEnd}` : ''}
                   </Text>
-                  <Text style={s.rowViews}>{item.viewCount} {item.viewCount === 1 ? 'view' : 'views'}</Text>
+                  <Text style={s.rowViews}>{item.viewCount} {item.viewCount === 1 ? 'open' : 'opens'}</Text>
                 </View>
                 <Pressable onPress={() => void shareLink(item)} style={s.action} accessibilityLabel="Share link">
                   <TablerIcon name={sharedId === item.id ? 'check' : 'share'} size={17} color={sharedId === item.id ? t.moving : t.secondary} />

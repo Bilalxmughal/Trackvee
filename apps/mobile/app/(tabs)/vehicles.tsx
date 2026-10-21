@@ -190,14 +190,9 @@ export default function VehiclesScreen() {
     else router.push({ pathname: '/vehicle/[imei]/history', params });
   };
 
-  const shareLiveLocation = async (item: FleetItem) => {
+  const shareLiveLocation = (item: FleetItem) => {
     setMenuImei(null);
-    try {
-      const res = await api.post<{ url: string }>(`/vehicles/${item.vehicle?.id ?? item.device.imei}/live-share`);
-      await Share.share({ message: `Live location of ${plateFor(item)}: ${res.data.url}`, url: res.data.url });
-    } catch {
-      Alert.alert('Share Failed', 'Could not create a share link. Please try again.');
-    }
+    router.push({ pathname: '/share-links', params: { imei: item.device.imei } });
   };
 
   const renderVehicleCard = (item: FleetItem) => {

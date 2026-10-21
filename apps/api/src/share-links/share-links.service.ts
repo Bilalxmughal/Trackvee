@@ -31,7 +31,7 @@ export class ShareLinksService {
     });
   }
 
-  async create(user: User, dto: { name: string; imei: string; expiresAt?: string | null }): Promise<ShareLink> {
+  async create(user: User, dto: { name: string; imei: string; expiresAt?: string | null; scheduleStart?: string | null; scheduleEnd?: string | null }): Promise<ShareLink> {
     let token: string;
     let tries = 0;
     do {
@@ -50,15 +50,19 @@ export class ShareLinksService {
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
       isActive: true,
       viewCount: 0,
+      scheduleStart: dto.scheduleStart?.trim() || null,
+      scheduleEnd: dto.scheduleEnd?.trim() || null,
     });
     return this.repo.save(link);
   }
 
-  async update(id: string, user: User, dto: { name?: string; expiresAt?: string | null; isActive?: boolean }): Promise<ShareLink> {
+  async update(id: string, user: User, dto: { name?: string; expiresAt?: string | null; isActive?: boolean; scheduleStart?: string | null; scheduleEnd?: string | null }): Promise<ShareLink> {
     const link = await this.findOneOwned(id, user);
     if (dto.name !== undefined) link.name = dto.name;
     if ('expiresAt' in dto) link.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
     if (dto.isActive !== undefined) link.isActive = dto.isActive;
+    if ('scheduleStart' in dto) link.scheduleStart = dto.scheduleStart?.trim() || null;
+    if ('scheduleEnd' in dto) link.scheduleEnd = dto.scheduleEnd?.trim() || null;
     return this.repo.save(link);
   }
 
@@ -67,18 +71,20 @@ export class ShareLinksService {
     await this.repo.remove(link);
   }
 
-  async getLiveData(token: string) {
+  async getLiveData(token: string, track = false) {
     const link = await this.repo.findOne({ where: { token } });
     if (!link || !link.isActive) throw new UnauthorizedException('Share link not found or inactive');
     if (link.expiresAt && new Date() > link.expiresAt) throw new UnauthorizedException('Share link expired');
 
-    await this.repo.increment({ id: link.id }, 'viewCount', 1);
+    if (track) await this.repo.increment({ id: link.id }, 'viewCount', 1);
 
     const device = await this.devicesService.findByImei(link.imei);
     const latest = device ? await this.telemetryService.getLatest(link.imei) : null;
 
     return {
       name: link.name,
+      scheduleStart: link.scheduleStart,
+      scheduleEnd: link.scheduleEnd,
       vehicle: device?.vehicle
         ? { id: device.vehicle.id, licensePlate: device.vehicle.licensePlate, name: device.vehicle.name, make: device.vehicle.make, model: device.vehicle.model }
         : null,

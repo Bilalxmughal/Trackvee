@@ -39,6 +39,12 @@ export class ShareLink {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ name: 'schedule_start', type: 'varchar', length: 5, nullable: true })
+  scheduleStart: string | null;
+
+  @Column({ name: 'schedule_end', type: 'varchar', length: 5, nullable: true })
+  scheduleEnd: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

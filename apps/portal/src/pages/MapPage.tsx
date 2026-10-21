@@ -289,6 +289,8 @@ function ClusterLayer({ points, deviceMap, vehicleDetails, onSelect }: {
 
       if (existing) {
         existing.marker.setIcon(icon);
+        existing.marker.off('click');
+        existing.marker.on('click', () => onSelect(pt.imei));
         const isStationary = pt.speedKmh < 3;
         const posChanged = existing.pt.timestamp !== pt.timestamp;
         const emaLat = isStationary ? pt.latitude : EMA_ALPHA * pt.latitude + (1 - EMA_ALPHA) * existing.emaLat;

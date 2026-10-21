@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '../api/client';
 
 interface ShareLink {
@@ -10,6 +10,8 @@ interface ShareLink {
   viewCount: number;
   isActive: boolean;
   createdAt: string;
+  scheduleStart?: string | null;
+  scheduleEnd?: string | null;
 }
 
 interface Props {
@@ -30,16 +32,21 @@ function isExpired(expiresAt: string | null) {
   return new Date(expiresAt) < new Date();
 }
 
+type FormState = { name: string; imei: string; expiresAt: string; scheduleStart: string; scheduleEnd: string };
+
 export default function ShareLinksPanel({ onClose, vehicles, preselectedImei }: Props) {
   const [links, setLinks] = useState<ShareLink[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(!!preselectedImei);
   const [editLink, setEditLink] = useState<ShareLink | null>(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', imei: preselectedImei ?? '', expiresAt: '' });
+  const [form, setForm] = useState<FormState>({ name: '', imei: preselectedImei ?? '', expiresAt: '', scheduleStart: '', scheduleEnd: '' });
   const [err, setErr] = useState('');
+  const [vehicleSearch, setVehicleSearch] = useState(vehicles.find(v => v.imei === preselectedImei)?.plate ?? '');
+  const [vehicleDropOpen, setVehicleDropOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const load = () => {
     setLoading(true);
@@ -48,9 +55,19 @@ export default function ShareLinksPanel({ onClose, vehicles, preselectedImei }: 
 
   useEffect(() => { load(); }, []);
 
+  const plateName = (imei: string) => vehicles.find(v => v.imei === imei)?.plate ?? 'Vehicle';
+
+  const filteredVehicles = vehicles.filter(v =>
+    v.plate.toLowerCase().includes(vehicleSearch.toLowerCase())
+  );
+
   const openCreate = (imei?: string) => {
     setEditLink(null);
-    setForm({ name: '', imei: imei ?? preselectedImei ?? '', expiresAt: '' });
+    const selectedImei = imei ?? preselectedImei ?? '';
+    const selectedPlate = vehicles.find(v => v.imei === selectedImei)?.plate ?? '';
+    setForm({ name: '', imei: selectedImei, expiresAt: '', scheduleStart: '', scheduleEnd: '' });
+    setVehicleSearch(selectedPlate);
+    setVehicleDropOpen(false);
     setErr('');
     setShowForm(true);
   };
@@ -58,7 +75,9 @@ export default function ShareLinksPanel({ onClose, vehicles, preselectedImei }: 
   const openEdit = (lnk: ShareLink) => {
     setEditLink(lnk);
     const exp = lnk.expiresAt ? new Date(lnk.expiresAt).toISOString().slice(0, 10) : '';
-    setForm({ name: lnk.name, imei: lnk.imei, expiresAt: exp });
+    setForm({ name: lnk.name, imei: lnk.imei, expiresAt: exp, scheduleStart: lnk.scheduleStart ?? '', scheduleEnd: lnk.scheduleEnd ?? '' });
+    setVehicleSearch(plateName(lnk.imei));
+    setVehicleDropOpen(false);
     setErr('');
     setShowForm(true);
   };
@@ -66,12 +85,17 @@ export default function ShareLinksPanel({ onClose, vehicles, preselectedImei }: 
   const save = async () => {
     if (!form.name.trim()) { setErr('Name is required'); return; }
     if (!form.imei) { setErr('Vehicle is required'); return; }
+    const hasStart = !!form.scheduleStart.trim();
+    const hasEnd = !!form.scheduleEnd.trim();
+    if (hasStart !== hasEnd) { setErr('Set both schedule start and end, or leave both empty'); return; }
     setSaving(true); setErr('');
     try {
       const payload = {
         name: form.name.trim(),
         imei: form.imei,
         expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
+        scheduleStart: form.scheduleStart.trim() || null,
+        scheduleEnd: form.scheduleEnd.trim() || null,
       };
       if (editLink) {
         await api.patch(`/share-links/${editLink.id}`, payload);
@@ -102,11 +126,16 @@ export default function ShareLinksPanel({ onClose, vehicles, preselectedImei }: 
     } catch {}
   };
 
-  const plateName = (imei: string) => vehicles.find(v => v.imei === imei)?.plate ?? imei;
+  const selectVehicle = (imei: string, plate: string) => {
+    setForm(f => ({ ...f, imei }));
+    setVehicleSearch(plate);
+    setVehicleDropOpen(false);
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9200, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', pointerEvents: 'none' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', pointerEvents: 'all' }}/>
+
       <div style={{ position: 'relative', width: 420, maxWidth: '100vw', background: '#fff', borderLeft: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', pointerEvents: 'all', boxShadow: '-8px 0 32px rgba(0,0,0,0.18)' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', borderBottom: '1px solid #e5e7eb' }}>
@@ -125,7 +154,7 @@ export default function ShareLinksPanel({ onClose, vehicles, preselectedImei }: 
         </div>
 
         {showForm && (
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb', overflowY: 'auto', maxHeight: '60vh' }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: '#111', marginBottom: 12 }}>{editLink ? 'Edit Link' : 'Create Share Link'}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
@@ -133,19 +162,59 @@ export default function ShareLinksPanel({ onClose, vehicles, preselectedImei }: 
                 <input autoFocus value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Client Tracking Link"
                   style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', boxSizing: 'border-box' }}/>
               </div>
-              <div>
+
+              <div style={{ position: 'relative' }}>
                 <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Vehicle</div>
-                <select value={form.imei} onChange={e => setForm(f => ({ ...f, imei: e.target.value }))} disabled={!!editLink}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', boxSizing: 'border-box', cursor: editLink ? 'not-allowed' : 'pointer' }}>
-                  <option value="">— Select vehicle —</option>
-                  {vehicles.map(v => <option key={v.imei} value={v.imei}>{v.plate} ({v.imei})</option>)}
-                </select>
+                {editLink ? (
+                  <div style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f0f0f0', color: '#6b7280', fontSize: 12.5 }}>
+                    {plateName(form.imei)}
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      ref={searchRef}
+                      value={vehicleSearch}
+                      onChange={e => { setVehicleSearch(e.target.value); setForm(f => ({ ...f, imei: '' })); setVehicleDropOpen(true); }}
+                      onFocus={() => setVehicleDropOpen(true)}
+                      placeholder="Search vehicle…"
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: vehicleDropOpen ? '6px 6px 0 0' : 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                    {vehicleDropOpen && filteredVehicles.length > 0 && (
+                      <div style={{ position: 'absolute', left: 0, right: 0, maxHeight: 180, overflowY: 'auto', border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 6px 6px', background: '#fff', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                        {filteredVehicles.map(v => (
+                          <div
+                            key={v.imei}
+                            onMouseDown={() => selectVehicle(v.imei, v.plate)}
+                            style={{ padding: '7px 10px', fontSize: 12.5, color: form.imei === v.imei ? '#dc2626' : '#111', background: form.imei === v.imei ? '#fff0f0' : 'transparent', cursor: 'pointer' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = form.imei === v.imei ? '#fff0f0' : '#f3f4f6'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = form.imei === v.imei ? '#fff0f0' : 'transparent'; }}
+                          >
+                            {v.plate}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
+
               <div>
                 <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Expires On (optional)</div>
                 <input type="date" value={form.expiresAt} onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value }))} min={new Date().toISOString().slice(0, 10)}
                   style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', boxSizing: 'border-box' }}/>
               </div>
+
+              <div>
+                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Schedule (optional) — link shows data only within these hours</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input type="time" value={form.scheduleStart} onChange={e => setForm(f => ({ ...f, scheduleStart: e.target.value }))}
+                    style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', boxSizing: 'border-box' }}/>
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>to</span>
+                  <input type="time" value={form.scheduleEnd} onChange={e => setForm(f => ({ ...f, scheduleEnd: e.target.value }))}
+                    style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', color: '#111', fontSize: 12.5, outline: 'none', boxSizing: 'border-box' }}/>
+                </div>
+              </div>
+
               {err && <div style={{ fontSize: 11.5, color: '#dc2626' }}>{err}</div>}
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button onClick={() => setShowForm(false)} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #e5e7eb', background: 'transparent', color: '#6b7280', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
@@ -168,7 +237,7 @@ export default function ShareLinksPanel({ onClose, vehicles, preselectedImei }: 
           </div>
         )}
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto' }} onClick={() => setVehicleDropOpen(false)}>
           {loading ? (
             <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 12.5 }}>Loading…</div>
           ) : links.length === 0 ? (
@@ -196,7 +265,8 @@ export default function ShareLinksPanel({ onClose, vehicles, preselectedImei }: 
                       <div style={{ fontSize: 11, color: '#6b7280' }}>
                         {plateName(lnk.imei)}
                         {lnk.expiresAt && <span style={{ marginLeft: 6, color: expired ? '#f59e0b' : '#6b7280' }}>· Expires {fmt(lnk.expiresAt)}</span>}
-                        <span style={{ marginLeft: 6 }}>· {lnk.viewCount} view{lnk.viewCount !== 1 ? 's' : ''}</span>
+                        {lnk.scheduleStart && lnk.scheduleEnd && <span style={{ marginLeft: 6 }}>· {lnk.scheduleStart}–{lnk.scheduleEnd}</span>}
+                        <span style={{ marginLeft: 6 }}>· {lnk.viewCount} open{lnk.viewCount !== 1 ? 's' : ''}</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 2, flexShrink: 0, alignItems: 'center' }}>
@@ -223,7 +293,7 @@ export default function ShareLinksPanel({ onClose, vehicles, preselectedImei }: 
         </div>
 
         <div style={{ padding: '8px 16px', borderTop: '1px solid #e5e7eb', fontSize: 10.5, color: '#9ca3af', textAlign: 'center' }}>
-          Links auto-update every 10s · Trackable view counts
+          Share live vehicle location · Views = times link was opened
         </div>
       </div>
     </div>
