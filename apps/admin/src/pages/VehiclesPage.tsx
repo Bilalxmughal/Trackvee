@@ -41,7 +41,7 @@ function DeviceSearchSelect({ devices, value, onChange }: { devices: InventoryDe
 
 const sel: React.CSSProperties = { height: 34, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
 const inp: React.CSSProperties = { height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', outline: 'none', background: 'var(--input-bg)', width: 180 };
-const empty = { licensePlate: '', make: '', model: '', year: '', cityId: '', lifecycleStatus: 'active' as Vehicle['lifecycleStatus'], expiresAt: '', organizationId: '' };
+const empty = { licensePlate: '', make: '', model: '', year: '', cityId: '', lifecycleStatus: 'active' as Vehicle['lifecycleStatus'], expiresAt: '', organizationId: '', odometerKm: '0' };
 
 export default function VehiclesPage() {
   const { toast } = useToast();
@@ -152,7 +152,7 @@ export default function VehiclesPage() {
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
   const openEdit = (v: Vehicle) => {
     setEditing(v);
-    setForm({ licensePlate: v.licensePlate ?? '', make: v.make ?? '', model: v.model ?? '', year: v.year ? String(v.year) : '', cityId: v.cityId ?? '', lifecycleStatus: v.lifecycleStatus ?? (v.isActive ? 'active' : 'archived'), expiresAt: v.expiresAt ? v.expiresAt.slice(0, 10) : '', organizationId: v.organizationId ?? '' });
+    setForm({ licensePlate: v.licensePlate ?? '', make: v.make ?? '', model: v.model ?? '', year: v.year ? String(v.year) : '', cityId: v.cityId ?? '', lifecycleStatus: v.lifecycleStatus ?? (v.isActive ? 'active' : 'archived'), expiresAt: v.expiresAt ? v.expiresAt.slice(0, 10) : '', organizationId: v.organizationId ?? '', odometerKm: String(v.odometerKm ?? 0) });
     setModal(true);
   };
   const closeModal = () => { setModal(false); setEditing(null); };
@@ -162,14 +162,17 @@ export default function VehiclesPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const { lifecycleStatus, expiresAt, ...profile } = form;
+      const { lifecycleStatus, expiresAt, odometerKm, ...profile } = form;
       const payload = { ...profile, year: form.year ? Number(form.year) : null, organizationId: form.organizationId || null, cityId: form.cityId || null };
+      const odoKm = parseFloat(odometerKm);
       if (editing) {
         await api.patch(`/vehicles/${editing.id}`, payload);
         if (canManageLifecycle) await api.patch(`/vehicles/${editing.id}/lifecycle`, { lifecycleStatus, expiresAt: expiresAt || null });
+        if (Number.isFinite(odoKm) && odoKm >= 0 && odoKm !== (editing.odometerKm ?? 0)) await api.patch(`/vehicles/${editing.id}/odometer`, { odometerKm: odoKm });
       } else {
         const created = await api.post<Vehicle>('/vehicles', payload);
         if (canManageLifecycle && (lifecycleStatus !== 'active' || expiresAt)) await api.patch(`/vehicles/${created.data.id}/lifecycle`, { lifecycleStatus, expiresAt: expiresAt || null });
+        if (Number.isFinite(odoKm) && odoKm > 0) await api.patch(`/vehicles/${created.data.id}/odometer`, { odometerKm: odoKm });
       }
       await load(); closeModal();
       toast(editing ? 'Vehicle updated' : 'Vehicle added');
@@ -317,6 +320,10 @@ export default function VehiclesPage() {
           {canManageLifecycle && <FormField label="Tracking Expiry Date">
             <input type="date" value={form.expiresAt} onChange={e => set('expiresAt', e.target.value)} style={inputStyle} />
           </FormField>}
+          <FormField label="Odometer (km)">
+            <input type="number" min="0" step="1" value={form.odometerKm} onChange={e => set('odometerKm', e.target.value)} placeholder="0" style={inputStyle}
+              onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
+          </FormField>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
             <FormField label="Organization">
               <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>

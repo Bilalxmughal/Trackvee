@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { IconCar, IconSearch, IconChevronRight, IconHistory, IconX, IconDotsVertical, IconGauge } from '@tabler/icons-react';
 import api from '../api/client';
 import { fmtDate, fmtDateTime } from '../lib/date';
@@ -28,11 +28,9 @@ export default function VehiclesPage() {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [assignmentHistory, setAssignmentHistory] = useState<AssignmentHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [menuVehicleId, setMenuVehicleId] = useState<string | null>(null);
   const [odoVehicle, setOdoVehicle] = useState<Vehicle | null>(null);
   const [odoInput, setOdoInput] = useState('');
   const [odoSaving, setOdoSaving] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -71,14 +69,7 @@ export default function VehiclesPage() {
       .finally(() => setHistoryLoading(false));
   }, [selectedVehicle?.id]);
 
-  useEffect(() => {
-    if (!menuVehicleId) return;
-    const handler = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuVehicleId(null); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [menuVehicleId]);
-
-  const openOdoModal = (v: Vehicle) => { setMenuVehicleId(null); setOdoVehicle(v); setOdoInput(String(v.odometerKm ?? 0)); };
+  const openOdoModal = (v: Vehicle) => { setOdoVehicle(v); setOdoInput(String(v.odometerKm ?? 0)); };
   const saveOdo = async () => {
     if (!odoVehicle) return;
     const km = parseFloat(odoInput);
@@ -167,19 +158,10 @@ export default function VehiclesPage() {
                     <td style={{ padding: '10px 16px', textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <button onClick={() => setSelectedVehicle(v)} title="View history" style={{ border: 0, background: 'transparent', color: '#6b7280', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}><IconHistory size={15} /> Details <IconChevronRight size={14} /></button>
-                        <div style={{ position: 'relative' }}>
-                          <button onClick={() => setMenuVehicleId(menuVehicleId === v.id ? null : v.id)} title="More actions" style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#9ca3af', display: 'inline-flex', alignItems: 'center', padding: 4, borderRadius: 4 }}>
-                            <IconDotsVertical size={15} />
-                          </button>
-                          {menuVehicleId === v.id && (
-                            <div ref={menuRef} style={{ position: 'absolute', right: 0, top: '100%', zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)', minWidth: 160, padding: 4 }}>
-                              <button onClick={() => openOdoModal(v)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: 0, background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#111', borderRadius: 5, textAlign: 'left' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                                <IconGauge size={14} color="#2563eb" /> Set Odometer
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        <button onClick={() => openOdoModal(v)} title="Set Odometer" style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#9ca3af', display: 'inline-flex', alignItems: 'center', padding: 4, borderRadius: 4 }}
+                          onMouseEnter={e => (e.currentTarget.style.color = '#2563eb')} onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}>
+                          <IconGauge size={15} />
+                        </button>
                       </div>
                     </td>
                   </tr>
