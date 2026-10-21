@@ -29,7 +29,7 @@ function TabItem({ route, focused, iconName, label, navigation, t }: { route: an
       <Animated.View style={{ transform: [{ scale }] }}>
         <TablerIcon name={iconName} size={22} color={focused ? t.red : t.secondary} />
       </Animated.View>
-      {label ? <Text style={[styles.label, { color: focused ? t.red : t.secondary, fontWeight: focused ? '600' : '500' }]}>{label}</Text> : null}
+      <Text style={[styles.label, { color: focused ? t.red : t.secondary, fontWeight: focused ? '600' : '500' }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -117,7 +117,7 @@ export default function TabLayout() {
       tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen name="map" options={{ title: '' }} />
+      <Tabs.Screen name="map" options={{ title: 'Map' }} />
       <Tabs.Screen name="vehicles" options={{ title: 'Vehicles', href: canDo('vehicles') ? '/vehicles' : null }} />
       <Tabs.Screen name="alerts" options={{ title: 'Alerts', href: canDo('alerts') ? '/alerts' : null }} />
       <Tabs.Screen name="reports" options={{ title: 'Reports', href: canDo('reports') ? '/reports' : null }} />

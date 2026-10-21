@@ -267,7 +267,7 @@ export default function LiveMapScreen() {
         showsUserLocation={false}
         toolbarEnabled={false}
         showsScale={false}
-        legalLabelInsets={{ bottom: -999, right: -999, top: 0, left: 0 }}
+        legalLabelInsets={{ bottom: -999, left: -999, top: 0, right: 0 }}
         moveOnMarkerPress={false}
         onMapReady={() => setMapReady(true)}
         onLayout={event => setMapSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}
