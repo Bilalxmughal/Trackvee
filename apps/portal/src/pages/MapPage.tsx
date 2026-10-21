@@ -1389,11 +1389,28 @@ function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFo
   onShareLink: () => void;
 }) {
   const [vehicleStats, setVehicleStats] = useState<{ stopDuration: number | null; odometer: number; engineHours: number } | null>(null);
+  const [odoEdit, setOdoEdit] = useState(false);
+  const [odoInput, setOdoInput] = useState('');
+  const [odoSaving, setOdoSaving] = useState(false);
+  const [localOdo, setLocalOdo] = useState<number | null>(null);
   const dv = deviceMap.get(imei);
   const vc = dv?.vehicleId ? vehicleDetails.get(dv.vehicleId) : undefined;
   const plate = fmtPlate(dv, imei);
   const vName = vc ? ([vc.make, vc.model].filter(Boolean).join(' ') || `#${vc.displayId}`) : plate;
   const status = pt ? vehicleStatus(pt) : 'offline';
+  const vehicleId = dv?.vehicleId;
+  const odoValue = localOdo !== null ? localOdo : vc?.odometerKm;
+
+  const saveOdo = async () => {
+    const km = parseFloat(odoInput);
+    if (!Number.isFinite(km) || km < 0 || !vehicleId) return;
+    setOdoSaving(true);
+    try {
+      await api.patch(`/vehicles/${vehicleId}/odometer`, { odometerKm: km });
+      setLocalOdo(km);
+      setOdoEdit(false);
+    } catch { /* ignore */ } finally { setOdoSaving(false); }
+  };
 
   useEffect(() => {
     let active = true;
@@ -1425,16 +1442,35 @@ function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFo
           {[
             { label: 'Speed', value: status === 'moving' ? `${Math.round(pt.speedKmh)} km/h` : '—' },
             { label: 'Ignition', value: resolveIgnition(pt) === true ? 'On' : resolveIgnition(pt) === false ? 'Off' : '—', color: resolveIgnition(pt) === true ? '#16a34a' : undefined },
-            { label: 'Odometer', value: vc?.odometerKm != null ? `${Number(vc.odometerKm).toLocaleString(undefined, { maximumFractionDigits: 0 })} km` : '—', color: '#2563eb' },
             { label: 'Updated', value: formatAge(pt.timestamp) },
             { label: 'Stop Duration', value: (status === 'idle' || status === 'parked') && vehicleStats?.stopDuration != null ? formatDuration(vehicleStats.stopDuration) : '—' },
             { label: 'Position', value: `${pt.latitude.toFixed(4)}, ${pt.longitude.toFixed(4)}` },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '0.5px solid #f5f5f5', fontSize: 11 }}>
               <span style={{ color: '#888', flex: 1 }}>{label}</span>
-              <span style={{ color: color || '#111', fontWeight: 500, textAlign: 'right' }}>{value}</span>
+              <span style={{ color: (color as string | undefined) || '#111', fontWeight: 500, textAlign: 'right' }}>{value}</span>
             </div>
           ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '0.5px solid #f5f5f5', fontSize: 11 }}>
+            <span style={{ color: '#888', flex: 1 }}>Odometer</span>
+            {odoEdit ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  autoFocus type="number" min="0" step="0.1" value={odoInput}
+                  onChange={e => setOdoInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') void saveOdo(); if (e.key === 'Escape') setOdoEdit(false); }}
+                  style={{ width: 70, height: 22, padding: '0 4px', fontSize: 11, border: '1px solid #d1d5db', borderRadius: 3, outline: 'none' }}
+                />
+                <button onClick={() => void saveOdo()} disabled={odoSaving} style={{ height: 22, padding: '0 7px', border: 0, background: '#dc2626', color: '#fff', fontSize: 10, cursor: 'pointer', borderRadius: 3 }}>Save</button>
+                <button onClick={() => setOdoEdit(false)} style={{ height: 22, padding: '0 6px', border: '1px solid #e5e7eb', background: '#fff', fontSize: 10, cursor: 'pointer', borderRadius: 3, color: '#555' }}>×</button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ color: '#2563eb', fontWeight: 500 }}>{odoValue != null ? `${Number(odoValue).toLocaleString(undefined, { maximumFractionDigits: 0 })} km` : '—'}</span>
+                {vehicleId && <button onClick={() => { setOdoInput(String(odoValue ?? 0)); setOdoEdit(true); }} style={{ height: 18, padding: '0 6px', border: '1px solid #e5e7eb', background: '#fff', fontSize: 9, cursor: 'pointer', borderRadius: 3, color: '#555' }}>Set</button>}
+              </div>
+            )}
+          </div>
           <div style={{ padding: '4px 0', fontSize: 10, color: '#bbb' }}>{formatTs(pt.timestamp)}</div>
         </div>
       )}

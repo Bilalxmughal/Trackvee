@@ -129,6 +129,9 @@ export default function LiveMapScreen() {
   const [layersOpen, setLayersOpen] = useState(false);
   const [sheetVehicle, setSheetVehicle] = useState<FleetItem | null>(null);
   const sheetAnim = useRef(new Animated.Value(0)).current;
+  const [odoEdit, setOdoEdit] = useState(false);
+  const [odoInput, setOdoInput] = useState('');
+  const [odoSaving, setOdoSaving] = useState(false);
 
   // Advanced map feature states
   const [showGeofences, setShowGeofences] = useState(true);
@@ -145,8 +148,20 @@ export default function LiveMapScreen() {
   }, [sheetAnim]);
 
   const closeSheet = useCallback(() => {
+    setOdoEdit(false);
     Animated.timing(sheetAnim, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => setSheetVehicle(null));
   }, [sheetAnim]);
+
+  const saveOdometer = useCallback(async (vehicleId: string) => {
+    const km = parseFloat(odoInput);
+    if (!Number.isFinite(km) || km < 0) return;
+    setOdoSaving(true);
+    try {
+      await api.patch(`/vehicles/${vehicleId}/odometer`, { odometerKm: km });
+      setSheetVehicle(prev => prev && prev.vehicle ? { ...prev, vehicle: { ...prev.vehicle, odometerKm: km } } : prev);
+      setOdoEdit(false);
+    } catch { /* ignore */ } finally { setOdoSaving(false); }
+  }, [odoInput]);
 
   useEffect(() => { api.get<VehicleGroup[]>('/vehicle-groups').then(r => setGroups(r.data)).catch(() => {}); }, []);
   useEffect(() => {
@@ -588,6 +603,39 @@ export default function LiveMapScreen() {
                 </View>
               );
             })()}
+
+            {item.vehicle && (
+              <View style={{ paddingHorizontal: 16, paddingBottom: 6 }}>
+                {odoEdit ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: t.bg2, borderRadius: 8, padding: 8 }}>
+                    <TablerIcon name="gauge" size={14} color={t.secondary} />
+                    <TextInput
+                      autoFocus keyboardType="numeric" value={odoInput}
+                      onChangeText={setOdoInput}
+                      style={{ flex: 1, height: 32, fontSize: 13, color: t.ink, borderWidth: 1, borderColor: t.border, borderRadius: 6, paddingHorizontal: 8, backgroundColor: t.card }}
+                      placeholder="km"
+                      placeholderTextColor={t.secondary}
+                    />
+                    <Pressable onPress={() => item.vehicle && void saveOdometer(item.vehicle.id)} disabled={odoSaving}
+                      style={{ height: 32, paddingHorizontal: 12, backgroundColor: t.red, borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{odoSaving ? '…' : 'Save'}</Text>
+                    </Pressable>
+                    <Pressable onPress={() => setOdoEdit(false)}
+                      style={{ height: 32, paddingHorizontal: 10, borderWidth: 1, borderColor: t.border, borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: t.secondary, fontSize: 12 }}>Cancel</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable onPress={() => { setOdoInput(String(item.vehicle?.odometerKm ?? 0)); setOdoEdit(true); }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: t.bg2, borderRadius: 8, padding: 8 }}>
+                    <TablerIcon name="gauge" size={14} color={t.secondary} />
+                    <Text style={{ flex: 1, fontSize: 12, color: t.secondary }}>Set Odometer</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#2563eb' }}>{Number(item.vehicle?.odometerKm ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} km</Text>
+                    <TablerIcon name="pencil" size={13} color={t.secondary} />
+                  </Pressable>
+                )}
+              </View>
+            )}
 
             <View style={styles.sheetButtons}>
               <Pressable onPress={closeSheet}>
