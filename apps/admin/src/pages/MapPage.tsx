@@ -69,6 +69,9 @@ function vehicleStatus(pt: LivePoint): 'moving' | 'idle' | 'parked' | 'offline' 
 }
 const STATUS_COLOR = { moving: '#16a34a', idle: '#f59e0b', parked: '#6b7280', offline: '#9ca3af' } as const;
 const STATUS_LABEL = { moving: 'Moving', idle: 'Idle', parked: 'Parked', offline: 'Offline' } as const;
+function resolveIgnition(pt: { speedKmh: number; ignition?: boolean | null }): boolean | null {
+  return pt.speedKmh >= MOVING_SPEED ? true : (pt.ignition ?? null);
+}
 const VOLT_LABELS = ['No Power', 'Critical', 'Low', 'Medium', 'High', 'Full'];
 
 type MapStyle = 'street' | 'satellite' | 'terrain' | 'dark';
@@ -304,7 +307,7 @@ function buildPopupHtml(pt: LivePoint, dv: { plate: string | null; vehicleId: st
       ${row('Angle', `${pt.heading}°`)}
       ${row('Stop Duration', stopD)}
       ${sec('Device', 'padding-top:8px')}
-      ${row('Ignition', onVal(pt.ignition), pt.ignition === true ? 'color:#16a34a' : pt.ignition === false ? 'color:#dc2626' : '')}
+      ${row('Ignition', onVal(resolveIgnition(pt)), resolveIgnition(pt) === true ? 'color:#16a34a' : resolveIgnition(pt) === false ? 'color:#dc2626' : '')}
       ${row('Immobilizer', onVal(pt.immobilizer), pt.immobilizer === true ? 'color:#dc2626' : '')}
       ${row('Ext. Power', onVal(pt.externalPower), pt.externalPower === true ? 'color:#16a34a' : '')}
       ${row('Int. Battery', volt)}
@@ -1526,7 +1529,7 @@ function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, on
       </div>
       <span style={{ fontSize: 10, color: dark ? '#666' : '#9ca3af', flexShrink: 0, minWidth: 38, textAlign: 'right' }}>{Math.round(pt.speedKmh)} km/h</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <IconPower on={pt.ignition}/>
+        <IconPower on={resolveIgnition(pt)}/>
         <IconBattery level={pt.voltageLevel}/>
         <IconSignal level={pt.gsmSignal}/>
       </div>
@@ -2412,7 +2415,7 @@ function FollowWindow({ plate, pt, dark, onStop, initPos, onPositionChange }: {
           <span style={{ marginLeft: 'auto', fontSize: 13, color: dark ? '#aaa' : '#555' }}>{pt ? `${Math.round(pt.speedKmh)} km/h` : '—'}</span>
         </div>
         <div style={{ display: 'flex', gap: 14, marginTop: 5, fontSize: 12, color: dark ? '#555' : '#bbb' }}>
-          <span style={{ color: pt?.ignition ? '#22c55e' : (dark ? '#444' : '#d1d5db') }}>IGN {pt?.ignition ? 'On' : 'Off'}</span>
+          <span style={{ color: (pt && resolveIgnition(pt)) ? '#22c55e' : (dark ? '#444' : '#d1d5db') }}>IGN {(pt && resolveIgnition(pt)) ? 'On' : 'Off'}</span>
           {pt?.heading != null && <span>Hdg {pt.heading}°</span>}
           {pt && <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>{pt.latitude.toFixed(5)}, {pt.longitude.toFixed(5)}</span>}
         </div>

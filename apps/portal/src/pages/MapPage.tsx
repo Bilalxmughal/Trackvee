@@ -97,6 +97,9 @@ function loadCollapsed(): Set<string> { try { return new Set(JSON.parse(localSto
 function saveCollapsed(s: Set<string>) { try { localStorage.setItem(GK_COLLAPSED, JSON.stringify([...s])); } catch {} }
 
 function isOffline(pt: LivePoint) { return Date.now() - new Date(pt.timestamp).getTime() > 10 * 60 * 1000; }
+function resolveIgnition(pt: { speedKmh: number; ignition?: boolean | null }): boolean | null {
+  return pt.speedKmh >= MOVING_SPEED ? true : (pt.ignition ?? null);
+}
 function vehicleStatus(pt: LivePoint): Status {
   if (pt.vehicleStatus) return pt.vehicleStatus;
   if (isOffline(pt)) return 'offline';
@@ -759,7 +762,7 @@ function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow
       </div>
       <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0, minWidth: 38, textAlign: 'right' }}>{Math.round(pt.speedKmh)} km/h</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        <IconPower on={pt.ignition}/>
+        <IconPower on={resolveIgnition(pt)}/>
         <IconBattery level={pt.voltageLevel}/>
         <IconSignal level={pt.gsmSignal}/>
       </div>
@@ -1219,7 +1222,7 @@ function TripReplayModal({ imei, plate, onClose }: { imei: string; plate: string
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 110 }}>
                   {currentPt && <>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#111' }}>{formatTs(currentPt.timestamp)}</span>
-                    <span style={{ fontSize: 10, color: '#555' }}>Ign: {currentPt.ignition === true ? 'ON' : currentPt.ignition === false ? 'OFF' : '—'}</span>
+                    <span style={{ fontSize: 10, color: '#555' }}>Ign: {resolveIgnition(currentPt) === true ? 'ON' : resolveIgnition(currentPt) === false ? 'OFF' : '—'}</span>
                   </>}
                 </div>
                 <select value={playSpeed} onChange={e => setPlaySpeed(+e.target.value)}
@@ -1352,7 +1355,7 @@ function FollowWindow({ plate, pt, onStop, initPos }: { plate: string; pt: LiveP
           <span style={{ marginLeft: 'auto', fontSize: 13, color: '#555' }}>{pt ? `${Math.round(pt.speedKmh)} km/h` : '—'}</span>
         </div>
         <div style={{ display: 'flex', gap: 14, marginTop: 5, fontSize: 12, color: '#bbb' }}>
-          <span style={{ color: pt?.ignition ? '#22c55e' : '#d1d5db' }}>IGN {pt?.ignition ? 'On' : 'Off'}</span>
+          <span style={{ color: (pt && resolveIgnition(pt)) ? '#22c55e' : '#d1d5db' }}>IGN {(pt && resolveIgnition(pt)) ? 'On' : 'Off'}</span>
           {pt?.heading != null && <span>Hdg {pt.heading}°</span>}
           {pt && <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>{pt.latitude.toFixed(5)}, {pt.longitude.toFixed(5)}</span>}
         </div>
@@ -1407,7 +1410,7 @@ function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFo
         <div style={{ padding: '8px 11px' }}>
           {[
             { label: 'Speed', value: status === 'moving' ? `${Math.round(pt.speedKmh)} km/h` : '—' },
-            { label: 'Ignition', value: pt.ignition === true ? 'On' : pt.ignition === false ? 'Off' : '—', color: pt.ignition ? '#16a34a' : undefined },
+            { label: 'Ignition', value: resolveIgnition(pt) === true ? 'On' : resolveIgnition(pt) === false ? 'Off' : '—', color: resolveIgnition(pt) === true ? '#16a34a' : undefined },
             { label: 'Updated', value: formatAge(pt.timestamp) },
             { label: 'Stop Duration', value: (status === 'idle' || status === 'parked') && vehicleStats?.stopDuration != null ? formatDuration(vehicleStats.stopDuration) : '—' },
             { label: 'Position', value: `${pt.latitude.toFixed(4)}, ${pt.longitude.toFixed(4)}` },

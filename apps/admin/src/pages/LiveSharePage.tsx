@@ -108,7 +108,7 @@ export default function LiveSharePage() {
           <div style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{vehicleLabel}</div>
           <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
             {data?.vehicle?.make && data?.vehicle?.model ? `${data.vehicle.make} ${data.vehicle.model} · ` : ''}
-            {hasGps ? `${Math.round(point!.speedKmh)} km/h · ${point?.ignition ? 'Ignition ON' : 'Ignition OFF'}` : 'GPS unavailable'}
+            {hasGps ? `${Math.round(point!.speedKmh)} km/h · ${(point && (point.speedKmh >= 5 ? true : point.ignition)) ? 'Ignition ON' : 'Ignition OFF'}` : 'GPS unavailable'}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -134,7 +134,7 @@ export default function LiveSharePage() {
               <Marker position={[lat, lng]} icon={makeMarkerIcon(point?.heading ?? 0)}>
                 <Popup>
                   <strong>{vehicleLabel}</strong><br />
-                  {Math.round(point!.speedKmh)} km/h · {point?.ignition ? 'Ignition ON' : 'Ignition OFF'}
+                  {Math.round(point!.speedKmh)} km/h · {(point && (point.speedKmh >= 5 ? true : point.ignition)) ? 'Ignition ON' : 'Ignition OFF'}
                 </Popup>
               </Marker>
             </>
