@@ -37,20 +37,18 @@ function TabItem({ route, focused, iconName, label, navigation, t }: { route: an
 const ICON_NAMES: Record<string, string> = {
   map: 'map', vehicles: 'fleet', alerts: 'bell', reports: 'report', more: 'more',
 };
-const INDICATOR_W = 48;
-
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const t = useTheme();
   const tabCount = state.routes.length;
   const barWidth = useRef(0);
   const translateX = useRef(new Animated.Value(0)).current;
+  const indicatorWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (barWidth.current === 0) return;
     const tabW = barWidth.current / tabCount;
-    const toX = tabW * state.index + tabW / 2 - INDICATOR_W / 2;
-    Animated.spring(translateX, { toValue: toX, useNativeDriver: true, damping: 20, stiffness: 260, mass: 0.8 }).start();
+    Animated.spring(translateX, { toValue: tabW * state.index, useNativeDriver: false, damping: 20, stiffness: 260, mass: 0.8 }).start();
   }, [state.index, tabCount, translateX]);
 
   return (
@@ -59,10 +57,11 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       onLayout={e => {
         barWidth.current = e.nativeEvent.layout.width;
         const tabW = barWidth.current / tabCount;
-        translateX.setValue(tabW * state.index + tabW / 2 - INDICATOR_W / 2);
+        indicatorWidth.setValue(tabW);
+        translateX.setValue(tabW * state.index);
       }}
     >
-      <Animated.View style={[styles.indicator, { backgroundColor: t.red, transform: [{ translateX }] }]} />
+      <Animated.View style={[styles.indicator, { backgroundColor: t.red, width: indicatorWidth, transform: [{ translateX }] }]} />
 
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
@@ -97,12 +96,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -6,
     left: 0,
-    width: INDICATOR_W, height: 3,
+    height: 3,
     borderRadius: 2,
-    shadowColor: '#e21d48',
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
   },
   tab: { flex: 1, alignItems: 'center', paddingTop: 10, paddingBottom: 6, gap: 3 },
   label: { fontSize: 11, marginBottom: 0 },
