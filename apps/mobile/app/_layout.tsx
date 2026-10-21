@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from '../src/auth/AuthProvider';
 import { PortalPermissionsProvider } from '../src/auth/PortalPermissionsProvider';
 import { ThemeProvider, useThemeContext } from '../src/contexts/ThemeContext';
 import { getAlertSoundEnabled, getPushTokenListener } from '../src/lib/pushNotifications';
+import { OfflineBanner } from '../src/components/OfflineBanner';
 
 Notifications.setNotificationHandler({
   handleNotification: async notification => ({
@@ -68,6 +69,7 @@ function NavigationRoot() {
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
+      <OfflineBanner />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.surface }, animation: 'fade' }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
