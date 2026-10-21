@@ -20,7 +20,7 @@ interface Props {
   preselectedImei?: string;
 }
 
-const BASE_URL = (import.meta.env.VITE_SHARE_BASE_URL as string | undefined) ?? 'https://admin.trackvee.com';
+const BASE_URL = (import.meta.env.VITE_SHARE_BASE_URL as string | undefined) ?? 'https://trackvee.com';
 
 function fmt(dt: string | null) {
   if (!dt) return '—';
