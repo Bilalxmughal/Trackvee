@@ -82,15 +82,9 @@ export class ShareLinksService {
 
   async getLiveData(token: string, track = false) {
     const link = await this.repo.findOne({ where: { token } });
-    if (!link || !link.isActive) throw new UnauthorizedException('Share link not found or inactive');
-    if (link.expiresAt && new Date() > link.expiresAt) throw new UnauthorizedException('Share link expired');
+    if (!link) return { status: 'not_found', vehicle: null, schedules: null, point: null };
 
-    if (track) await this.repo.increment({ id: link.id }, 'viewCount', 1);
-
-    const device = await this.devicesService.findByImei(link.imei);
-    const latest = device ? await this.telemetryService.getLatest(link.imei) : null;
-
-    // Parse schedules: new multi-slot format takes precedence over old single slot
+    // Parse schedules
     let schedules: Array<{ start: string; end: string }> | null = null;
     if (link.schedules) {
       try { schedules = JSON.parse(link.schedules); } catch { /* ignore */ }
@@ -99,14 +93,24 @@ export class ShareLinksService {
       schedules = [{ start: link.scheduleStart, end: link.scheduleEnd }];
     }
 
+    const device = await this.devicesService.findByImei(link.imei);
+    const vehicle = device?.vehicle
+      ? { id: device.vehicle.id, licensePlate: device.vehicle.licensePlate, name: device.vehicle.name, make: device.vehicle.make, model: device.vehicle.model }
+      : null;
+
+    if (!link.isActive) return { status: 'inactive', vehicle, schedules: schedules?.length ? schedules : null, point: null };
+    if (link.expiresAt && new Date() > link.expiresAt) return { status: 'expired', vehicle, schedules: schedules?.length ? schedules : null, point: null };
+
+    if (track) await this.repo.increment({ id: link.id }, 'viewCount', 1);
+    const latest = await this.telemetryService.getLatest(link.imei);
+
     return {
+      status: 'ok',
       name: link.name,
       schedules: schedules?.length ? schedules : null,
       scheduleStart: link.scheduleStart,
       scheduleEnd: link.scheduleEnd,
-      vehicle: device?.vehicle
-        ? { id: device.vehicle.id, licensePlate: device.vehicle.licensePlate, name: device.vehicle.name, make: device.vehicle.make, model: device.vehicle.model }
-        : null,
+      vehicle,
       point: latest,
     };
   }

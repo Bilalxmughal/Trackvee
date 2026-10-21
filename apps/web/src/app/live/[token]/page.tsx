@@ -13,6 +13,7 @@ interface LivePoint {
 }
 interface ScheduleSlot { start: string; end: string; }
 interface LiveShareData {
+  status?: 'ok' | 'expired' | 'inactive' | 'not_found';
   vehicle: { id: string; licensePlate: string | null; name: string; make: string | null; model: string | null } | null;
   point: LivePoint | null;
   schedules?: ScheduleSlot[] | null;
@@ -92,11 +93,8 @@ export default function LiveSharePage() {
       const trackParam = isFirstFetch.current ? '?track=1' : '';
       isFirstFetch.current = false;
       const res = await fetch(`/api/v1/share-links/public/${encodeURIComponent(token)}${trackParam}`);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { message?: string };
-        throw new Error(body.message ?? `HTTP ${res.status}`);
-      }
       const json = await res.json() as LiveShareData;
+      if (!res.ok) throw new Error((json as { message?: string }).message ?? `HTTP ${res.status}`);
       setData(json);
       setError(null);
     } catch (err) {
@@ -272,10 +270,11 @@ export default function LiveSharePage() {
   const statusColor = vehicleStatus === 'Moving' ? '#16a34a' : vehicleStatus === 'Idle' ? '#d97706' : '#6b7280';
   const updatedTime = point?.timestamp ? new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
 
+  const linkStatus = data?.status;
   const showLoading = loading;
-  const showError = !loading && !!error;
-  const showScheduled = !loading && !error && hasSchedule && !inSchedule;
-  const showMap = !loading && !error && inSchedule;
+  const showUnavailable = !loading && (!error ? (linkStatus === 'expired' || linkStatus === 'inactive' || linkStatus === 'not_found') : true);
+  const showScheduled = !loading && !showUnavailable && hasSchedule && !inSchedule;
+  const showMap = !loading && !showUnavailable && inSchedule;
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'system-ui, sans-serif' }}>
@@ -370,13 +369,37 @@ export default function LiveSharePage() {
         </div>
       )}
 
-      {showError && (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
-          <div style={{ textAlign: 'center', padding: 32 }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🔗</div>
-            <h2 style={{ color: '#111827', margin: '0 0 8px' }}>Link unavailable</h2>
-            <p style={{ color: '#6b7280', margin: 0 }}>{error!.includes('expired') ? 'This share link has expired.' : 'This share link is no longer valid.'}</p>
+      {showUnavailable && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: 32, textAlign: 'center' }}>
+          {/* Car icon */}
+          <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l2-4h10l2 4h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/>
+              <circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/>
+            </svg>
           </div>
+
+          {vehicleLabel !== 'Vehicle' && (
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#111827', marginBottom: 4 }}>{vehicleLabel}</div>
+          )}
+          {data?.vehicle?.make && data?.vehicle?.model && (
+            <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 16 }}>{data.vehicle.make} {data.vehicle.model}</div>
+          )}
+
+          <div style={{ fontSize: 14, color: linkStatus === 'expired' ? '#f59e0b' : '#6b7280', fontWeight: 600, marginBottom: 4 }}>
+            {linkStatus === 'expired' ? 'This share link has expired.' : linkStatus === 'not_found' ? 'Share link not found.' : 'This share link is no longer active.'}
+          </div>
+
+          {scheduleSlots.length > 0 && (
+            <div style={{ marginTop: 12, padding: '10px 16px', background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', display: 'inline-block' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Was active</div>
+              {scheduleSlots.map((s, i) => (
+                <div key={i} style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{fmt12(s.start)} – {fmt12(s.end)} PKT</div>
+              ))}
+            </div>
+          )}
+
+          <p style={{ color: '#9ca3af', margin: '20px 0 0', fontSize: 11 }}>Powered by <strong style={{ color: '#dc2626' }}>Trackvee</strong></p>
         </div>
       )}
 
