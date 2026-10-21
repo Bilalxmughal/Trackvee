@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconUsers, IconBuildingSkyscraper, IconCar, IconCpu, IconBell, IconZzz, IconParking, IconWifi, IconWifiOff, IconKey, IconKeyOff, IconAlertTriangle, IconActivity, IconRefresh, IconCheck, IconX, IconTrendingUp, IconCalendarAlert } from '@tabler/icons-react';
+import { IconUsers, IconBuildingSkyscraper, IconCar, IconCpu, IconBell, IconZzz, IconParking, IconWifi, IconWifiOff, IconKey, IconKeyOff, IconAlertTriangle, IconActivity, IconRefresh, IconCheck, IconX, IconTrendingUp, IconCalendarDue } from '@tabler/icons-react';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
@@ -485,7 +485,7 @@ export default function DashboardPage() {
       {expiring.length > 0 && (
         <div style={{ ...card, marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <IconCalendarAlert size={14} color="#f59e0b"/>
+            <IconCalendarDue size={14} color="#f59e0b"/>
             <span style={{ ...sectionLabel, marginBottom: 0 }}>Expiring Devices ({expiring.length})</span>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>

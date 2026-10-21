@@ -138,7 +138,7 @@ export default function CommandCenterPage() {
       <PageHeader
         title="Command Center"
         subtitle="Send engine cut / restore commands to fleet vehicles"
-        actions={
+        action={
           <button onClick={() => { void load(); }} disabled={loading}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: `1px solid ${dark ? '#3d3d4d' : '#d1d5db'}`, background: 'transparent', color: dark ? '#d1d5db' : '#374151', fontSize: 13, cursor: 'pointer' }}>
             <IconRefresh size={15} />

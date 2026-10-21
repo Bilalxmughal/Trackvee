@@ -99,7 +99,7 @@ export default function OrgBillingPage() {
       <PageHeader
         title="Org Billing Dashboard"
         subtitle="Invoices and payment overview across all organizations"
-        actions={
+        action={
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <div style={{ position: 'relative' }}>
               <select value={selectedOrg} onChange={e => setSelectedOrg(e.target.value)}
