@@ -81,6 +81,13 @@ export default function LiveSharePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  // When map becomes visible after loading, recalculate Leaflet dimensions
+  useEffect(() => {
+    if (!loading && !error && mapRef.current) {
+      setTimeout(() => mapRef.current?.invalidateSize(), 50);
+    }
+  }, [loading, error]);
+
   // Init Leaflet map once container is ready (client-only)
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
