@@ -33,6 +33,7 @@ export default function MoreScreen() {
         {canDo('geofences') ? <ToolRow icon="geofence" title="Geofences" subtitle="Manage circle and polygon zones" t={t} onPress={() => router.push('/geofences')} /> : null}
         {canDo('pois') ? <ToolRow icon="map-pin" title="Points of Interest" subtitle="Manage saved locations" t={t} onPress={() => router.push('/pois')} /> : null}
         {canDo('users') ? <ToolRow icon="user" title="Users" subtitle="Manage accounts and access" t={t} onPress={() => router.push('/users')} /> : null}
+        <ToolRow icon="share" title="Share Links" subtitle="Share live vehicle location with anyone" t={t} onPress={() => router.push('/share-links')} />
       </> : null}
 
       <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>PREFERENCES</Text>
@@ -69,7 +70,7 @@ function ToolRow({ icon, title, subtitle, t, onPress }: { icon: string; title: s
     <Pressable onPress={onPress} style={[styles.toolRow, { borderColor: t.border }]}>
       <View style={styles.toolIcon}><TablerIcon name={icon} size={19} color={t.red} /></View>
       <View style={styles.toolText}><Text style={[styles.toolTitle, { color: t.ink }]}>{title}</Text><Text style={[styles.toolSubtitle, { color: t.secondary }]}>{subtitle}</Text></View>
-      <TablerIcon name="forward" size={17} color={t.muted} />
+      <TablerIcon name="chevron-right" size={17} color={t.secondary} />
     </Pressable>
   );
 }
@@ -85,13 +86,16 @@ function AppearanceRow({ themeMode, setThemeMode, t }: { themeMode: ThemeMode; s
     <View style={[styles.toolRow, styles.appearanceRow, { borderColor: t.border }]}>
       <View style={styles.toolIcon}><TablerIcon name="sun" size={19} color={t.red} /></View>
       <Text style={[styles.toolTitle, { color: t.ink }]}>Appearance</Text>
-      <View style={styles.modePills}>
-        {MODES.map(({ mode, label, icon }) => (
-          <Pressable key={mode} onPress={() => setThemeMode(mode)} style={[styles.modePill, { backgroundColor: themeMode === mode ? t.red : t.bg2 }]}>
-            <TablerIcon name={icon} size={13} color={themeMode === mode ? '#fff' : t.secondary} />
-            <Text style={[styles.modePillText, { color: themeMode === mode ? '#fff' : t.secondary }]}>{label}</Text>
-          </Pressable>
-        ))}
+      <View style={[styles.segTrack, { backgroundColor: t.bg2 }]}>
+        {MODES.map(({ mode, label, icon }) => {
+          const active = themeMode === mode;
+          return (
+            <Pressable key={mode} onPress={() => setThemeMode(mode)} style={[styles.segBtn, active && { backgroundColor: t.card, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 2 }]}>
+              <TablerIcon name={icon} size={14} color={active ? t.red : t.secondary} />
+              <Text style={[styles.segText, { color: active ? t.red : t.secondary, fontWeight: active ? '700' : '500' }]}>{label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -115,8 +119,8 @@ const styles = StyleSheet.create({
   toolTitle: { fontSize: 13, fontWeight: '600' },
   toolSubtitle: { fontSize: 11, marginTop: 3 },
   appearanceRow: { minHeight: 56, flexWrap: 'nowrap' },
-  modePills: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
-  modePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 7 },
-  modePillText: { fontSize: 11, fontWeight: '600' },
+  segTrack: { flexDirection: 'row', borderRadius: 10, padding: 3, gap: 2, marginLeft: 'auto' },
+  segBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 },
+  segText: { fontSize: 11 },
   version: { textAlign: 'center', marginTop: 20, fontSize: 11 },
 });
