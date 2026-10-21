@@ -482,7 +482,8 @@ export default function LiveMapScreen() {
         const plate = item.vehicle?.licensePlate || `#${item.vehicle?.displayId ?? item.device.displayId}`;
         const name = displayVehicleName(item.vehicle);
         const speedKmh = Math.round(point.speedKmh ?? 0);
-        const ignition = (point as unknown as Record<string, unknown>).ignition;
+        const ignitionRaw = (point as unknown as Record<string, unknown>).ignition;
+        const ignition = speedKmh >= 5 ? true : (ignitionRaw as boolean | null | undefined) ?? null;
         const ignitionText = ignition === true ? 'ON' : ignition === false ? 'OFF' : '—';
         const ignitionColor = ignition === true ? t.moving : ignition === false ? t.offline : t.secondary;
         const ts = (point as unknown as Record<string, unknown>).timestamp ?? (point as unknown as Record<string, unknown>).updatedAt;
@@ -494,7 +495,7 @@ export default function LiveMapScreen() {
             <View style={styles.sheetHandle} />
 
             {(() => {
-              const statusIcons: Record<string, string> = { moving: 'arrow-right', idle: 'pause', parked: 'map-pin', offline: 'power' };
+              const statusIcons: Record<string, string> = { moving: 'power', idle: 'pause', parked: 'map-pin', offline: 'power' };
               return (
                 <View style={styles.sheetHeader}>
                   <View style={styles.sheetTitleWrap}>

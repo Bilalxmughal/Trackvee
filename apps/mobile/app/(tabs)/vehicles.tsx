@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Print from 'expo-print';
@@ -109,7 +109,8 @@ export default function VehiclesScreen() {
         const pt = item.point;
         const status = getFleetStatus(pt);
         const speed = status === 'offline' ? '—' : `${Math.round(pt?.speedKmh ?? 0)} km/h`;
-        const ign = pt?.ignition === true ? '<span style="color:#16a34a;font-weight:600">ON</span>' : pt?.ignition === false ? '<span style="color:#dc2626;font-weight:600">OFF</span>' : '—';
+        const ignResolved = (pt?.speedKmh ?? 0) >= 5 ? true : (pt?.ignition ?? null);
+        const ign = ignResolved === true ? '<span style="color:#16a34a;font-weight:600">ON</span>' : ignResolved === false ? '<span style="color:#dc2626;font-weight:600">OFF</span>' : '—';
         const lastUpdate = pt?.timestamp ? new Date(pt.timestamp).toLocaleString() : '—';
         return `<tr>
           <td>${plateFor(item)}</td>
@@ -203,7 +204,7 @@ export default function VehiclesScreen() {
     const point = item.point;
     const status = getFleetStatus(point);
     const plate = plateFor(item);
-    const ignition = point?.ignition;
+    const ignition = (point?.speedKmh ?? 0) >= 5 ? true : (point?.ignition ?? null);
     const voltage = point?.voltageLevel;
     const signal = point?.gsmSignal;
     const gpsValid = point?.gpsValid;
@@ -229,10 +230,10 @@ export default function VehiclesScreen() {
             <Text style={[s.speedText, { color: t.secondary }]}>{status === 'offline' ? 'Offline' : `${Math.round(point?.speedKmh ?? 0)} km/h`}</Text>
           </View>
           <View style={s.cardChips}>
-            <View style={[s.chip, { backgroundColor: ignBg }]}><TablerIcon name="power" size={12} color={ignClr} /><Text style={[s.chipText, { color: ignClr }]}>{ignition === true ? 'ON' : ignition === false ? 'OFF' : '—'}</Text></View>
-            <View style={[s.chip, { backgroundColor: gpsBg }]}><TablerIcon name="map-pin" size={12} color={gpsClr} /><Text style={[s.chipText, { color: gpsClr }]}>{sats} sat</Text></View>
-            <View style={[s.chip, { backgroundColor: batBg }]}><TablerIcon name="battery" size={12} color={batClr} /><Text style={[s.chipText, { color: batClr }]}>{voltage != null ? `${voltage.toFixed(1)}V` : '—'}</Text></View>
-            <View style={[s.chip, { backgroundColor: sigBg }]}><TablerIcon name="signal" size={12} color={sigClr} /><Text style={[s.chipText, { color: sigClr }]}>{signal == null ? '—' : `${signal}%`}</Text></View>
+            <View style={s.chip}><TablerIcon name="power" size={12} color={ignClr} /><Text style={[s.chipText, { color: ignClr }]}>{ignition === true ? 'ON' : ignition === false ? 'OFF' : '—'}</Text></View>
+            <View style={s.chip}><TablerIcon name="map-pin" size={12} color={gpsClr} /><Text style={[s.chipText, { color: gpsClr }]}>{sats} sat</Text></View>
+            <View style={s.chip}><TablerIcon name="battery" size={12} color={batClr} /><Text style={[s.chipText, { color: batClr }]}>{voltage != null ? `${voltage.toFixed(1)}V` : '—'}</Text></View>
+            <View style={s.chip}><TablerIcon name="signal" size={12} color={sigClr} /><Text style={[s.chipText, { color: sigClr }]}>{signal == null ? '—' : `${signal}%`}</Text></View>
             <Text style={[s.updatedText, { color: t.muted }]}>{ageLabel(point?.timestamp)}</Text>
           </View>
         </Pressable>
@@ -247,7 +248,7 @@ export default function VehiclesScreen() {
     const point = item.point;
     const status = getFleetStatus(point);
     const plate = plateFor(item);
-    const ignition = point?.ignition;
+    const ignition = (point?.speedKmh ?? 0) >= 5 ? true : (point?.ignition ?? null);
     const accentColor = ignition === true ? '#16a34a' : statusColor[status];
     return (
       <View key={item.device.imei} style={[s.groupVehicleRow, { borderTopColor: t.border }]}>
@@ -268,9 +269,8 @@ export default function VehiclesScreen() {
     <View style={[s.header, { backgroundColor: t.bg }]}>
       <Text style={[s.title, { color: t.ink }]}>Vehicles</Text>
       <View style={s.headerRight}>
-        <Text style={[s.count, { color: t.secondary }]}>{items.length} vehicles</Text>
         <Pressable onPress={() => void exportPDF()} style={s.iconBtn} accessibilityLabel="Export vehicle list as PDF">
-          <TablerIcon name="download" size={18} color={t.secondary} />
+          <TablerIcon name="file-download" size={18} color={t.ink} />
         </Pressable>
         {canDo('vehicles', 'add') && <Pressable onPress={openNewGroup} style={s.addGroup} accessibilityRole="button" accessibilityLabel="Create vehicle group">
           <TablerIcon name="plus" size={17} color={t.red} />
@@ -283,11 +283,12 @@ export default function VehiclesScreen() {
       <Pressable onPress={() => setViewTab('list')} style={[s.tab, viewTab === 'list' && s.tabActive]}>
         <TablerIcon name="list" size={14} color={viewTab === 'list' ? t.red : t.secondary} />
         <Text style={[s.tabText, { color: viewTab === 'list' ? t.red : t.secondary }, viewTab === 'list' && s.tabTextActive]}>All Vehicles</Text>
+        {items.length > 0 && <View style={[s.tabBadge, { backgroundColor: viewTab === 'list' ? `${t.red}18` : t.chipBg }]}><Text style={[s.tabBadgeText, { color: viewTab === 'list' ? t.red : t.secondary }]}>{items.length}</Text></View>}
       </Pressable>
       <Pressable onPress={() => setViewTab('groups')} style={[s.tab, viewTab === 'groups' && s.tabActive]}>
         <TablerIcon name="layout-grid" size={14} color={viewTab === 'groups' ? t.red : t.secondary} />
         <Text style={[s.tabText, { color: viewTab === 'groups' ? t.red : t.secondary }, viewTab === 'groups' && s.tabTextActive]}>Groups</Text>
-        {groups.length > 0 && <View style={[s.tabBadge, { backgroundColor: viewTab === 'groups' ? '#fff5f5' : t.chipBg }]}><Text style={[s.tabBadgeText, { color: viewTab === 'groups' ? t.red : t.secondary }]}>{groups.length}</Text></View>}
+        {groups.length > 0 && <View style={[s.tabBadge, { backgroundColor: viewTab === 'groups' ? `${t.red}18` : t.chipBg }]}><Text style={[s.tabBadgeText, { color: viewTab === 'groups' ? t.red : t.secondary }]}>{groups.length}</Text></View>}
       </Pressable>
     </View>
 
@@ -500,7 +501,7 @@ function makeStyles(t: ReturnType<typeof useTheme>) {
     vehicleName: { fontSize: 11, marginTop: 2 },
     speedText: { fontSize: 11, fontWeight: '600', marginLeft: 8 },
     cardChips: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
-    chip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6 },
+    chip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 4, paddingVertical: 2 },
     chipText: { fontSize: 10, fontWeight: '600' },
     updatedText: { fontSize: 9, marginLeft: 'auto' },
     cardMenu: { width: 36, alignItems: 'center', justifyContent: 'center' },
