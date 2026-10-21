@@ -67,6 +67,18 @@ export class VehiclesController {
     return result;
   }
 
+  @Patch(':id/odometer')
+  async setOdometer(
+    @Param('id') id: string,
+    @Body() body: { odometerKm: number },
+    @CurrentUser() user: User,
+    @Req() req: Request,
+  ) {
+    const result = await this.vehiclesService.setOdometer(id, body.odometerKm, user);
+    this.audit.log({ user, ip: getIp(req) }, { action: 'update', entityType: 'vehicle', entityId: id, details: { odometerKm: body.odometerKm } }).catch(() => {});
+    return result;
+  }
+
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: User, @Req() req: Request) {
     const result = await this.vehiclesService.remove(id, user);

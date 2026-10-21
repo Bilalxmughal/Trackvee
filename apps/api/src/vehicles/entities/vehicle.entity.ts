@@ -58,6 +58,15 @@ export class Vehicle {
   @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })
   expiresAt: Date | null;
 
+  @Column({ name: 'odometer_km', type: 'numeric', precision: 10, scale: 2, default: 0 })
+  odometerKm: number;
+
+  @Column({ name: 'odo_base_lat', type: 'double precision', nullable: true })
+  odoBaseLat: number | null;
+
+  @Column({ name: 'odo_base_lng', type: 'double precision', nullable: true })
+  odoBaseLng: number | null;
+
   @Column({ name: 'archived_at', type: 'timestamptz', nullable: true })
   archivedAt: Date | null;
 

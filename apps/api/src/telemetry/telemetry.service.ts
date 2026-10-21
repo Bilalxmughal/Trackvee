@@ -10,6 +10,7 @@ import type { CircleCoords, PolygonCoords } from '../geofences/entities/geofence
 import { SpeedZonesService } from '../speed-zones/speed-zones.service.js';
 import type { SZCircleCoords, SZPolygonCoords } from '../speed-zones/entities/speed-zone.entity.js';
 import { MaintenanceService } from '../maintenance/maintenance.service.js';
+import { VehiclesService } from '../vehicles/vehicles.service.js';
 import { User } from '../users/entities/user.entity.js';
 import { resolveVehicleLiveStatus, type VehicleLiveStatus, type VehicleMotionSample } from './vehicle-state.js';
 
@@ -87,6 +88,7 @@ export class TelemetryService {
     private driverBehaviorService: DriverBehaviorService,
     private speedZonesService: SpeedZonesService,
     private maintenanceService: MaintenanceService,
+    private vehiclesService: VehiclesService,
   ) {}
 
   async findRecent(user: User, limit = 100): Promise<Telemetry[]> {
@@ -105,10 +107,18 @@ export class TelemetryService {
   async save(data: Partial<Telemetry>): Promise<Telemetry> {
     const record = this.repo.create(data);
     const saved = await this.repo.save(record);
-    // Fire-and-forget alert + driver behavior evaluation
+    // Fire-and-forget evaluations
     this.evaluateAlerts(saved).catch(() => {});
     this.evaluateDriverBehavior(saved).catch(() => {});
+    this.updateOdometer(saved).catch(() => {});
     return saved;
+  }
+
+  private async updateOdometer(pt: Telemetry): Promise<void> {
+    if (!pt.gpsValid || !Number.isFinite(pt.latitude) || !Number.isFinite(pt.longitude)) return;
+    const device = await this.devicesService.findByImei(pt.imei).catch(() => null);
+    if (!device?.vehicleId) return;
+    await this.vehiclesService.incrementOdometer(device.vehicleId, pt.latitude, pt.longitude);
   }
 
   private async evaluateDriverBehavior(pt: Telemetry): Promise<void> {

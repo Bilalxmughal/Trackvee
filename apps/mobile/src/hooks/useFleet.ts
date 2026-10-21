@@ -34,6 +34,7 @@ export interface FleetVehicle {
   licensePlate: string | null;
   make: string | null;
   model: string | null;
+  odometerKm?: number;
 }
 export interface FleetItem { vehicle: FleetVehicle | null; device: FleetDevice; point: LivePoint | null; }
 

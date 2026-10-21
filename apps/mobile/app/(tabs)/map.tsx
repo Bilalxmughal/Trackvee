@@ -575,6 +575,11 @@ export default function LiveMapScreen() {
                       <Text style={[styles.speedoSideLabel, { color: t.secondary }]}>Ignition</Text>
                     </View>
                     <View style={styles.speedoInfoItem}>
+                      <TablerIcon name="gauge" size={14} color={t.secondary} />
+                      <Text style={[styles.speedoSideValue, { color: t.ink }]}>{Number(item.vehicle?.odometerKm ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
+                      <Text style={[styles.speedoSideLabel, { color: t.secondary }]}>km</Text>
+                    </View>
+                    <View style={styles.speedoInfoItem}>
                       <TablerIcon name="clock" size={14} color={t.secondary} />
                       <Text style={[styles.speedoSideValue, { color: t.ink }]}>{updatedAgo}</Text>
                       <Text style={[styles.speedoSideLabel, { color: t.secondary }]}>Updated</Text>

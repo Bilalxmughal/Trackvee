@@ -19,7 +19,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import FormField, { inputStyle, selectStyle, FormActions } from '../components/FormField';
 import TablePagination, { useTablePagination } from '../components/TablePagination';
 
-interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; year: number | null; cityId: string | null; organizationId: string | null; isActive: boolean; lifecycleStatus: 'active' | 'expired' | 'archived'; expiresAt: string | null; createdAt: string; }
+interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; year: number | null; cityId: string | null; organizationId: string | null; isActive: boolean; lifecycleStatus: 'active' | 'expired' | 'archived'; expiresAt: string | null; createdAt: string; odometerKm: number; }
 interface Org { id: string; name: string; }
 interface DeviceAssignment { id: string; vehicleId: string; assignedAt: string; unassignedAt: string | null; action: string; reason: string | null; odometerKm: number | null; notes: string | null; deviceDisplayId: number; imei: string; simNumber: string | null; assignedByFirstName: string | null; assignedByLastName: string | null; }
 interface InventoryDevice { id: string; displayId: number; imei: string; name: string | null; simNumber: string | null; inventoryStatus: 'in_stock' | 'assigned' | 'maintenance' | 'retired'; vehicleId: string | null; licensePlate: string | null; }
@@ -66,6 +66,9 @@ export default function VehiclesPage() {
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [deviceSaving, setDeviceSaving] = useState(false);
   const [deviceConflict, setDeviceConflict] = useState('');
+  const [odoEditId, setOdoEditId] = useState<string | null>(null);
+  const [odoInput, setOdoInput] = useState('');
+  const [odoSaving, setOdoSaving] = useState(false);
   const { cities, selectedCityId } = useCityFilter();
   const { user } = useAuth();
   const { canOrgDo } = useOrgRolePerms();
@@ -131,6 +134,19 @@ export default function VehiclesPage() {
       toast('Device removed from vehicle');
     } catch (error: any) { setDeviceConflict(error?.response?.data?.message ?? 'Unable to remove this device.'); }
     finally { setDeviceSaving(false); }
+  };
+
+  const saveOdometer = async () => {
+    if (!odoEditId) return;
+    const km = parseFloat(odoInput);
+    if (!Number.isFinite(km) || km < 0) { toast('Enter a valid odometer value', 'error'); return; }
+    setOdoSaving(true);
+    try {
+      await api.patch(`/vehicles/${odoEditId}/odometer`, { odometerKm: km });
+      setVehicles(rows => rows.map(v => v.id === odoEditId ? { ...v, odometerKm: km } : v));
+      if (detailVehicle?.id === odoEditId) setDetailVehicle(prev => prev ? { ...prev, odometerKm: km } : prev);
+      setOdoEditId(null); toast('Odometer updated');
+    } catch { toast('Failed to update odometer', 'error'); } finally { setOdoSaving(false); }
   };
 
   const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
@@ -230,7 +246,7 @@ export default function VehiclesPage() {
         <table>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['ID', 'Plate', 'Make / Model', 'Year', 'Client', 'Status', 'Added', 'Tracking Expiry', 'Actions'].map(h => (
+                {['ID', 'Plate', 'Make / Model', 'Year', 'Odometer', 'Client', 'Status', 'Added', 'Tracking Expiry', 'Actions'].map(h => (
                 <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#aaa', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
               ))}
             </tr>
@@ -242,6 +258,7 @@ export default function VehiclesPage() {
                 <td style={{ padding: '10px 14px', fontWeight: 500 }}>{v.licensePlate ?? '—'}</td>
                 <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
                 <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{v.year ?? '—'}</td>
+                <td style={{ padding: '10px 14px', color: 'var(--text2)', fontVariantNumeric: 'tabular-nums' }}>{Number(v.odometerKm ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} km</td>
                 <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{orgs.find(org => org.id === v.organizationId)?.name ?? '—'}</td>
                 <td style={{ padding: '10px 14px' }}>
                   {canManageLifecycle ? <select value={getLifecycle(v)} onChange={async e => {
@@ -263,7 +280,7 @@ export default function VehiclesPage() {
                 </td>
               </tr>
             ))}
-            {!filtered.length && <tr><td colSpan={9} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No vehicles found</td></tr>}
+            {!filtered.length && <tr><td colSpan={10} style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc' }}>No vehicles found</td></tr>}
           </tbody>
         </table>
         </div>
@@ -328,6 +345,22 @@ export default function VehiclesPage() {
               ['Added', new Date(detailVehicle.createdAt).toLocaleDateString()],
               ['Expiry', detailVehicle.expiresAt ? new Date(detailVehicle.expiresAt).toLocaleDateString() : 'No expiry'],
             ].map(([label, value]) => <div key={label} style={{ padding: 12, borderLeft: '2px solid #dc2626', background: 'var(--bg2)' }}><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>{label}</div><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{value}</div></div>)}
+            <div style={{ padding: 12, borderLeft: '2px solid #2563eb', background: 'var(--bg2)' }}>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Odometer</div>
+              {odoEditId === detailVehicle.id ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input autoFocus type="number" min="0" step="0.1" value={odoInput} onChange={e => setOdoInput(e.target.value)} style={{ ...sel, width: 100, height: 28, padding: '0 6px', fontSize: 12 }} onKeyDown={e => { if (e.key === 'Enter') void saveOdometer(); if (e.key === 'Escape') setOdoEditId(null); }} />
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>km</span>
+                  <button onClick={() => void saveOdometer()} disabled={odoSaving} style={{ height: 28, padding: '0 10px', border: 0, background: '#dc2626', color: '#fff', fontSize: 11, cursor: 'pointer', borderRadius: 4 }}>Save</button>
+                  <button onClick={() => setOdoEditId(null)} style={{ height: 28, padding: '0 8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 11, cursor: 'pointer', borderRadius: 4 }}>Cancel</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{Number(detailVehicle.odometerKm ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} km</span>
+                  {canEdit && <button onClick={() => { setOdoEditId(detailVehicle.id); setOdoInput(String(detailVehicle.odometerKm ?? 0)); }} style={{ height: 22, padding: '0 8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 10, cursor: 'pointer', borderRadius: 4 }}>Set</button>}
+                </div>
+              )}
+            </div>
           </div>
           <div style={{ marginTop: 20, padding: 16, border: '1px solid var(--border)', background: 'var(--bg)' }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Vehicle Device</div>

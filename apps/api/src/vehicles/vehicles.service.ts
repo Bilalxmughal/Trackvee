@@ -143,6 +143,37 @@ export class VehiclesService {
     return data;
   }
 
+  async setOdometer(id: string, odometerKm: number, user: User): Promise<Vehicle> {
+    const vehicle = await this.findOne(id, user);
+    vehicle.odometerKm = odometerKm;
+    // Reset base coords so the next telemetry packet starts fresh from new value
+    vehicle.odoBaseLat = null;
+    vehicle.odoBaseLng = null;
+    return this.repo.save(vehicle);
+  }
+
+  async incrementOdometer(vehicleId: string, lat: number, lng: number): Promise<void> {
+    const vehicle = await this.repo.findOne({ where: { id: vehicleId } });
+    if (!vehicle) return;
+    if (vehicle.odoBaseLat !== null && vehicle.odoBaseLng !== null) {
+      const R = 6371, r = Math.PI / 180;
+      const dLat = (lat - vehicle.odoBaseLat) * r;
+      const dLng = (lng - vehicle.odoBaseLng) * r;
+      const a = Math.sin(dLat/2)**2 + Math.cos(vehicle.odoBaseLat*r)*Math.cos(lat*r)*Math.sin(dLng/2)**2;
+      const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      if (distKm > 0.005 && distKm < 5) {
+        await this.repo.update(vehicleId, {
+          odometerKm: () => `odometer_km + ${distKm.toFixed(4)}`,
+          odoBaseLat: lat,
+          odoBaseLng: lng,
+        } as any);
+        return;
+      }
+    }
+    // Just update base coords (no movement or first packet)
+    await this.repo.update(vehicleId, { odoBaseLat: lat, odoBaseLng: lng } as any);
+  }
+
   private async assertAccess(vehicle: Vehicle, user: User): Promise<void> {
     if (INTERNAL_ROLES.has(user.role)) return;
     if (user.role !== 'client_owner') {

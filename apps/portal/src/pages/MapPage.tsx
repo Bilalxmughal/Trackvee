@@ -37,6 +37,7 @@ interface VehicleDetail {
   id: string; make: string | null; model: string | null;
   licensePlate: string | null; displayId: number;
   name?: string; lifecycleStatus?: 'active' | 'expired' | 'archived'; expiresAt?: string | null;
+  odometerKm?: number;
 }
 interface VehicleGroup { id: string; name: string; imeis: string[]; }
 interface ApiVehicleGroup { id: string; name: string; organizationId: string; vehicleIds: string[]; }
@@ -1424,6 +1425,7 @@ function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFo
           {[
             { label: 'Speed', value: status === 'moving' ? `${Math.round(pt.speedKmh)} km/h` : '—' },
             { label: 'Ignition', value: resolveIgnition(pt) === true ? 'On' : resolveIgnition(pt) === false ? 'Off' : '—', color: resolveIgnition(pt) === true ? '#16a34a' : undefined },
+            { label: 'Odometer', value: vc?.odometerKm != null ? `${Number(vc.odometerKm).toLocaleString(undefined, { maximumFractionDigits: 0 })} km` : '—', color: '#2563eb' },
             { label: 'Updated', value: formatAge(pt.timestamp) },
             { label: 'Stop Duration', value: (status === 'idle' || status === 'parked') && vehicleStats?.stopDuration != null ? formatDuration(vehicleStats.stopDuration) : '—' },
             { label: 'Position', value: `${pt.latitude.toFixed(4)}, ${pt.longitude.toFixed(4)}` },
