@@ -179,25 +179,31 @@ export default function LiveSharePage() {
     </div>
   );
 
+  const vehicleStatus = !hasGps ? null : point!.speedKmh >= 5 ? 'Moving' : point!.ignition ? 'Idle' : 'Parked';
+  const statusColor = vehicleStatus === 'Moving' ? '#16a34a' : vehicleStatus === 'Idle' ? '#d97706' : '#6b7280';
+  const updatedTime = point?.timestamp ? new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'system-ui, sans-serif' }}>
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{vehicleLabel}</div>
-          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-            {data?.vehicle?.make && data?.vehicle?.model ? `${data.vehicle.make} ${data.vehicle.model} · ` : ''}
-            {hasGps ? `${Math.round(point!.speedKmh)} km/h · ${ignition ? 'Ignition ON' : 'Ignition OFF'}` : 'GPS unavailable'}
-            {hasSchedule && <span style={{ marginLeft: 8, color: '#9ca3af' }}>· Active {fmt12(scheduleStart!)}–{fmt12(scheduleEnd!)}</span>}
+      {/* Header */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/logo.webp" alt="Trackvee" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
+          <div style={{ width: 1, height: 24, background: '#e5e7eb' }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#111827', lineHeight: 1.2 }}>{vehicleLabel}</div>
+            {data?.vehicle?.make && data?.vehicle?.model && (
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{data.vehicle.make} {data.vehicle.model}</div>
+            )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: hasGps ? '#16a34a' : '#9ca3af', flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: '#6b7280' }}>
-            {point?.timestamp ? `Updated ${new Date(point.timestamp).toLocaleTimeString()}` : 'No data'}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: hasGps ? '#16a34a' : '#9ca3af', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: '#6b7280' }}>{hasGps ? 'Live' : 'No GPS'}</span>
         </div>
       </div>
 
+      {/* Map */}
       <div style={{ flex: 1, position: 'relative' }}>
         {!hasGps && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.85)', pointerEvents: 'none' }}>
@@ -205,10 +211,57 @@ export default function LiveSharePage() {
           </div>
         )}
         <div ref={mapContainerRef} style={{ height: '100%', width: '100%' }} />
-      </div>
 
-      <div style={{ background: '#fff', borderTop: '1px solid #e5e7eb', padding: '6px 16px', fontSize: 11, color: '#9ca3af', textAlign: 'center', flexShrink: 0 }}>
-        Powered by <strong style={{ color: '#dc2626' }}>Trackvee</strong>
+        {/* Bottom info card */}
+        {hasGps && (
+          <div style={{
+            position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 1000, background: '#fff', borderRadius: 16,
+            boxShadow: '0 4px 24px rgba(0,0,0,0.18)', padding: '14px 20px',
+            display: 'flex', alignItems: 'center', gap: 20,
+            minWidth: 260, maxWidth: 'calc(100vw - 32px)',
+          }}>
+            {/* Speed */}
+            <div style={{ textAlign: 'center', minWidth: 56 }}>
+              <div style={{ fontSize: 32, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{Math.round(point!.speedKmh)}</div>
+              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, fontWeight: 500 }}>km/h</div>
+            </div>
+
+            <div style={{ width: 1, height: 44, background: '#f3f4f6' }} />
+
+            {/* Status + ignition */}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: statusColor }}>{vehicleStatus}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{
+                  width: 10, height: 10, borderRadius: '50%',
+                  background: ignition ? '#16a34a' : '#e5e7eb',
+                  border: '2px solid', borderColor: ignition ? '#16a34a' : '#d1d5db',
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontSize: 12, color: '#374151', fontWeight: 500 }}>
+                  Ignition {ignition ? 'ON' : 'OFF'}
+                </span>
+              </div>
+              {updatedTime && (
+                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 5 }}>Updated {updatedTime}</div>
+              )}
+            </div>
+
+            {hasSchedule && (
+              <>
+                <div style={{ width: 1, height: 44, background: '#f3f4f6' }} />
+                <div style={{ textAlign: 'center', fontSize: 10, color: '#9ca3af' }}>
+                  <div style={{ marginBottom: 2 }}>Active</div>
+                  <div style={{ fontWeight: 600, color: '#6b7280' }}>{fmt12(scheduleStart!)}–{fmt12(scheduleEnd!)}</div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
