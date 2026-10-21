@@ -8,6 +8,7 @@ import api from '../api/client';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import AlertsModal, { AlertRecord, AlertsPanel as AlertsLeftPanel } from '../components/AlertsModal';
+import ShareLinksPanel from '../components/ShareLinksPanel';
 import GeofencesPanel, { Geofence, CircleCoords, PolygonCoords } from '../components/GeofencesModal';
 import SpeedZonesPanel, { SpeedZone, SZCircleCoords, SZPolygonCoords } from '../components/SpeedZonesPanel';
 import VehicleGroupSelect from '../components/VehicleGroupSelect';
@@ -1364,7 +1365,7 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
   );
 }
 
-function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowHistory, onCreateAlert, hasAlert, onFollow, openMenuId, setOpenMenuId }: {
+function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowHistory, onCreateAlert, hasAlert, onFollow, onShareLink, openMenuId, setOpenMenuId }: {
   pt: LivePoint; plate: string; dark: boolean;
   onViewOnMap: () => void;
   onTripReplay: () => void;
@@ -1372,6 +1373,7 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
   onCreateAlert: () => void;
   hasAlert: boolean;
   onFollow: () => void;
+  onShareLink: () => void;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
 }) {
@@ -1436,6 +1438,7 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
     { label: 'History: Yesterday', icon: <CalIcon/>, action: () => { onShowHistory('yesterday'); setOpenMenuId(null); } },
     { label: '──', icon: null, action: () => {}, divider: true },
     { label: hasAlert ? 'Edit Alert' : 'Create Alert', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="1" x2="12" y2="4"/></svg>, action: () => { onCreateAlert(); setOpenMenuId(null); } },
+    { label: 'Share Live Location', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>, action: () => { onShareLink(); setOpenMenuId(null); } },
     { label: '──', icon: null, action: () => {}, divider: true },
     {
       label: isImmobilized ? 'Restore Engine' : 'Cut Engine',
@@ -1509,13 +1512,14 @@ function VehicleMenuButton({ pt, plate, dark, onViewOnMap, onTripReplay, onShowH
 
 // ── Vehicle Row ───────────────────────────────────────────────────────────────
 
-function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, onCreateAlert, hasAlert, onFollow, openMenuId, setOpenMenuId }: {
+function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, onCreateAlert, hasAlert, onFollow, onShareLink, openMenuId, setOpenMenuId }: {
   pt: LivePoint; plate: string; onSelect: () => void; dark: boolean;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
   onCreateAlert: () => void;
   hasAlert: boolean;
   onFollow: () => void;
+  onShareLink: () => void;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
 }) {
@@ -1533,14 +1537,14 @@ function VehicleRow({ pt, plate, onSelect, dark, onTripReplay, onShowHistory, on
         <IconBattery level={pt.voltageLevel}/>
         <IconSignal level={pt.gsmSignal}/>
       </div>
-      <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onCreateAlert={onCreateAlert} hasAlert={hasAlert} onFollow={onFollow} openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
+      <VehicleMenuButton pt={pt} plate={plate} dark={dark} onViewOnMap={onSelect} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onCreateAlert={onCreateAlert} hasAlert={hasAlert} onFollow={onFollow} onShareLink={onShareLink} openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
     </div>
   );
 }
 
 // ── Group Section ─────────────────────────────────────────────────────────────
 
-function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark, onTripReplay, onShowHistory, onCreateAlert, getHasAlert, onFollow, openMenuId, setOpenMenuId }: {
+function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, dark, onTripReplay, onShowHistory, onCreateAlert, getHasAlert, onFollow, onShareLink, openMenuId, setOpenMenuId }: {
   group: VehicleGroup; pts: LivePoint[]; deviceMap: DMap;
   onSelect: (imei: string) => void; collapsed: boolean;
   onToggle: () => void; onEdit: () => void; dark: boolean;
@@ -1549,6 +1553,7 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
   onCreateAlert: (imei: string) => void;
   getHasAlert: (imei: string) => boolean;
   onFollow: (imei: string) => void;
+  onShareLink: (imei: string) => void;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
 }) {
@@ -1582,6 +1587,7 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
             onCreateAlert={() => onCreateAlert(pt.imei)}
             hasAlert={getHasAlert(pt.imei)}
             onFollow={() => onFollow(pt.imei)}
+            onShareLink={() => onShareLink(pt.imei)}
             openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
         );
       })}
@@ -2059,7 +2065,7 @@ function OrgFilterDropdown({ orgs, value, onChange, dark }: {
 
 // ── Left Panel ────────────────────────────────────────────────────────────────
 
-function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis, orgId, isAdmin, orgs, onOrgChange, orgFilter, onOrgFilterChange, onFollow }: {
+function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, onClose, onTripReplay, historyMode, historyPoints, historyLoading, onShowHistory, onLoadHistory, onClearHistory, allVehicles, onVehicleSelectForHistory, onSegmentClick, onCreateAlert, hasAlertImeis, orgId, isAdmin, orgs, onOrgChange, orgFilter, onOrgFilterChange, onFollow, onShareLink }: {
   points: LivePoint[]; deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   onSelectVehicle: (imei: string) => void; dark: boolean; onClose?: () => void;
   onTripReplay: (imei: string, plate: string) => void;
@@ -2080,6 +2086,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
   orgFilter: string;
   onOrgFilterChange: (orgId: string) => void;
   onFollow: (imei: string) => void;
+  onShareLink: (imei: string) => void;
   orgId: string | null;
 }) {
   const [apiGroups, setApiGroups] = useState<ApiVehicleGroup[]>([]);
@@ -2208,6 +2215,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
                   onCreateAlert={onCreateAlert}
                   getHasAlert={(imei) => (hasAlertImeis.get(imei)?.length ?? 0) > 0}
                   onFollow={onFollow}
+                  onShareLink={onShareLink}
                   openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
               );
             })}
@@ -2224,6 +2232,7 @@ function LeftPanel({ points, deviceMap, vehicleDetails, onSelectVehicle, dark, o
                       onCreateAlert={() => onCreateAlert(pt.imei)}
                       hasAlert={(hasAlertImeis.get(pt.imei)?.length ?? 0) > 0}
                       onFollow={() => onFollow(pt.imei)}
+                      onShareLink={() => onShareLink(pt.imei)}
                       openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
                   );
                 })}
@@ -2460,6 +2469,10 @@ export default function MapPage() {
   const [mapStyle, setMapStyle] = useState<MapStyle>('street');
 
   // Alert state — from global context
+  const [shareLinksOpen, setShareLinksOpen] = useState(false);
+  const [shareLinksImei, setShareLinksImei] = useState<string | undefined>(undefined);
+  const openShareLinks = (imei?: string) => { setShareLinksImei(imei); setShareLinksOpen(true); };
+
   const { alertSettings, alertSettingsRef, setActiveAlertCount, alertPanelOpen, closeAlertPanel } = useAlert();
   const [showAlerts, setShowAlerts] = useState(false);
   const [alertCreateImei, setAlertCreateImei] = useState<string | undefined>(undefined);
@@ -2986,6 +2999,7 @@ export default function MapPage() {
                   const pt = points.find(p => p.imei === imei);
                   if (pt) setFlyTarget({ lat: pt.latitude, lng: pt.longitude, ts: Date.now() });
                 }}
+                onShareLink={(imei) => openShareLinks(imei)}
               />
           }
         </div>
@@ -3009,6 +3023,12 @@ export default function MapPage() {
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="3" y="4" width="18" height="18" rx="2"/></svg>
               {distanceMode ? 'Stop' : 'Distance'}
+            </button>
+            <button onClick={() => openShareLinks(undefined)}
+              title="Manage share links"
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 4, border: `1px solid ${shareLinksOpen ? '#dc2626' : (dark ? '#333' : '#e5e7eb')}`, background: shareLinksOpen ? (dark ? '#2a1010' : '#fff0f0') : 'transparent', color: shareLinksOpen ? '#dc2626' : (dark ? '#888' : '#666'), fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              Share Links
             </button>
           </div>
 
@@ -3159,6 +3179,9 @@ export default function MapPage() {
       })}
 
       {/* Modals */}
+      {shareLinksOpen && (
+        <ShareLinksPanel dark={dark} onClose={() => setShareLinksOpen(false)} vehicles={allVehicles} preselectedImei={shareLinksImei}/>
+      )}
       {showAlerts && (
         <AlertsPanel alerts={activeAlerts} dark={dark} onClose={() => { setShowAlerts(false); }}/>
       )}

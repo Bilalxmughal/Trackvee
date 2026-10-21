@@ -15,6 +15,7 @@ import DriverBehaviorModal from '../components/DriverBehaviorModal';
 import MaintenancePanel from '../components/MaintenancePanel';
 import DeviceHealthPanel from '../components/DeviceHealthPanel';
 import UsersModal from '../components/UsersModal';
+import ShareLinksPanel from '../components/ShareLinksPanel';
 import { canContinueHistorySegment, canEstimateStopAcrossGap, fetchTelemetryHistory, isHistoryDataGap, isUsableHistoryPoint } from '../utils/telemetry-history';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -199,17 +200,6 @@ async function reverseGeocode(lat: number, lon: number): Promise<string> {
     geocodeCache.set(k, a);
     return a;
   } catch { return `${lat.toFixed(5)}, ${lon.toFixed(5)}`; }
-}
-
-function predictDR(lat: number, lng: number, speedKmh: number, headingDeg: number, elapsedMs: number): [number, number] {
-  if (speedKmh < 3) return [lat, lng];
-  const distM = (speedKmh / 3.6) * (elapsedMs / 1000);
-  const headRad = (headingDeg * Math.PI) / 180;
-  const R = 6371000;
-  const dLat = (distM * Math.cos(headRad)) / R * (180 / Math.PI);
-  const cosLat = Math.cos((lat * Math.PI) / 180);
-  const dLng = cosLat > 0.001 ? (distM * Math.sin(headRad)) / (R * cosLat) * (180 / Math.PI) : 0;
-  return [lat + dLat, lng + dLng];
 }
 
 // ── Car Icon ──────────────────────────────────────────────────────────────────
@@ -662,13 +652,14 @@ function EngineCutConfirm({ imei, plate, isImmobilized, onClose }: { imei: strin
   );
 }
 
-function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow, onCreateAlert, hasAlert, openMenuId, setOpenMenuId }: {
+function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow, onCreateAlert, hasAlert, onShareLink, openMenuId, setOpenMenuId }: {
   pt: LivePoint; plate: string;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
   onFollow: () => void;
   onCreateAlert: () => void;
   hasAlert: boolean;
+  onShareLink: () => void;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
 }) {
@@ -709,6 +700,7 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow, o
     { label: 'History: Yesterday', icon: <CalIcon/>, action: () => { onShowHistory('yesterday'); setOpenMenuId(null); } },
     { label: '──', icon: null, action: () => {}, divider: true },
     { label: hasAlert ? 'Edit Alert' : 'Create Alert', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="1" x2="12" y2="4"/></svg>, action: () => { onCreateAlert(); setOpenMenuId(null); } },
+    { label: 'Share Live Location', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>, action: () => { onShareLink(); setOpenMenuId(null); } },
     { label: '──', icon: null, action: () => {}, divider: true },
     { label: isImmobilized ? 'Restore Engine' : 'Cut Engine', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>, action: () => { setEngineCutOpen(true); setOpenMenuId(null); }, red: true },
   ];
@@ -742,13 +734,14 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow, o
 
 // ── Vehicle Row ───────────────────────────────────────────────────────────────
 
-function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow, onCreateAlert, hasAlert, openMenuId, setOpenMenuId }: {
+function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow, onCreateAlert, hasAlert, onShareLink, openMenuId, setOpenMenuId }: {
   pt: LivePoint; plate: string; onSelect: () => void;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
   onFollow: () => void;
   onCreateAlert: () => void;
   hasAlert: boolean;
+  onShareLink: () => void;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
 }) {
@@ -766,14 +759,14 @@ function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow
         <IconBattery level={pt.voltageLevel}/>
         <IconSignal level={pt.gsmSignal}/>
       </div>
-      <VehicleMenuButton pt={pt} plate={plate} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onFollow={onFollow} onCreateAlert={onCreateAlert} hasAlert={hasAlert} openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
+      <VehicleMenuButton pt={pt} plate={plate} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onFollow={onFollow} onCreateAlert={onCreateAlert} hasAlert={hasAlert} onShareLink={onShareLink} openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
     </div>
   );
 }
 
 // ── Group Section ─────────────────────────────────────────────────────────────
 
-function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, onTripReplay, onShowHistory, onFollow, onCreateAlert, getHasAlert, openMenuId, setOpenMenuId }: {
+function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, onTripReplay, onShowHistory, onFollow, onCreateAlert, getHasAlert, onShareLink, openMenuId, setOpenMenuId }: {
   group: VehicleGroup; pts: LivePoint[]; deviceMap: DMap;
   onSelect: (imei: string) => void; collapsed: boolean;
   onToggle: () => void; onEdit: () => void;
@@ -782,6 +775,7 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
   onFollow: (imei: string) => void;
   onCreateAlert: (imei: string) => void;
   getHasAlert: (imei: string) => boolean;
+  onShareLink: (imei: string) => void;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
 }) {
@@ -815,6 +809,7 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
             onFollow={() => onFollow(pt.imei)}
             onCreateAlert={() => onCreateAlert(pt.imei)}
             hasAlert={getHasAlert(pt.imei)}
+            onShareLink={() => onShareLink(pt.imei)}
             openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
         );
       })}
@@ -1636,6 +1631,10 @@ export default function PortalMapPage() {
     openPanel('alerts');
   };
 
+  // Share links panel
+  const [shareLinksImei, setShareLinksImei] = useState<string | undefined>(undefined);
+  const openShareLinks = (imei?: string) => { setShareLinksImei(imei); openPanel('share-links'); };
+
   // Panel data
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
@@ -1962,6 +1961,7 @@ export default function PortalMapPage() {
                     onFollow={handleFollow}
                     onCreateAlert={handleCreateAlert}
                     getHasAlert={(imei) => alerts.some(a => a.active && a.vehicleImeis.includes(imei))}
+                    onShareLink={openShareLinks}
                     openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
                 );
               })}
@@ -1978,6 +1978,7 @@ export default function PortalMapPage() {
                         onFollow={() => handleFollow(pt.imei)}
                         onCreateAlert={() => handleCreateAlert(pt.imei)}
                         hasAlert={alerts.some(a => a.active && a.vehicleImeis.includes(pt.imei))}
+                        onShareLink={() => openShareLinks(pt.imei)}
                         openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
                     );
                   })}
@@ -2076,6 +2077,11 @@ export default function PortalMapPage() {
 
       {/* Users Modal */}
       {activePanel === 'users' && <UsersModal onClose={closePanel} />}
+
+      {/* Share Links Panel */}
+      {activePanel === 'share-links' && (
+        <ShareLinksPanel onClose={closePanel} vehicles={allVehicles} preselectedImei={shareLinksImei}/>
+      )}
     </div>
   );
 }

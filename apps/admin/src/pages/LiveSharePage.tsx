@@ -53,7 +53,11 @@ export default function LiveSharePage() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`${API_URL}/telemetry/live-public/${encodeURIComponent(token ?? '')}`);
+      const t = token ?? '';
+      const endpoint = t.includes('.')
+        ? `${API_URL}/telemetry/live-public/${encodeURIComponent(t)}`
+        : `${API_URL}/share-links/public/${encodeURIComponent(t)}`;
+      const res = await fetch(endpoint);
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { message?: string };
         throw new Error(body.message ?? `HTTP ${res.status}`);

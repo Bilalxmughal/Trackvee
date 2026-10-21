@@ -22,6 +22,7 @@ import { MaintenanceModule } from './maintenance/maintenance.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { SiteSettingsModule } from './site-settings/site-settings.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
+import { ShareLinksModule } from './share-links/share-links.module.js';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { UploadsModule } from './uploads/uploads.module.js';
     BillingModule,
     SiteSettingsModule,
     UploadsModule,
+    ShareLinksModule,
   ],
 })
 export class AppModule {}
