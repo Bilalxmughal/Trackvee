@@ -33,11 +33,13 @@ export default function MoreScreen() {
         {canDo('geofences') ? <ToolRow icon="geofence" title="Geofences" subtitle="Manage circle and polygon zones" t={t} onPress={() => router.push('/geofences')} /> : null}
         {canDo('pois') ? <ToolRow icon="map-pin" title="Points of Interest" subtitle="Manage saved locations" t={t} onPress={() => router.push('/pois')} /> : null}
         {canDo('users') ? <ToolRow icon="user" title="Users" subtitle="Manage accounts and access" t={t} onPress={() => router.push('/users')} /> : null}
+        {canDo('engine_cut') ? <ToolRow icon="bolt" title="Command Center" subtitle="Engine cut and restore for fleet vehicles" t={t} onPress={() => router.push('/command-center')} /> : null}
         <ToolRow icon="share" title="Share Links" subtitle="Share live vehicle location with anyone" t={t} onPress={() => router.push('/share-links')} />
       </> : null}
 
       <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>PREFERENCES</Text>
       <AppearanceRow themeMode={themeMode} setThemeMode={setThemeMode} t={t} />
+      <ToolRow icon="map-off" title="Offline Maps" subtitle="Download map tiles for use without internet" t={t} onPress={() => router.push('/offline-map')} />
       <ToolRow icon="settings" title="Settings" subtitle="Notifications and fleet updates" t={t} onPress={() => router.push('/settings')} />
 
       <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>ACCOUNT</Text>

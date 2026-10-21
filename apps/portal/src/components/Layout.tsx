@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
-  IconBell, IconMap2, IconMapPin, IconChartBar, IconLogout, IconChevronDown, IconActivity, IconUsers, IconTool, IconCpu, IconShare,
+  IconBell, IconMap2, IconMapPin, IconChartBar, IconLogout, IconChevronDown, IconActivity, IconUsers, IconTool, IconCpu, IconShare, IconLayoutDashboard, IconMap, IconBolt,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePortalPanel } from '../contexts/PortalPanelContext';
@@ -11,7 +11,7 @@ function PanelButton({
   label, icon: Icon, panelKey, badge,
 }: {
   label: string; icon: React.ElementType;
-  panelKey: 'alerts' | 'geofences' | 'pois' | 'reports' | 'behavior' | 'users' | 'maintenance' | 'device-health' | 'share-links';
+  panelKey: 'alerts' | 'geofences' | 'pois' | 'reports' | 'behavior' | 'users' | 'maintenance' | 'device-health' | 'share-links' | 'command-center';
   badge?: number;
 }) {
   const { activePanel, openPanel } = usePortalPanel();
@@ -45,10 +45,34 @@ function PanelButton({
   );
 }
 
+function NavButton({ label, icon: Icon, to, active }: { label: string; icon: React.ElementType; to: string; active: boolean }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => navigate(to)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '5px 9px', borderRadius: 6, border: 'none',
+        background: active ? 'rgba(220,38,38,0.08)' : 'transparent',
+        color: active ? '#dc2626' : '#777',
+        fontWeight: active ? 600 : 400,
+        fontSize: 12.5, whiteSpace: 'nowrap', cursor: 'pointer',
+        transition: 'color 0.13s, background 0.13s',
+      }}
+      onMouseEnter={e => { if (!active) { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; } }}
+      onMouseLeave={e => { if (!active) { e.currentTarget.style.color = ''; e.currentTarget.style.background = ''; } }}
+    >
+      <Icon size={14} strokeWidth={1.9} style={{ flexShrink: 0 }} />
+      {label}
+    </button>
+  );
+}
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const { canDo } = usePortalPerms();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -83,8 +107,11 @@ export default function Layout() {
         {/* Divider */}
         <div style={{ width: 1, height: 16, background: '#ebebeb', marginRight: 12, flexShrink: 0 }} />
 
-        {/* Panel trigger buttons */}
+        {/* Nav + Panel trigger buttons */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <NavButton label="Dashboard" icon={IconLayoutDashboard} to="/dashboard" active={location.pathname === '/dashboard'} />
+          <NavButton label="Map" icon={IconMap} to="/map" active={location.pathname === '/map'} />
+          <div style={{ width: 1, height: 16, background: '#ebebeb', margin: '0 4px', flexShrink: 0 }} />
           {canDo('alerts',          'view') && <PanelButton panelKey="alerts"    icon={IconBell}     label="Alerts" />}
           {canDo('geofences',       'view') && <PanelButton panelKey="geofences" icon={IconMap2}     label="Geofences" />}
           {canDo('pois',            'view') && <PanelButton panelKey="pois"      icon={IconMapPin}   label="POIs" />}
@@ -93,6 +120,7 @@ export default function Layout() {
           <PanelButton panelKey="share-links" icon={IconShare} label="Share" />
           {canDo('maintenance',     'view') && <PanelButton panelKey="maintenance" icon={IconTool} label="Maintenance" />}
           {canDo('vehicles',        'view') && <PanelButton panelKey="device-health" icon={IconCpu} label="Device Health" />}
+          {canDo('engine_cut',      'view') && <PanelButton panelKey="command-center" icon={IconBolt} label="Commands" />}
           {canDo('users',           'view') && (
             <>
               <div style={{ width: 1, height: 16, background: '#ebebeb', margin: '0 6px', flexShrink: 0 }} />

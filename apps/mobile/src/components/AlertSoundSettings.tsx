@@ -136,7 +136,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   option: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8 },
   selectTone: { flex: 1, minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 10 },
   separator: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.border },
-  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: '#9ca3af', alignItems: 'center', justifyContent: 'center' },
+  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
   radioSelected: { borderColor: t.red },
   radioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: t.red },
   optionText: { flex: 1, color: t.secondary, fontSize: 12 },

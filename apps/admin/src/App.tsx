@@ -24,6 +24,8 @@ import DriverBehaviorPage from './pages/DriverBehaviorPage';
 import MaintenancePage from './pages/MaintenancePage';
 import PricingPage from './pages/PricingPage';
 import ClientStatementsPage from './pages/ClientStatementsPage';
+import OrgBillingPage from './pages/OrgBillingPage';
+import CommandCenterPage from './pages/CommandCenterPage';
 import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';
 import { ToastProvider } from './contexts/ToastContext';
 import LiveSharePage from './pages/LiveSharePage';
@@ -75,6 +77,7 @@ export default function App() {
         <Route path="/device-health" element={<RoleRoute page="device-health"><DeviceHealthPage /></RoleRoute>} />
         <Route path="/telemetry" element={<RoleRoute page="telemetry"><TelemetryPage /></RoleRoute>} />
         <Route path="/map" element={<RoleRoute page="map"><MapPage /></RoleRoute>} />
+        <Route path="/command-center" element={<RoleRoute page="command-center"><CommandCenterPage /></RoleRoute>} />
         <Route path="/client-users" element={<RoleRoute page="client-users"><ClientUsersPage /></RoleRoute>} />
         <Route path="/driver-behavior" element={<RoleRoute page="driver-behavior"><DriverBehaviorPage /></RoleRoute>} />
         <Route path="/users" element={<RoleRoute page="users"><UsersPage /></RoleRoute>} />
@@ -84,6 +87,7 @@ export default function App() {
         <Route path="/setup" element={<RoleRoute page="setup"><SetupGuidePage /></RoleRoute>} />
         <Route path="/financial/pricing" element={<RoleRoute page="financial-pricing"><PricingPage /></RoleRoute>} />
         <Route path="/financial/statements" element={<RoleRoute page="financial-statements"><ClientStatementsPage /></RoleRoute>} />
+        <Route path="/financial/billing" element={<RoleRoute page="financial-billing"><OrgBillingPage /></RoleRoute>} />
         <Route path="/settings" element={<SettingsRoute><SettingsPage /></SettingsRoute>} />
         <Route path="/settings/notifications" element={<SettingsRoute><RoleRoute page="notification-sounds"><SettingsPage /></RoleRoute></SettingsRoute>} />
         <Route path="/notification-sounds" element={<RoleRoute page="notification-sounds"><Navigate to="/settings/notifications" replace /></RoleRoute>} />

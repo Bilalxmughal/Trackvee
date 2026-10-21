@@ -28,6 +28,7 @@ interface DeviceHealth {
   issues: string[];
 }
 type Filter = 'all' | 'attention' | 'offline';
+interface ExpiringDevice { id: string; imei: string; expiresAt: string; vehicleLicensePlate: string | null; vehicleName: string | null; }
 
 const CONNECTION_LABEL: Record<Connection, string> = {
   online: 'Online', delayed: 'Delayed', offline: 'Offline', never_seen: 'Never connected',
@@ -58,6 +59,7 @@ export default function DeviceHealthScreen() {
   const { canDo, loading: permissionsLoading } = usePortalPermissions();
   const canView = !permissionsLoading && canDo('vehicles', 'view');
   const [rows, setRows] = useState<DeviceHealth[]>([]);
+  const [expiring, setExpiring] = useState<ExpiringDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -71,9 +73,13 @@ export default function DeviceHealthScreen() {
     busy.current = true;
     if (manual) setRefreshing(true);
     try {
-      const response = await api.get<DeviceHealth[]>('/telemetry/device-health');
+      const [healthRes, expiringRes] = await Promise.all([
+        api.get<DeviceHealth[]>('/telemetry/device-health'),
+        api.get<ExpiringDevice[]>('/devices/expiring?days=30').catch(() => ({ data: [] as ExpiringDevice[] })),
+      ]);
       if (focused.current) {
-        setRows(Array.isArray(response.data) ? response.data : []);
+        setRows(Array.isArray(healthRes.data) ? healthRes.data : []);
+        setExpiring(Array.isArray(expiringRes.data) ? expiringRes.data : []);
         setError('');
       }
     } catch {
@@ -167,6 +173,28 @@ export default function DeviceHealthScreen() {
           ))}
         </View>
 
+        {expiring.length > 0 && (
+          <View style={styles.expiringSection}>
+            <Text style={styles.expiringSectionTitle}>Expiring Soon ({expiring.length})</Text>
+            {expiring.map(dev => {
+              const daysLeft = Math.ceil((new Date(dev.expiresAt).getTime() - Date.now()) / 86400000);
+              const expired = daysLeft < 0;
+              const urgent = !expired && daysLeft <= 7;
+              const color = expired ? t.red : urgent ? t.idle : t.secondary;
+              const label = expired ? `Expired ${Math.abs(daysLeft)}d ago` : daysLeft === 0 ? 'Expires today' : `${daysLeft}d left`;
+              return (
+                <View key={dev.id} style={[styles.expiringRow, { borderLeftColor: color }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.expiringVehicle} numberOfLines={1}>{dev.vehicleLicensePlate || dev.vehicleName || dev.imei}</Text>
+                    <Text style={styles.expiringImei} numberOfLines={1}>{dev.imei}</Text>
+                  </View>
+                  <Text style={[styles.expiringBadge, { color, borderColor: color }]}>{label}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {error ? <View style={styles.error}><Text style={styles.errorText}>{error}</Text><Pressable onPress={() => { void load(true); }}><Text style={styles.retry}>Retry</Text></Pressable></View> : null}
         {loading ? <View style={styles.state}><ActivityIndicator color={t.red} /><Text style={styles.stateText}>Loading device health…</Text></View>
           : visibleRows.length === 0 ? <View style={styles.state}><TablerIcon name="cpu" size={28} color={t.muted} /><Text style={styles.emptyTitle}>{rows.length ? 'No matching devices' : 'No devices found'}</Text><Text style={styles.emptyText}>{rows.length ? 'Try another search or filter.' : 'Devices assigned to your account will appear here.'}</Text></View>
@@ -245,8 +273,8 @@ function createStyles(t: AppTheme) {
     metricLabel: { color: t.secondary, fontSize: 9.5 },
     metricValue: { fontSize: 11.5, fontWeight: '600', marginTop: 2 },
     metricDetail: { color: t.muted, fontSize: 9.5, marginTop: 2 },
-    trackerLag: { color: '#b45309', fontSize: 10, marginTop: 7 },
-    issues: { color: '#b45309', fontSize: 10, lineHeight: 15, marginTop: 7 },
+    trackerLag: { color: t.idle, fontSize: 10, marginTop: 7 },
+    issues: { color: t.idle, fontSize: 10, lineHeight: 15, marginTop: 7 },
     healthy: { color: t.moving, fontSize: 10, marginTop: 7 },
     error: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: t.border },
     errorText: { flex: 1, color: t.red, fontSize: 11 },
@@ -257,5 +285,11 @@ function createStyles(t: AppTheme) {
     emptyTitle: { color: t.ink, fontSize: 14, fontWeight: '600', textAlign: 'center' },
     emptyText: { color: t.secondary, fontSize: 11, textAlign: 'center', lineHeight: 16 },
     refreshNote: { color: t.muted, textAlign: 'center', paddingVertical: 14, fontSize: 10 },
+    expiringSection: { marginBottom: 12, backgroundColor: t.card, borderRadius: 10, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: t.border },
+    expiringSectionTitle: { fontSize: 11, fontWeight: '700', color: t.secondary, textTransform: 'uppercase', letterSpacing: 0.6, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border },
+    expiringRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 9, borderLeftWidth: 3, gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border },
+    expiringVehicle: { fontSize: 13, fontWeight: '600', color: t.ink },
+    expiringImei: { fontSize: 10, color: t.secondary, marginTop: 1 },
+    expiringBadge: { fontSize: 10, fontWeight: '700', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5, borderWidth: 1 },
   });
 }

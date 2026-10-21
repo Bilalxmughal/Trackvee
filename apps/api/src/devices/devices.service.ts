@@ -312,6 +312,62 @@ export class DevicesService {
     return res.json() as Promise<{ sent: boolean; connected: boolean }>;
   }
 
+  async getExpiring(user: User, days = 30): Promise<Device[]> {
+    const cutoff = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    if (ADMIN_ROLES.includes(user.role)) {
+      return this.dataSource.query(`
+        SELECT d.id, d.imei, d.display_id AS "displayId", d.expires_at AS "expiresAt",
+               v.license_plate AS "vehicleLicensePlate", v.name AS "vehicleName"
+        FROM devices d LEFT JOIN vehicles v ON v.id = d.vehicle_id
+        WHERE d.expires_at IS NOT NULL AND d.expires_at <= $1
+        ORDER BY d.expires_at ASC
+      `, [cutoff]);
+    }
+    if (!user.organizationId) return [];
+    return this.dataSource.query(`
+      SELECT d.id, d.imei, d.display_id AS "displayId", d.expires_at AS "expiresAt",
+             v.license_plate AS "vehicleLicensePlate", v.name AS "vehicleName"
+      FROM devices d LEFT JOIN vehicles v ON v.id = d.vehicle_id
+      WHERE d.expires_at IS NOT NULL AND d.expires_at <= $1
+        AND v.organization_id = $2
+      ORDER BY d.expires_at ASC
+    `, [cutoff, user.organizationId]);
+  }
+
+  async bulkImport(user: User, items: { imei: string; name?: string; simNumber?: string }[]): Promise<{ imported: number; skipped: string[] }> {
+    this.assertDeviceManager(user);
+    if (!items?.length) throw new BadRequestException('No items to import');
+    if (items.length > 500) throw new BadRequestException('Maximum 500 devices per import');
+    const skipped: string[] = [];
+    let imported = 0;
+    for (const item of items) {
+      const imei = item.imei?.trim();
+      if (!imei || imei.length < 10 || imei.length > 20 || !/^\d+$/.test(imei)) {
+        skipped.push(`${imei || '(empty)'}: Invalid IMEI`);
+        continue;
+      }
+      const existing = await this.repo.findOne({ where: { imei } });
+      if (existing) { skipped.push(`${imei}: Already exists`); continue; }
+      const device = this.repo.create({ imei, name: item.name?.trim() || null, simNumber: item.simNumber?.trim() || null, inventoryStatus: 'in_stock' });
+      await this.repo.save(device);
+      imported++;
+    }
+    return { imported, skipped };
+  }
+
+  async exportCsv(user: User, cityId?: string): Promise<string> {
+    this.assertInternal(user);
+    const devices = await this.inventory(user, { cityId });
+    const header = 'IMEI,Name,SIM Number,Status,Inventory Status,Vehicle,Client,Expires At,Created At';
+    const rows = (devices as Record<string, unknown>[]).map(d => [
+      d.imei, d.name ?? '', d.simNumber ?? '', d.status, d.inventoryStatus,
+      d.licensePlate ?? '', d.clientName ?? '',
+      d.expiresAt ? new Date(d.expiresAt as string).toISOString() : '',
+      new Date(d.createdAt as string).toISOString(),
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+    return [header, ...rows].join('\n');
+  }
+
   async remove(id: string, user: User): Promise<void> {
     this.assertDeviceManager(user);
     const device = await this.findOne(id);

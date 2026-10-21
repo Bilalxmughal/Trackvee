@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Headers, UnauthorizedException, HttpCode, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Headers, UnauthorizedException, HttpCode, Req, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { DevicesService } from './devices.service.js';
@@ -37,6 +38,30 @@ export class DevicesController {
       await this.devicesService.updateLastSeen(body.imei).catch(() => {});
     }
     return { ok: true };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('expiring')
+  getExpiring(@CurrentUser() user: User, @Query('days') days?: string) {
+    return this.devicesService.getExpiring(user, days ? +days : 30);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('bulk-import')
+  bulkImport(@CurrentUser() user: User, @Body() body: { items: { imei: string; name?: string; simNumber?: string }[] }) {
+    return this.devicesService.bulkImport(user, body.items);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('export')
+  async exportCsv(@CurrentUser() user: User, @Query('cityId') cityId: string | undefined, @Res() res: Response) {
+    const csv = await this.devicesService.exportCsv(user, cityId);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="devices.csv"');
+    res.send(csv);
   }
 
   @ApiBearerAuth()

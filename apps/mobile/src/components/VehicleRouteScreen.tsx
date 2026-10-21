@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import MapView, { AnimatedRegion, Marker, Polyline, UrlTile, type LatLng, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useFleet } from '../hooks/useFleet';
 import { TablerIcon } from './TablerIcon';
 import { useTheme } from '../hooks/useTheme';
@@ -19,6 +19,13 @@ type HistoryEvent = { kind: 'Start'|'Driving'|'Idle'|'Parked'|'Gap'|'End'; point
 type MapStyle = 'street' | 'satellite' | 'hybrid' | 'terrain';
 const PK_TIME = new Intl.DateTimeFormat('en-PK', { timeZone: 'Asia/Karachi', hour: 'numeric', minute: '2-digit', hour12: true });
 const PK_DATE = new Intl.DateTimeFormat('en-PK', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', year: 'numeric' });
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtInputDate(val: string) {
+  const [datePart = '', timePart = ''] = val.split(' ');
+  const [y, m, d] = datePart.split('-').map(Number);
+  if (!y || !m || !d) return val;
+  return `${String(d).padStart(2,'0')}-${MONTHS[m-1] ?? ''}-${y} ${timePart}`;
+}
 const valid = isUsableHistoryPoint;
 const localInput = (date: Date) => {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date);
@@ -110,8 +117,8 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
   const regionRef = useRef<Region>({ latitude: 24.8607, longitude: 67.0011, latitudeDelta: 0.08, longitudeDelta: 0.08 });
   const [mapStyle, setMapStyle] = useState<MapStyle>('street');
   const [styleOpen, setStyleOpen] = useState(false);
-  const initialRange = useRef(presetDates(params.preset ?? '24h')).current;
-  const [range, setRange] = useState<Period>(params.preset ?? '24h');
+  const initialRange = useRef(presetDates(params.preset ?? 'today')).current;
+  const [range, setRange] = useState<Period>(params.preset ?? 'today');
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
   const initialPresetParam = useRef(params.preset);
@@ -148,7 +155,7 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
 
   useEffect(() => { setImei(params.imei ?? ''); }, [params.imei]);
   useEffect(() => { if (!permissionsLoading && !canDo('map') && !canDo('vehicles')) router.replace('/map'); }, [canDo, permissionsLoading]);
-  const load = useCallback(async (start = from, end = to) => {
+  const load = useCallback(async (start = from, end = to, currentRange = range) => {
     if (!imei) return;
     const request = ++loadRef.current;
     setLoading(true); setError(''); setPoints([]); setSelected(null); setSelectedEvent(null); setPlaying(false); setFrame(0);
@@ -160,12 +167,23 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
       const history = await fetchTelemetryHistory<Point>(imei, startDate.toISOString(), endDate.toISOString());
       if (request !== loadRef.current) return;
       const next = history.filter(valid);
+      if (!next.length && currentRange === 'today') {
+        const yest = presetDates('yesterday');
+        setRange('yesterday'); setFrom(yest.from); setTo(yest.to);
+        const yHistory = await fetchTelemetryHistory<Point>(imei, fromInput(yest.from).toISOString(), fromInput(yest.to).toISOString());
+        if (request !== loadRef.current) return;
+        const yNext = yHistory.filter(valid);
+        setPoints(yNext);
+        if (!yNext.length) setError('No history available for today or yesterday.');
+        if (yNext.length > 1) mapRef.current?.fitToCoordinates(yNext.map(p => ({ latitude: p.latitude, longitude: p.longitude })), { edgePadding: { top: 65, right: 45, bottom: 50, left: 45 }, animated: true });
+        return;
+      }
       setPoints(next);
       if (!next.length) setError('No history is available for this vehicle and period.');
       if (next.length > 1) mapRef.current?.fitToCoordinates(next.map(p => ({ latitude: p.latitude, longitude: p.longitude })), { edgePadding: { top: 65, right: 45, bottom: 50, left: 45 }, animated: true });
     } catch { if (request === loadRef.current) setError('History could not be loaded. Try again.'); }
     finally { if (request === loadRef.current) setLoading(false); }
-  }, [imei, from, to]);
+  }, [imei, from, to, range]);
 
   useEffect(() => {
     if (!params.preset || initialPresetParam.current === params.preset) return;
@@ -175,7 +193,7 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
   }, [params.preset, load]);
 
   useEffect(() => {
-    if (imei && !permissionsLoading && (canDo('map') || canDo('vehicles'))) void load(from, to);
+    if (imei && !permissionsLoading && (canDo('map') || canDo('vehicles'))) void load(from, to, range);
     return () => { loadRef.current++; };
     // Date edits only fetch when Load History is pressed; do not trigger a request per keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -196,6 +214,21 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
     if (following) mapRef.current?.animateToRegion({ latitude: current.latitude, longitude: current.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 240);
   }, [current?.latitude, current?.longitude, following, marker]);
   useEffect(() => { setFrame(0); setSelected(null); setPlaying(false); }, [imei]);
+
+  const speedSegments = useMemo(() => {
+    if (route.length < 2) return [];
+    const N = Math.min(route.length, 300);
+    const step = route.length / N;
+    return Array.from({ length: N }, (_, i) => {
+      const pt = route[Math.floor(i * step)]!;
+      return Math.min(1, pt.speedKmh / 100);
+    });
+  }, [route]);
+
+  const cycleSpeed = () => {
+    const speeds = [0.5, 1, 2, 4, 8];
+    setSpeed(prev => speeds[(speeds.indexOf(prev) + 1) % speeds.length]!);
+  };
 
   const setPreset = (next: Period) => {
     if (next === 'custom') return;
@@ -238,14 +271,29 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
 
   if (permissionsLoading || (!canDo('map') && !canDo('vehicles'))) return <SafeAreaView style={s.screen} edges={['top']}><ActivityIndicator style={{ marginTop: 24 }} color={t.red}/></SafeAreaView>;
   return <SafeAreaView style={s.screen} edges={['top']}>
+    <Stack.Screen options={{ gestureEnabled: false }} />
     <View style={s.header}>
-      <Pressable onPress={() => router.back()} accessibilityLabel="Back"><TablerIcon name="back" size={21} /></Pressable>
-      <Text style={s.title}>{mode === 'history' ? 'History' : 'Replay'}</Text>
-      {mode === 'history' && <Text style={s.vehicleName}>{plate}</Text>}
+      <Pressable onPress={() => router.back()} style={s.backBtn} accessibilityLabel="Back"><TablerIcon name="arrow-left" size={19} color={t.ink} /></Pressable>
+      <View style={{ flex: 1 }}>
+        <Text style={s.title}>{mode === 'history' ? 'History' : 'Replay'}</Text>
+        {mode === 'history' && <Text style={s.vehicleName}>{plate}</Text>}
+      </View>
     </View>
     <View style={s.filters}>
-      <View style={s.periodChoices}>{periodOptions.map(option => <Pressable key={option.id} onPress={() => setPreset(option.id)} style={[s.rangeButton, range === option.id && s.rangeSelected]}><Text style={[s.rangeText, range === option.id && s.rangeTextSelected]}>{option.label}</Text></Pressable>)}</View>
-      <View style={s.dateRow}><Pressable onPress={() => setPickerTarget('from')} style={extra.dateChip}><Text style={s.dateCaption}>From</Text><Text numberOfLines={1} style={s.dateValue}>{from}</Text></Pressable><Pressable onPress={() => setPickerTarget('to')} style={extra.dateChip}><Text style={s.dateCaption}>To</Text><Text numberOfLines={1} style={s.dateValue}>{to}</Text></Pressable><Pressable style={s.loadButton} onPress={() => void load()}><Text style={s.loadText}>Load</Text></Pressable></View>
+      <View style={extra.segmentTrack}>{periodOptions.map(option => <Pressable key={option.id} onPress={() => setPreset(option.id)} style={[extra.segmentBtn, range === option.id && extra.segmentBtnActive]}><Text style={[extra.segmentText, range === option.id && extra.segmentTextActive]}>{option.label}</Text></Pressable>)}</View>
+      <View style={s.dateRow}>
+        <Pressable onPress={() => setPickerTarget('from')} style={extra.dateChip}>
+          <TablerIcon name="calendar" size={13} color={t.secondary} />
+          <Text numberOfLines={1} style={s.dateValue}><Text style={s.dateCaption}>From: </Text>{fmtInputDate(from)}</Text>
+        </Pressable>
+        <Pressable onPress={() => setPickerTarget('to')} style={extra.dateChip}>
+          <TablerIcon name="calendar" size={13} color={t.secondary} />
+          <Text numberOfLines={1} style={s.dateValue}><Text style={s.dateCaption}>To: </Text>{fmtInputDate(to)}</Text>
+        </Pressable>
+        <Pressable style={s.loadButton} onPress={() => void load()} accessibilityLabel="Load history">
+          <TablerIcon name="arrow-right" size={18} color="#fff" />
+        </Pressable>
+      </View>
     </View>
     <View style={[s.mapWrap, mode === 'history' && { flex: 1.15 }]}>
       {current ? <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={{ latitude: current.latitude, longitude: current.longitude, latitudeDelta: 0.025, longitudeDelta: 0.025 }} mapType={mapStyle === 'street' ? 'none' : mapStyle} showsCompass={false} toolbarEnabled={false} moveOnMarkerPress={false} onRegionChangeComplete={region => { regionRef.current = region; }}>
@@ -262,25 +310,77 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
         {current && <Marker.Animated coordinate={marker as unknown as LatLng} tracksViewChanges stopPropagation><View style={extra.replayCar}><Image source={carIcon} resizeMode="contain" style={[s.car, { transform: [{ rotate: `${(currentHeading + 180) % 360}deg` }] }]} /><View style={extra.carSpeedLabel}><Text style={extra.carSpeedText}>{Math.round(current.speedKmh)} km/h</Text></View></View></Marker.Animated>}
       </MapView> : <View style={s.mapEmpty}>{loading ? <ActivityIndicator color={t.red} /> : <TablerIcon name="map" size={25} color={t.muted} />}<Text style={s.muted}>{loading ? 'Loading route…' : error || 'Select a vehicle and load its history.'}</Text></View>}
       <View style={[s.mapControls, { top: 10 + 0 }]}>
-        <Pressable onPress={() => setStyleOpen(v => !v)} style={s.mapButton} accessibilityLabel="Map type"><TablerIcon name="layers" size={18} /></Pressable>
+        <Pressable onPress={() => setStyleOpen(v => !v)} style={s.mapButton} accessibilityLabel="Map type"><TablerIcon name="layers" size={18} color={t.ink} /></Pressable>
         {styleOpen && <View style={s.mapMenu}>{allowedStyles.map(value => <Pressable key={value} onPress={() => { setMapStyle(value); setStyleOpen(false); }} style={s.mapOption}><Text style={[s.mapOptionText, mapStyle === value && s.activeOption]}>{value[0]!.toUpperCase() + value.slice(1)}</Text></Pressable>)}</View>}
         <Pressable onPress={() => zoom(0.55)} style={s.mapButton} accessibilityLabel="Zoom in"><Text style={s.plus}>+</Text></Pressable>
         <Pressable onPress={() => zoom(1.8)} style={s.mapButton} accessibilityLabel="Zoom out"><Text style={s.minus}>−</Text></Pressable>
         <Pressable onPress={() => { setFollowing(v => !v); if (current) mapRef.current?.animateToRegion({ latitude: current.latitude, longitude: current.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 250); }} style={s.mapButton} accessibilityLabel="Follow location"><TablerIcon name="locate" size={18} color={following ? t.red : t.ink} /></Pressable>
       </View>
-      {selected && <View style={extra.pointCardAuto}><Pressable style={s.closePoint} onPress={() => {setSelected(null);setSelectedEvent(null);}}><TablerIcon name="close" size={16}/></Pressable><Text numberOfLines={2} style={[s.pointTitle, extra.addressTitle]}>{selectedEvent?.kind === 'Gap' ? 'GPS data gap' : selectedAddress}</Text>{selectedEvent ? <><Text style={s.muted}>From · {PK_DATE.format(new Date(selectedEvent.point.timestamp))} {PK_TIME.format(new Date(selectedEvent.point.timestamp))} PKT</Text><Text style={s.muted}>To · {PK_DATE.format(new Date(selectedEvent.end.timestamp))} {PK_TIME.format(new Date(selectedEvent.end.timestamp))} PKT</Text></> : <Text style={s.muted}>Time · {PK_DATE.format(new Date(selected.timestamp))} {PK_TIME.format(new Date(selected.timestamp))} PKT</Text>}{selectedEvent?.kind === 'Gap' && <Text style={extra.stopDuration}>No GPS updates · {formatDuration(selectedEvent.duration)}. {selectedEvent.stopEstimateIncluded ? 'Included in estimated stop duration.' : 'Stop duration is unconfirmed.'}</Text>}{selectedEvent && (selectedEvent.kind === 'Parked' || selectedEvent.kind === 'Idle') && <Text style={extra.stopDuration}>Stop duration · {selectedEvent.estimatedGapSec ? '~' : ''}{formatDuration(selectedEvent.duration)}{selectedEvent.estimatedGapSec ? ` (includes ${formatDuration(selectedEvent.estimatedGapSec)} GPS gap)` : ''}</Text>}{selectedEvent?.kind !== 'Gap' && <Text style={s.muted}>{Math.round(selectedEvent?.kind === 'Driving' ? selectedEvent.avgSpeed : selected.speedKmh)} km/h · Ignition {selectedEvent?.kind === 'Driving' || selected.speedKmh >= 5 ? 'On' : selected.ignition === true ? 'On' : selected.ignition === false ? 'Off' : '—'}</Text>}</View>}
+      {mode === 'replay' && current && <View style={extra.floatingSpeed} pointerEvents="none">
+        <Text style={extra.floatingSpeedVal}>{Math.round(current.speedKmh)}</Text>
+        <Text style={extra.floatingSpeedUnit}>km/h</Text>
+      </View>}
+      {selected && <View style={extra.pointCardAuto}><Pressable style={s.closePoint} onPress={() => {setSelected(null);setSelectedEvent(null);}}><TablerIcon name="x" size={16} color={t.ink}/></Pressable><Text numberOfLines={2} style={[s.pointTitle, extra.addressTitle]}>{selectedEvent?.kind === 'Gap' ? 'GPS data gap' : selectedAddress}</Text>{selectedEvent ? <><Text style={s.muted}>From · {PK_DATE.format(new Date(selectedEvent.point.timestamp))} {PK_TIME.format(new Date(selectedEvent.point.timestamp))} PKT</Text><Text style={s.muted}>To · {PK_DATE.format(new Date(selectedEvent.end.timestamp))} {PK_TIME.format(new Date(selectedEvent.end.timestamp))} PKT</Text></> : <Text style={s.muted}>Time · {PK_DATE.format(new Date(selected.timestamp))} {PK_TIME.format(new Date(selected.timestamp))} PKT</Text>}{selectedEvent?.kind === 'Gap' && <Text style={extra.stopDuration}>No GPS updates · {formatDuration(selectedEvent.duration)}. {selectedEvent.stopEstimateIncluded ? 'Included in estimated stop duration.' : 'Stop duration is unconfirmed.'}</Text>}{selectedEvent && (selectedEvent.kind === 'Parked' || selectedEvent.kind === 'Idle') && <Text style={extra.stopDuration}>Stop duration · {selectedEvent.estimatedGapSec ? '~' : ''}{formatDuration(selectedEvent.duration)}{selectedEvent.estimatedGapSec ? ` (includes ${formatDuration(selectedEvent.estimatedGapSec)} GPS gap)` : ''}</Text>}{selectedEvent?.kind !== 'Gap' && <Text style={s.muted}>{Math.round(selectedEvent?.kind === 'Driving' ? selectedEvent.avgSpeed : selected.speedKmh)} km/h · Ignition {selectedEvent?.kind === 'Driving' || selected.speedKmh >= 5 ? 'On' : selected.ignition === true ? 'On' : selected.ignition === false ? 'Off' : '—'}</Text>}</View>}
     </View>
     {mode === 'replay' ? <View style={s.replayPanel}>
-      <View style={s.replayHeading}><Text style={s.replayPlate}>{plate}</Text><Text style={s.muted}>{current ? `${PK_TIME.format(new Date(current.timestamp))} / ${route.length ? PK_TIME.format(new Date(route[route.length - 1]!.timestamp)) : '--:--'}` : 'No replay data'}</Text></View>
-      <View style={s.seekHitArea} onLayout={e => { progressWidth.current = e.nativeEvent.layout.width; }} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true} onResponderTerminationRequest={() => false} onResponderGrant={e => seek(e.nativeEvent.locationX / progressWidth.current)} onResponderMove={e => seek(e.nativeEvent.locationX / progressWidth.current)}><View style={s.seekTrack}><View style={[s.seekFill, { width: `${route.length > 1 ? (frame / (route.length - 1)) * 100 : 0}%` }]} /><View style={[s.seekThumb,{left:`${route.length > 1 ? (frame / (route.length - 1)) * 100 : 0}%`}]}/></View></View>
-      <View style={s.playControls}><Pressable style={s.mediaButton} onPress={() => setFrame(n => Math.max(0,n-1))} accessibilityLabel="Previous point"><TablerIcon name="track-back" size={25}/></Pressable><Pressable style={s.playButton} onPress={() => { if (frame >= route.length - 1) setFrame(0); setPlaying(v => !v); }} accessibilityLabel={playing ? 'Pause replay' : 'Play replay'}><TablerIcon name={playing ? 'pause' : 'play'} size={29} color="#fff"/></Pressable><Pressable style={s.mediaButton} onPress={() => setFrame(n => Math.min(route.length-1,n+1))} accessibilityLabel="Next point"><TablerIcon name="track-forward" size={25}/></Pressable>
-        <View><Pressable style={extra.speedChoiceWide} onPress={() => setSpeedMenuOpen(v => !v)} accessibilityLabel="Replay speed"><Text style={s.speedText}>{speed}×</Text><TablerIcon name="down" size={13} color={t.secondary}/></Pressable>{speedMenuOpen && <View style={extra.speedMenuWide}>{[0.5,1,2,4,8].map(value => <Pressable key={value} onPress={() => {setSpeed(value);setSpeedMenuOpen(false);}} style={s.speedOption}><Text style={[s.speedText,speed===value&&{color:t.red,fontWeight:'700'}]}>{value}×</Text></Pressable>)}</View>}</View>
+      {/* Header row */}
+      <View style={s.replayHeading}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.replayPlate}>{plate}</Text>
+          <Text style={s.replayTime}>{current ? `${PK_TIME.format(new Date(current.timestamp))} → ${route.length ? PK_TIME.format(new Date(route[route.length - 1]!.timestamp)) : '--:--'}` : 'No replay data'}</Text>
+        </View>
+        <View style={s.replayStatRow}>
+          <View style={s.replayStat}><Text style={[s.replayStatVal, { color: (current?.speedKmh ?? 0) >= 5 || current?.ignition === true ? t.moving : t.secondary }]}>{(current?.speedKmh ?? 0) >= 5 || current?.ignition === true ? 'On' : current?.ignition === false ? 'Off' : '—'}</Text><Text style={s.replayStatLbl}>Ignition</Text></View>
+        </View>
       </View>
-      <View style={s.replayOptions}><Text style={s.currentSpeed}>Speed {Math.round(current?.speedKmh ?? 0)} km/h · Ignition {current?.ignition === true ? 'On' : current?.ignition === false ? 'Off' : '—'} · {current?.satellites ?? 0} satellites</Text></View>
-      {replayGapSeconds != null && <Text style={extra.gapNotice}>GPS data gap · No updates for {formatDuration(replayGapSeconds)}. The route during this gap is unknown.</Text>}
+      {/* Scrubber */}
+      <View style={s.seekHitArea} onLayout={e => { progressWidth.current = e.nativeEvent.layout.width; }} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true} onResponderTerminationRequest={() => false} onResponderGrant={e => seek(e.nativeEvent.locationX / progressWidth.current)} onResponderMove={e => seek(e.nativeEvent.locationX / progressWidth.current)}>
+        {/* Waveform bars */}
+        {speedSegments.length > 0 && <View style={s.waveformWrap} pointerEvents="none">
+          {speedSegments.map((ratio, i) => <View key={i} style={[s.waveBar, { height: Math.max(2, Math.round(ratio * 16)), opacity: 0.2 + ratio * 0.75 }]} />)}
+        </View>}
+        {/* Played overlay on waveform */}
+        {speedSegments.length > 0 && route.length > 1 && <View style={[s.waveformPlayed, { width: `${(frame / (route.length - 1)) * 100}%` }]} pointerEvents="none" />}
+        {/* Base track (shown when no waveform) */}
+        {speedSegments.length === 0 && <View style={s.seekTrack}><View style={[s.seekFill, { width: `${route.length > 1 ? (frame / (route.length - 1)) * 100 : 0}%` }]} /></View>}
+        <View style={[s.seekThumb, speedSegments.length > 0 ? { bottom: 10 } : {}, { left: `${route.length > 1 ? (frame / (route.length - 1)) * 100 : 0}%` }]} />
+      </View>
+      {/* Controls */}
+      <View style={extra.controlsWrap}>
+        <View style={s.playControls}>
+          <Pressable style={s.mediaButton} onPress={() => jump(-60)} accessibilityLabel="Back 1 min"><TablerIcon name="rewind" size={22} color={t.secondary} /></Pressable>
+          <Pressable style={s.mediaButton} onPress={() => setFrame(n => Math.max(0, n - 1))} accessibilityLabel="Previous point"><TablerIcon name="track-back" size={22} color={t.ink} /></Pressable>
+          <Pressable style={s.playButton} onPress={() => { if (frame >= route.length - 1) setFrame(0); setPlaying(v => !v); }} accessibilityLabel={playing ? 'Pause replay' : 'Play replay'}>
+            <TablerIcon name={playing ? 'pause' : 'play'} size={26} color="#fff" />
+          </Pressable>
+          <Pressable style={s.mediaButton} onPress={() => setFrame(n => Math.min(route.length - 1, n + 1))} accessibilityLabel="Next point"><TablerIcon name="track-forward" size={22} color={t.ink} /></Pressable>
+          <Pressable style={s.mediaButton} onPress={() => jump(60)} accessibilityLabel="Forward 1 min"><TablerIcon name="fast-forward" size={22} color={t.secondary} /></Pressable>
+        </View>
+        <View style={extra.speedWrap}>
+          <Pressable style={extra.speedChoiceWide} onPress={cycleSpeed} accessibilityLabel="Replay speed">
+            <Text style={s.speedText}>{speed}×</Text>
+          </Pressable>
+        </View>
+      </View>
+      {replayGapSeconds != null && <Text style={extra.gapNotice}>GPS gap · No updates for {formatDuration(replayGapSeconds)}</Text>}
       {error ? <Text style={s.error}>{error}</Text> : null}
     </View> : <View style={s.historyList}>
       {error ? <Text style={s.error}>{error}</Text> : null}
+      {!loading && historyEvents.length > 0 && (() => {
+        const driving = historyEvents.filter(e => e.kind === 'Driving');
+        const totalDist = Math.round(driving.reduce((sum, e) => sum + e.avgSpeed * e.duration / 3600, 0));
+        const totalDur = historyEvents.filter(e => e.kind !== 'Start' && e.kind !== 'End' && e.kind !== 'Gap').reduce((sum, e) => sum + e.duration, 0);
+        const maxSpd = Math.round(Math.max(0, ...historyEvents.map(e => e.avgSpeed)));
+        return (
+          <View style={extra.histSummary}>
+            <View style={extra.histStat}><Text style={extra.histStatVal}>{totalDist}</Text><Text style={extra.histStatLbl}>km</Text></View>
+            <View style={extra.histDivider} />
+            <View style={extra.histStat}><Text style={extra.histStatVal}>{formatDuration(totalDur)}</Text><Text style={extra.histStatLbl}>duration</Text></View>
+            <View style={extra.histDivider} />
+            <View style={extra.histStat}><Text style={extra.histStatVal}>{maxSpd}</Text><Text style={extra.histStatLbl}>max km/h</Text></View>
+          </View>
+        );
+      })()}
       <FlatRoute events={historyEvents} onPress={(point,event) => choosePoint(point,event)} selectedEvent={selectedEvent} loading={loading} />
     </View>}
     <DateTimePickerModal value={pickerTarget === 'from' ? from : to} visible={pickerTarget !== null} onClose={() => setPickerTarget(null)} onApply={value => { if (pickerTarget === 'from') setFrom(value); else setTo(value); setRange('custom'); setPickerTarget(null); }} />
@@ -293,11 +393,34 @@ function FlatRoute({ events, onPress, selectedEvent, loading }: { events: Histor
   const extra = useMemo(() => createExtra(t), [t]);
   if (loading) return <ActivityIndicator style={{ margin: 15 }} color={t.red} />;
   if (!events.length) return null;
-  const renderEvent = ({ item: event }: { item: HistoryEvent }) => <Pressable onPress={() => onPress(event.point,event)} style={[s.historyRow, selectedEvent?.point.timestamp === event.point.timestamp && extra.historyRowSelected]}>
-      <View style={[s.timelineMark, event.kind === 'Start' ? s.timelineStart : event.kind === 'End' ? s.timelineEnd : event.kind === 'Gap' ? extra.timelineGap : event.kind === 'Idle' ? s.timelineIdle : event.kind === 'Parked' ? extra.timelineParkedTheme : extra.timelineDrivingGreen]}><Text style={s.timelineLetter}>{event.kind === 'Gap' ? '!' : event.kind[0]}</Text></View>
-      <View style={{ flex: 1 }}><Text style={s.historyTime}>{event.kind === 'Gap' ? 'GPS data gap' : event.kind} · {PK_TIME.format(new Date(event.point.timestamp))}{event.kind !== 'Start' && event.kind !== 'End' ? ` – ${PK_TIME.format(new Date(event.end.timestamp))}` : ''}</Text><Text style={s.muted}>{event.kind === 'Gap' ? `No GPS updates · ${formatDuration(event.duration)} · ${event.stopEstimateIncluded ? 'included in estimated stop' : 'stop unconfirmed'}` : event.kind === 'Start' || event.kind === 'End' ? '—' : `${event.estimatedGapSec ? '~' : ''}${formatDuration(event.duration)}${event.estimatedGapSec ? ` · includes ${formatDuration(event.estimatedGapSec)} GPS gap` : ''} · Avg ${Math.round(event.avgSpeed)} km/h`} · {event.point.latitude.toFixed(5)}, {event.point.longitude.toFixed(5)}</Text></View>
-      <TablerIcon name="locate" size={17} color={t.secondary}/>
-    </Pressable>;
+  const kindIcon: Record<string, string> = { Start: 'flag', End: 'flag-off', Driving: 'chevron-right', Idle: 'pause', Parked: 'map-pin', Gap: 'alert-triangle' };
+  const kindColor: Record<string, string> = { Start: '#16a34a', End: '#dc2626', Driving: t.red, Idle: '#f59e0b', Parked: t.secondary, Gap: '#6b7280' };
+  const renderEvent = ({ item: event }: { item: HistoryEvent }) => {
+    const isSelected = selectedEvent?.point.timestamp === event.point.timestamp;
+    const color = kindColor[event.kind] ?? t.secondary;
+    const icon = kindIcon[event.kind] ?? 'circle';
+    const timeStr = `${PK_TIME.format(new Date(event.point.timestamp))}${event.kind !== 'Start' && event.kind !== 'End' ? ` – ${PK_TIME.format(new Date(event.end.timestamp))}` : ''}`;
+    const meta = event.kind === 'Gap' ? `No GPS · ${formatDuration(event.duration)}` : event.kind === 'Start' || event.kind === 'End' ? '' : `${event.estimatedGapSec ? '~' : ''}${formatDuration(event.duration)} · ${Math.round(event.avgSpeed)} km/h`;
+    const dist = event.kind === 'Driving' ? Math.round(event.avgSpeed * event.duration / 3600) : null;
+    return (
+      <Pressable onPress={() => onPress(event.point, event)} style={[s.historyRow, isSelected && { backgroundColor: `${color}0d`, borderLeftColor: color }]}>
+        <View style={[s.timelineBadge, { backgroundColor: `${color}20` }]}>
+          <TablerIcon name={icon} size={15} color={color} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={[s.historyKind, { color: t.ink }]}>{event.kind === 'Gap' ? 'GPS gap' : event.kind}</Text>
+            {dist != null && <Text style={[s.historyMeta, { color: color, fontWeight: '600' }]}>{dist} km</Text>}
+          </View>
+          <Text style={[s.historyTime, { color: t.secondary }]}>{timeStr}</Text>
+          {meta ? <Text style={[s.historyMeta, { color: t.muted ?? t.secondary }]}>{meta}</Text> : null}
+        </View>
+        {event.kind !== 'Start' && event.kind !== 'End' && (
+          <Text style={[s.historyTime, { color: t.secondary, fontVariant: ['tabular-nums'], textAlign: 'right' }]}>{formatDuration(event.duration)}</Text>
+        )}
+      </Pressable>
+    );
+  };
   return <FlatList data={events} keyExtractor={(event, index) => `${event.kind}-${event.point.timestamp}-${index}`} renderItem={renderEvent} initialNumToRender={14} maxToRenderPerBatch={18} windowSize={7} contentContainerStyle={{ paddingBottom: 10 }} />;
 }
 
@@ -319,7 +442,7 @@ function DateTimePickerModal({ value, visible, onClose, onApply }: { value: stri
   const toggleMeridiem = () => setDraft(v => ({...v,hour:v.hour>=12?v.hour-12:v.hour+12}));
   const hour12 = draft.hour % 12 || 12;
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}><View style={s.pickerScrim}><View style={s.pickerCard}>
-    <View style={s.pickerHeader}><Pressable onPress={() => changeMonth(-1)} style={s.pickerArrow}><TablerIcon name="back" size={17}/></Pressable><Text style={s.pickerTitle}>{new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(Date.UTC(month.year,month.month-1,1)))}</Text><Pressable onPress={() => changeMonth(1)} style={s.pickerArrow}><TablerIcon name="forward" size={17}/></Pressable></View>
+    <View style={s.pickerHeader}><Pressable onPress={() => changeMonth(-1)} style={s.pickerArrow}><TablerIcon name="chevron-left" size={17} color={t.ink}/></Pressable><Text style={s.pickerTitle}>{new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(Date.UTC(month.year,month.month-1,1)))}</Text><Pressable onPress={() => changeMonth(1)} style={s.pickerArrow}><TablerIcon name="chevron-right" size={17} color={t.ink}/></Pressable></View>
     <View style={s.calendarGrid}>{['M','T','W','T','F','S','S'].map((d,i)=><Text key={`${d}-${i}`} style={s.calendarWeekday}>{d}</Text>)}{Array.from({length:firstWeekday},(_,i)=><View key={`blank-${i}`} style={s.calendarDay}/>)}{Array.from({length:daysInMonth},(_,i)=>{const day=i+1;const active=draft.year===month.year&&draft.month===month.month&&draft.day===day;return <Pressable key={day} onPress={()=>setDraft(v=>({...v,year:month.year,month:month.month,day}))} style={[s.calendarDay,active&&s.calendarDayActive]}><Text style={[s.calendarDayText,active&&s.calendarDayTextActive]}>{day}</Text></Pressable>;})}</View>
     <View style={s.timePicker}><Text style={s.timeLabel}>Time (PKT)</Text><View style={s.timeUnit}><Pressable onPress={()=>changeHour12(1)} style={s.timeStep}><Text style={s.timeStepText}>+</Text></Pressable><Text style={s.timeNumber}>{String(hour12).padStart(2,'0')}</Text><Pressable onPress={()=>changeHour12(-1)} style={s.timeStep}><Text style={s.timeStepText}>−</Text></Pressable></View><Text style={s.timeColon}>:</Text><View style={s.timeUnit}><Pressable onPress={()=>changeMinute(5)} style={s.timeStep}><Text style={s.timeStepText}>+</Text></Pressable><Text style={s.timeNumber}>{String(draft.minute).padStart(2,'0')}</Text><Pressable onPress={()=>changeMinute(-5)} style={s.timeStep}><Text style={s.timeStepText}>−</Text></Pressable></View><Pressable onPress={toggleMeridiem} style={extra.meridiem}><Text style={extra.meridiemText}>{draft.hour>=12?'PM':'AM'}</Text></Pressable></View>
     <View style={s.pickerActions}><Pressable onPress={onClose} style={s.pickerCancel}><Text style={s.pickerCancelText}>Cancel</Text></Pressable><Pressable onPress={()=>onApply(dateValue(draft.year,draft.month,draft.day,draft.hour,draft.minute))} style={s.pickerApply}><Text style={s.pickerApplyText}>Apply</Text></Pressable></View>
@@ -327,19 +450,129 @@ function DateTimePickerModal({ value, visible, onClose, onApply }: { value: stri
 }
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
-  screen: { flex: 1, backgroundColor: t.bg }, header: { minHeight: 52, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderColor: t.border }, title: { color: t.ink, fontWeight: '700', fontSize: 16, flex: 1 }, vehicleName: { color: t.secondary, fontSize: 11 },
-  filters: { paddingHorizontal: 12, paddingTop: 7, paddingBottom: 8, borderBottomWidth: 1, borderColor: t.border, gap: 7 }, vehicleSearch: { height: 34, borderWidth: 1, borderColor: t.border, borderRadius: 7, paddingHorizontal: 10, fontSize: 11, color: t.ink }, vehicleChoices: { gap: 7 }, vehicleChoice: { paddingHorizontal: 10, paddingVertical: 5, borderBottomWidth: 2, borderBottomColor: 'transparent' }, selectedChoice: { borderBottomColor: t.red }, choiceText: { color: t.secondary, fontSize: 11 }, selectedChoiceText: { color: t.red, fontWeight: '700' }, periodChoices: { flexDirection: 'row', gap: 6 }, dateRow: { flexDirection: 'row', gap: 8, alignItems:'center' }, dateField: { flex:1, height:38, justifyContent:'center', borderBottomWidth:1, borderColor:t.border, paddingHorizontal:5 }, dateCaption: { color:t.secondary, fontSize:8 }, dateValue: { color:t.ink, fontSize:9, fontWeight:'600' }, rangeButton: { flex:1, alignItems:'center', paddingHorizontal: 4, paddingVertical: 7, borderBottomWidth: 2, borderBottomColor: 'transparent' }, rangeSelected: { borderBottomColor: t.red }, rangeText: { fontSize: 9, color: t.secondary }, rangeTextSelected: { color: t.red, fontWeight: '700' }, loadButton: { width:50, height:38, backgroundColor: t.red, borderRadius: 0, alignItems: 'center', justifyContent: 'center' }, loadText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  mapWrap: { flex: 1, minHeight: 190, backgroundColor: '#e9edf0' }, mapEmpty: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 7, padding: 18 }, muted: { color: t.secondary, fontSize: 10 }, mapControls: { position: 'absolute', right: 10, top: 10, alignItems: 'center', gap: 5 }, mapButton: { height: 37, width: 37, borderRadius: 8, borderWidth: 1, borderColor: t.border, backgroundColor: t.card, alignItems: 'center', justifyContent: 'center', elevation: 2 }, plus: { color: t.red, fontSize: 24, lineHeight: 27 }, minus: { color: t.ink, fontSize: 24, lineHeight: 27 }, mapMenu: { position: 'absolute', right: 43, top: 0, width: 110, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 7, elevation: 5, zIndex: 5 }, mapOption: { padding: 10, borderBottomWidth: 1, borderColor: t.border }, mapOptionText: { color: t.ink, fontSize: 11 }, activeOption: { color: t.red, fontWeight: '700' }, arrow: { alignItems: 'center', justifyContent: 'center' }, arrowText: { color: '#2563eb', fontSize: 17, lineHeight:20 }, car: { width: 29, height: 38 }, stopMark: { width: 23, height: 23, borderRadius: 12, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' }, idleMark: { backgroundColor: '#f59e0b' }, parkedMark: { backgroundColor: '#111827' }, startMarker: { width: 22, height: 22, borderRadius: 12, backgroundColor: '#16a34a', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' }, endMarker: { width: 22, height: 22, borderRadius: 12, backgroundColor: '#dc2626', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' }, markerLetter: { color: '#fff', fontWeight: '700', fontSize: 9 }, pointCard: { position: 'absolute', left: 10, right: 54, bottom: 10, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 7, padding: 10, elevation: 3 }, closePoint: { position: 'absolute', right: 7, top: 7, zIndex: 2 }, pointTitle: { color: t.ink, fontSize: 11, fontWeight: '700', paddingRight: 22, marginBottom: 3 },
-  replayPanel: { paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15, borderTopWidth: 1, borderColor: t.border, backgroundColor: t.bg }, replayHeading: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }, replayPlate: { color: t.ink, fontSize: 15, fontWeight: '700' }, seekHitArea: { height: 40, marginHorizontal:16, justifyContent:'center', paddingHorizontal:2 }, seekTrack: { height: 5, justifyContent: 'center', backgroundColor: '#d1d5db', borderRadius: 4, overflow:'visible' }, seekFill: { height: 5, backgroundColor: t.red, borderRadius: 4 }, seekThumb: { position:'absolute', top:-5, width:15, height:15, marginLeft:-7, borderRadius:8, borderWidth:2, borderColor:'#fff', backgroundColor:t.red, elevation:2 }, playControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap:12, minHeight:78, paddingVertical:10 }, mediaButton: { width:42,height:48,alignItems:'center',justifyContent:'center' }, playButton:{width:54,height:54,borderRadius:27,backgroundColor:t.red,alignItems:'center',justifyContent:'center'}, speedChoice: { minWidth:52, borderWidth: 1, borderColor: t.border, borderRadius: 8, alignItems: 'center', paddingHorizontal:8,paddingVertical:9,backgroundColor:t.card }, speedText: { color: t.ink, fontSize: 11, fontWeight:'600' }, speedMenu:{position:'absolute',bottom:43,right:0,minWidth:64,backgroundColor:t.card,borderWidth:1,borderColor:t.border,borderRadius:8,elevation:5,zIndex:10},speedOption:{paddingHorizontal:12,paddingVertical:8,alignItems:'center'}, replayOptions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight:25 }, currentSpeed: { color: t.secondary, fontSize: 9, flex: 1 }, error: { color: t.red, fontSize: 10, paddingHorizontal: 12, paddingVertical: 5 }, historyList: { maxHeight: 255, borderTopWidth: 1, borderColor: t.border }, historyRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', paddingVertical: 5, paddingHorizontal: 13, gap: 9, borderBottomWidth: 1, borderColor: t.border }, timelineMark: { width: 24, height: 24, borderRadius: 12, backgroundColor: t.red, alignItems: 'center', justifyContent: 'center' }, timelineStart: { backgroundColor: '#16a34a' }, timelineEnd: { backgroundColor: '#dc2626' }, timelineIdle:{backgroundColor:'#f59e0b'},timelineParked:{backgroundColor:'#6b7280'},timelineDriving:{backgroundColor:t.red},timelineLetter: { color: '#fff', fontWeight: '700', fontSize: 10 }, historyTime: { color: t.ink, fontSize: 11, fontWeight: '600' },
-  pickerScrim:{flex:1,backgroundColor:'rgba(0,0,0,0.38)',justifyContent:'center',padding:22},pickerCard:{backgroundColor:t.card,borderRadius:14,padding:16,elevation:8},pickerHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},pickerArrow:{width:34,height:34,alignItems:'center',justifyContent:'center'},pickerTitle:{fontSize:15,fontWeight:'700',color:t.ink},calendarGrid:{flexDirection:'row',flexWrap:'wrap'},calendarWeekday:{width:'14.2857%',textAlign:'center',paddingVertical:7,color:t.secondary,fontSize:10,fontWeight:'700'},calendarDay:{width:'14.2857%',height:38,alignItems:'center',justifyContent:'center',borderRadius:20},calendarDayActive:{backgroundColor:t.red},calendarDayText:{fontSize:12,color:t.ink},calendarDayTextActive:{color:'#fff',fontWeight:'700'},timePicker:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:16,borderTopWidth:1,borderColor:t.border,marginTop:10,paddingTop:8},timeLabel:{position:'absolute',left:0,top:8,color:t.secondary,fontSize:10},timeUnit:{alignItems:'center',gap:4},timeStep:{width:38,height:27,alignItems:'center',justifyContent:'center',backgroundColor:t.surface,borderRadius:6},timeStepText:{fontSize:16,color:t.ink},timeNumber:{fontSize:16,color:t.ink,fontWeight:'700'},timeColon:{fontSize:18,fontWeight:'700'},pickerActions:{flexDirection:'row',justifyContent:'flex-end',gap:10,marginTop:16},pickerCancel:{paddingHorizontal:15,paddingVertical:10},pickerCancelText:{color:t.secondary,fontSize:12},pickerApply:{paddingHorizontal:18,paddingVertical:10,backgroundColor:t.red,borderRadius:8},pickerApplyText:{color:'#fff',fontWeight:'700',fontSize:12},
+  screen: { flex: 1, backgroundColor: t.bg },
+  header: { minHeight: 52, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backBtn: { width: 36, height: 36, borderRadius: 9, borderWidth: 1, borderColor: t.border, backgroundColor: t.card, alignItems: 'center', justifyContent: 'center' },
+  title: { color: t.ink, fontWeight: '700', fontSize: 15 },
+  vehicleName: { color: t.secondary, fontSize: 11, marginTop: 1 },
+  filters: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10, gap: 8 },
+  periodChoices: { flexDirection: 'row', gap: 6 },
+  dateRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  dateCaption: { color: t.secondary, fontSize: 10, fontWeight: '500' },
+  dateValue: { flex: 1, color: t.ink, fontSize: 11, fontWeight: '600' },
+  rangeButton: { flex: 1, alignItems: 'center', paddingHorizontal: 6, paddingVertical: 8, borderRadius: 9, backgroundColor: t.bg2, borderWidth: 1, borderColor: 'transparent' },
+  rangeSelected: { backgroundColor: `${t.red}18`, borderColor: t.red },
+  rangeText: { fontSize: 11, color: t.secondary },
+  rangeTextSelected: { color: t.red, fontWeight: '700' },
+  loadButton: { width: 40, height: 40, backgroundColor: t.red, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  loadText: { color: '#fff', fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },
+  mapWrap: { flex: 1, minHeight: 190, backgroundColor: t.canvas },
+  mapEmpty: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 7, padding: 18 },
+  muted: { color: t.secondary, fontSize: 10 },
+  mapControls: { position: 'absolute', right: 10, top: 10, alignItems: 'center', gap: 5 },
+  mapButton: { height: 37, width: 37, borderRadius: 8, borderWidth: 1, borderColor: t.border, backgroundColor: t.card, alignItems: 'center', justifyContent: 'center', elevation: 2 },
+  plus: { color: t.red, fontSize: 24, lineHeight: 27 },
+  minus: { color: t.ink, fontSize: 24, lineHeight: 27 },
+  mapMenu: { position: 'absolute', right: 43, top: 0, width: 110, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 7, elevation: 5, zIndex: 5 },
+  mapOption: { padding: 10, borderBottomWidth: 1, borderColor: t.border },
+  mapOptionText: { color: t.ink, fontSize: 11 },
+  activeOption: { color: t.red, fontWeight: '700' },
+  arrow: { alignItems: 'center', justifyContent: 'center' },
+  arrowText: { color: '#2563eb', fontSize: 17, lineHeight: 20 },
+  car: { width: 29, height: 38 },
+  stopMark: { width: 23, height: 23, borderRadius: 12, backgroundColor: t.ink, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
+  idleMark: { backgroundColor: '#f59e0b' },
+  parkedMark: { backgroundColor: t.ink },
+  startMarker: { width: 22, height: 22, borderRadius: 12, backgroundColor: '#16a34a', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
+  endMarker: { width: 22, height: 22, borderRadius: 12, backgroundColor: '#dc2626', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
+  markerLetter: { color: '#fff', fontWeight: '700', fontSize: 9 },
+  pointCard: { position: 'absolute', left: 10, right: 54, bottom: 10, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, borderRadius: 7, padding: 10, elevation: 3 },
+  closePoint: { position: 'absolute', right: 7, top: 7, zIndex: 2 },
+  pointTitle: { color: t.ink, fontSize: 11, fontWeight: '700', paddingRight: 22, marginBottom: 3 },
+  // Replay panel
+  replayPanel: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderTopWidth: 1, borderColor: t.border, backgroundColor: t.card },
+  replayHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  replayPlate: { color: t.ink, fontSize: 15, fontWeight: '700' },
+  replayTime: { color: t.secondary, fontSize: 11, marginTop: 2 },
+  replayStatRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  replayStat: { alignItems: 'center' },
+  replayStatVal: { color: t.ink, fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  replayStatLbl: { color: t.secondary, fontSize: 9, marginTop: 1 },
+  replayStatDivider: { width: 1, height: 28 },
+  seekHitArea: { height: 34, justifyContent: 'flex-end', paddingHorizontal: 2, marginBottom: 2, position: 'relative' },
+  seekTrack: { height: 4, justifyContent: 'center', backgroundColor: t.bg2, borderRadius: 3 },
+  seekFill: { height: 4, backgroundColor: t.red, borderRadius: 3 },
+  seekThumb: { position: 'absolute', bottom: -6, width: 18, height: 18, marginLeft: -9, borderRadius: 9, borderWidth: 2.5, borderColor: '#fff', backgroundColor: t.red, elevation: 4 },
+  waveformWrap: { flexDirection: 'row', alignItems: 'flex-end', height: 18, gap: 1, overflow: 'hidden', borderRadius: 2, marginBottom: 4 },
+  waveBar: { flex: 1, borderRadius: 1, backgroundColor: t.red },
+  waveformPlayed: { position: 'absolute', left: 0, bottom: 4, height: 18, borderRadius: 2, backgroundColor: `${t.red}55` },
+  playControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0, paddingVertical: 10, paddingHorizontal: 56 },
+  mediaButton: { width: 48, height: 52, alignItems: 'center', justifyContent: 'center' },
+  playButton: { width: 58, height: 58, borderRadius: 29, backgroundColor: t.red, alignItems: 'center', justifyContent: 'center', marginHorizontal: 6 },
+  speedText: { color: t.secondary, fontSize: 13, fontWeight: '700' },
+  speedOption: { paddingHorizontal: 14, paddingVertical: 11, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'transparent' },
+  error: { color: t.red, fontSize: 10, paddingTop: 4 },
+  // History list
+  historyList: { flex: 1, borderTopWidth: 1, borderColor: t.border },
+  historyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 14, gap: 11, borderBottomWidth: 1, borderBottomColor: t.border, borderLeftWidth: 3, borderLeftColor: 'transparent' },
+  timelineBadge: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  historyKind: { fontSize: 13, fontWeight: '700' },
+  historyTime: { fontSize: 11, marginTop: 2 },
+  historyMeta: { fontSize: 10, marginTop: 1 },
+  timelineMark: { width: 24, height: 24, borderRadius: 12, backgroundColor: t.red, alignItems: 'center', justifyContent: 'center' },
+  timelineStart: { backgroundColor: '#16a34a' },
+  timelineEnd: { backgroundColor: '#dc2626' },
+  timelineIdle: { backgroundColor: '#f59e0b' },
+  timelineParked: { backgroundColor: '#6b7280' },
+  timelineDriving: { backgroundColor: t.red },
+  timelineLetter: { color: '#fff', fontWeight: '700', fontSize: 10 },
+  replayOptions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  currentSpeed: { color: t.secondary, fontSize: 9, flex: 1 },
+  pickerScrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.38)', justifyContent: 'center', padding: 22 },
+  pickerCard: { backgroundColor: t.card, borderRadius: 14, padding: 16, elevation: 8 },
+  pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  pickerArrow: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  pickerTitle: { fontSize: 15, fontWeight: '700', color: t.ink },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calendarWeekday: { width: '14.2857%', textAlign: 'center', paddingVertical: 7, color: t.secondary, fontSize: 10, fontWeight: '700' },
+  calendarDay: { width: '14.2857%', height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
+  calendarDayActive: { backgroundColor: t.red },
+  calendarDayText: { fontSize: 12, color: t.ink },
+  calendarDayTextActive: { color: '#fff', fontWeight: '700' },
+  timePicker: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, borderTopWidth: 1, borderColor: t.border, marginTop: 10, paddingTop: 8 },
+  timeLabel: { position: 'absolute', left: 0, top: 8, color: t.secondary, fontSize: 10 },
+  timeUnit: { alignItems: 'center', gap: 4 },
+  timeStep: { width: 38, height: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: t.surface, borderRadius: 6 },
+  timeStepText: { fontSize: 16, color: t.ink },
+  timeNumber: { fontSize: 16, color: t.ink, fontWeight: '700' },
+  timeColon: { fontSize: 18, fontWeight: '700' },
+  pickerActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
+  pickerCancel: { paddingHorizontal: 15, paddingVertical: 10 },
+  pickerCancelText: { color: t.secondary, fontSize: 12 },
+  pickerApply: { paddingHorizontal: 18, paddingVertical: 10, backgroundColor: t.red, borderRadius: 8 },
+  pickerApplyText: { color: '#fff', fontWeight: '700', fontSize: 12 },
 }); }
 
 function createExtra(t: AppTheme) { return StyleSheet.create({
-  dateChip:{flex:1,minWidth:0,height:38,justifyContent:'center',borderBottomWidth:1,borderColor:t.border,borderRadius:0,paddingHorizontal:5},
-  speedChoiceWide:{minWidth:80,minHeight:42,borderWidth:0,borderRadius:0,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,paddingHorizontal:11,paddingVertical:9,backgroundColor:'transparent'},
-  speedMenuWide:{position:'absolute',bottom:43,right:0,minWidth:76,backgroundColor:t.card,borderWidth:0,borderRadius:3,elevation:5,zIndex:10},
+  segmentTrack:{flexDirection:'row',backgroundColor:t.bg2,borderRadius:10,padding:3,gap:2},
+  segmentBtn:{flex:1,alignItems:'center',paddingVertical:7,borderRadius:8},
+  segmentBtnActive:{backgroundColor:t.card,shadowColor:'#000',shadowOffset:{width:0,height:1},shadowOpacity:0.08,shadowRadius:2,elevation:2},
+  segmentText:{fontSize:12,color:t.secondary,fontWeight:'500'},
+  segmentTextActive:{color:t.red,fontWeight:'700'},
+  dateChip:{flex:1,minWidth:0,height:40,flexDirection:'row',alignItems:'center',gap:6,borderWidth:1,borderColor:t.border,borderRadius:10,paddingHorizontal:10,backgroundColor:t.card,overflow:'hidden'},
+  controlsWrap:{position:'relative'},
+  speedWrap:{position:'absolute',right:0,bottom:0,top:0,justifyContent:'center',zIndex:10},
+  speedChoiceWide:{height:52,minWidth:48,borderWidth:0,borderRadius:9,flexDirection:'row',alignItems:'center',justifyContent:'center',paddingHorizontal:8,backgroundColor:'transparent'},
   replayCar:{alignItems:'center'},carSpeedLabel:{backgroundColor:t.card,paddingHorizontal:5,paddingVertical:2,borderRadius:4,borderWidth:1,borderColor:t.border,elevation:2,marginTop:-1},carSpeedText:{color:t.ink,fontSize:9,fontWeight:'700'},
   pointCardAuto:{position:'absolute',alignSelf:'center',maxWidth:'92%',minWidth:'70%',bottom:10,backgroundColor:t.card,borderWidth:1,borderColor:t.border,borderRadius:8,padding:12,elevation:3},addressTitle:{marginBottom:5},stopDuration:{fontSize:11,color:t.red,fontWeight:'700',marginTop:5},
-  historyRowSelected:{backgroundColor:t.surface,borderLeftWidth:3,borderLeftColor:t.red},timelineDrivingGreen:{backgroundColor:'#16a34a'},timelineParkedTheme:{backgroundColor:'#111827'},timelineGap:{backgroundColor:'#6b7280'},gapNotice:{marginHorizontal:14,marginBottom:6,padding:8,borderLeftWidth:3,borderLeftColor:'#6b7280',backgroundColor:t.surface,color:t.secondary,fontSize:11},
+  historyRowSelected:{backgroundColor:t.surface,borderLeftWidth:3,borderLeftColor:t.red},timelineDrivingGreen:{backgroundColor:'#16a34a'},timelineParkedTheme:{backgroundColor:t.ink},timelineGap:{backgroundColor:'#6b7280'},gapNotice:{marginHorizontal:14,marginBottom:6,padding:8,borderLeftWidth:3,borderLeftColor:'#6b7280',backgroundColor:t.surface,color:t.secondary,fontSize:11},
+  histSummary:{flexDirection:'row',alignItems:'center',paddingVertical:10,paddingHorizontal:16,backgroundColor:t.bg2,borderBottomWidth:1,borderBottomColor:t.border},
+  histStat:{flex:1,alignItems:'center'},
+  histStatVal:{fontSize:16,fontWeight:'800',color:t.ink,fontVariant:['tabular-nums']},
+  histStatLbl:{fontSize:10,color:t.secondary,marginTop:1},
+  histDivider:{width:1,height:28,backgroundColor:t.border},
+  floatingSpeed:{position:'absolute',left:10,bottom:10,width:76,height:76,borderRadius:38,backgroundColor:t.card,alignItems:'center',justifyContent:'center',elevation:5,shadowColor:'#000',shadowOffset:{width:0,height:2},shadowOpacity:0.16,shadowRadius:6,borderWidth:2,borderColor:t.border},
+  floatingSpeedVal:{color:t.ink,fontSize:24,fontWeight:'800',fontVariant:['tabular-nums'],lineHeight:26},
+  floatingSpeedUnit:{color:t.secondary,fontSize:10,fontWeight:'600',marginTop:2},
   meridiem:{paddingHorizontal:10,paddingVertical:8,backgroundColor:t.surface,borderRadius:6},meridiemText:{fontSize:12,fontWeight:'700',color:t.ink},
 }); }

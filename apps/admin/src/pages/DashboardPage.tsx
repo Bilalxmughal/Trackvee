@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconUsers, IconBuildingSkyscraper, IconCar, IconCpu, IconBell, IconZzz, IconParking, IconWifi, IconWifiOff, IconKey, IconKeyOff, IconAlertTriangle, IconActivity, IconRefresh, IconCheck, IconX, IconTrendingUp } from '@tabler/icons-react';
+import { IconUsers, IconBuildingSkyscraper, IconCar, IconCpu, IconBell, IconZzz, IconParking, IconWifi, IconWifiOff, IconKey, IconKeyOff, IconAlertTriangle, IconActivity, IconRefresh, IconCheck, IconX, IconTrendingUp, IconCalendarAlert } from '@tabler/icons-react';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +10,7 @@ import DateRangePicker, { type DateRange } from '../components/DateRangePicker';
 // ── Interfaces ────────────────────────────────────────────────────────────────
 interface Stats { users: number; organizations: number; vehicles: number; devices: number; }
 interface LivePoint { imei: string; speedKmh: number; ignition?: boolean | null; timestamp: string; }
+interface ExpiringDevice { id: string; imei: string; expiresAt: string; vehicleLicensePlate: string | null; vehicleName: string | null; }
 interface DeviceHealthRow {
   deviceId: string; imei: string;
   connection: 'online' | 'delayed' | 'offline' | 'never_seen';
@@ -135,6 +136,7 @@ export default function DashboardPage() {
   const [devices, setDevices] = useState<DeviceHealthRow[]>([]);
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [clients, setClients] = useState<ClientRow[]>([]);
+  const [expiring, setExpiring] = useState<ExpiringDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<number>(Date.now());
@@ -160,13 +162,15 @@ export default function DashboardPage() {
       api.get<LivePoint[]>('/telemetry/live'),
       api.get<DeviceHealthRow[]>(`/telemetry/device-health${p}`),
       api.get<AlertRow[]>('/alerts'),
-    ]).then(([u, o, v, d, live, devFull, al]) => {
+      api.get<ExpiringDevice[]>('/devices/expiring?days=30').catch(() => ({ data: [] })),
+    ]).then(([u, o, v, d, live, devFull, al, exp]) => {
       const orgs = Array.isArray(o.data) ? o.data : [];
       setStats({ users: Array.isArray(u.data) ? u.data.length : 0, organizations: orgs.length, vehicles: Array.isArray(v.data) ? v.data.length : 0, devices: Array.isArray(d.data) ? d.data.length : 0 });
       setClients(orgs);
       setLivePoints(Array.isArray(live.data) ? live.data : []);
       setDevices(Array.isArray(devFull.data) ? devFull.data : []);
       setAlerts(Array.isArray(al.data) ? al.data : []);
+      setExpiring(Array.isArray(exp.data) ? exp.data : []);
       setLastRefreshed(Date.now());
     }).catch(() => {}).finally(() => { setLoading(false); setRefreshing(false); });
   }, [selectedCityId]);
@@ -477,7 +481,48 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Row 5: Offline Devices Table ── */}
+      {/* ── Row 5: Expiring Devices Widget ── */}
+      {expiring.length > 0 && (
+        <div style={{ ...card, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <IconCalendarAlert size={14} color="#f59e0b"/>
+            <span style={{ ...sectionLabel, marginBottom: 0 }}>Expiring Devices ({expiring.length})</span>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {['IMEI', 'Vehicle', 'Expires', 'Status'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, padding: '0 12px 10px 0', borderBottom: `1px solid ${dark ? '#2a2a2a' : '#f0f0f0'}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {expiring.slice(0, 10).map(d => {
+                const days = Math.ceil((new Date(d.expiresAt).getTime() - Date.now()) / 86400000);
+                const color = days <= 0 ? '#dc2626' : days <= 7 ? '#f59e0b' : '#6b7280';
+                const bg = days <= 0 ? '#fef2f2' : days <= 7 ? '#fffbeb' : (dark ? '#222' : '#f9fafb');
+                return (
+                  <tr key={d.id}>
+                    <td style={{ padding: '8px 12px 8px 0', fontSize: 11.5, fontFamily: 'monospace', color: dark ? '#ccc' : '#555', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}` }}>{d.imei}</td>
+                    <td style={{ padding: '8px 12px 8px 0', fontSize: 12, color: 'var(--text)', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}` }}>{d.vehicleLicensePlate ?? d.vehicleName ?? '—'}</td>
+                    <td style={{ padding: '8px 12px 8px 0', fontSize: 11.5, color: dark ? '#ccc' : '#555', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}` }}>
+                      {new Date(d.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td style={{ padding: '8px 0', borderBottom: `1px solid ${dark ? '#1e1e1e' : '#f9fafb'}` }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color, background: bg, borderRadius: 4, padding: '2px 6px' }}>
+                        {days <= 0 ? 'Expired' : days <= 7 ? `${days}d left` : `${days}d left`}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {expiring.length > 10 && <div style={{ marginTop: 8, fontSize: 11, color: '#aaa' }}>+{expiring.length - 10} more expiring devices</div>}
+        </div>
+      )}
+
+      {/* ── Row 6: Offline Devices Table ── */}
       {devices.filter(d => d.connection === 'offline' || d.connection === 'never_seen').length > 0 && (
         <div style={{ ...card, marginBottom: 14 }}>
           <div style={sectionLabel}>Offline / Never Connected Devices ({devices.filter(d => d.connection === 'offline' || d.connection === 'never_seen').length})</div>

@@ -6,7 +6,7 @@ import {
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
   IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
   IconBell, IconUsersGroup, IconUserScan, IconChartBar, IconList, IconTool,
-  IconCurrencyDollar, IconFileInvoice,
+  IconCurrencyDollar, IconFileInvoice, IconChartPie, IconBolt,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -47,6 +47,7 @@ const NAV_SECTIONS: Section[] = [
     label: 'Operations',
     items: [
       { to: '/map', icon: IconMap, label: 'Live Map' },
+      { to: '/command-center', icon: IconBolt, label: 'Command Center' },
       { to: '/telemetry', icon: IconDatabase, label: 'Telemetry' },
       { to: '/devices', icon: IconCpu, label: 'Devices' },
       { to: '/device-health', icon: IconCpu, label: 'Device Health' },
@@ -57,6 +58,7 @@ const NAV_SECTIONS: Section[] = [
     items: [
       { to: '/financial/pricing',    icon: IconCurrencyDollar, label: 'Pricing' },
       { to: '/financial/statements', icon: IconFileInvoice,    label: 'Client Statements' },
+      { to: '/financial/billing',    icon: IconChartPie,       label: 'Billing Dashboard' },
     ],
   },
   {

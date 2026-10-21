@@ -82,6 +82,11 @@ const TILE_CONFIG: Record<MapStyle, { url: string; attribution: string; darkFilt
   terrain:   { label: 'Terrain',   icon: '⛰', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri' },
   dark:      { label: 'Dark',      icon: '🌙', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap', darkFilter: true },
 };
+// Traffic overlay: uses HERE Maps free-tier flow tiles. Set VITE_HERE_API_KEY env var.
+const HERE_API_KEY = (typeof import.meta !== 'undefined' && (import.meta as { env?: { VITE_HERE_API_KEY?: string } }).env?.VITE_HERE_API_KEY) ?? '';
+const TRAFFIC_TILE_URL = HERE_API_KEY
+  ? `https://traffic.maps.ls.hereapi.com/mapviewer/v1/traffictiles/flow/6/{z}/{x}/{y}/256/png8?apiKey=${HERE_API_KEY}`
+  : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'; // fallback (no real traffic without key)
 
 function formatTs(ts: string) {
   const d = new Date(ts);
@@ -953,16 +958,22 @@ function POILocationPicker({ active, onPick }: { active: boolean; onPick: (lat: 
   return null;
 }
 
-function MapStyleSwitcher({ current, onChange, dark }: { current: MapStyle; onChange: (s: MapStyle) => void; dark: boolean }) {
+function MapStyleSwitcher({ current, onChange, dark, trafficOn, onTrafficToggle }: { current: MapStyle; onChange: (s: MapStyle) => void; dark: boolean; trafficOn: boolean; onTrafficToggle: () => void }) {
   const [open, setOpen] = useState(false);
   const styles: MapStyle[] = ['street', 'satellite', 'terrain', 'dark'];
   return (
-    <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
-      <button onClick={() => setOpen(o => !o)} title="Map style"
-        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#ddd'}`, background: dark ? '#1e1e1e' : '#fff', color: dark ? '#e5e5e5' : '#333', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
-        <span>{TILE_CONFIG[current].icon}</span> {TILE_CONFIG[current].label}
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
-      </button>
+    <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button onClick={onTrafficToggle} title="Traffic overlay"
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: `1px solid ${trafficOn ? '#dc2626' : (dark ? '#333' : '#ddd')}`, background: trafficOn ? '#dc2626' : (dark ? '#1e1e1e' : '#fff'), color: trafficOn ? '#fff' : (dark ? '#e5e5e5' : '#333'), fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
+          🚦 Traffic
+        </button>
+        <button onClick={() => setOpen(o => !o)} title="Map style"
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: `1px solid ${dark ? '#333' : '#ddd'}`, background: dark ? '#1e1e1e' : '#fff', color: dark ? '#e5e5e5' : '#333', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
+          <span>{TILE_CONFIG[current].icon}</span> {TILE_CONFIG[current].label}
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6,9 12,15 18,9"/></svg>
+        </button>
+      </div>
       {open && (
         <div style={{ position: 'absolute', right: 0, top: 36, background: dark ? '#1e1e1e' : '#fff', border: `1px solid ${dark ? '#2a2a2a' : '#e5e7eb'}`, borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', minWidth: 130 }}>
           {styles.map(s => (
@@ -2472,6 +2483,7 @@ export default function MapPage() {
   const [followLimitMessage, setFollowLimitMessage] = useState('');
   const [trails, setTrails] = useState<Map<string, [number,number][]>>(new Map());
   const [mapStyle, setMapStyle] = useState<MapStyle>('street');
+  const [trafficOn, setTrafficOn] = useState(false);
 
   // Alert state — from global context
   const [shareLinksOpen, setShareLinksOpen] = useState(false);
@@ -3083,7 +3095,7 @@ export default function MapPage() {
               </button>
             )}
             {loading && <div style={{ position: 'absolute', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#555' : '#aaa', fontSize: 13, background: dark ? '#1a1a1a' : '#f8f9fa', borderRadius: 12 }}>Loading map…</div>}
-            <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} dark={dark}/>
+            <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} dark={dark} trafficOn={trafficOn} onTrafficToggle={() => setTrafficOn(v => !v)}/>
             {mapPois.length > 0 && (
               <button
                 onClick={() => setPoisVisible(v => !v)}
@@ -3123,6 +3135,7 @@ export default function MapPage() {
             <MapContainer center={[30.3753, 69.3451]} zoom={5} style={{ height: '100%', width: '100%' }} zoomControl>
               <TileLayer key={mapStyle} url={TILE_CONFIG[mapStyle].url} attribution={TILE_CONFIG[mapStyle].attribution}
                 className={TILE_CONFIG[mapStyle].darkFilter || (mapStyle === 'street' && dark) ? 'map-tiles-dark' : ''}/>
+              {trafficOn && <TileLayer key="traffic" url={TRAFFIC_TILE_URL} attribution="© HERE Maps" opacity={0.7} zIndex={450}/>}
               <InvalidateSize/>
               <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'}/>
               <FlyToPoint target={flyTarget}/>

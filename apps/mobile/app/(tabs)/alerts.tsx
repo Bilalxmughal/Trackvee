@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import api from '../../src/lib/api';
@@ -21,6 +21,7 @@ export default function AlertsScreen() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [menuRuleId, setMenuRuleId] = useState<string | null>(null);
   const [pushState, setPushState] = useState<'unknown' | 'enabled' | 'disabled' | 'denied' | 'unconfigured' | 'unsupported'>('unknown');
   const [pushBusy, setPushBusy] = useState(false);
   const { canDo, loading: permissionsLoading } = usePortalPermissions();
@@ -137,11 +138,9 @@ export default function AlertsScreen() {
               <Text style={[s.statusText, { color: activeColor }]}>{item.active ? 'Active' : 'Inactive'}</Text>
             </View>
             {editAllowed || deleteAllowed
-              ? <Pressable accessibilityRole="button" accessibilityLabel={`Actions for ${item.name}`} style={s.moreBtn} onPress={() => Alert.alert('Alert rule actions', item.name, [
-                  ...(editAllowed ? [{ text: 'Edit', onPress: () => openEdit(item) }] : []),
-                  ...(deleteAllowed ? [{ text: 'Delete', style: 'destructive' as const, onPress: () => remove(item) }] : []),
-                  { text: 'Cancel', style: 'cancel' as const },
-                ])}><TablerIcon name="more-vertical" size={18} color={t.secondary}/></Pressable>
+              ? <Pressable accessibilityRole="button" accessibilityLabel={`Actions for ${item.name}`} style={s.moreBtn} onPress={() => setMenuRuleId(item.id)}>
+                  <TablerIcon name="more-vertical" size={18} color={t.secondary}/>
+                </Pressable>
               : null}
           </View>
         );
@@ -160,6 +159,29 @@ export default function AlertsScreen() {
         </View>
       }
     />
+
+    {(() => {
+      const menuItem = visibleAlerts.find(r => r.id === menuRuleId) ?? alerts.find(r => r.id === menuRuleId) ?? null;
+      const editAllowed = menuItem ? canManage(menuItem, 'edit') : false;
+      const deleteAllowed = menuItem ? canManage(menuItem, 'delete') : false;
+      return (
+        <Modal visible={!!menuItem} transparent animationType="fade" onRequestClose={() => setMenuRuleId(null)}>
+          <Pressable onPress={() => setMenuRuleId(null)} style={s.menuShade}>
+            <Pressable onPress={e => e.stopPropagation()} style={[s.menuCard, { backgroundColor: t.card }]}>
+              <Text style={[s.menuTitle, { color: t.ink, borderBottomColor: t.border }]} numberOfLines={1}>{menuItem?.name ?? ''}</Text>
+              {editAllowed && <Pressable style={s.menuAction} onPress={() => { setMenuRuleId(null); openEdit(menuItem!); }}>
+                <TablerIcon name="edit" size={17} color={t.secondary} />
+                <Text style={[s.menuActionText, { color: t.ink }]}>Edit</Text>
+              </Pressable>}
+              {deleteAllowed && <Pressable style={s.menuAction} onPress={() => { setMenuRuleId(null); remove(menuItem!); }}>
+                <TablerIcon name="trash" size={17} color={t.red} />
+                <Text style={[s.menuActionText, { color: t.red }]}>Delete</Text>
+              </Pressable>}
+            </Pressable>
+          </Pressable>
+        </Modal>
+      );
+    })()}
   </SafeAreaView>;
 }
 
@@ -175,7 +197,7 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   pushIcon: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   pushTitle: { fontSize: 13, fontWeight: '600' },
   pushSubtitle: { fontSize: 11, marginTop: 2 },
-  enabledBadge: { backgroundColor: '#dcfce7', borderRadius: 5, paddingHorizontal: 9, paddingVertical: 4, overflow: 'hidden' },
+  enabledBadge: { backgroundColor: `${t.moving}18`, borderRadius: 5, paddingHorizontal: 9, paddingVertical: 4, overflow: 'hidden' },
   enabledText: { fontSize: 11, fontWeight: '600' },
   enableBtn: { borderWidth: 1, borderRadius: 7, paddingHorizontal: 12, paddingVertical: 6 },
   enableBtnText: { fontSize: 12, fontWeight: '600' },
@@ -201,4 +223,9 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   emptySubtitle: { marginTop: 6, fontSize: 13, textAlign: 'center', lineHeight: 20 },
   emptyAction: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 18, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8, backgroundColor: `${t.red}14` },
   emptyActionText: { fontSize: 13, fontWeight: '600' },
+  menuShade: { flex: 1, backgroundColor: 'rgba(0,0,0,0.32)', justifyContent: 'flex-end', padding: 14 },
+  menuCard: { borderRadius: 9, paddingBottom: 7, marginBottom: 20, overflow: 'hidden' },
+  menuTitle: { fontSize: 14, fontWeight: '700', paddingHorizontal: 14, paddingVertical: 13, borderBottomWidth: 1 },
+  menuAction: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 14 },
+  menuActionText: { fontSize: 14 },
 }); }

@@ -59,6 +59,9 @@ export class Device {
   @Column({ name: 'last_gsm_signal', type: 'int', nullable: true })
   lastGsmSignal: number | null;
 
+  @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })
+  expiresAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

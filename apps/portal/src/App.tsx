@@ -5,6 +5,7 @@ import { PortalPermsProvider } from './contexts/PortalPermsContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import PortalMapPage from './pages/MapPage';
+import DashboardPage from './pages/DashboardPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -22,9 +23,10 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
-        <Route index element={<Navigate to="/map" replace />} />
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/map" element={<PortalMapPage />} />
-        <Route path="*"    element={<Navigate to="/map" replace />} />
+        <Route path="*"    element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
   );

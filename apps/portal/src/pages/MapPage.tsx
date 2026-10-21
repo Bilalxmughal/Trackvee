@@ -14,6 +14,7 @@ import ReportsModal from '../components/ReportsModal';
 import DriverBehaviorModal from '../components/DriverBehaviorModal';
 import MaintenancePanel from '../components/MaintenancePanel';
 import DeviceHealthPanel from '../components/DeviceHealthPanel';
+import CommandCenterPanel from '../components/CommandCenterPanel';
 import UsersModal from '../components/UsersModal';
 import ShareLinksPanel from '../components/ShareLinksPanel';
 import { canContinueHistorySegment, canEstimateStopAcrossGap, fetchTelemetryHistory, isHistoryDataGap, isUsableHistoryPoint } from '../utils/telemetry-history';
@@ -89,9 +90,15 @@ type MapStyle = 'street' | 'satellite' | 'terrain' | 'dark';
 const TILE_CONFIG: Record<MapStyle, { url: string; attribution: string; label: string; icon: string; darkFilter?: boolean }> = {
   street:    { label: 'Street',    icon: '🗺', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap' },
   satellite: { label: 'Satellite', icon: '🛰', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri' },
+
   terrain:   { label: 'Terrain',   icon: '⛰', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri' },
   dark:      { label: 'Dark',      icon: '🌙', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap', darkFilter: true },
 };
+
+const HERE_API_KEY = (typeof import.meta !== 'undefined' && (import.meta as { env?: { VITE_HERE_API_KEY?: string } }).env?.VITE_HERE_API_KEY) ?? '';
+const TRAFFIC_TILE_URL = HERE_API_KEY
+  ? `https://traffic.maps.ls.hereapi.com/mapviewer/v1/traffictiles/flow/6/{z}/{x}/{y}/256/png8?apiKey=${HERE_API_KEY}`
+  : '';
 
 const GK_COLLAPSED = 'portal_map_groups_collapsed_v1';
 function loadCollapsed(): Set<string> { try { return new Set(JSON.parse(localStorage.getItem(GK_COLLAPSED) ?? '[]')); } catch { return new Set(); } }
@@ -544,29 +551,37 @@ function MapStyleTileLayer({ style }: { style: MapStyle }) {
 
 // ── Map Style Switcher ────────────────────────────────────────────────────────
 
-function MapStyleSwitcher({ current, onChange }: { current: MapStyle; onChange: (s: MapStyle) => void }) {
+function MapStyleSwitcher({ current, onChange, trafficOn, onTrafficToggle }: { current: MapStyle; onChange: (s: MapStyle) => void; trafficOn: boolean; onTrafficToggle: () => void }) {
   const [open, setOpen] = useState(false);
   const styles: MapStyle[] = ['street', 'satellite', 'terrain', 'dark'];
   return (
-    <div style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(o => !o)} title="Map style"
-        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: '1px solid #ddd', background: '#fff', color: '#333', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.18)', whiteSpace: 'nowrap' }}>
-        <span>{TILE_CONFIG[current].icon}</span> {TILE_CONFIG[current].label}
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="18,15 12,9 6,15"/></svg>
-      </button>
-      {open && (
-        <div style={{ position: 'absolute', right: 0, bottom: 36, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', minWidth: 130 }}>
-          {styles.map(s => (
-            <button key={s} onClick={() => { onChange(s); setOpen(false); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', border: 'none', background: s === current ? '#fff5f5' : 'transparent', color: s === current ? '#dc2626' : '#333', fontSize: 12.5, fontWeight: s === current ? 600 : 400, cursor: 'pointer', textAlign: 'left' }}
-              onMouseEnter={e => { if (s !== current) e.currentTarget.style.background = '#f5f5f5'; }}
-              onMouseLeave={e => { if (s !== current) e.currentTarget.style.background = 'transparent'; }}>
-              <span style={{ fontSize: 15 }}>{TILE_CONFIG[s].icon}</span> {TILE_CONFIG[s].label}
-              {s === current && <span style={{ marginLeft: 'auto', fontSize: 10 }}>✓</span>}
-            </button>
-          ))}
-        </div>
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      {TRAFFIC_TILE_URL && (
+        <button onClick={onTrafficToggle} title="Toggle traffic overlay"
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: `1px solid ${trafficOn ? '#dc2626' : '#ddd'}`, background: trafficOn ? '#fee2e2' : '#fff', color: trafficOn ? '#dc2626' : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.18)', whiteSpace: 'nowrap' }}>
+          🚦 Traffic
+        </button>
       )}
+      <div style={{ position: 'relative' }}>
+        <button onClick={() => setOpen(o => !o)} title="Map style"
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: '1px solid #ddd', background: '#fff', color: '#333', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.18)', whiteSpace: 'nowrap' }}>
+          <span>{TILE_CONFIG[current].icon}</span> {TILE_CONFIG[current].label}
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="18,15 12,9 6,15"/></svg>
+        </button>
+        {open && (
+          <div style={{ position: 'absolute', right: 0, bottom: 36, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', minWidth: 130 }}>
+            {styles.map(s => (
+              <button key={s} onClick={() => { onChange(s); setOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', border: 'none', background: s === current ? '#fff5f5' : 'transparent', color: s === current ? '#dc2626' : '#333', fontSize: 12.5, fontWeight: s === current ? 600 : 400, cursor: 'pointer', textAlign: 'left' }}
+                onMouseEnter={e => { if (s !== current) e.currentTarget.style.background = '#f5f5f5'; }}
+                onMouseLeave={e => { if (s !== current) e.currentTarget.style.background = 'transparent'; }}>
+                <span style={{ fontSize: 15 }}>{TILE_CONFIG[s].icon}</span> {TILE_CONFIG[s].label}
+                {s === current && <span style={{ marginLeft: 'auto', fontSize: 10 }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1609,6 +1624,7 @@ export default function PortalMapPage() {
 
   // Map state
   const [mapStyle, setMapStyle] = useState<MapStyle>('street');
+  const [trafficOn, setTrafficOn] = useState(false);
   const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; ts: number } | null>(null);
 
   // Selected vehicle
@@ -1828,6 +1844,7 @@ export default function PortalMapPage() {
         ref={mapRef}
       >
         <MapStyleTileLayer style={mapStyle} />
+        {trafficOn && TRAFFIC_TILE_URL && <TileLayer key="traffic" url={TRAFFIC_TILE_URL} attribution="© HERE Maps" opacity={0.7} zIndex={450} />}
         {historyMode ? (
           <HistoryLayer points={historyPoints} selectedSegment={selectedSegment} />
         ) : (
@@ -1862,7 +1879,7 @@ export default function PortalMapPage() {
           ))}
         </div>
         {/* Map style */}
-        <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} />
+        <MapStyleSwitcher current={mapStyle} onChange={setMapStyle} trafficOn={trafficOn} onTrafficToggle={() => setTrafficOn(o => !o)} />
         {/* Status counts */}
         <div style={{ background: 'rgba(255,255,255,0.92)', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 8px', display: 'flex', gap: 8, boxShadow: '0 1px 4px rgba(0,0,0,.1)' }}>
           <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>Moving: {counts.moving}</span>
@@ -1919,6 +1936,12 @@ export default function PortalMapPage() {
             onToggleDraw={() => { setPoiDrawActive(a => !a); setPoiDrawnPoint(null); }}
             drawnPoint={poiDrawnPoint}
           />
+        ) : activePanel === 'command-center' ? (
+          <CommandCenterPanel onClose={closePanel} livePoints={livePoints.map(p => {
+            const dm = deviceMap.get(p.imei);
+            const vd = dm?.vehicleId ? vehicleDetails.get(dm.vehicleId) : undefined;
+            return { imei: p.imei, licensePlate: dm?.plate ?? null, vehicleName: vd?.name ?? null, immobilizer: p.immobilizer };
+          })} />
         ) : historyMode ? (
           <HistoryPanel
             mode={historyMode}

@@ -4,6 +4,7 @@ import MapView, { AnimatedRegion, Marker, UrlTile, type LatLng, type Region } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path, Text as SvgText } from 'react-native-svg';
+import * as FileSystem from 'expo-file-system';
 import { useFleet, displayVehicleName, getFleetStatus, type FleetItem, type LivePoint } from '../../src/hooks/useFleet';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
@@ -124,6 +125,7 @@ export default function LiveMapScreen() {
   const [groups, setGroups] = useState<VehicleGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<'street' | 'satellite' | 'hybrid' | 'terrain'>('street');
+  const [trafficOn, setTrafficOn] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [sheetVehicle, setSheetVehicle] = useState<FleetItem | null>(null);
   const sheetAnim = useRef(new Animated.Value(0)).current;
@@ -276,7 +278,8 @@ export default function LiveMapScreen() {
         onRegionChange={next => { regionRef.current = next; }}
         onRegionChangeComplete={next => { regionRef.current = next; setRegion(next); fittingRef.current = false; }}
       >
-        {mapStyle === 'street' && <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256} zIndex={0} />}
+        {mapStyle === 'street' && <UrlTile urlTemplate={isOffline ? `${FileSystem.cacheDirectory}map-tiles/{z}_{x}_{y}.png` : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'} maximumZ={19} tileSize={256} zIndex={0} />}
+        {trafficOn && process.env.EXPO_PUBLIC_HERE_API_KEY ? <UrlTile urlTemplate={`https://traffic.maps.ls.hereapi.com/mapviewer/v1/traffictiles/flow/6/{z}/{x}/{y}/256/png8?apiKey=${process.env.EXPO_PUBLIC_HERE_API_KEY}`} maximumZ={19} tileSize={256} zIndex={450} opacity={0.7} /> : null}
 
         {/* Speed heatmap — colored vehicle markers when active */}
         {showHeatmap && filtered.map(item => item.point ? (
@@ -414,6 +417,23 @@ export default function LiveMapScreen() {
             <View style={[styles.togglePill, { backgroundColor: showHeatmap ? t.red : t.border2 }]}>
               <View style={[styles.toggleDot, { left: showHeatmap ? 14 : 3 }]} />
             </View>
+          </Pressable>
+
+          {!!process.env.EXPO_PUBLIC_HERE_API_KEY && <Pressable onPress={() => setTrafficOn(v => !v)} style={styles.layersToggleRow}>
+            <TablerIcon name="traffic-lights" size={15} color={trafficOn ? t.red : t.secondary} />
+            <Text style={[styles.layersToggleLabel, { color: trafficOn ? t.ink : t.secondary }]}>Live Traffic</Text>
+            <View style={[styles.togglePill, { backgroundColor: trafficOn ? t.red : t.border2 }]}>
+              <View style={[styles.toggleDot, { left: trafficOn ? 14 : 3 }]} />
+            </View>
+          </Pressable>}
+
+          <View style={[styles.layersDivider, { backgroundColor: t.border }]} />
+          <Pressable onPress={() => { setLayersOpen(false); router.push('/offline-map'); }} style={[styles.layersToggleRow, { paddingVertical: 9 }]}>
+            <TablerIcon name="download" size={15} color={isOffline ? t.red : t.secondary} />
+            <Text style={[styles.layersToggleLabel, { color: isOffline ? t.red : t.ink }]}>
+              {isOffline ? 'Offline Mode' : 'Offline Maps'}
+            </Text>
+            <TablerIcon name="chevron-right" size={14} color={t.secondary} />
           </Pressable>
         </View>}
 

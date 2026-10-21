@@ -10,8 +10,9 @@ import { AlertSoundSettings, MobileAlertSoundId } from './AlertSoundSettings';
 
 type Rule = { id: string; name: string; type: string; active: boolean; config: Record<string, string | number>; schedule?: Record<string, unknown> | null; notifications?: { appPush?: boolean; appSound?: boolean; appSoundId?: MobileAlertSoundId; webPush?: boolean; webSound?: boolean; email?: boolean }; vehicleImeis: string[]; excludedVehicleImeis?: string[] };
 type Zone = { id: string; name: string };
+type Filter = 'all' | 'active' | 'inactive';
 const TYPES = ['over_speed', 'idle', 'ignition_on', 'ignition_off', 'power_cut', 'low_battery', 'no_gps', 'offline', 'tow', 'over_parking', 'geofence', 'poi', 'low_score', 'speed_zone', 'maintenance'] as const;
-const SERVICE_TYPES = ['Engine Oil','Tuning','Oil Filter','Air Filter','AC Filter','Fuel Filter','Brake Pads','Brake Fluid','Coolant','Transmission Oil','Battery','Tyre Rotation','General Inspection','Other'];
+const SERVICE_TYPES = ['Engine Oil', 'Tuning', 'Oil Filter', 'Air Filter', 'AC Filter', 'Fuel Filter', 'Brake Pads', 'Brake Fluid', 'Coolant', 'Transmission Oil', 'Battery', 'Tyre Rotation', 'General Inspection', 'Other'];
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
 export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false }: { visible: boolean; imei: string; onClose: () => void; fullScreen?: boolean }) {
@@ -35,7 +36,10 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
   const [typeOpen, setTypeOpen] = useState(false);
   const [zoneOpen, setZoneOpen] = useState(false);
   const [serviceTypeOpen, setServiceTypeOpen] = useState(false);
+  const [filter, setFilter] = useState<Filter>('all');
+  const [menuRuleId, setMenuRuleId] = useState<string | null>(null);
   const requestId = useRef(0);
+
   const load = useCallback(async () => {
     if (!imei || !visible) return;
     const id = ++requestId.current;
@@ -51,13 +55,17 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
     } catch { if (id === requestId.current) setError('Vehicle alerts could not be loaded. Try again.'); }
     finally { if (id === requestId.current) setLoading(false); }
   }, [imei, visible]);
+
   useEffect(() => { void load(); return () => { requestId.current++; setRules([]); setFormOpen(false); }; }, [load]);
+
   const openForm = (rule: Rule | null) => {
     setEditing(rule); setName(rule?.name ?? ''); setType(rule?.type ?? 'over_speed');
     setActive(rule?.active ?? true); setConfig(rule?.config ?? { speedLimit: 80 });
-    setSchedule(rule?.schedule ?? null); setNotifications(rule ? { ...rule.notifications, appPush: rule.notifications?.appPush ?? true, appSound: rule.notifications?.appSound ?? true, appSoundId: rule.notifications?.appSoundId ?? 'trackvee' } : { appPush: true, appSound: true, appSoundId: 'trackvee' });
+    setSchedule(rule?.schedule ?? null);
+    setNotifications(rule ? { ...rule.notifications, appPush: rule.notifications?.appPush ?? true, appSound: rule.notifications?.appSound ?? true, appSoundId: rule.notifications?.appSoundId ?? 'trackvee' } : { appPush: true, appSound: true, appSoundId: 'trackvee' });
     setFormOpen(true); setError('');
   };
+
   const save = async () => {
     if (!name.trim()) { setError('Enter an alert name.'); return; }
     if (!canDo('alerts', editing ? 'edit' : 'add')) return;
@@ -75,6 +83,7 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
     } catch { setError('Alert could not be saved. Check your access and try again.'); }
     finally { setSaving(false); }
   };
+
   const remove = async (rule: Rule) => {
     if (!canDo('alerts', 'delete')) return;
     setSaving(true); setError('');
@@ -82,27 +91,222 @@ export function VehicleAlertsPanel({ visible, imei, onClose, fullScreen = false 
     catch { setError('Alert could not be removed. Try again.'); }
     finally { setSaving(false); }
   };
+
   const numericField = type === 'over_speed' || type === 'speed_zone' ? 'speedLimit' : ['idle', 'no_gps', 'offline', 'over_parking'].includes(type) ? 'minutes' : type === 'low_battery' ? 'level' : type === 'low_score' ? 'scoreThreshold' : null;
   const zoneField = type === 'geofence' || type === 'speed_zone' ? 'geofenceId' : type === 'poi' ? 'poiId' : null;
   const zoneItems = zoneField === 'poiId' ? pois : geofences;
+
+  const visibleRules = useMemo(() => {
+    return rules.filter(rule =>
+      filter === 'all' || (filter === 'active' ? rule.active : !rule.active)
+    );
+  }, [rules, filter]);
+
+  const counts = useMemo(() => ({
+    all: rules.length,
+    active: rules.filter(r => r.active).length,
+    inactive: rules.filter(r => !r.active).length,
+  }), [rules]);
+
+  const menuRule = rules.find(r => r.id === menuRuleId) ?? null;
+
+  const listView = <>
+    <View style={s.pillRow}>
+      {(['all', 'active', 'inactive'] as Filter[]).map(value => (
+        <Pressable key={value} onPress={() => setFilter(value)} style={[s.pill, { backgroundColor: filter === value ? t.red : t.bg2 }]}>
+          <Text style={[s.pillText, { color: filter === value ? '#fff' : t.secondary, fontWeight: filter === value ? '600' : '500' }]}>{label(value)} {counts[value]}</Text>
+        </Pressable>
+      ))}
+    </View>
+
+    {error ? <Pressable onPress={() => void load()} style={s.errorRow}><Text style={[s.errorText, { color: t.red }]}>{error}  Retry</Text></Pressable> : null}
+
+    {loading
+      ? <ActivityIndicator style={{ marginTop: 32 }} color={t.red} />
+      : <FlatList
+          data={visibleRules}
+          keyExtractor={rule => rule.id}
+          contentContainerStyle={!visibleRules.length ? s.empty : s.listContent}
+          renderItem={({ item }) => {
+            const activeBg = item.active ? `${t.red}14` : t.bg2;
+            const activeColor = item.active ? t.red : t.muted;
+            return (
+              <View style={[s.rule, { borderBottomColor: t.border }]}>
+                <View style={[s.ruleAccent, { backgroundColor: item.active ? t.red : t.border }]} />
+                <View style={s.ruleMain}>
+                  <Text style={[s.ruleName, { color: t.ink }]} numberOfLines={1}>{item.name}</Text>
+                  <Text style={[s.ruleMeta, { color: t.secondary }]} numberOfLines={1}>{label(item.type)} · {item.active ? 'Active' : 'Inactive'}</Text>
+                </View>
+                <View style={[s.statusBadge, { backgroundColor: activeBg }]}>
+                  <Text style={[s.statusText, { color: activeColor }]}>{item.active ? 'Active' : 'Inactive'}</Text>
+                </View>
+                {(canDo('alerts', 'edit') || canDo('alerts', 'delete'))
+                  ? <Pressable style={s.moreBtn} onPress={() => setMenuRuleId(item.id)}>
+                      <TablerIcon name="more-vertical" size={18} color={t.secondary} />
+                    </Pressable>
+                  : null}
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={s.emptyCopy}>
+              <TablerIcon name="bell" size={36} color={t.muted} />
+              <Text style={[s.emptyTitle, { color: t.ink }]}>{loading ? 'Loading…' : 'No alert rules'}</Text>
+              <Text style={[s.emptySubtitle, { color: t.secondary }]}>No alerts configured for this vehicle.</Text>
+              {!loading && !rules.length && canDo('alerts', 'add')
+                ? <Pressable onPress={() => openForm(null)} style={s.emptyAction}>
+                    <TablerIcon name="plus" size={15} color={t.red} />
+                    <Text style={[s.emptyActionText, { color: t.red }]}>New alert rule</Text>
+                  </Pressable>
+                : null}
+            </View>
+          }
+        />
+    }
+
+    <Modal visible={!!menuRule} transparent animationType="fade" onRequestClose={() => setMenuRuleId(null)}>
+      <Pressable onPress={() => setMenuRuleId(null)} style={s.menuShade}>
+        <Pressable onPress={e => e.stopPropagation()} style={[s.menuCard, { backgroundColor: t.card }]}>
+          <Text style={[s.menuTitle, { color: t.ink, borderBottomColor: t.border }]} numberOfLines={1}>{menuRule?.name ?? ''}</Text>
+          {canDo('alerts', 'edit') && <Pressable style={s.menuAction} onPress={() => { setMenuRuleId(null); openForm(menuRule!); }}>
+            <TablerIcon name="edit" size={17} color={t.secondary} />
+            <Text style={[s.menuActionText, { color: t.ink }]}>Edit</Text>
+          </Pressable>}
+          {canDo('alerts', 'delete') && <Pressable style={s.menuAction} onPress={() => { setMenuRuleId(null); void remove(menuRule!); }}>
+            <TablerIcon name="trash" size={17} color={t.red} />
+            <Text style={[s.menuActionText, { color: t.red }]}>Delete</Text>
+          </Pressable>}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  </>;
+
+  const formView = <ScrollView contentContainerStyle={s.form} keyboardShouldPersistTaps="handled">
+    {error ? <Text style={[s.errorText, { color: t.red, marginBottom: 8 }]}>{error}</Text> : null}
+    <Text style={s.fieldLabel}>Rule name</Text>
+    <TextInput value={name} onChangeText={setName} style={s.input} placeholder="Alert name" accessibilityLabel="Alert name" placeholderTextColor={t.muted} />
+    <Text style={s.fieldLabel}>Alert type</Text>
+    <Pressable style={s.input} onPress={() => setTypeOpen(v => !v)}><Text style={{ color: t.ink, fontSize: 14 }}>{label(type)} ▾</Text></Pressable>
+    {typeOpen && <View style={s.options}>{TYPES.map(option => <Pressable key={option} style={s.option} onPress={() => { setType(option); setTypeOpen(false); setConfig(option === 'over_speed' ? { speedLimit: 80 } : {}); }}><Text style={{ color: option === type ? t.red : t.ink, fontSize: 13 }}>{label(option)}</Text></Pressable>)}</View>}
+    {numericField && <>
+      <Text style={s.fieldLabel}>{label(numericField)}{numericField === 'speedLimit' ? ' (km/h)' : numericField === 'minutes' ? ' (minutes)' : ''}</Text>
+      <TextInput value={String(config[numericField] ?? '')} onChangeText={text => setConfig(prev => ({ ...prev, [numericField]: Number(text) || 0 }))} keyboardType="numeric" style={s.input} accessibilityLabel={label(numericField)} placeholderTextColor={t.muted} />
+    </>}
+    {zoneField && <>
+      <Text style={s.fieldLabel}>{zoneField === 'poiId' ? 'POI' : 'Geofence'}</Text>
+      <Pressable style={s.input} onPress={() => setZoneOpen(v => !v)}><Text style={{ color: t.ink, fontSize: 14 }}>{zoneItems.find(z => z.id === config[zoneField])?.name ?? 'Select zone'} ▾</Text></Pressable>
+      {zoneOpen && <View style={s.options}>{zoneItems.map(z => <Pressable key={z.id} style={s.option} onPress={() => { setConfig(prev => ({ ...prev, [zoneField]: z.id })); setZoneOpen(false); }}><Text style={{ color: t.ink, fontSize: 13 }}>{z.name}</Text></Pressable>)}</View>}
+    </>}
+    {type === 'maintenance' && <>
+      <Text style={s.fieldLabel}>Service type</Text>
+      <Pressable style={s.input} onPress={() => setServiceTypeOpen(v => !v)}><Text style={{ color: t.ink, fontSize: 14 }}>{String(config.serviceType ?? 'Select service type')} ▾</Text></Pressable>
+      {serviceTypeOpen && <View style={s.options}>{SERVICE_TYPES.map(st => <Pressable key={st} style={s.option} onPress={() => { setConfig(prev => ({ ...prev, serviceType: st, customServiceType: st === 'Other' ? prev.customServiceType ?? '' : '' })); setServiceTypeOpen(false); }}><Text style={[{ fontSize: 13 }, config.serviceType === st ? { color: t.red } : { color: t.ink }]}>{st}</Text></Pressable>)}</View>}
+      {config.serviceType === 'Other' && <TextInput value={String(config.customServiceType ?? '')} onChangeText={v => setConfig(prev => ({ ...prev, customServiceType: v }))} placeholder="Enter custom service type" maxLength={80} style={s.input} placeholderTextColor={t.muted} />}
+    </>}
+    {(type === 'geofence' || type === 'poi') && <>
+      <Text style={s.fieldLabel}>Event</Text>
+      <View style={s.eventRow}>
+        {(['enter', 'exit', 'both'] as const).map(event => <Pressable key={event} onPress={() => setConfig(prev => ({ ...prev, [type === 'poi' ? 'poiEvent' : 'geofenceEvent']: event }))} style={[s.eventButton, config[type === 'poi' ? 'poiEvent' : 'geofenceEvent'] === event && s.eventSelected]}><Text style={{ color: t.ink, fontSize: 13 }}>{label(event)}</Text></Pressable>)}
+      </View>
+    </>}
+    <View style={s.switchRow}><Text style={s.fieldLabel}>Active</Text><Switch value={active} onValueChange={setActive} trackColor={{ true: t.red }} /></View>
+    <View style={s.switchRow}>
+      <View style={{ flex: 1, paddingRight: 12 }}>
+        <Text style={s.fieldLabel}>Mobile push</Text>
+        <Text style={s.hint}>Send this alert to devices with notifications enabled.</Text>
+      </View>
+      <Switch value={notifications?.appPush === true} onValueChange={v => setNotifications(prev => ({ ...prev, appPush: v, ...(v ? { appSound: prev?.appSound ?? true, appSoundId: prev?.appSoundId ?? 'trackvee' } : {}) }))} trackColor={{ true: t.red }} />
+    </View>
+    <AlertSoundSettings enabled={notifications?.appPush === true} soundEnabled={notifications?.appSound ?? true} soundId={notifications?.appSoundId ?? 'trackvee'} onSoundEnabledChange={v => setNotifications(prev => ({ ...prev, appSound: v }))} onSoundIdChange={v => setNotifications(prev => ({ ...prev, appSoundId: v }))} />
+    <Pressable disabled={saving} style={s.saveBtn} onPress={() => void save()}>
+      <Text style={s.saveBtnText}>{saving ? 'Saving…' : 'Save for this vehicle'}</Text>
+    </Pressable>
+  </ScrollView>;
+
   const content = <View style={s.container}>
-      <View style={s.header}><Pressable onPress={formOpen ? () => setFormOpen(false) : onClose} accessibilityLabel="Back"><TablerIcon name="back" size={21} /></Pressable><Text style={s.title}>{formOpen ? (editing ? 'Edit Vehicle Alert' : 'New Vehicle Alert') : 'Vehicle Alerts'}</Text>{!formOpen && canDo('alerts', 'add') ? <Pressable onPress={() => openForm(null)} accessibilityLabel="New alert"><TablerIcon name="plus" size={23} color={t.red} /></Pressable> : <View style={{ width: 23 }} />}</View>
-      {error ? <Pressable onPress={() => void load()}><Text style={s.error}>{error}</Text></Pressable> : null}
-      {formOpen ? <ScrollView contentContainerStyle={s.form} keyboardShouldPersistTaps="handled">
-        <Text style={s.label}>Rule name</Text><TextInput value={name} onChangeText={setName} style={s.input} placeholder="Alert name" accessibilityLabel="Alert name" />
-        <Text style={s.label}>Alert type</Text><Pressable style={s.input} onPress={() => setTypeOpen(v => !v)}><Text style={s.value}>{label(type)} ▾</Text></Pressable>
-        {typeOpen && <View style={s.options}>{TYPES.map(option => <Pressable key={option} style={s.option} onPress={() => { setType(option); setTypeOpen(false); setConfig(option === 'over_speed' ? { speedLimit: 80 } : {}); }}><Text style={s.value}>{label(option)}</Text></Pressable>)}</View>}
-        {numericField && <><Text style={s.label}>{label(numericField)}{numericField === 'speedLimit' ? ' (km/h)' : numericField === 'minutes' ? ' (minutes)' : ''}</Text><TextInput value={String(config[numericField] ?? '')} onChangeText={text => setConfig(previous => ({ ...previous, [numericField]: Number(text) || 0 }))} keyboardType="numeric" style={s.input} accessibilityLabel={label(numericField)} /></>}
-        {zoneField && <><Text style={s.label}>{zoneField === 'poiId' ? 'POI' : 'Geofence'}</Text><Pressable style={s.input} onPress={() => setZoneOpen(v => !v)}><Text style={s.value}>{zoneItems.find(zone => zone.id === config[zoneField])?.name ?? 'Select zone'} ▾</Text></Pressable>{zoneOpen && <View style={s.options}>{zoneItems.map(zone => <Pressable key={zone.id} style={s.option} onPress={() => { setConfig(previous => ({ ...previous, [zoneField]: zone.id })); setZoneOpen(false); }}><Text style={s.value}>{zone.name}</Text></Pressable>)}</View>}</>}
-        {type === 'maintenance' && <><Text style={s.label}>Service type</Text><Pressable style={s.input} onPress={() => setServiceTypeOpen(value => !value)}><Text style={s.value}>{String(config.serviceType ?? 'Select service type')} ▾</Text></Pressable>{serviceTypeOpen && <View style={s.options}>{SERVICE_TYPES.map(serviceType => <Pressable key={serviceType} style={s.option} onPress={() => { setConfig(previous => ({ ...previous, serviceType, customServiceType: serviceType === 'Other' ? previous.customServiceType ?? '' : '' })); setServiceTypeOpen(false); }}><Text style={[s.value, config.serviceType === serviceType && { color: t.red }]}>{serviceType}</Text></Pressable>)}</View>}{config.serviceType === 'Other' && <TextInput value={String(config.customServiceType ?? '')} onChangeText={customServiceType => setConfig(previous => ({ ...previous, customServiceType }))} placeholder="Enter custom service type" maxLength={80} style={s.input}/>}</>}
-        {(type === 'geofence' || type === 'poi') && <><Text style={s.label}>Event</Text><View style={s.eventRow}>{(['enter', 'exit', 'both'] as const).map(event => <Pressable key={event} onPress={() => setConfig(previous => ({ ...previous, [type === 'poi' ? 'poiEvent' : 'geofenceEvent']: event }))} style={[s.eventButton, config[type === 'poi' ? 'poiEvent' : 'geofenceEvent'] === event && s.eventSelected]}><Text style={s.value}>{label(event)}</Text></Pressable>)}</View></>}
-        <View style={s.activeRow}><Text style={s.label}>Active</Text><Switch value={active} onValueChange={setActive} trackColor={{ true: t.red }} /></View>
-        <View style={s.activeRow}><View style={{ flex: 1, paddingRight: 12 }}><Text style={s.label}>Mobile push</Text><Text style={s.hint}>Send this alert to devices with notifications enabled.</Text></View><Switch value={notifications?.appPush === true} onValueChange={value => setNotifications(previous => ({ ...previous, appPush: value, ...(value ? { appSound: previous?.appSound ?? true, appSoundId: previous?.appSoundId ?? 'trackvee' } : {}) }))} trackColor={{ true: t.red }} /></View>
-        <AlertSoundSettings enabled={notifications?.appPush === true} soundEnabled={notifications?.appSound ?? true} soundId={notifications?.appSoundId ?? 'trackvee'} onSoundEnabledChange={value => setNotifications(previous => ({ ...previous, appSound: value }))} onSoundIdChange={value => setNotifications(previous => ({ ...previous, appSoundId: value }))}/>
-        <Pressable disabled={saving} style={s.primary} onPress={() => void save()}><Text style={s.primaryText}>{saving ? 'Saving…' : 'Save for this vehicle'}</Text></Pressable>
-      </ScrollView> : loading ? <ActivityIndicator style={{ marginTop: 32 }} color={t.red} /> : <FlatList data={rules} keyExtractor={rule => rule.id} ListEmptyComponent={<Text style={s.empty}>No alerts for this vehicle.</Text>} renderItem={({ item }) => <View style={s.rule}><View style={{ flex: 1 }}><Text style={s.ruleName}>{item.name}</Text><Text style={s.ruleMeta}>{label(item.type)} · {item.active ? 'Active' : 'Inactive'}</Text></View>{canDo('alerts', 'edit') && <Pressable onPress={() => openForm(item)} style={s.link}><Text style={s.linkText}>Edit</Text></Pressable>}{canDo('alerts', 'delete') && <Pressable onPress={() => Alert.alert('Remove vehicle alert?', `Remove ${item.name} for this vehicle only?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => { void remove(item); } }])} style={s.link} disabled={saving}><Text style={s.linkText}>Delete</Text></Pressable>}</View>} />}
-    </View>;
-  if (fullScreen) return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>{content}</SafeAreaView></KeyboardAvoidingView>;
-  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>{content}</KeyboardAvoidingView></Modal>;
+    <View style={s.header}>
+      <Pressable onPress={formOpen ? () => setFormOpen(false) : onClose} style={s.backBtn} accessibilityLabel="Back">
+        <TablerIcon name="arrow-left" size={18} color={t.ink} />
+      </Pressable>
+      <View style={s.headerTitle}>
+        <Text style={s.title}>{formOpen ? (editing ? 'Edit Alert' : 'New Alert') : 'Vehicle Alerts'}</Text>
+      </View>
+      <View style={s.headerActions}>
+        {!formOpen && canDo('alerts', 'add') && (
+          <Pressable onPress={() => openForm(null)} style={s.addBtn} accessibilityLabel="New alert">
+            <TablerIcon name="plus" size={20} color="#fff" />
+          </Pressable>
+        )}
+        {!formOpen && (
+          <Pressable onPress={() => void load()} style={s.iconBtn} accessibilityLabel="Refresh">
+            <TablerIcon name="refresh" size={18} color={t.ink} />
+          </Pressable>
+        )}
+      </View>
+    </View>
+
+    {formOpen ? formView : listView}
+  </View>;
+
+  if (fullScreen) return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>{content}</SafeAreaView>
+    </KeyboardAvoidingView>
+  );
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>{content}</KeyboardAvoidingView>
+    </Modal>
+  );
 }
-function createStyles(t: AppTheme) { return StyleSheet.create({ container: { flex: 1, backgroundColor: t.bg }, header: { height: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: t.border }, title: { color: t.ink, fontSize: 17, fontWeight: '700' }, error: { color: t.red, padding: 16, fontSize: 12 }, form: { padding: 18, paddingBottom: 36 }, label: { color: t.ink, fontSize: 12, fontWeight: '600', marginTop: 16, marginBottom: 7 }, hint: { color: t.secondary, fontSize: 11, lineHeight: 16 }, input: { minHeight: 44, borderWidth: 1, borderColor: t.border, borderRadius: 7, paddingHorizontal: 12, justifyContent: 'center', fontSize: 14, color: t.ink }, value: { color: t.ink, fontSize: 13 }, options: { borderWidth: 1, borderColor: t.border, borderRadius: 7, maxHeight: 260, overflow: 'hidden' }, option: { padding: 10, borderBottomWidth: 1, borderBottomColor: t.border }, activeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }, primary: { backgroundColor: t.red, minHeight: 44, marginTop: 25, borderRadius: 7, justifyContent: 'center', alignItems: 'center' }, primaryText: { color: '#fff', fontWeight: '700' }, eventRow: { flexDirection: 'row', gap: 7 }, eventButton: { flex: 1, alignItems: 'center', padding: 10, borderWidth: 1, borderColor: t.border, borderRadius: 7 }, eventSelected: { borderColor: t.red, backgroundColor: t.surface }, empty: { color: t.secondary, textAlign: 'center', marginTop: 36 }, rule: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 9, borderBottomWidth: 1, borderColor: t.border }, ruleName: { color: t.ink, fontWeight: '700', fontSize: 14 }, ruleMeta: { color: t.secondary, marginTop: 4, fontSize: 11 }, link: { padding: 5 }, linkText: { color: t.red, fontSize: 11, fontWeight: '600' } }); }
+
+function createStyles(t: AppTheme) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: t.bg },
+    header: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    backBtn: { width: 36, height: 36, borderRadius: 9, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { flex: 1, minWidth: 0 },
+    title: { fontSize: 18, fontWeight: '700', color: t.ink, letterSpacing: -0.3 },
+    subtitle: { fontSize: 12, color: t.secondary, marginTop: 1 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    addBtn: { width: 36, height: 36, borderRadius: 9, backgroundColor: t.red, alignItems: 'center', justifyContent: 'center' },
+    iconBtn: { width: 36, height: 36, borderRadius: 9, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
+    pillRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
+    pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+    pillText: { fontSize: 12 },
+    errorRow: { paddingHorizontal: 16, paddingVertical: 8 },
+    errorText: { fontSize: 12 },
+    listContent: { paddingBottom: 20 },
+    rule: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, gap: 10 },
+    ruleAccent: { width: 3, height: 36, borderRadius: 2 },
+    ruleMain: { flex: 1, minWidth: 0 },
+    ruleName: { fontSize: 14, fontWeight: '600' },
+    ruleMeta: { fontSize: 12, marginTop: 3, textTransform: 'capitalize' },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, overflow: 'hidden' },
+    statusText: { fontSize: 11, fontWeight: '600' },
+    moreBtn: { width: 32, height: 36, alignItems: 'center', justifyContent: 'center' },
+    empty: { flexGrow: 1, justifyContent: 'center' },
+    emptyCopy: { alignItems: 'center', padding: 36 },
+    emptyTitle: { marginTop: 14, fontSize: 16, fontWeight: '600' },
+    emptySubtitle: { marginTop: 6, fontSize: 13, textAlign: 'center', lineHeight: 20 },
+    emptyAction: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 18, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8, backgroundColor: `${t.red}14` },
+    emptyActionText: { fontSize: 13, fontWeight: '600' },
+    form: { padding: 18, paddingBottom: 36 },
+    fieldLabel: { color: t.ink, fontSize: 12, fontWeight: '600', marginTop: 16, marginBottom: 7 },
+    hint: { color: t.secondary, fontSize: 11, lineHeight: 16 },
+    input: { minHeight: 44, borderWidth: 1, borderColor: t.border, borderRadius: 8, paddingHorizontal: 12, justifyContent: 'center', fontSize: 14, color: t.ink },
+    options: { borderWidth: 1, borderColor: t.border, borderRadius: 8, maxHeight: 260, overflow: 'hidden' },
+    option: { padding: 10, borderBottomWidth: 1, borderBottomColor: t.border },
+    switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+    eventRow: { flexDirection: 'row', gap: 7 },
+    eventButton: { flex: 1, alignItems: 'center', padding: 10, borderWidth: 1, borderColor: t.border, borderRadius: 8 },
+    eventSelected: { borderColor: t.red, backgroundColor: t.surface },
+    saveBtn: { backgroundColor: t.red, minHeight: 46, marginTop: 26, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+    saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    menuShade: { flex: 1, backgroundColor: 'rgba(0,0,0,0.32)', justifyContent: 'flex-end', padding: 14 },
+    menuCard: { borderRadius: 9, paddingBottom: 7, marginBottom: 20, overflow: 'hidden' },
+    menuTitle: { fontSize: 14, fontWeight: '700', paddingHorizontal: 14, paddingVertical: 13, borderBottomWidth: 1 },
+    menuAction: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 14 },
+    menuActionText: { fontSize: 14 },
+  });
+}

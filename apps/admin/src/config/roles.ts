@@ -21,6 +21,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
   super_admin: {
     dashboard:              ['view'],
     map:                    ['view'],
+    'command-center':       ['view'],
     clients:                ['view', 'add', 'edit', 'delete'],
     'client-users':         ['view', 'add', 'edit', 'delete'],
     vehicles:               ['view', 'add', 'edit', 'delete'],
@@ -38,10 +39,12 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     setup:                  ['view'],
     'financial-pricing':    ['view', 'edit'],
     'financial-statements': ['view', 'add', 'edit'],
+    'financial-billing':    ['view'],
   },
   admin: {
     dashboard:              ['view'],
     map:                    ['view'],
+    'command-center':       ['view'],
     clients:                ['view', 'add', 'edit', 'delete'],
     'client-users':         ['view', 'add', 'edit', 'delete'],
     vehicles:               ['view', 'add', 'edit', 'delete'],
@@ -59,10 +62,12 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     setup:                  ['view'],
     'financial-pricing':    ['view', 'edit'],
     'financial-statements': ['view', 'add', 'edit'],
+    'financial-billing':    ['view'],
   },
   ops: {
     dashboard:              ['view'],
     map:                    ['view'],
+    'command-center':       ['view'],
     clients:                ['view', 'add', 'edit'],
     'client-users':         ['view', 'add', 'edit'],
     vehicles:               ['view', 'add', 'edit'],
@@ -76,6 +81,7 @@ export const ROLE_PERMISSIONS: Partial<Record<UserRole, Partial<Record<string, P
     setup:                  ['view'],
     'notification-sounds':  ['view', 'add', 'edit'],
     'financial-statements': ['view', 'add'],
+    'financial-billing':    ['view'],
   },
   live_ops: {
     dashboard: ['view'],

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, FormEvent } from 'react';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconDownload } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconDownload, IconUpload, IconFileImport, IconArrowsExchange } from '@tabler/icons-react';
 import CustomSelect from '../components/CustomSelect';
 import type { DateRange } from '../components/DateRangePicker';
 import { format } from 'date-fns';
@@ -17,6 +17,7 @@ import FormField, { inputStyle, selectStyle, FormActions } from '../components/F
 
 interface Device { id: string; displayId: number; imei: string; name: string | null; simNumber: string | null; cityId: string | null; status: string; inventoryStatus: 'in_stock' | 'assigned' | 'maintenance' | 'retired'; lastSeenAt: string | null; vehicleId: string | null; vehicleDisplayId: number | null; licensePlate: string | null; make: string | null; model: string | null; organizationId: string | null; clientName: string | null; createdAt: string; }
 interface Organization { id: string; name: string; }
+interface SwapVehicle { id: string; displayId: number; licensePlate: string | null; name: string | null; }
 interface InventorySummary { total: number; assigned: number; inStock: number; }
 
 const sel: React.CSSProperties = { height: 34, padding: '0 8px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', cursor: 'pointer' };
@@ -70,6 +71,15 @@ export default function DevicesPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Device | null>(null);
   const [deletingId, setDeletingId] = useState(false);
+  const [importModal, setImportModal] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: string[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [swapDevice, setSwapDevice] = useState<Device | null>(null);
+  const [swapTarget, setSwapTarget] = useState('');
+  const [swapVehicles, setSwapVehicles] = useState<SwapVehicle[]>([]);
+  const [swapping, setSwapping] = useState(false);
   const { cities, selectedCityId } = useCityFilter();
 
   const load = () => {
@@ -129,10 +139,59 @@ export default function DevicesPage() {
     } catch (error: any) { toast(error?.response?.data?.message ?? 'Unable to delete this device', 'error'); } finally { setDeletingId(false); }
   };
 
+  const openSwap = async (d: Device) => {
+    setSwapDevice(d); setSwapTarget(''); setSwapping(false);
+    try {
+      const r = await api.get<SwapVehicle[]>('/vehicles?limit=500');
+      const vList = Array.isArray(r.data) ? r.data : (r.data as any).items ?? [];
+      setSwapVehicles(vList.filter((v: SwapVehicle) => v.id !== d.vehicleId));
+    } catch { setSwapVehicles([]); }
+  };
+
+  const handleSwap = async () => {
+    if (!swapDevice || !swapTarget) return;
+    const targetVehicle = swapVehicles.find(v => v.id === swapTarget);
+    setSwapping(true);
+    try {
+      await api.post(`/vehicles/${swapTarget}/device-assignment`, { deviceId: swapDevice.id, reason: 'swap' });
+      toast(`Device ${swapDevice.imei} swapped to ${targetVehicle?.licensePlate || `#${targetVehicle?.displayId}`}`);
+      setSwapDevice(null);
+      load();
+    } catch (err: any) { toast(err?.response?.data?.message ?? 'Swap failed', 'error'); } finally { setSwapping(false); }
+  };
+
   // The API applies this filter through the selected user's effective vehicle
   // permissions. Filtering here by vehicle creator would hide valid results.
   const filtered = devices;
   const pagination = useTablePagination(filtered, JSON.stringify([q, statusFilter, organizationFilter, dateRange?.from?.getTime(), dateRange?.to?.getTime(), selectedCityId]));
+
+  const handleImport = async () => {
+    if (!importText.trim()) { toast('Paste CSV content first', 'error'); return; }
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const lines = importText.trim().split('\n').map(l => l.trim()).filter(Boolean);
+      const isHeader = (lines[0] || '').toLowerCase().includes('imei');
+      const dataLines = isHeader ? lines.slice(1) : lines;
+      const items = dataLines.map(line => {
+        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        return { imei: cols[0] ?? '', name: cols[1] ?? '', simNumber: cols[2] ?? '' };
+      }).filter(item => item.imei);
+      if (!items.length) { toast('No valid rows found', 'error'); return; }
+      const res = await api.post<{ imported: number; skipped: string[] }>('/devices/bulk-import', { items });
+      setImportResult(res.data);
+      if (res.data.imported > 0) { load(); toast(`${res.data.imported} device(s) imported`); }
+    } catch (err: any) { toast(err?.response?.data?.message ?? 'Import failed', 'error'); } finally { setImporting(false); }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setImportText(ev.target?.result as string ?? '');
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const exportCSV = () => {
     const headers = ['ID', 'IMEI', 'Device Name', 'SIM Number', 'Assignment', 'Vehicle', 'Client', 'Connection', 'Last Seen', 'Added'];
@@ -154,6 +213,9 @@ export default function DevicesPage() {
     <div>
       <PageHeader title="Devices" count={devices.length} action={
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={() => { setImportModal(true); setImportResult(null); setImportText(''); }} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg2)', color: 'var(--text)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconFileImport size={13} /> Bulk Import
+          </button>
           <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid #dc2626', borderRadius: 8, background: 'transparent', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
             <IconDownload size={13} /> Export
           </button>
@@ -215,6 +277,8 @@ export default function DevicesPage() {
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => openEdit(d)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                         onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>
+                      {d.inventoryStatus === 'assigned' && <button onClick={() => { void openSwap(d); }} title="Swap device to another vehicle" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#2563eb')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconArrowsExchange size={14} /></button>}
                       <button onClick={() => setDeleting(d)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                         onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconTrash size={14} /></button>
                     </div>
@@ -264,6 +328,88 @@ export default function DevicesPage() {
       <ConfirmDialog open={!!deleting} title="Delete Device"
         message={`Delete device "${deleting?.imei}"? Devices with telemetry or assignment history are retained and must be marked Retired.`}
         onConfirm={handleDelete} onClose={() => setDeleting(null)} loading={deletingId} />
+
+      {/* ── Device Swap Modal ── */}
+      <Modal open={!!swapDevice} onClose={() => setSwapDevice(null)} title="Swap Device" width={500}>
+        {swapDevice && (
+          <div style={{ padding: '4px 0' }}>
+            <div style={{ padding: '10px 12px', background: 'var(--bg2)', borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
+              <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Moving device:</div>
+              <div style={{ fontFamily: 'monospace', color: '#dc2626' }}>{swapDevice.imei}</div>
+              <div style={{ color: 'var(--muted)', marginTop: 2 }}>
+                Currently on: <strong>{swapDevice.licensePlate || `Vehicle #${swapDevice.vehicleDisplayId}`}</strong> {swapDevice.clientName ? `(${swapDevice.clientName})` : ''}
+              </div>
+            </div>
+            <FormField label="Target Vehicle *">
+              <select value={swapTarget} onChange={e => setSwapTarget(e.target.value)} style={selectStyle}>
+                <option value="">— Select vehicle to receive this device —</option>
+                {swapVehicles.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.licensePlate ? `${v.licensePlate}` : `#${v.displayId}`}{v.name ? ` — ${v.name}` : ''}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            {swapTarget && (
+              <div style={{ padding: '10px 12px', background: '#fef3c7', borderRadius: 8, marginBottom: 16, fontSize: 12, border: '1px solid #fde68a', color: '#92400e' }}>
+                ⚠️ If the target vehicle already has a device, it will be automatically removed first.
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+              <button onClick={() => setSwapDevice(null)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => { void handleSwap(); }} disabled={swapping || !swapTarget}
+                style={{ padding: '7px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: swapping || !swapTarget ? 'not-allowed' : 'pointer', opacity: swapping || !swapTarget ? 0.6 : 1 }}>
+                {swapping ? 'Swapping…' : 'Confirm Swap'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Bulk Import Modal ── */}
+      <Modal open={importModal} onClose={() => { setImportModal(false); setImportResult(null); }} title="Bulk Import Devices" width={560}>
+        <div style={{ padding: '4px 0' }}>
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+            Paste CSV data (columns: <b>IMEI, Name, SIM Number</b>) or upload a .csv file. First row may be a header. Max 500 devices.
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <input type="file" accept=".csv,.txt" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
+            <button onClick={() => fileInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg2)', color: 'var(--text)', fontSize: 12, cursor: 'pointer' }}>
+              <IconUpload size={12}/> Upload CSV
+            </button>
+            <span style={{ fontSize: 11, color: 'var(--muted)', alignSelf: 'center' }}>or paste below</span>
+          </div>
+          <textarea
+            value={importText}
+            onChange={e => setImportText(e.target.value)}
+            placeholder={'863719060123456,Tracker-01,03001234567\n863719060654321,Tracker-02,\n...'}
+            rows={8}
+            style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, fontFamily: 'monospace', resize: 'vertical', background: 'var(--bg2)', color: 'var(--text)', boxSizing: 'border-box' }}
+          />
+          {importResult && (
+            <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 6, background: importResult.imported > 0 ? '#f0fdf4' : '#fef2f2', border: `1px solid ${importResult.imported > 0 ? '#bbf7d0' : '#fecaca'}` }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: importResult.imported > 0 ? '#16a34a' : '#dc2626', marginBottom: 4 }}>
+                {importResult.imported} device(s) imported successfully
+              </div>
+              {importResult.skipped.length > 0 && (
+                <div style={{ fontSize: 11, color: '#dc2626' }}>
+                  <b>Skipped ({importResult.skipped.length}):</b>
+                  <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                    {importResult.skipped.slice(0, 10).map((s, i) => <li key={i}>{s}</li>)}
+                    {importResult.skipped.length > 10 && <li>+{importResult.skipped.length - 10} more</li>}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+            <button onClick={() => { setImportModal(false); setImportResult(null); }} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer' }}>Close</button>
+            <button onClick={handleImport} disabled={importing || !importText.trim()} style={{ padding: '7px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: importing ? 'not-allowed' : 'pointer', opacity: importing ? 0.7 : 1 }}>
+              {importing ? 'Importing…' : 'Import Devices'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
