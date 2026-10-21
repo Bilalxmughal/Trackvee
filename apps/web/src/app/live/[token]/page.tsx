@@ -283,7 +283,7 @@ export default function LiveSharePage() {
       {/* Header */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/logo.webp" alt="Trackvee" style={{ height: 28, width: 'auto', objectFit: 'contain' }} />
+          <img src="/logo.webp" alt="Trackvee" style={{ height: 28, width: 'auto', objectFit: 'contain', mixBlendMode: 'multiply' }} />
           <div style={{ width: 1, height: 24, background: '#e5e7eb' }} />
           <div>
             <div style={{ fontWeight: 700, fontSize: 14, color: '#111827', lineHeight: 1.2 }}>
@@ -314,7 +314,7 @@ export default function LiveSharePage() {
         {/* Scheduled overlay — faded map background */}
         {showScheduled && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 1000, background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
-            <img src="/logo.webp" alt="Trackvee" style={{ height: 36, width: 'auto', objectFit: 'contain', marginBottom: 20 }} />
+            <img src="/logo.webp" alt="Trackvee" style={{ height: 36, width: 'auto', objectFit: 'contain', marginBottom: 20, mixBlendMode: 'multiply' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', marginBottom: 4 }}>{vehicleLabel}</div>
             {data?.vehicle?.make && data?.vehicle?.model && (
               <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>{data.vehicle.make} {data.vehicle.model}</div>
