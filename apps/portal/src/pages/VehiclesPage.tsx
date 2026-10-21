@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { IconCar, IconSearch, IconChevronRight, IconHistory, IconX } from '@tabler/icons-react';
+import { useEffect, useRef, useState } from 'react';
+import { IconCar, IconSearch, IconChevronRight, IconHistory, IconX, IconDotsVertical, IconGauge } from '@tabler/icons-react';
 import api from '../api/client';
 import { fmtDate, fmtDateTime } from '../lib/date';
 
@@ -12,6 +12,7 @@ interface Vehicle {
   createdAt: string;
   lifecycleStatus: 'active' | 'expired' | 'archived';
   expiresAt: string | null;
+  odometerKm?: number;
 }
 
 interface Device { id: string; displayId: number; imei: string; simNumber: string | null; vehicleId: string | null; }
@@ -27,6 +28,11 @@ export default function VehiclesPage() {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [assignmentHistory, setAssignmentHistory] = useState<AssignmentHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [menuVehicleId, setMenuVehicleId] = useState<string | null>(null);
+  const [odoVehicle, setOdoVehicle] = useState<Vehicle | null>(null);
+  const [odoInput, setOdoInput] = useState('');
+  const [odoSaving, setOdoSaving] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -64,6 +70,26 @@ export default function VehiclesPage() {
       .catch(() => setAssignmentHistory([]))
       .finally(() => setHistoryLoading(false));
   }, [selectedVehicle?.id]);
+
+  useEffect(() => {
+    if (!menuVehicleId) return;
+    const handler = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuVehicleId(null); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuVehicleId]);
+
+  const openOdoModal = (v: Vehicle) => { setMenuVehicleId(null); setOdoVehicle(v); setOdoInput(String(v.odometerKm ?? 0)); };
+  const saveOdo = async () => {
+    if (!odoVehicle) return;
+    const km = parseFloat(odoInput);
+    if (!Number.isFinite(km) || km < 0) return;
+    setOdoSaving(true);
+    try {
+      await api.patch(`/vehicles/${odoVehicle.id}/odometer`, { odometerKm: km });
+      setVehicles(rows => rows.map(v => v.id === odoVehicle.id ? { ...v, odometerKm: km } : v));
+      setOdoVehicle(null);
+    } catch { /* ignore */ } finally { setOdoSaving(false); }
+  };
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden' }}>
@@ -109,7 +135,7 @@ export default function VehiclesPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
-                {['#', 'Plate', 'Make / Model', 'Year', 'Status', 'Tracker', ''].map(h => (
+                {['#', 'Plate', 'Make / Model', 'Year', 'Odometer', 'Status', 'Tracker', ''].map(h => (
                   <th key={h} style={{ padding: '9px 16px', fontSize: 11, fontWeight: 700, color: '#bbb', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -129,6 +155,9 @@ export default function VehiclesPage() {
                     </td>
                     <td style={{ padding: '10px 16px', fontSize: 12.5, color: '#444' }}>{name}</td>
                     <td style={{ padding: '10px 16px', fontSize: 12.5, color: '#666' }}>{v.year ?? '—'}</td>
+                    <td style={{ padding: '10px 16px', fontSize: 12, color: '#2563eb', fontVariantNumeric: 'tabular-nums' }}>
+                      {v.odometerKm != null ? `${Number(v.odometerKm).toLocaleString(undefined, { maximumFractionDigits: 0 })} km` : '—'}
+                    </td>
                     <td style={{ padding: '10px 16px', fontSize: 12, color: expired ? '#dc2626' : v.lifecycleStatus === 'archived' ? '#9ca3af' : '#16a34a' }}>
                       {expired ? 'Expired' : v.lifecycleStatus === 'archived' ? 'Archived' : 'Active'}
                     </td>
@@ -136,7 +165,22 @@ export default function VehiclesPage() {
                       {dev ? 'Assigned' : 'No device'}
                     </td>
                     <td style={{ padding: '10px 16px', textAlign: 'right' }}>
-                      <button onClick={() => setSelectedVehicle(v)} title="View vehicle and device history" style={{ border: 0, background: 'transparent', color: '#6b7280', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}><IconHistory size={15} /> Details <IconChevronRight size={14} /></button>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <button onClick={() => setSelectedVehicle(v)} title="View history" style={{ border: 0, background: 'transparent', color: '#6b7280', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}><IconHistory size={15} /> Details <IconChevronRight size={14} /></button>
+                        <div style={{ position: 'relative' }}>
+                          <button onClick={() => setMenuVehicleId(menuVehicleId === v.id ? null : v.id)} title="More actions" style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#9ca3af', display: 'inline-flex', alignItems: 'center', padding: 4, borderRadius: 4 }}>
+                            <IconDotsVertical size={15} />
+                          </button>
+                          {menuVehicleId === v.id && (
+                            <div ref={menuRef} style={{ position: 'absolute', right: 0, top: '100%', zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)', minWidth: 160, padding: 4 }}>
+                              <button onClick={() => openOdoModal(v)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', border: 0, background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#111', borderRadius: 5, textAlign: 'left' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                <IconGauge size={14} color="#2563eb" /> Set Odometer
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -167,6 +211,32 @@ export default function VehiclesPage() {
           </div>
         </div>
       </div>}
+
+      {odoVehicle && (
+        <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: 'min(360px, 96vw)', background: '#fff', borderRadius: 12, boxShadow: '0 16px 48px rgba(0,0,0,.2)', padding: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <IconGauge size={18} color="#2563eb" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>Set Odometer</div>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{odoVehicle.licensePlate || `#${odoVehicle.displayId}`} · {[odoVehicle.make, odoVehicle.model].filter(Boolean).join(' ') || odoVehicle.name}</div>
+              </div>
+              <button onClick={() => setOdoVehicle(null)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#9ca3af' }}><IconX size={16} /></button>
+            </div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>Enter current odometer reading in km. The vehicle will continue accumulating distance from this value.</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+              <input autoFocus type="number" min="0" step="1" value={odoInput} onChange={e => setOdoInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') void saveOdo(); if (e.key === 'Escape') setOdoVehicle(null); }}
+                style={{ flex: 1, height: 38, padding: '0 12px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: 14, outline: 'none' }} />
+              <span style={{ fontSize: 13, color: '#6b7280', whiteSpace: 'nowrap' }}>km</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setOdoVehicle(null)} style={{ padding: '8px 16px', border: '1px solid #e5e7eb', background: '#fff', borderRadius: 7, fontSize: 13, cursor: 'pointer', color: '#374151' }}>Cancel</button>
+              <button onClick={() => void saveOdo()} disabled={odoSaving} style={{ padding: '8px 20px', border: 0, background: '#2563eb', color: '#fff', borderRadius: 7, fontSize: 13, cursor: 'pointer', opacity: odoSaving ? 0.65 : 1 }}>{odoSaving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

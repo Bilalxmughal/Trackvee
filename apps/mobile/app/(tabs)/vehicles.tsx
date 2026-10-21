@@ -53,6 +53,9 @@ export default function VehiclesScreen() {
   const [menuImei, setMenuImei] = useState<string | null>(null);
   const [cutItem, setCutItem] = useState<FleetItem | null>(null);
   const [immobilizerOverride, setImmobilizerOverride] = useState<Record<string, boolean>>({});
+  const [odoItem, setOdoItem] = useState<FleetItem | null>(null);
+  const [odoInput, setOdoInput] = useState('');
+  const [odoSaving, setOdoSaving] = useState(false);
 
   const loadGroups = () => { api.get<VehicleGroup[]>('/vehicle-groups').then(r => { setGroups(r.data); }).catch(() => { setGroups([]); }); };
   useEffect(() => { let active = true; api.get<VehicleGroup[]>('/vehicle-groups').then(r => { if (active) setGroups(r.data); }).catch(() => { if (active) setGroups([]); }); return () => { active = false; }; }, []);
@@ -193,6 +196,19 @@ export default function VehiclesScreen() {
   const shareLiveLocation = (item: FleetItem) => {
     setMenuImei(null);
     router.push({ pathname: '/share-links', params: { imei: item.device.imei } });
+  };
+
+  const openOdoModal = (item: FleetItem) => { setMenuImei(null); setOdoItem(item); setOdoInput(String(item.vehicle?.odometerKm ?? 0)); };
+  const saveOdo = async () => {
+    if (!odoItem?.vehicle) return;
+    const km = parseFloat(odoInput);
+    if (!Number.isFinite(km) || km < 0) return;
+    setOdoSaving(true);
+    try {
+      await api.patch(`/vehicles/${odoItem.vehicle.id}/odometer`, { odometerKm: km });
+      setOdoItem(null);
+    } catch { Alert.alert('Error', 'Could not update odometer. Please try again.'); }
+    finally { setOdoSaving(false); }
   };
 
   const renderVehicleCard = (item: FleetItem) => {
@@ -382,6 +398,7 @@ export default function VehiclesScreen() {
             <MenuAction icon="report" label="Last Hour" t={t} onPress={() => go(menuItem, 'history', 'lastHour')} />
             <MenuAction icon="report" label="Today" t={t} onPress={() => go(menuItem, 'history', 'today')} />
             <MenuAction icon="report" label="Yesterday" t={t} onPress={() => go(menuItem, 'history', 'yesterday')} />
+            {menuItem.vehicle && <><View style={[s.menuDivider, { backgroundColor: t.border }]} /><MenuAction icon="gauge" label="Set Odometer" t={t} onPress={() => openOdoModal(menuItem)} /></>}
             {(canDo('alerts', 'add') || canDo('alerts', 'edit')) && <><View style={[s.menuDivider, { backgroundColor: t.border }]} /><MenuAction icon="bell" label="Edit Alert" t={t} onPress={() => { const imei = menuItem.device.imei; setMenuImei(null); router.push({ pathname: '/vehicle/[imei]/alerts', params: { imei } }); }} /></>}
             {canDo('engine_cut') && <MenuAction icon="engine" label={(immobilizerOverride[menuItem.device.imei] ?? menuItem.point?.immobilizer) ? 'Restore Engine' : 'Cut Engine'} destructive t={t} onPress={() => { const selected = menuItem; setMenuImei(null); setCutItem(selected); }} />}
           </>}
@@ -439,6 +456,36 @@ export default function VehiclesScreen() {
       </View></View>
     </Modal>
     {cutItem && <EngineCutDialog visible imei={cutItem.device.imei} plate={plateFor(cutItem)} immobilized={immobilizerOverride[cutItem.device.imei] ?? !!cutItem.point?.immobilizer} onClose={() => setCutItem(null)} onSuccess={value => setImmobilizerOverride(previous => ({ ...previous, [cutItem.device.imei]: value }))} />}
+
+    <Modal visible={!!odoItem} transparent animationType="fade" onRequestClose={() => setOdoItem(null)}>
+      <Pressable onPress={() => setOdoItem(null)} style={s.menuShade}>
+        <Pressable onPress={e => e.stopPropagation()} style={[s.menuCard, { backgroundColor: t.card }]}>
+          <Text style={[s.menuTitle, { color: t.ink, borderBottomColor: t.border }]}>Set Odometer</Text>
+          {odoItem && (
+            <View style={{ padding: 16 }}>
+              <Text style={{ fontSize: 12, color: t.secondary, marginBottom: 4 }}>{plateFor(odoItem)} · {displayVehicleName(odoItem.vehicle)}</Text>
+              <Text style={{ fontSize: 11, color: t.muted, marginBottom: 12 }}>Enter current odometer reading. Vehicle will accumulate from this value.</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <TextInput
+                  autoFocus keyboardType="numeric" value={odoInput} onChangeText={setOdoInput}
+                  style={{ flex: 1, height: 40, borderWidth: 1, borderColor: t.border, borderRadius: 8, paddingHorizontal: 12, fontSize: 15, color: t.ink, backgroundColor: t.inputBg }}
+                  placeholder="km" placeholderTextColor={t.muted}
+                />
+                <Text style={{ fontSize: 14, color: t.secondary }}>km</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end' }}>
+                <Pressable onPress={() => setOdoItem(null)} style={{ paddingVertical: 9, paddingHorizontal: 16, borderWidth: 1, borderColor: t.border, borderRadius: 8 }}>
+                  <Text style={{ fontSize: 13, color: t.secondary }}>Cancel</Text>
+                </Pressable>
+                <Pressable onPress={() => void saveOdo()} disabled={odoSaving} style={{ paddingVertical: 9, paddingHorizontal: 20, backgroundColor: '#2563eb', borderRadius: 8, opacity: odoSaving ? 0.65 : 1 }}>
+                  <Text style={{ fontSize: 13, color: '#fff', fontWeight: '600' }}>{odoSaving ? 'Saving…' : 'Save'}</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
   </SafeAreaView>;
 }
 
