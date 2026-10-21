@@ -319,12 +319,17 @@ function buildPopupHtml(pt: LivePoint, dv: { plate: string | null; vehicleId: st
       ${row('Satellites', String(pt.satellites))}
       ${row('GSM', gsm)}
     </tbody></table>
-    <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f0f0f0">
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f0f0f0;display:flex;gap:6px;flex-wrap:wrap">
       <a href="${svUrl}" target="_blank" rel="noopener noreferrer"
         style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#1a73e8;text-decoration:none;padding:4px 10px;border-radius:5px;border:1px solid #d0e2f9;background:#f0f6ff">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
         Street View
       </a>
+      <button onclick="window.__ytShare('${pt.imei}')"
+        style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#dc2626;padding:4px 10px;border-radius:5px;border:1px solid #fca5a5;background:#fff5f5;cursor:pointer">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Share Link
+      </button>
     </div>
   </div>`;
 }
@@ -2472,6 +2477,11 @@ export default function MapPage() {
   const [shareLinksOpen, setShareLinksOpen] = useState(false);
   const [shareLinksImei, setShareLinksImei] = useState<string | undefined>(undefined);
   const openShareLinks = (imei?: string) => { setShareLinksImei(imei); setShareLinksOpen(true); };
+
+  useEffect(() => {
+    (window as any).__ytShare = (imei: string) => openShareLinks(imei);
+    return () => { delete (window as any).__ytShare; };
+  }, []);
 
   const { alertSettings, alertSettingsRef, setActiveAlertCount, alertPanelOpen, closeAlertPanel } = useAlert();
   const [showAlerts, setShowAlerts] = useState(false);

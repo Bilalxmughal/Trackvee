@@ -1363,13 +1363,14 @@ function FollowWindow({ plate, pt, onStop, initPos }: { plate: string; pt: LiveP
 
 // ── Vehicle Detail Panel ──────────────────────────────────────────────────────
 
-function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFollow, onTripReplay, onShowHistory }: {
+function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFollow, onTripReplay, onShowHistory, onShareLink }: {
   imei: string; pt: LivePoint | undefined;
   deviceMap: DMap; vehicleDetails: Map<string, VehicleDetail>;
   onClose: () => void;
   onFollow: () => void;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
+  onShareLink: () => void;
 }) {
   const [vehicleStats, setVehicleStats] = useState<{ stopDuration: number | null; odometer: number; engineHours: number } | null>(null);
   const dv = deviceMap.get(imei);
@@ -1420,7 +1421,7 @@ function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFo
           <div style={{ padding: '4px 0', fontSize: 10, color: '#bbb' }}>{formatTs(pt.timestamp)}</div>
         </div>
       )}
-      <div style={{ display: 'flex', gap: 6, padding: '0 11px 11px' }}>
+      <div style={{ display: 'flex', gap: 5, padding: '0 11px 11px', flexWrap: 'wrap' }}>
         <button onClick={onFollow} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #fca5a5', background: '#fef2f2', fontSize: 10, fontWeight: 500, color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
           Follow
         </button>
@@ -1429,6 +1430,9 @@ function VehicleDetailPanel({ imei, pt, deviceMap, vehicleDetails, onClose, onFo
         </button>
         <button onClick={onTripReplay} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #e5e7eb', background: '#fff', fontSize: 10, fontWeight: 500, color: '#555', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
           Replay
+        </button>
+        <button onClick={onShareLink} style={{ flex: 1, padding: '5px', borderRadius: 5, border: '1px solid #e5e7eb', background: '#fff', fontSize: 10, fontWeight: 500, color: '#555', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+          Share
         </button>
       </div>
     </div>
@@ -2030,6 +2034,7 @@ export default function PortalMapPage() {
             const plate = fmtPlate(deviceMap.get(selectedImei), selectedImei);
             showHistory(selectedImei, plate, preset);
           }}
+          onShareLink={() => openShareLinks(selectedImei)}
         />
       )}
 
