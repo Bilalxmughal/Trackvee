@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import 'leaflet/dist/leaflet.css';
 
 interface LivePoint {
   latitude: number;
@@ -82,9 +81,19 @@ export default function LiveSharePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  // Init Leaflet map once container is ready
+  // Init Leaflet map once container is ready (client-only)
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
+
+    // Inject Leaflet CSS once
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
     import('leaflet').then((L) => {
       if (!mapContainerRef.current || mapRef.current) return;
       const map = L.map(mapContainerRef.current, { zoomControl: true }).setView([24.8607, 67.0011], 15);
@@ -93,18 +102,17 @@ export default function LiveSharePage() {
       }).addTo(map);
       mapRef.current = map;
     });
+
     return () => {
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; markerRef.current = null; }
     };
   }, []);
 
-  // Update marker when data changes
+  // Update marker position when data arrives
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !data?.point?.latitude) return;
     const pt = data.point;
-    const lat = pt.latitude;
-    const lng = pt.longitude;
     const label = data.vehicle?.licensePlate ?? data.vehicle?.name ?? 'Vehicle';
     const rot = ((pt.heading ?? 0) + 180) % 360;
     const speedTxt = `${Math.round(pt.speedKmh)} km/h`;
@@ -116,17 +124,17 @@ export default function LiveSharePage() {
           <div style="margin-top:3px;background:rgba(10,10,10,0.82);color:#fff;font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap;pointer-events:none">${label} · ${speedTxt}</div>
         </div>`,
         className: 'leaflet-interactive',
-        iconSize: [0, 0],
-        iconAnchor: [0, 44],
+        iconSize: [0, 0] as [number, number],
+        iconAnchor: [0, 44] as [number, number],
       });
 
       if (markerRef.current) {
-        markerRef.current.setLatLng([lat, lng]);
+        markerRef.current.setLatLng([pt.latitude, pt.longitude]);
         markerRef.current.setIcon(icon);
       } else {
-        markerRef.current = L.marker([lat, lng], { icon }).addTo(map);
+        markerRef.current = L.marker([pt.latitude, pt.longitude], { icon }).addTo(map);
       }
-      map.setView([lat, lng], map.getZoom(), { animate: true });
+      map.setView([pt.latitude, pt.longitude], map.getZoom(), { animate: true });
     });
   }, [data]);
 
@@ -144,7 +152,7 @@ export default function LiveSharePage() {
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 40, height: 40, border: '3px solid #dc2626', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <p style={{ color: '#6b7280', margin: 0 }}>Loading live location…</p>
+        <p style={{ color: '#6b7280', margin: 0, fontFamily: 'system-ui, sans-serif' }}>Loading live location…</p>
       </div>
     </div>
   );
@@ -153,7 +161,7 @@ export default function LiveSharePage() {
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif', background: '#f8fafc' }}>
       <div style={{ textAlign: 'center', padding: 32 }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>🔗</div>
-        <h2 style={{ color: '#111827', margin: '0 0 8px' }}>Link unavailable</h2>
+        <h2 style={{ color: '#111827', margin: '0 0 8px', fontFamily: 'system-ui, sans-serif' }}>Link unavailable</h2>
         <p style={{ color: '#6b7280', margin: 0 }}>{error.includes('expired') ? 'This share link has expired.' : 'This share link is no longer valid.'}</p>
       </div>
     </div>
@@ -162,7 +170,7 @@ export default function LiveSharePage() {
   if (hasSchedule && !inSchedule) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', padding: 32, textAlign: 'center' }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>🕐</div>
-      <h2 style={{ color: '#111827', margin: '0 0 8px', fontSize: 20 }}>{vehicleLabel}</h2>
+      <h2 style={{ color: '#111827', margin: '0 0 8px', fontSize: 20 }}>{ vehicleLabel }</h2>
       <p style={{ color: '#6b7280', margin: '0 0 4px', fontSize: 15 }}>Live tracking is not active right now.</p>
       <p style={{ color: '#374151', fontWeight: 600, margin: 0, fontSize: 14 }}>
         Tracking active {fmt12(scheduleStart!)} – {fmt12(scheduleEnd!)} PKT
@@ -173,7 +181,6 @@ export default function LiveSharePage() {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'system-ui, sans-serif' }}>
-      {/* Header */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{vehicleLabel}</div>
@@ -191,9 +198,8 @@ export default function LiveSharePage() {
         </div>
       </div>
 
-      {/* Map */}
       <div style={{ flex: 1, position: 'relative' }}>
-        {!hasGps && !loading && (
+        {!hasGps && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.85)', pointerEvents: 'none' }}>
             <p style={{ color: '#6b7280', margin: 0 }}>No GPS fix available for this vehicle.</p>
           </div>
@@ -201,7 +207,6 @@ export default function LiveSharePage() {
         <div ref={mapContainerRef} style={{ height: '100%', width: '100%' }} />
       </div>
 
-      {/* Footer */}
       <div style={{ background: '#fff', borderTop: '1px solid #e5e7eb', padding: '6px 16px', fontSize: 11, color: '#9ca3af', textAlign: 'center', flexShrink: 0 }}>
         Powered by <strong style={{ color: '#dc2626' }}>Trackvee</strong>
       </div>
