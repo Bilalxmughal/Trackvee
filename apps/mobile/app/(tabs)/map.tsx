@@ -8,6 +8,7 @@ import { useFleet, displayVehicleName, getFleetStatus, type FleetItem, type Live
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
 import { useTheme } from '../../src/hooks/useTheme';
+import { useIsOffline } from '../../src/hooks/useIsOffline';
 import type { AppTheme } from '../../src/theme';
 import api from '../../src/lib/api';
 import logo from '../../assets/trackvee-logo.png';
@@ -117,6 +118,7 @@ export default function LiveMapScreen() {
   const mapRef = useRef<MapView | null>(null);
   const { items, error, reload } = useFleet();
   const { canDo } = usePortalPermissions();
+  const isOffline = useIsOffline();
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [groups, setGroups] = useState<VehicleGroup[]>([]);
@@ -430,7 +432,7 @@ export default function LiveMapScreen() {
       {/* Floating pill strip */}
       {!sheetVehicle && !fullscreen && (
         <View style={styles.pillOverlay}>
-          {error ? (
+          {error && !isOffline ? (
             <Pressable onPress={reload} style={[styles.pillStrip, { backgroundColor: t.card }]}>
               <Text style={[styles.errorText, { color: t.red }]}>{error}  Retry</Text>
             </Pressable>
