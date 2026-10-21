@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../api/client';
 
+interface ScheduleSlot { start: string; end: string; }
 interface ShareLink {
   id: string;
   token: string;
@@ -10,6 +11,7 @@ interface ShareLink {
   viewCount: number;
   isActive: boolean;
   createdAt: string;
+  schedules?: ScheduleSlot[] | null;
   scheduleStart?: string | null;
   scheduleEnd?: string | null;
 }
@@ -33,7 +35,7 @@ function isExpired(expiresAt: string | null) {
   return new Date(expiresAt) < new Date();
 }
 
-type FormState = { name: string; imei: string; expiresAt: string; scheduleStart: string; scheduleEnd: string };
+type FormState = { name: string; imei: string; expiresAt: string; schedules: ScheduleSlot[] };
 
 export default function ShareLinksPanel({ dark, onClose, vehicles, preselectedImei }: Props) {
   const [links, setLinks] = useState<ShareLink[]>([]);
@@ -43,7 +45,7 @@ export default function ShareLinksPanel({ dark, onClose, vehicles, preselectedIm
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>({ name: '', imei: preselectedImei ?? '', expiresAt: '', scheduleStart: '', scheduleEnd: '' });
+  const [form, setForm] = useState<FormState>({ name: '', imei: preselectedImei ?? '', expiresAt: '', schedules: [] });
   const [err, setErr] = useState('');
   const [vehicleSearch, setVehicleSearch] = useState(vehicles.find(v => v.imei === preselectedImei)?.plate ?? '');
   const [vehicleDropOpen, setVehicleDropOpen] = useState<boolean>(false);
@@ -74,7 +76,7 @@ export default function ShareLinksPanel({ dark, onClose, vehicles, preselectedIm
     setEditLink(null);
     const selectedImei = imei ?? preselectedImei ?? '';
     const selectedPlate = vehicles.find(v => v.imei === selectedImei)?.plate ?? '';
-    setForm({ name: '', imei: selectedImei, expiresAt: '', scheduleStart: '', scheduleEnd: '' });
+    setForm({ name: '', imei: selectedImei, expiresAt: '', schedules: [] });
     setVehicleSearch(selectedPlate);
     setVehicleDropOpen(false);
     setErr('');
@@ -84,27 +86,35 @@ export default function ShareLinksPanel({ dark, onClose, vehicles, preselectedIm
   const openEdit = (lnk: ShareLink) => {
     setEditLink(lnk);
     const exp = lnk.expiresAt ? new Date(lnk.expiresAt).toISOString().slice(0, 10) : '';
-    setForm({ name: lnk.name, imei: lnk.imei, expiresAt: exp, scheduleStart: lnk.scheduleStart ?? '', scheduleEnd: lnk.scheduleEnd ?? '' });
+    // Prefer new schedules array; fall back to old single slot
+    const slots: ScheduleSlot[] = lnk.schedules?.length
+      ? lnk.schedules
+      : (lnk.scheduleStart && lnk.scheduleEnd ? [{ start: lnk.scheduleStart, end: lnk.scheduleEnd }] : []);
+    setForm({ name: lnk.name, imei: lnk.imei, expiresAt: exp, schedules: slots });
     setVehicleSearch(plateName(lnk.imei));
     setVehicleDropOpen(false);
     setErr('');
     setShowForm(true);
   };
 
+  const setSlot = (i: number, field: 'start' | 'end', val: string) =>
+    setForm(f => { const s = [...f.schedules]; s[i] = { ...s[i], [field]: val }; return { ...f, schedules: s }; });
+  const addSlot = () => setForm(f => ({ ...f, schedules: [...f.schedules, { start: '', end: '' }] }));
+  const removeSlot = (i: number) => setForm(f => ({ ...f, schedules: f.schedules.filter((_, j) => j !== i) }));
+
   const save = async () => {
     if (!form.name.trim()) { setErr('Name is required'); return; }
     if (!form.imei) { setErr('Vehicle is required'); return; }
-    const hasStart = !!form.scheduleStart.trim();
-    const hasEnd = !!form.scheduleEnd.trim();
-    if (hasStart !== hasEnd) { setErr('Set both schedule start and end, or leave both empty'); return; }
+    for (const s of form.schedules) {
+      if (!s.start.trim() || !s.end.trim()) { setErr('Fill both start and end for every schedule slot'); return; }
+    }
     setSaving(true); setErr('');
     try {
       const payload = {
         name: form.name.trim(),
         imei: form.imei,
         expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
-        scheduleStart: form.scheduleStart.trim() || null,
-        scheduleEnd: form.scheduleEnd.trim() || null,
+        schedules: form.schedules.length ? form.schedules : null,
       };
       if (editLink) {
         await api.patch(`/share-links/${editLink.id}`, payload);
@@ -223,21 +233,29 @@ export default function ShareLinksPanel({ dark, onClose, vehicles, preselectedIm
             </div>
 
             <div>
-              <div style={{ fontSize: 11, color: muted, marginBottom: 4 }}>Schedule (optional) — link shows data only within these hours</div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  type="time"
-                  value={form.scheduleStart}
-                  onChange={e => setForm(f => ({ ...f, scheduleStart: e.target.value }))}
-                  style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: `1px solid ${inputBorder}`, background: inputBg, color: text, fontSize: 12.5, outline: 'none', boxSizing: 'border-box' }}
-                />
-                <span style={{ fontSize: 11, color: muted }}>to</span>
-                <input
-                  type="time"
-                  value={form.scheduleEnd}
-                  onChange={e => setForm(f => ({ ...f, scheduleEnd: e.target.value }))}
-                  style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: `1px solid ${inputBorder}`, background: inputBg, color: text, fontSize: 12.5, outline: 'none', boxSizing: 'border-box' }}
-                />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ fontSize: 11, color: muted }}>Schedule (optional)</div>
+                <button onClick={addSlot} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 5, border: `1px solid ${inputBorder}`, background: 'transparent', color: '#dc2626', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add slot
+                </button>
+              </div>
+              {form.schedules.length === 0 && (
+                <div style={{ fontSize: 11, color: dark ? '#555' : '#9ca3af', padding: '6px 0' }}>No schedule — link is always active</div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {form.schedules.map((slot, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input type="time" value={slot.start} onChange={e => setSlot(i, 'start', e.target.value)}
+                      style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: `1px solid ${inputBorder}`, background: inputBg, color: text, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                    <span style={{ fontSize: 11, color: muted, flexShrink: 0 }}>to</span>
+                    <input type="time" value={slot.end} onChange={e => setSlot(i, 'end', e.target.value)}
+                      style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: `1px solid ${inputBorder}`, background: inputBg, color: text, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                    <button onClick={() => removeSlot(i)} style={{ padding: '5px 6px', borderRadius: 5, border: `1px solid ${inputBorder}`, background: 'transparent', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -293,7 +311,10 @@ export default function ShareLinksPanel({ dark, onClose, vehicles, preselectedIm
                     <div style={{ fontSize: 11, color: muted }}>
                       {plateName(lnk.imei)}
                       {lnk.expiresAt && <span style={{ marginLeft: 6, color: expired ? '#f59e0b' : muted }}>· Expires {fmt(lnk.expiresAt)}</span>}
-                      {lnk.scheduleStart && lnk.scheduleEnd && <span style={{ marginLeft: 6 }}>· {lnk.scheduleStart}–{lnk.scheduleEnd}</span>}
+                      {(lnk.schedules?.length
+                        ? lnk.schedules.map((s, i) => <span key={i} style={{ marginLeft: i === 0 ? 6 : 4 }}>{i === 0 ? '·' : '/'} {s.start}–{s.end}</span>)
+                        : (lnk.scheduleStart && lnk.scheduleEnd ? <span style={{ marginLeft: 6 }}>· {lnk.scheduleStart}–{lnk.scheduleEnd}</span> : null)
+                      )}
                       <span style={{ marginLeft: 6 }}>· {lnk.viewCount} open{lnk.viewCount !== 1 ? 's' : ''}</span>
                     </div>
                   </div>

@@ -25,14 +25,14 @@ export class ShareLinksController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(@CurrentUser() user: User, @Body() body: { name: string; imei: string; expiresAt?: string | null; scheduleStart?: string | null; scheduleEnd?: string | null }) {
+  create(@CurrentUser() user: User, @Body() body: { name: string; imei: string; expiresAt?: string | null; schedules?: Array<{ start: string; end: string }> | null; scheduleStart?: string | null; scheduleEnd?: string | null }) {
     return this.service.create(user, body);
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @CurrentUser() user: User, @Body() body: { name?: string; expiresAt?: string | null; isActive?: boolean; scheduleStart?: string | null; scheduleEnd?: string | null }) {
+  update(@Param('id') id: string, @CurrentUser() user: User, @Body() body: { name?: string; expiresAt?: string | null; isActive?: boolean; schedules?: Array<{ start: string; end: string }> | null; scheduleStart?: string | null; scheduleEnd?: string | null }) {
     return this.service.update(id, user, body);
   }
 

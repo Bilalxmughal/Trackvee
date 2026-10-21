@@ -31,7 +31,7 @@ export class ShareLinksService {
     });
   }
 
-  async create(user: User, dto: { name: string; imei: string; expiresAt?: string | null; scheduleStart?: string | null; scheduleEnd?: string | null }): Promise<ShareLink> {
+  async create(user: User, dto: { name: string; imei: string; expiresAt?: string | null; schedules?: Array<{ start: string; end: string }> | null; scheduleStart?: string | null; scheduleEnd?: string | null }): Promise<ShareLink> {
     let token: string;
     let tries = 0;
     do {
@@ -41,6 +41,7 @@ export class ShareLinksService {
     } while (await this.repo.findOne({ where: { token } }));
 
     if (!user.organizationId) throw new Error('User has no organization');
+    const schedulesJson = dto.schedules?.length ? JSON.stringify(dto.schedules) : null;
     const link = this.repo.create({
       token,
       name: dto.name,
@@ -50,17 +51,19 @@ export class ShareLinksService {
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
       isActive: true,
       viewCount: 0,
+      schedules: schedulesJson,
       scheduleStart: dto.scheduleStart?.trim() || null,
       scheduleEnd: dto.scheduleEnd?.trim() || null,
     });
     return this.repo.save(link);
   }
 
-  async update(id: string, user: User, dto: { name?: string; expiresAt?: string | null; isActive?: boolean; scheduleStart?: string | null; scheduleEnd?: string | null }): Promise<ShareLink> {
+  async update(id: string, user: User, dto: { name?: string; expiresAt?: string | null; isActive?: boolean; schedules?: Array<{ start: string; end: string }> | null; scheduleStart?: string | null; scheduleEnd?: string | null }): Promise<ShareLink> {
     const link = await this.findOneOwned(id, user);
     if (dto.name !== undefined) link.name = dto.name;
     if ('expiresAt' in dto) link.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
     if (dto.isActive !== undefined) link.isActive = dto.isActive;
+    if ('schedules' in dto) link.schedules = dto.schedules?.length ? JSON.stringify(dto.schedules) : null;
     if ('scheduleStart' in dto) link.scheduleStart = dto.scheduleStart?.trim() || null;
     if ('scheduleEnd' in dto) link.scheduleEnd = dto.scheduleEnd?.trim() || null;
     return this.repo.save(link);
@@ -81,8 +84,18 @@ export class ShareLinksService {
     const device = await this.devicesService.findByImei(link.imei);
     const latest = device ? await this.telemetryService.getLatest(link.imei) : null;
 
+    // Parse schedules: new multi-slot format takes precedence over old single slot
+    let schedules: Array<{ start: string; end: string }> | null = null;
+    if (link.schedules) {
+      try { schedules = JSON.parse(link.schedules); } catch { /* ignore */ }
+    }
+    if (!schedules?.length && link.scheduleStart && link.scheduleEnd) {
+      schedules = [{ start: link.scheduleStart, end: link.scheduleEnd }];
+    }
+
     return {
       name: link.name,
+      schedules: schedules?.length ? schedules : null,
       scheduleStart: link.scheduleStart,
       scheduleEnd: link.scheduleEnd,
       vehicle: device?.vehicle

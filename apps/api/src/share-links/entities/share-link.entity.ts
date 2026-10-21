@@ -45,6 +45,9 @@ export class ShareLink {
   @Column({ name: 'schedule_end', type: 'varchar', length: 5, nullable: true })
   scheduleEnd: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  schedules: string | null; // JSON: [{start:"HH:MM",end:"HH:MM"}]
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

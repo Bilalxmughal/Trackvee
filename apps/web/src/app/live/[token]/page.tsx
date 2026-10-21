@@ -11,9 +11,11 @@ interface LivePoint {
   timestamp?: string | null;
   ignition?: boolean | null;
 }
+interface ScheduleSlot { start: string; end: string; }
 interface LiveShareData {
   vehicle: { id: string; licensePlate: string | null; name: string; make: string | null; model: string | null } | null;
   point: LivePoint | null;
+  schedules?: ScheduleSlot[] | null;
   scheduleStart?: string | null;
   scheduleEnd?: string | null;
 }
@@ -41,15 +43,20 @@ function predictDR(lat: number, lng: number, speedKmh: number, headingDeg: numbe
   return [lat + dLat, lng + dLng];
 }
 
-function isWithinSchedule(start: string, end: string): boolean {
-  const now = new Date();
-  const pktMin = (now.getUTCHours() * 60 + now.getUTCMinutes() + 300) % 1440;
+function isInSlot(start: string, end: string, pktMin: number): boolean {
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
   const startMin = (sh ?? 0) * 60 + (sm ?? 0);
   const endMin = (eh ?? 0) * 60 + (em ?? 0);
   if (startMin <= endMin) return pktMin >= startMin && pktMin <= endMin;
   return pktMin >= startMin || pktMin <= endMin;
+}
+
+function isWithinAnySchedule(slots: ScheduleSlot[]): boolean {
+  if (!slots.length) return true;
+  const now = new Date();
+  const pktMin = (now.getUTCHours() * 60 + now.getUTCMinutes() + 300) % 1440;
+  return slots.some(s => isInSlot(s.start, s.end, pktMin));
 }
 
 function fmt12(hhmm: string): string {
@@ -253,10 +260,14 @@ export default function LiveSharePage() {
   const point = data?.point;
   const hasGps = !!(point?.latitude && point?.longitude);
   const ignition = point ? (point.speedKmh >= 5 ? true : point.ignition) : null;
-  const scheduleStart = data?.scheduleStart;
-  const scheduleEnd = data?.scheduleEnd;
-  const hasSchedule = !!(scheduleStart && scheduleEnd);
-  const inSchedule = hasSchedule ? isWithinSchedule(scheduleStart!, scheduleEnd!) : true;
+  // Prefer new schedules array; fall back to legacy single slot
+  const scheduleSlots: ScheduleSlot[] = data?.schedules?.length
+    ? data.schedules
+    : (data?.scheduleStart && data?.scheduleEnd ? [{ start: data.scheduleStart, end: data.scheduleEnd }] : []);
+  const hasSchedule = scheduleSlots.length > 0;
+  const inSchedule = isWithinAnySchedule(scheduleSlots);
+  const scheduleStart = scheduleSlots[0]?.start ?? null;
+  const scheduleEnd = scheduleSlots[0]?.end ?? null;
   const vehicleStatus = !hasGps ? null : point!.speedKmh >= 5 ? 'Moving' : point!.ignition ? 'Idle' : 'Parked';
   const statusColor = vehicleStatus === 'Moving' ? '#16a34a' : vehicleStatus === 'Idle' ? '#d97706' : '#6b7280';
   const updatedTime = point?.timestamp ? new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
@@ -338,9 +349,11 @@ export default function LiveSharePage() {
             {hasSchedule && (
               <>
                 <div style={{ width: 1, alignSelf: 'stretch', background: '#f3f4f6', flexShrink: 0 }} />
-                <div style={{ textAlign: 'center', fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>
-                  <div style={{ marginBottom: 2 }}>Active</div>
-                  <div style={{ fontWeight: 600, color: '#6b7280' }}>{fmt12(scheduleStart!)}–{fmt12(scheduleEnd!)}</div>
+                <div style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>
+                  <div style={{ marginBottom: 3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3 }}>Active</div>
+                  {scheduleSlots.map((s, i) => (
+                    <div key={i} style={{ fontWeight: 600, color: '#6b7280', lineHeight: 1.5 }}>{fmt12(s.start)}–{fmt12(s.end)}</div>
+                  ))}
                 </div>
               </>
             )}
@@ -371,10 +384,14 @@ export default function LiveSharePage() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: 32, textAlign: 'center' }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🕐</div>
           <h2 style={{ color: '#111827', margin: '0 0 8px', fontSize: 20 }}>{vehicleLabel}</h2>
-          <p style={{ color: '#6b7280', margin: '0 0 4px', fontSize: 15 }}>Live tracking is not active right now.</p>
-          <p style={{ color: '#374151', fontWeight: 600, margin: 0, fontSize: 14 }}>
-            Tracking active {fmt12(scheduleStart!)} – {fmt12(scheduleEnd!)} PKT
-          </p>
+          <p style={{ color: '#6b7280', margin: '0 0 10px', fontSize: 15 }}>Live tracking is not active right now.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {scheduleSlots.map((s, i) => (
+              <p key={i} style={{ color: '#374151', fontWeight: 600, margin: 0, fontSize: 14 }}>
+                {fmt12(s.start)} – {fmt12(s.end)} PKT
+              </p>
+            ))}
+          </div>
           <p style={{ color: '#9ca3af', margin: '12px 0 0', fontSize: 11 }}>Powered by <strong style={{ color: '#dc2626' }}>Trackvee</strong></p>
         </div>
       )}
