@@ -670,7 +670,7 @@ function EngineCutConfirm({ imei, plate, isImmobilized, onClose }: { imei: strin
   );
 }
 
-function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow, onCreateAlert, hasAlert, onShareLink, openMenuId, setOpenMenuId }: {
+function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow, onCreateAlert, hasAlert, onShareLink, onSetOdometer, openMenuId, setOpenMenuId }: {
   pt: LivePoint; plate: string;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
@@ -678,6 +678,7 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow, o
   onCreateAlert: () => void;
   hasAlert: boolean;
   onShareLink: () => void;
+  onSetOdometer: () => void;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
 }) {
@@ -719,6 +720,7 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow, o
     { label: '──', icon: null, action: () => {}, divider: true },
     { label: hasAlert ? 'Edit Alert' : 'Create Alert', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="1" x2="12" y2="4"/></svg>, action: () => { onCreateAlert(); setOpenMenuId(null); } },
     { label: 'Share Live Location', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>, action: () => { onShareLink(); setOpenMenuId(null); } },
+    { label: 'Set Odometer', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><polyline points="12 6 12 12 16 14"/><path d="M22 2L16 8"/><path d="M17 2h5v5"/></svg>, action: () => { onSetOdometer(); setOpenMenuId(null); } },
     { label: '──', icon: null, action: () => {}, divider: true },
     { label: isImmobilized ? 'Restore Engine' : 'Cut Engine', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>, action: () => { setEngineCutOpen(true); setOpenMenuId(null); }, red: true },
   ];
@@ -752,7 +754,7 @@ function VehicleMenuButton({ pt, plate, onTripReplay, onShowHistory, onFollow, o
 
 // ── Vehicle Row ───────────────────────────────────────────────────────────────
 
-function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow, onCreateAlert, hasAlert, onShareLink, openMenuId, setOpenMenuId }: {
+function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow, onCreateAlert, hasAlert, onShareLink, onSetOdometer, openMenuId, setOpenMenuId }: {
   pt: LivePoint; plate: string; onSelect: () => void;
   onTripReplay: () => void;
   onShowHistory: (preset: 'lastHour' | 'today' | 'yesterday') => void;
@@ -760,6 +762,7 @@ function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow
   onCreateAlert: () => void;
   hasAlert: boolean;
   onShareLink: () => void;
+  onSetOdometer: () => void;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
 }) {
@@ -777,14 +780,14 @@ function VehicleRow({ pt, plate, onSelect, onTripReplay, onShowHistory, onFollow
         <IconBattery level={pt.voltageLevel}/>
         <IconSignal level={pt.gsmSignal}/>
       </div>
-      <VehicleMenuButton pt={pt} plate={plate} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onFollow={onFollow} onCreateAlert={onCreateAlert} hasAlert={hasAlert} onShareLink={onShareLink} openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
+      <VehicleMenuButton pt={pt} plate={plate} onTripReplay={onTripReplay} onShowHistory={onShowHistory} onFollow={onFollow} onCreateAlert={onCreateAlert} hasAlert={hasAlert} onShareLink={onShareLink} onSetOdometer={onSetOdometer} openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
     </div>
   );
 }
 
 // ── Group Section ─────────────────────────────────────────────────────────────
 
-function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, onTripReplay, onShowHistory, onFollow, onCreateAlert, getHasAlert, onShareLink, openMenuId, setOpenMenuId }: {
+function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, onEdit, onTripReplay, onShowHistory, onFollow, onCreateAlert, getHasAlert, onShareLink, onSetOdometer, openMenuId, setOpenMenuId }: {
   group: VehicleGroup; pts: LivePoint[]; deviceMap: DMap;
   onSelect: (imei: string) => void; collapsed: boolean;
   onToggle: () => void; onEdit: () => void;
@@ -794,6 +797,7 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
   onCreateAlert: (imei: string) => void;
   getHasAlert: (imei: string) => boolean;
   onShareLink: (imei: string) => void;
+  onSetOdometer: (imei: string) => void;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
 }) {
@@ -828,6 +832,7 @@ function GroupSection({ group, pts, deviceMap, onSelect, collapsed, onToggle, on
             onCreateAlert={() => onCreateAlert(pt.imei)}
             hasAlert={getHasAlert(pt.imei)}
             onShareLink={() => onShareLink(pt.imei)}
+            onSetOdometer={() => onSetOdometer(pt.imei)}
             openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
         );
       })}
@@ -1655,6 +1660,9 @@ export default function PortalMapPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [editingGroup, setEditingGroup] = useState<VehicleGroup | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [mapOdoImei, setMapOdoImei] = useState<string | null>(null);
+  const [mapOdoInput, setMapOdoInput] = useState('');
+  const [mapOdoSaving, setMapOdoSaving] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createSel, setCreateSel] = useState<Set<string>>(new Set());
   const [editName, setEditName] = useState('');
@@ -1823,6 +1831,27 @@ export default function PortalMapPage() {
     if (pt) setFlyTarget({ lat: pt.latitude, lng: pt.longitude, ts: Date.now() });
     setSelectedImei(imei);
   }, [points]);
+
+  const handleOpenMapOdo = useCallback((imei: string) => {
+    const dev = deviceMap.get(imei);
+    const odo = dev?.vehicle?.odometerKm ?? 0;
+    setMapOdoInput(String(odo));
+    setMapOdoImei(imei);
+  }, [deviceMap]);
+
+  const handleSaveMapOdo = async () => {
+    if (!mapOdoImei) return;
+    const dev = deviceMap.get(mapOdoImei);
+    const vehicleId = dev?.vehicleId;
+    if (!vehicleId) return;
+    const km = parseFloat(mapOdoInput);
+    if (!Number.isFinite(km) || km < 0) return;
+    setMapOdoSaving(true);
+    try {
+      await api.patch(`/vehicles/${vehicleId}/odometer`, { odometerKm: km });
+      setMapOdoImei(null);
+    } catch {} finally { setMapOdoSaving(false); }
+  };
 
   // Groups management
   const createGroup = async (name: string, imeis: string[]) => {
@@ -2029,6 +2058,7 @@ export default function PortalMapPage() {
                     onCreateAlert={handleCreateAlert}
                     getHasAlert={(imei) => alerts.some(a => a.active && a.vehicleImeis.includes(imei))}
                     onShareLink={openShareLinks}
+                    onSetOdometer={handleOpenMapOdo}
                     openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
                 );
               })}
@@ -2046,6 +2076,7 @@ export default function PortalMapPage() {
                         onCreateAlert={() => handleCreateAlert(pt.imei)}
                         hasAlert={alerts.some(a => a.active && a.vehicleImeis.includes(pt.imei))}
                         onShareLink={() => openShareLinks(pt.imei)}
+                        onSetOdometer={() => handleOpenMapOdo(pt.imei)}
                         openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}/>
                     );
                   })}
@@ -2130,6 +2161,32 @@ export default function PortalMapPage() {
       {/* Trip Replay Modal */}
       {tripReplay && (
         <TripReplayModal imei={tripReplay.imei} plate={tripReplay.plate} onClose={() => setTripReplay(null)} />
+      )}
+
+      {/* Set Odometer Modal (from vehicle list menu) */}
+      {mapOdoImei && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 360, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><polyline points="12 6 12 12 16 14"/><path d="M22 2L16 8"/><path d="M17 2h5v5"/></svg>
+              <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>Set Odometer</span>
+            </div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>{fmtPlate(deviceMap.get(mapOdoImei), mapOdoImei)}</div>
+            <input type="number" min="0" step="1" value={mapOdoInput} onChange={e => setMapOdoInput(e.target.value)}
+              placeholder="Enter km"
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+              onFocus={e => (e.currentTarget.style.borderColor = '#2563eb')}
+              onBlur={e => (e.currentTarget.style.borderColor = '#e5e7eb')} />
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6, marginBottom: 16 }}>GPS travel will auto-add from this value.</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setMapOdoImei(null)} style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid #e5e7eb', background: 'transparent', color: '#666', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleSaveMapOdo} disabled={mapOdoSaving}
+                style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 600, cursor: mapOdoSaving ? 'not-allowed' : 'pointer', opacity: mapOdoSaving ? 0.7 : 1 }}>
+                {mapOdoSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Follow Window */}
