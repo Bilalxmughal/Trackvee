@@ -302,14 +302,34 @@ export default function LiveSharePage() {
         )}
       </div>
 
-      {/* Map container — always in DOM so Leaflet ref is available on mount */}
-      <div style={{ flex: 1, position: 'relative', display: showMap ? undefined : 'none' }}>
+      {/* Map container — visible for showMap and showScheduled (faded overlay on scheduled) */}
+      <div style={{ flex: 1, position: 'relative', display: (showMap || showScheduled) ? undefined : 'none' }}>
         {showMap && !hasGps && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.85)', pointerEvents: 'none' }}>
             <p style={{ color: '#6b7280', margin: 0 }}>No GPS fix available for this vehicle.</p>
           </div>
         )}
         <div ref={mapContainerRef} style={{ height: '100%', width: '100%' }} />
+
+        {/* Scheduled overlay — faded map background */}
+        {showScheduled && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 1000, background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+            <img src="/logo.webp" alt="Trackvee" style={{ height: 36, width: 'auto', objectFit: 'contain', marginBottom: 20 }} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', marginBottom: 4 }}>{vehicleLabel}</div>
+            {data?.vehicle?.make && data?.vehicle?.model && (
+              <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>{data.vehicle.make} {data.vehicle.model}</div>
+            )}
+            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>Live tracking is not active right now.</div>
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: '12px 20px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Active hours</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {scheduleSlots.map((s, i) => (
+                  <div key={i} style={{ fontSize: 14, fontWeight: 700, color: '#dc2626' }}>{fmt12(s.start)} – {fmt12(s.end)}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bottom info card — full width on mobile */}
         {showMap && hasGps && (
@@ -403,21 +423,6 @@ export default function LiveSharePage() {
         </div>
       )}
 
-      {showScheduled && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: 32, textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🕐</div>
-          <h2 style={{ color: '#111827', margin: '0 0 8px', fontSize: 20 }}>{vehicleLabel}</h2>
-          <p style={{ color: '#6b7280', margin: '0 0 10px', fontSize: 15 }}>Live tracking is not active right now.</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {scheduleSlots.map((s, i) => (
-              <p key={i} style={{ color: '#374151', fontWeight: 600, margin: 0, fontSize: 14 }}>
-                {fmt12(s.start)} – {fmt12(s.end)} PKT
-              </p>
-            ))}
-          </div>
-          <p style={{ color: '#9ca3af', margin: '12px 0 0', fontSize: 11 }}>Powered by <strong style={{ color: '#dc2626' }}>Trackvee</strong></p>
-        </div>
-      )}
     </div>
   );
 }
