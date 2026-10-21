@@ -17,6 +17,29 @@ interface LiveShareData {
   scheduleStart?: string | null;
   scheduleEnd?: string | null;
 }
+interface AnimState {
+  dispLat: number; dispLng: number;
+  animFromLat: number; animFromLng: number;
+  animToLat: number; animToLng: number;
+  animStart: number; animDur: number;
+  emaLat: number; emaLng: number;
+  speedKmh: number; heading: number;
+  timestamp: string | null;
+}
+
+const POLL_MS = 10_000;
+const EMA_ALPHA = 0.75;
+
+function predictDR(lat: number, lng: number, speedKmh: number, headingDeg: number, elapsedMs: number): [number, number] {
+  if (speedKmh < 3) return [lat, lng];
+  const distM = (speedKmh / 3.6) * (elapsedMs / 1000);
+  const headRad = (headingDeg * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = (distM * Math.cos(headRad)) / R * (180 / Math.PI);
+  const cosLat = Math.cos(lat * Math.PI / 180);
+  const dLng = cosLat > 0.001 ? (distM * Math.sin(headRad)) / (R * cosLat) * (180 / Math.PI) : 0;
+  return [lat + dLat, lng + dLng];
+}
 
 function isWithinSchedule(start: string, end: string): boolean {
   const now = new Date();
@@ -53,6 +76,9 @@ export default function LiveSharePage() {
   const mapRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const markerRef = useRef<any>(null);
+  const animRef = useRef<AnimState | null>(null);
+  const rafRef = useRef<number>(0);
+  const latestPtRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const fetchData = async () => {
     try {
@@ -76,15 +102,20 @@ export default function LiveSharePage() {
   useEffect(() => {
     if (!token) return;
     void fetchData();
-    intervalRef.current = setInterval(() => void fetchData(), 10_000);
+    intervalRef.current = setInterval(() => void fetchData(), POLL_MS);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  // When map becomes visible after loading, recalculate Leaflet dimensions
+  // When map becomes visible after loading, invalidateSize + pan to vehicle
   useEffect(() => {
     if (!loading && !error && mapRef.current) {
-      setTimeout(() => mapRef.current?.invalidateSize(), 50);
+      setTimeout(() => {
+        mapRef.current?.invalidateSize();
+        if (latestPtRef.current) {
+          mapRef.current?.setView([latestPtRef.current.lat, latestPtRef.current.lng], 16);
+        }
+      }, 50);
     }
   }, [loading, error]);
 
@@ -92,7 +123,6 @@ export default function LiveSharePage() {
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Inject Leaflet CSS once
     if (!document.getElementById('leaflet-css')) {
       const link = document.createElement('link');
       link.id = 'leaflet-css';
@@ -111,11 +141,47 @@ export default function LiveSharePage() {
     });
 
     return () => {
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; markerRef.current = null; }
+      cancelAnimationFrame(rafRef.current);
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; markerRef.current = null; animRef.current = null; }
     };
   }, []);
 
-  // Update marker position when data arrives
+  // rAF animation loop — smooth interpolation + dead reckoning
+  useEffect(() => {
+    let lastFrame = 0;
+    function rafLoop(now: number) {
+      rafRef.current = requestAnimationFrame(rafLoop);
+      if (now - lastFrame < 33) return;
+      const dt = lastFrame ? now - lastFrame : 33;
+      lastFrame = now;
+
+      const s = animRef.current;
+      const map = mapRef.current;
+      const marker = markerRef.current;
+      if (!s || !map || !marker) return;
+
+      const elapsed = now - s.animStart;
+      let lat: number, lng: number;
+
+      if (elapsed < s.animDur) {
+        const t = elapsed / s.animDur;
+        const ease = 1 - Math.pow(1 - t, 3);
+        lat = s.animFromLat + (s.animToLat - s.animFromLat) * ease;
+        lng = s.animFromLng + (s.animToLng - s.animFromLng) * ease;
+      } else if (s.speedKmh >= 3) {
+        [lat, lng] = predictDR(s.animToLat, s.animToLng, s.speedKmh, s.heading, now - s.animStart - s.animDur + dt);
+      } else {
+        lat = s.animToLat; lng = s.animToLng;
+      }
+
+      s.dispLat = lat; s.dispLng = lng;
+      marker.setLatLng([lat, lng]);
+    }
+    rafRef.current = requestAnimationFrame(rafLoop);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, []);
+
+  // Update animation state when data arrives
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !data?.point?.latitude) return;
@@ -123,6 +189,8 @@ export default function LiveSharePage() {
     const label = data.vehicle?.licensePlate ?? data.vehicle?.name ?? 'Vehicle';
     const rot = ((pt.heading ?? 0) + 180) % 360;
     const speedTxt = `${Math.round(pt.speedKmh)} km/h`;
+
+    latestPtRef.current = { lat: pt.latitude, lng: pt.longitude };
 
     import('leaflet').then((L) => {
       const icon = L.divIcon({
@@ -135,14 +203,50 @@ export default function LiveSharePage() {
         iconAnchor: [0, 44] as [number, number],
       });
 
-      if (markerRef.current) {
-        markerRef.current.setLatLng([pt.latitude, pt.longitude]);
-        markerRef.current.setIcon(icon);
+      const isStationary = pt.speedKmh < 3;
+      const existing = animRef.current;
+
+      if (existing) {
+        const posChanged = existing.timestamp !== (pt.timestamp ?? null);
+        const emaLat = isStationary ? pt.latitude : EMA_ALPHA * pt.latitude + (1 - EMA_ALPHA) * existing.emaLat;
+        const emaLng = isStationary ? pt.longitude : EMA_ALPHA * pt.longitude + (1 - EMA_ALPHA) * existing.emaLng;
+
+        animRef.current = posChanged ? {
+          ...existing,
+          emaLat, emaLng,
+          animFromLat: existing.dispLat, animFromLng: existing.dispLng,
+          animToLat: emaLat, animToLng: emaLng,
+          animStart: performance.now(), animDur: isStationary ? 0 : POLL_MS * 0.85,
+          speedKmh: pt.speedKmh, heading: pt.heading ?? 0,
+          timestamp: pt.timestamp ?? null,
+        } : { ...existing, emaLat, emaLng, speedKmh: pt.speedKmh, heading: pt.heading ?? 0 };
+
+        markerRef.current?.setIcon(icon);
+        if (posChanged && !isStationary) {
+          map.panTo([emaLat, emaLng], { animate: true, duration: 0.35 });
+        }
       } else {
-        markerRef.current = L.marker([pt.latitude, pt.longitude], { icon }).addTo(map);
+        if (!markerRef.current) {
+          markerRef.current = L.marker([pt.latitude, pt.longitude], { icon }).addTo(map);
+        } else {
+          markerRef.current.setIcon(icon);
+        }
+        animRef.current = {
+          dispLat: pt.latitude, dispLng: pt.longitude,
+          emaLat: pt.latitude, emaLng: pt.longitude,
+          animFromLat: pt.latitude, animFromLng: pt.longitude,
+          animToLat: pt.latitude, animToLng: pt.longitude,
+          animStart: 0, animDur: 1,
+          speedKmh: pt.speedKmh, heading: pt.heading ?? 0,
+          timestamp: pt.timestamp ?? null,
+        };
+        // Center on first fix — after invalidateSize if still loading, else immediately
+        if (!loading) {
+          map.setView([pt.latitude, pt.longitude], 16, { animate: true });
+        }
       }
-      map.setView([pt.latitude, pt.longitude], map.getZoom(), { animate: true });
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   const vehicleLabel = data?.vehicle?.licensePlate ?? data?.vehicle?.name ?? 'Vehicle';
@@ -157,7 +261,6 @@ export default function LiveSharePage() {
   const statusColor = vehicleStatus === 'Moving' ? '#16a34a' : vehicleStatus === 'Idle' ? '#d97706' : '#6b7280';
   const updatedTime = point?.timestamp ? new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
 
-  // Overlay state — keep map container always in DOM so Leaflet can init on mount
   const showLoading = loading;
   const showError = !loading && !!error;
   const showScheduled = !loading && !error && hasSchedule && !inSchedule;
@@ -189,7 +292,7 @@ export default function LiveSharePage() {
         )}
       </div>
 
-      {/* Map container — always rendered so Leaflet ref is available on mount */}
+      {/* Map container — always in DOM so Leaflet ref is available on mount */}
       <div style={{ flex: 1, position: 'relative', display: showMap ? undefined : 'none' }}>
         {showMap && !hasGps && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.85)', pointerEvents: 'none' }}>
@@ -206,7 +309,6 @@ export default function LiveSharePage() {
             boxShadow: '0 4px 24px rgba(0,0,0,0.18)', padding: '14px 20px',
             display: 'flex', alignItems: 'center', gap: 16,
           }}>
-            {/* Speed */}
             <div style={{ textAlign: 'center', minWidth: 52, flexShrink: 0 }}>
               <div style={{ fontSize: 32, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{Math.round(point!.speedKmh)}</div>
               <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, fontWeight: 500 }}>km/h</div>
@@ -214,7 +316,6 @@ export default function LiveSharePage() {
 
             <div style={{ width: 1, alignSelf: 'stretch', background: '#f3f4f6', flexShrink: 0 }} />
 
-            {/* Status + ignition */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
@@ -247,7 +348,6 @@ export default function LiveSharePage() {
         )}
       </div>
 
-      {/* Loading overlay */}
       {showLoading && (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
           <div style={{ textAlign: 'center' }}>
@@ -257,7 +357,6 @@ export default function LiveSharePage() {
         </div>
       )}
 
-      {/* Error overlay */}
       {showError && (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
           <div style={{ textAlign: 'center', padding: 32 }}>
@@ -268,7 +367,6 @@ export default function LiveSharePage() {
         </div>
       )}
 
-      {/* Scheduled (outside window) */}
       {showScheduled && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: 32, textAlign: 'center' }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🕐</div>
