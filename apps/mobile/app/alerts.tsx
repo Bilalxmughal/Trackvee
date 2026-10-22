@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
-import api from '../../src/lib/api';
-import { TablerIcon } from '../../src/components/TablerIcon';
-import type { FleetAlertRule } from '../../src/components/FleetAlertForm';
-import { useTheme } from '../../src/hooks/useTheme';
-import type { AppTheme } from '../../src/theme';
-import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
-import { hasCachedPushRegistration, syncPushRegistration } from '../../src/lib/pushNotifications';
+import api from '../src/lib/api';
+import { TablerIcon } from '../src/components/TablerIcon';
+import type { FleetAlertRule } from '../src/components/FleetAlertForm';
+import { useTheme } from '../src/hooks/useTheme';
+import type { AppTheme } from '../src/theme';
+import { usePortalPermissions } from '../src/auth/PortalPermissionsProvider';
+import { hasCachedPushRegistration, syncPushRegistration } from '../src/lib/pushNotifications';
 
 type Filter = 'all' | 'active' | 'inactive';
 const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
@@ -71,7 +71,7 @@ export default function AlertsScreen() {
 
   const openNew = () => router.push('/alert-rule');
   const openEdit = (rule: FleetAlertRule) => router.push({ pathname: '/alert-rule', params: { ruleId: rule.id } });
-  const remove = (rule: FleetAlertRule) => Alert.alert('Delete alert rule?', `Delete “${rule.name}” for its selected vehicles?`, [
+  const remove = (rule: FleetAlertRule) => Alert.alert('Delete alert rule?', `Delete â€œ${rule.name}â€ for its selected vehicles?`, [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Delete', style: 'destructive', onPress: () => { void (async () => {
       try { await api.delete(`/alerts/${rule.id}`); setAlerts(current => current.filter(item => item.id !== rule.id)); }
@@ -132,7 +132,7 @@ export default function AlertsScreen() {
             <View style={[s.ruleAccent, { backgroundColor: item.active ? t.red : t.border }]}/>
             <View style={s.ruleMain}>
               <Text style={[s.ruleName, { color: t.ink }]} numberOfLines={1}>{item.name}</Text>
-              <Text style={[s.ruleMeta, { color: t.secondary }]} numberOfLines={1}>{label(item.type)} · {targetText}</Text>
+              <Text style={[s.ruleMeta, { color: t.secondary }]} numberOfLines={1}>{label(item.type)} Â· {targetText}</Text>
             </View>
             <View style={[s.statusBadge, { backgroundColor: activeBg, borderRadius: 5, overflow: 'hidden' }]}>
               <Text style={[s.statusText, { color: activeColor }]}>{item.active ? 'Active' : 'Inactive'}</Text>
@@ -148,7 +148,7 @@ export default function AlertsScreen() {
       ListEmptyComponent={
         <View style={s.emptyCopy}>
           <TablerIcon name="bell" size={36} color={t.muted} />
-          <Text style={[s.emptyTitle, { color: t.ink }]}>{loading ? 'Loading alerts…' : 'No alert rules'}</Text>
+          <Text style={[s.emptyTitle, { color: t.ink }]}>{loading ? 'Loading alertsâ€¦' : 'No alert rules'}</Text>
           <Text style={[s.emptySubtitle, { color: t.secondary }]}>{loading ? '' : query ? 'Try another search.' : 'Create an alert rule to monitor your fleet.'}</Text>
           {!loading && !alerts.length && canDo('alerts', 'add')
             ? <Pressable onPress={openNew} style={s.emptyAction}>
