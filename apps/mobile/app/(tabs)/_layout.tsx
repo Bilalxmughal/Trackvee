@@ -35,7 +35,7 @@ function TabItem({ route, focused, iconName, label, navigation, t }: { route: an
 }
 
 const ICON_NAMES: Record<string, string> = {
-  map: 'map', vehicles: 'fleet', dashboard: 'layout-dashboard', reports: 'report', more: 'more',
+  map: 'map', vehicles: 'fleet', dashboard: 'dashboard', reports: 'report', more: 'more',
 };
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
