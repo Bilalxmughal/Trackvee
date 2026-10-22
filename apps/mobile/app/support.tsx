@@ -26,8 +26,8 @@ export default function SupportScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<Record<string, unknown>>('/site-settings')
-      .then(r => { if (r.data?.contact) setContact(r.data.contact as ContactSettings); })
+    api.get<ContactSettings>('/site-settings/contact')
+      .then(r => { if (r.data) setContact(r.data); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -59,7 +59,7 @@ export default function SupportScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Hero */}
-        <View style={[styles.heroCard, { backgroundColor: t.red + '0f', borderColor: t.red + '33' }]}>
+        <View style={[styles.heroCard, { backgroundColor: t.card }]}>
           <View style={[styles.heroIcon, { backgroundColor: t.red }]}>
             <TablerIcon name="headset" size={26} color="#fff" strokeWidth={1.6} />
           </View>
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: '700' },
   content: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40, gap: 10 },
 
-  heroCard: { borderRadius: 14, borderWidth: 1, padding: 20, alignItems: 'center', marginBottom: 6 },
+  heroCard: { borderRadius: 14, padding: 20, alignItems: 'center', marginBottom: 6, shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
   heroIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   heroTitle: { fontSize: 17, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
   heroSub: { fontSize: 13, textAlign: 'center', lineHeight: 19 },
