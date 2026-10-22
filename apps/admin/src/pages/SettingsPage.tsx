@@ -1,6 +1,6 @@
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useRef, useState, FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
-import { IconPlus, IconEdit, IconTrash, IconMapPin, IconBellRinging, IconWorld } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconMapPin, IconBellRinging, IconWorld, IconDeviceMobile, IconUpload, IconPhoto, IconCheck, IconX } from '@tabler/icons-react';
 import type { UserRole } from '@yotrack/types';
 import api from '../api/client';
 import { canAccessPage } from '../config/roles';
@@ -18,7 +18,7 @@ import WebsiteSettingsPanel from './WebsiteSettingsPanel';
 
 interface City { id: string; displayId: number; name: string; province: string | null; isActive: boolean; createdAt: string; }
 
-type Tab = 'cities' | 'notifications' | 'website';
+type Tab = 'cities' | 'notifications' | 'website' | 'app-launch';
 
 const empty = { name: '', province: '', isActive: true };
 
@@ -74,6 +74,7 @@ export default function SettingsPage() {
     ...(canViewCities ? [{ key: 'cities' as const, label: 'Cities', icon: IconMapPin }] : []),
     ...(canViewSounds ? [{ key: 'notifications' as const, label: 'Alert Notifications', icon: IconBellRinging }] : []),
     ...(canViewCities ? [{ key: 'website' as const, label: 'Website Settings', icon: IconWorld }] : []),
+    ...(canViewCities ? [{ key: 'app-launch' as const, label: 'App Launch Screen', icon: IconDeviceMobile }] : []),
   ];
 
   const activeTabLabel = TABS.find(t => t.key === activeTab)?.label ?? '';
@@ -131,6 +132,7 @@ export default function SettingsPage() {
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {activeTab === 'notifications' && canViewSounds && <NotificationSoundsPage embedded />}
           {activeTab === 'website' && canViewCities && <WebsiteSettingsPanel />}
+          {activeTab === 'app-launch' && canViewCities && <AppLaunchPanel dark={dark} />}
           {activeTab === 'cities' && (
             loading ? <SkeletonTable cols={6} /> : (
               <div className="tbl-wrap page-table">
@@ -195,6 +197,132 @@ export default function SettingsPage() {
       <ConfirmDialog open={!!deleting} title="Delete City"
         message={`Delete city "${deleting?.name}"? This cannot be undone.`}
         onConfirm={handleDelete} onClose={() => setDeleting(null)} loading={deletingId} />
+    </div>
+  );
+}
+
+// ── App Launch Screen Panel ────────────────────────────────────────────────────
+function AppLaunchPanel({ dark }: { dark: boolean }) {
+  const [imageUrl, setImageUrl] = useState('');
+  const [duration, setDuration] = useState(3);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    api.get<{ imageUrl?: string; duration?: number }>('/site-settings/app-launch')
+      .then(r => {
+        if (r.data?.imageUrl) setImageUrl(r.data.imageUrl);
+        if (r.data?.duration) setDuration(r.data.duration);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await api.post<{ url: string }>('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setImageUrl(res.data.url);
+    } catch {} finally { setUploading(false); if (fileRef.current) fileRef.current.value = ''; }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.put('/site-settings/app-launch', { imageUrl, duration });
+      setSaved(true); setTimeout(() => setSaved(false), 2500);
+    } catch {} finally { setSaving(false); }
+  };
+
+  const apiBase = (api.defaults.baseURL ?? '').replace(/\/api\/v1$/, '');
+  const previewUrl = imageUrl.startsWith('http') ? imageUrl : imageUrl ? `${apiBase}${imageUrl}` : '';
+
+  if (loading) return <div style={{ padding: 32, display: 'flex', justifyContent: 'center' }}><Spinner /></div>;
+
+  return (
+    <div style={{ maxWidth: 680, padding: '28px 28px 48px' }}>
+      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>App Launch Screen</div>
+      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 24 }}>
+        This image is shown to users when the mobile app opens. It appears full-screen for the configured duration.
+      </div>
+
+      {/* Image upload */}
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Launch Image</div>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', marginBottom: 24 }}>
+        {/* Preview phone */}
+        <div style={{
+          width: 90, height: 160, borderRadius: 14, border: `2px solid ${dark ? '#333' : '#e5e7eb'}`,
+          overflow: 'hidden', background: dark ? '#1a1a1a' : '#f3f4f6',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative',
+        }}>
+          {previewUrl
+            ? <img src={previewUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <IconPhoto size={24} color="#bbb" />
+          }
+        </div>
+        <div style={{ flex: 1 }}>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 8, border: `1.5px dashed ${dark ? '#444' : '#d1d5db'}`, background: 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--text)', fontWeight: 500, marginBottom: 10 }}
+          >
+            <IconUpload size={14} /> {uploading ? 'Uploading…' : 'Upload Image'}
+          </button>
+          {imageUrl && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 500 }}>Image set</span>
+              <button onClick={() => setImageUrl('')} style={{ border: 0, background: 'none', cursor: 'pointer', color: '#bbb', display: 'flex', padding: 2 }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}>
+                <IconX size={13} />
+              </button>
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: '#bbb', lineHeight: 1.6 }}>
+            Recommended: <strong>1080 × 1920 px</strong> (portrait, 9:16 ratio)<br />
+            Format: JPG or PNG &nbsp;·&nbsp; Max size: 5 MB
+          </div>
+        </div>
+      </div>
+
+      {/* Duration */}
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Display Duration</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 32 }}>
+        <input
+          type="range" min={1} max={10} value={duration}
+          onChange={e => setDuration(Number(e.target.value))}
+          style={{ flex: 1, accentColor: '#dc2626' }}
+        />
+        <div style={{
+          minWidth: 52, padding: '6px 12px', borderRadius: 8, border: `1.5px solid ${dark ? '#333' : '#e5e7eb'}`,
+          fontSize: 14, fontWeight: 700, textAlign: 'center', color: '#dc2626',
+        }}>
+          {duration}s
+        </div>
+        <span style={{ fontSize: 12, color: '#bbb', whiteSpace: 'nowrap' }}>({duration} second{duration !== 1 ? 's' : ''})</span>
+      </div>
+
+      {/* Save */}
+      <button
+        onClick={handleSave}
+        disabled={saving || !imageUrl}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          padding: '9px 22px', borderRadius: 9, border: 'none',
+          background: saved ? '#16a34a' : '#dc2626', color: '#fff',
+          fontSize: 13, fontWeight: 600, cursor: saving || !imageUrl ? 'not-allowed' : 'pointer',
+          opacity: !imageUrl ? 0.5 : 1, transition: 'background 0.2s',
+        }}
+      >
+        {saved ? <><IconCheck size={14} /> Saved!</> : saving ? 'Saving…' : 'Save Settings'}
+      </button>
     </div>
   );
 }

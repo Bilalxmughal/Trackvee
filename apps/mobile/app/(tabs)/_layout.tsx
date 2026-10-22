@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
 import { useTheme } from '../../src/hooks/useTheme';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+type BottomTabBarProps = { state: any; descriptors: any; navigation: any };
 
 function TabItem({ route, focused, iconName, label, navigation, t }: { route: any; focused: boolean; iconName: string; label: string; navigation: any; t: any }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -40,13 +40,13 @@ const ICON_NAMES: Record<string, string> = {
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const t = useTheme();
-  const visibleRoutes = state.routes.filter(route => (descriptors[route.key].options as any).href !== null);
+  const visibleRoutes: any[] = state.routes.filter((route: any) => (descriptors[route.key].options as any).href !== null);
   const tabCount = visibleRoutes.length;
   const barWidth = useRef(0);
   const translateX = useRef(new Animated.Value(0)).current;
   const indicatorWidth = useRef(new Animated.Value(0)).current;
 
-  const visibleIndex = visibleRoutes.findIndex(r => r.key === state.routes[state.index]?.key);
+  const visibleIndex = visibleRoutes.findIndex((r: any) => r.key === state.routes[state.index]?.key);
 
   useEffect(() => {
     if (barWidth.current === 0) return;
@@ -68,7 +68,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     >
       <Animated.View style={[styles.indicator, { backgroundColor: t.red, width: indicatorWidth, transform: [{ translateX }] }]} />
 
-      {visibleRoutes.map((route, index) => {
+      {visibleRoutes.map((route: any, index: number) => {
         const { options } = descriptors[route.key];
         const label = options.title ?? route.name;
         const focused = state.routes[state.index]?.key === route.key;
