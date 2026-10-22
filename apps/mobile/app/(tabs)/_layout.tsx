@@ -115,7 +115,6 @@ export default function TabLayout() {
       <Tabs.Screen name="map" options={{ title: 'Map' }} />
       <Tabs.Screen name="vehicles" options={{ title: 'Vehicles', href: canDo('vehicles') ? '/vehicles' : null }} />
       <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />
-      <Tabs.Screen name="alerts" options={{ title: 'Alerts', href: null }} />
       <Tabs.Screen name="reports" options={{ title: 'Reports', href: canDo('reports') ? '/reports' : null }} />
       <Tabs.Screen name="more" options={{ title: 'More' }} />
     </Tabs>
