@@ -42,6 +42,7 @@ export default function MoreScreen() {
       <AppearanceRow themeMode={themeMode} setThemeMode={setThemeMode} t={t} />
       <ToolRow icon="map-off" title="Offline Maps" subtitle="Download map tiles for use without internet" t={t} onPress={() => router.push('/offline-map')} />
       <ToolRow icon="settings" title="Settings" subtitle="Notifications and fleet updates" t={t} onPress={() => router.push('/settings')} />
+      <ToolRow icon="headset" title="Support" subtitle="Contact us via WhatsApp, phone or email" t={t} onPress={() => router.push('/support')} />
 
       <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>ACCOUNT</Text>
       <InfoRow icon="building" title={user?.organizationName || '—'} subtitle="Organization" t={t} />

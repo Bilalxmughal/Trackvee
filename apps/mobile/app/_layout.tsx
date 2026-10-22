@@ -144,6 +144,7 @@ function NavigationRoot() {
         <Stack.Screen name="vehicle/[imei]/replay" />
         <Stack.Screen name="vehicle/[imei]/alerts" />
         <Stack.Screen name="notification/[logId]" />
+        <Stack.Screen name="support" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
         <Stack.Screen name="device-health" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
         <Stack.Screen name="settings" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
         <Stack.Screen name="behavior" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
