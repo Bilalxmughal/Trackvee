@@ -40,16 +40,20 @@ const ICON_NAMES: Record<string, string> = {
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const t = useTheme();
-  const tabCount = state.routes.length;
+  const visibleRoutes = state.routes.filter(route => (descriptors[route.key].options as any).href !== null);
+  const tabCount = visibleRoutes.length;
   const barWidth = useRef(0);
   const translateX = useRef(new Animated.Value(0)).current;
   const indicatorWidth = useRef(new Animated.Value(0)).current;
 
+  const visibleIndex = visibleRoutes.findIndex(r => r.key === state.routes[state.index]?.key);
+
   useEffect(() => {
     if (barWidth.current === 0) return;
     const tabW = barWidth.current / tabCount;
-    Animated.spring(translateX, { toValue: tabW * state.index, useNativeDriver: false, damping: 20, stiffness: 260, mass: 0.8 }).start();
-  }, [state.index, tabCount, translateX]);
+    const targetIndex = visibleIndex >= 0 ? visibleIndex : 0;
+    Animated.spring(translateX, { toValue: tabW * targetIndex, useNativeDriver: false, damping: 20, stiffness: 260, mass: 0.8 }).start();
+  }, [visibleIndex, tabCount, translateX]);
 
   return (
     <View
@@ -58,15 +62,16 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         barWidth.current = e.nativeEvent.layout.width;
         const tabW = barWidth.current / tabCount;
         indicatorWidth.setValue(tabW);
-        translateX.setValue(tabW * state.index);
+        const targetIndex = visibleIndex >= 0 ? visibleIndex : 0;
+        translateX.setValue(tabW * targetIndex);
       }}
     >
       <Animated.View style={[styles.indicator, { backgroundColor: t.red, width: indicatorWidth, transform: [{ translateX }] }]} />
 
-      {state.routes.map((route, index) => {
+      {visibleRoutes.map((route, index) => {
         const { options } = descriptors[route.key];
         const label = options.title ?? route.name;
-        const focused = state.index === index;
+        const focused = state.routes[state.index]?.key === route.key;
         const iconName = ICON_NAMES[route.name] ?? 'more';
 
         return (
