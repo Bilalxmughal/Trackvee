@@ -153,7 +153,7 @@ export default function DashboardScreen() {
 
         {/* ── Fleet Overview card ── */}
         <Card t={t} style={{ marginBottom: 14 }}>
-          <Text style={[s.cardTitle, { color: t.ink }]}>Fleet Overview</Text>
+          <Text style={[s.cardTitle, { color: t.ink, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }]}>Fleet Overview</Text>
           <View style={s.overviewRow}>
             {/* Donut */}
             <View style={s.donutWrap}>
@@ -270,7 +270,7 @@ export default function DashboardScreen() {
               </View>
             ))}
             {offlineLong.length > 5 && (
-              <Pressable style={s.viewAll} onPress={() => router.push('/map')}>
+              <Pressable style={s.viewAll} onPress={() => router.push('/vehicles')}>
                 <Text style={[s.viewAllText, { color: '#dc2626' }]}>View All ({offlineLong.length})</Text>
                 <TablerIcon name="chevron-right" size={14} color="#dc2626" />
               </Pressable>
@@ -285,8 +285,10 @@ export default function DashboardScreen() {
 
 function Card({ children, t, style }: { children: React.ReactNode; t: ReturnType<typeof useTheme>; style?: object }) {
   return (
-    <View style={[s.card, { backgroundColor: t.card, shadowColor: '#000' }, style]}>
-      {children}
+    <View style={[s.cardShadow, style]}>
+      <View style={[s.card, { backgroundColor: t.card }]}>
+        {children}
+      </View>
     </View>
   );
 }
@@ -308,10 +310,11 @@ const s = StyleSheet.create({
   banner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, padding: 11, marginBottom: 12 },
   bannerText: { flex: 1, fontSize: 12, fontWeight: '600', color: '#92400e' },
 
-  card: {
-    borderRadius: 16, overflow: 'hidden',
-    shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 4,
+  cardShadow: {
+    borderRadius: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.09, shadowRadius: 8, elevation: 4,
   },
+  card: { borderRadius: 16, overflow: 'hidden' },
 
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
