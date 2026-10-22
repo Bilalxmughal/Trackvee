@@ -24,7 +24,7 @@ interface Vehicle {
 
 function StatCard({ icon, value, label, color, t }: { icon: string; value: number; label: string; color: string; t: ReturnType<typeof useTheme> }) {
   return (
-    <View style={[styles.statCard, { backgroundColor: t.card, borderColor: t.border }]}>
+    <View style={[styles.statCard, { backgroundColor: t.card }]}>
       <View style={[styles.statIconWrap, { backgroundColor: color + '18' }]}>
         <TablerIcon name={icon} size={20} color={color} />
       </View>
@@ -130,7 +130,7 @@ export default function DashboardScreen() {
 
         {/* Daily mileage */}
         <Text style={[styles.sectionLabel, { color: t.secondary }]}>DAILY MILEAGE</Text>
-        <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+        <View style={[styles.card, { backgroundColor: t.card }]}>
           <View style={styles.cardRow}>
             <TablerIcon name="gauge" size={18} color={t.red} />
             <Text style={[styles.cardBig, { color: t.ink }]}>{totalKm.toFixed(1)} km</Text>
@@ -149,7 +149,7 @@ export default function DashboardScreen() {
 
         {/* Geofence events */}
         <Text style={[styles.sectionLabel, { color: t.secondary }]}>GEOFENCE EVENTS</Text>
-        <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+        <View style={[styles.card, { backgroundColor: t.card }]}>
           {geofenceAlerts.length === 0 ? (
             <Text style={[styles.emptyText, { color: t.muted }]}>No geofence events today</Text>
           ) : geofenceAlerts.map(log => (
@@ -170,7 +170,7 @@ export default function DashboardScreen() {
         {offlineLong.length > 0 && (
           <>
             <Text style={[styles.sectionLabel, { color: t.secondary }]}>OFFLINE VEHICLES</Text>
-            <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View style={[styles.card, { backgroundColor: t.card }]}>
               {offlineLong.slice(0, 5).map(item => (
                 <View key={item.device.imei} style={[styles.listRow, { borderTopColor: t.border }]}>
                   <View style={[styles.alertDot, { backgroundColor: '#6b7280' }]} />
@@ -209,13 +209,13 @@ const styles = StyleSheet.create({
   title: { fontSize: 25, fontWeight: '700', marginBottom: 14 },
   sectionLabel: { fontSize: 10, letterSpacing: 0.5, fontWeight: '700', marginTop: 20, marginBottom: 8 },
   statGrid: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  statCard: { flex: 1, minWidth: '40%', borderRadius: 12, borderWidth: 1, padding: 14, alignItems: 'center', gap: 4 },
+  statCard: { flex: 1, minWidth: '40%', borderRadius: 12, padding: 14, alignItems: 'center', gap: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 3 },
   statIconWrap: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   statValue: { fontSize: 22, fontWeight: '700' },
   statLabel: { fontSize: 11, fontWeight: '500' },
   warningBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, padding: 11, marginBottom: 4 },
   warningText: { flex: 1, fontSize: 12, fontWeight: '600', color: '#92400e' },
-  card: { borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+  card: { borderRadius: 12, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 3 },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
   cardBig: { fontSize: 20, fontWeight: '700' },
   cardSub: { fontSize: 12, marginLeft: 2 },

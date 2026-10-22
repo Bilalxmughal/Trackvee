@@ -116,6 +116,7 @@ export default function TabLayout() {
     <Tabs
       tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
+      initialRouteName="map"
     >
       <Tabs.Screen name="map" options={{ title: 'Map' }} />
       <Tabs.Screen name="vehicles" options={{ title: 'Vehicles', href: canDo('vehicles') ? '/vehicles' : null }} />
