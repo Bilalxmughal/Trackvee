@@ -82,12 +82,11 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: t.border }]}>
-        <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10}>
-          <TablerIcon name="arrow-left" size={20} color={t.ink} />
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: t.bg2 }]} hitSlop={10}>
+          <TablerIcon name="arrow-left" size={19} color={t.ink} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: t.ink }]}>Settings</Text>
-        <View style={{ width: 36 }} />
       </View>
 
       {loading || permissionsLoading ? (
@@ -203,9 +202,9 @@ function ToggleRow({ icon, iconBg, iconColor, title, sub, value, disabled, onCha
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
-  back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '700' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, gap: 10 },
+  back: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 },
 

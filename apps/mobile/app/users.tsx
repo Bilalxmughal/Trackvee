@@ -121,13 +121,13 @@ export default function UsersScreen() {
 
   return <SafeAreaView style={styles.container} edges={['top']}>
     {/* Header */}
-    <View style={[styles.header, { borderBottomColor: t.border }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} hitSlop={10} style={styles.back}><TablerIcon name="arrow-left" size={20} color={t.ink}/></Pressable>
+    <View style={styles.header}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} hitSlop={10} style={[styles.back, { backgroundColor: t.bg2 }]}><TablerIcon name="arrow-left" size={19} color={t.ink}/></Pressable>
       <View style={styles.headerTitle}>
         <Text style={styles.title}>Users</Text>
         <Text style={styles.subtitle}>{users.length} member{users.length !== 1 ? 's' : ''}</Text>
       </View>
-      {canDo('users', 'add') ? <Pressable onPress={openNew} accessibilityRole="button" accessibilityLabel="Add user" style={[styles.addButton, { backgroundColor: `${t.red}14` }]}><TablerIcon name="plus" size={20} color={t.red}/></Pressable> : null}
+      {canDo('users', 'add') ? <Pressable onPress={openNew} accessibilityRole="button" accessibilityLabel="Add user" style={[styles.addButton, { backgroundColor: t.red }]}><TablerIcon name="plus" size={19} color="#fff"/></Pressable> : null}
     </View>
 
     {/* Search */}
@@ -293,7 +293,7 @@ function UserEditor({ initial, currentUserId, currentUserRole, vehicleOptions, c
   return <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
-        <Pressable onPress={onClose} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel="Back to users"><TablerIcon name="back" size={20} color={t.ink}/></Pressable>
+        <Pressable onPress={onClose} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel="Back to users"><TablerIcon name="arrow-left" size={20} color={t.ink}/></Pressable>
         <View style={styles.headerTitle}><Text style={styles.title}>{initial ? 'Edit User' : 'Add User'}</Text><Text style={styles.subtitle}>{initial ? userLabel(initial) : 'Create an organization user'}</Text></View>
       </View>
       {tabs.length > 1 ? <View style={styles.tabs}>{tabs.map(tab => <Pressable key={tab.id} onPress={() => setActiveTab(tab.id)} style={[styles.tab, activeTab === tab.id && styles.tabActive]}><Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>{tab.label}</Text></Pressable>)}</View> : null}
@@ -313,7 +313,7 @@ function UserEditor({ initial, currentUserId, currentUserRole, vehicleOptions, c
           {vehicleOptions.allVehiclesAllowed ? <Pressable onPress={() => setVehicleScope(true)} style={styles.radioRow}><View style={[styles.radio, permissions.vehicleIds === null && styles.radioActive]}>{permissions.vehicleIds === null ? <View style={styles.radioDot}/> : null}</View><Text style={styles.radioText}>All organization vehicles</Text></Pressable> : <Text style={styles.scopeNote}>You can assign vehicles available to your account only.</Text>}
           <Pressable onPress={() => setVehicleScope(false)} style={styles.radioRow}><View style={[styles.radio, permissions.vehicleIds !== null && styles.radioActive]}>{permissions.vehicleIds !== null ? <View style={styles.radioDot}/> : null}</View><Text style={styles.radioText}>Specific vehicles</Text><Text style={styles.countText}>{permissions.vehicleIds === null ? vehicleOptions.vehicles.length : permissions.vehicleIds?.length ?? 0} selected</Text></Pressable>
           {permissions.vehicleIds !== null ? <>
-            <View style={styles.search}><TablerIcon name="search" size={16} color={t.secondary}/><TextInput value={vehicleSearch} onChangeText={setVehicleSearch} placeholder="Search vehicles" placeholderTextColor={t.muted} style={styles.searchInput}/></View>
+            <View style={styles.searchWrap}><TablerIcon name="search" size={16} color={t.secondary}/><TextInput value={vehicleSearch} onChangeText={setVehicleSearch} placeholder="Search vehicles" placeholderTextColor={t.muted} style={styles.searchInput}/></View>
             <View style={styles.selectionTools}><Text style={styles.helper}>{vehicleOptions.vehicles.length} vehicles available</Text><View style={{ flex: 1 }}/><Pressable onPress={() => setPermissions(p => ({ ...p, vehicleIds: vehicleOptions.vehicles.map(vehicle => vehicle.id) }))}><Text style={styles.toolText}>Select all</Text></Pressable><Pressable onPress={() => setPermissions(p => ({ ...p, vehicleIds: [] }))}><Text style={styles.toolText}>Deselect all</Text></Pressable></View>
             {vehicleGroups.map(group => {
               const collapsed = !!collapsedGroups[group.id];
@@ -337,7 +337,7 @@ function UserEditor({ initial, currentUserId, currentUserRole, vehicleOptions, c
 
         {activeTab === 'permissions' ? <>
           {!permissionsReady ? <View style={styles.loading}><ActivityIndicator color={t.red}/><Text style={styles.secondary}>Loading permissions…</Text></View> : <>
-            {permissionsError ? <Pressable onPress={() => { setPermissionsReady(false); setPermissionsError(''); setPermissionsRetry(value => value + 1); }} style={styles.error}><Text style={styles.errorText}>{permissionsError}  Retry</Text></Pressable> : null}
+            {permissionsError ? <Pressable onPress={() => { setPermissionsReady(false); setPermissionsError(''); setPermissionsRetry(value => value + 1); }} style={styles.errorBanner}><Text style={styles.errorText}>{permissionsError}  Retry</Text></Pressable> : null}
             <Text style={styles.sectionTitle}>Permission Templates</Text>
             <View style={styles.templates}>{(['View Only', 'Field Staff', 'Manager'] as const).map(template => <Pressable key={template} onPress={() => applyTemplate(template)} style={styles.templateButton}><Text style={styles.templateText}>{template}</Text></Pressable>)}</View>
             <Text style={styles.sectionTitle}>Module Permissions</Text>
@@ -381,13 +381,13 @@ const checkboxStyle = StyleSheet.create({ box: { width: 20, height: 20, borderWi
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: t.bg },
-    header: { minHeight: 60, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
-    back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    back: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     headerTitle: { flex: 1 },
-    title: { color: t.ink, fontSize: 19, fontWeight: '800', letterSpacing: -0.3 },
-    subtitle: { color: t.secondary, fontSize: 11, marginTop: 2 },
-    addButton: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-    searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 12, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
+    title: { color: t.ink, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+    subtitle: { color: t.secondary, fontSize: 12, marginTop: 2 },
+    addButton: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 12, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
     searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
     list: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32, gap: 8 },
     userCard: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, gap: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
@@ -406,14 +406,14 @@ function createStyles(t: AppTheme) {
     errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
     errorText: { flex: 1, fontSize: 12, fontWeight: '500' },
     loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }, secondary: { color: t.secondary, fontSize: 12 },
-    tabs: { flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: t.border }, tab: { minHeight: 42, paddingHorizontal: 14, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' }, tabActive: { borderBottomColor: t.red }, tabText: { color: t.secondary, fontSize: 13 }, tabTextActive: { color: t.red, fontWeight: '600' },
-    form: { paddingHorizontal: 16, paddingTop: 17, paddingBottom: 24 }, field: { marginBottom: 17 }, fieldLabel: { color: t.ink, fontSize: 12, fontWeight: '600', marginBottom: 6 }, input: { minHeight: 43, borderWidth: 1, borderColor: t.border, borderRadius: 7, paddingHorizontal: 11, color: t.ink, fontSize: 13, backgroundColor: t.inputBg },
+    tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 8, gap: 4 }, tab: { minHeight: 36, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 20, marginBottom: 8 }, tabActive: { backgroundColor: `${t.red}14` }, tabText: { color: t.secondary, fontSize: 13 }, tabTextActive: { color: t.red, fontWeight: '600' },
+    form: { paddingHorizontal: 16, paddingTop: 17, paddingBottom: 24 }, field: { marginBottom: 17 }, fieldLabel: { color: t.ink, fontSize: 12, fontWeight: '600', marginBottom: 6 }, input: { minHeight: 43, borderWidth: 1, borderColor: t.border, borderRadius: 10, paddingHorizontal: 12, color: t.ink, fontSize: 13, backgroundColor: t.inputBg },
     nameFields: { flexDirection: 'row', gap: 10 }, passwordInput: { minHeight: 43, borderWidth: 1, borderColor: t.border, borderRadius: 7, flexDirection: 'row', alignItems: 'center', backgroundColor: t.inputBg }, showPassword: { paddingHorizontal: 12, minHeight: 40, justifyContent: 'center' }, showPasswordText: { color: t.red, fontSize: 12, fontWeight: '600' },
-    roleChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, roleOption: { borderRadius: 7, paddingVertical: 9, paddingHorizontal: 14 }, roleOptionText: { fontSize: 12 }, readOnlyValue: { color: t.ink, fontSize: 13, paddingVertical: 8 },
+    roleChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, roleOption: { borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 }, roleOptionText: { fontSize: 12 }, readOnlyValue: { color: t.ink, fontSize: 13, paddingVertical: 8 },
     switchRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderColor: t.border, gap: 12, paddingVertical: 8 }, helper: { color: t.secondary, fontSize: 11, lineHeight: 16 }, statusText: { fontSize: 12, fontWeight: '600' }, activeText: { color: '#15803d' }, inactiveText: { color: t.muted },
     sectionTitle: { color: t.ink, fontSize: 14, fontWeight: '700', marginTop: 8, marginBottom: 7 }, radioRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: t.border }, radio: { width: 18, height: 18, borderWidth: 1.5, borderColor: '#9ca3af', borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, radioActive: { borderColor: t.red }, radioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: t.red }, radioText: { color: t.ink, fontSize: 12, flex: 1 }, countText: { color: t.secondary, fontSize: 11 }, scopeNote: { color: t.secondary, fontSize: 11, marginVertical: 8 }, selectionTools: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 14 }, toolText: { color: t.red, fontSize: 11, fontWeight: '600' },
     vehicleGroup: { borderTopWidth: 1, borderTopColor: t.border }, vehicleGroupHeader: { minHeight: 42, flexDirection: 'row', alignItems: 'center' }, groupToggle: { flex: 1, minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 8 }, groupName: { color: t.ink, fontSize: 12, fontWeight: '600', flex: 1 }, toolButton: { paddingHorizontal: 6, paddingVertical: 8 }, vehicleChoice: { minHeight: 49, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 21, borderTopWidth: 1, borderTopColor: t.border2 }, vehiclePlate: { color: t.ink, fontSize: 12, fontWeight: '600' }, vehicleSubtitle: { color: t.secondary, fontSize: 10, marginTop: 2 }, checkbox: { width: 20, height: 20, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
     templates: { flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 15 }, templateButton: { flex: 1, minHeight: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg2, borderRadius: 7 }, templateText: { color: t.ink, fontSize: 11, fontWeight: '600' }, permissionHeader: { minHeight: 34, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border }, moduleLabel: { width: 108, color: t.ink, fontSize: 11, fontWeight: '600' }, actionHeader: { width: 52, textAlign: 'center', fontSize: 9, fontWeight: '700' }, permissionRow: { minHeight: 45, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border2 }, permissionCell: { width: 52, alignItems: 'center', justifyContent: 'center', minHeight: 42 }, dash: { color: '#d1d5db', fontSize: 13 },
-    formError: { color: t.red, fontSize: 12, marginTop: 8 }, footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, borderTopWidth: 1, borderTopColor: t.border, backgroundColor: t.bg }, cancelButton: { minHeight: 44, minWidth: 100, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: t.border, borderRadius: 7 }, cancelText: { color: t.secondary, fontSize: 13, fontWeight: '500' }, saveButton: { flex: 1, minHeight: 44, justifyContent: 'center', alignItems: 'center', backgroundColor: t.red, borderRadius: 7 }, saveDisabled: { opacity: 0.55 }, saveText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+    formError: { color: t.red, fontSize: 12, marginTop: 8 }, footer: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.border, backgroundColor: t.bg }, cancelButton: { minHeight: 46, minWidth: 100, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg2, borderRadius: 12 }, cancelText: { color: t.secondary, fontSize: 14, fontWeight: '600' }, saveButton: { flex: 1, minHeight: 46, justifyContent: 'center', alignItems: 'center', backgroundColor: t.red, borderRadius: 12 }, saveDisabled: { opacity: 0.55 }, saveText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   });
 }

@@ -126,7 +126,7 @@ export default function DeviceHealthScreen() {
   if (permissionsLoading) return <SafeAreaView style={styles.center} edges={['top']}><ActivityIndicator color={t.red} /></SafeAreaView>;
   if (!canView) return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.header}><Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Go back" style={styles.back}><TablerIcon name="back" size={21} color={t.ink} /></Pressable><Text style={styles.headerTitle}>Device Health</Text></View>
+      <View style={styles.header}><Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Go back" style={styles.back}><TablerIcon name="arrow-left" size={19} color={t.ink} /></Pressable><Text style={styles.headerTitle}>Device Health</Text></View>
       <View style={styles.centerContent}><Text style={styles.emptyTitle}>Access unavailable</Text><Text style={styles.emptyText}>Your account does not have permission to view device health.</Text></View>
     </SafeAreaView>
   );
@@ -134,7 +134,7 @@ export default function DeviceHealthScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Go back" style={styles.back}><TablerIcon name="back" size={21} color={t.ink} /></Pressable>
+        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Go back" style={styles.back}><TablerIcon name="arrow-left" size={19} color={t.ink} /></Pressable>
         <View style={styles.headerCopy}><Text style={styles.headerTitle}>Device Health</Text><Text style={styles.headerSubtitle}>Connection, GPS, signal and power</Text></View>
         <Pressable onPress={() => { void load(true); }} disabled={refreshing} accessibilityRole="button" accessibilityLabel="Refresh device health" style={styles.refresh}>
           {refreshing ? <ActivityIndicator size="small" color={t.red} /> : <TablerIcon name="refresh" size={19} color={t.red} />}
@@ -215,7 +215,7 @@ function DeviceRow({ row }: { row: DeviceHealth }) {
   const signalColor = row.gsm === 'good' ? t.moving : row.gsm === 'unknown' ? t.secondary : t.idle;
   const powerText = row.externalPower === 'unknown' ? 'Unknown' : row.externalPower === 'connected' ? 'Connected' : 'Disconnected';
   return (
-    <View style={[styles.deviceRow, { borderLeftColor: connectionColor }]}>
+    <View style={styles.deviceRow}>
       <View style={styles.deviceHeading}>
         <View style={styles.deviceTitleBlock}><Text style={styles.vehicleName} numberOfLines={1}>{vehicleLabel(row)}</Text></View>
         <View style={styles.connectionBlock}><Text style={[styles.connection, { color: connectionColor }]}>{CONNECTION_LABEL[row.connection]}</Text><Text style={styles.ignition}>Ignition: {row.ignition == null ? 'Unknown' : row.ignition ? 'On' : 'Off'}</Text></View>
@@ -242,25 +242,25 @@ function createStyles(t: AppTheme) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: t.surface },
     center: { flex: 1, backgroundColor: t.surface, alignItems: 'center', justifyContent: 'center' },
-    header: { minHeight: 62, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: t.border },
-    back: { width: 34, height: 42, justifyContent: 'center' },
+    header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    back: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg2 },
     headerCopy: { flex: 1 },
-    headerTitle: { color: t.ink, fontSize: 17, fontWeight: '700' },
-    headerSubtitle: { color: t.secondary, fontSize: 11, marginTop: 2 },
-    refresh: { width: 40, height: 42, alignItems: 'center', justifyContent: 'center' },
-    content: { paddingHorizontal: 14, paddingBottom: 30 },
-    summaryGrid: { flexDirection: 'row', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: t.border },
-    summaryCell: { flex: 1, alignItems: 'center', borderRightWidth: 1, borderRightColor: t.border },
+    headerTitle: { color: t.ink, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+    headerSubtitle: { color: t.secondary, fontSize: 12, marginTop: 2 },
+    refresh: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg2 },
+    content: { paddingHorizontal: 16, paddingBottom: 30, paddingTop: 4, gap: 8 },
+    summaryGrid: { flexDirection: 'row', gap: 8 },
+    summaryCell: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: t.card, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
     summaryValue: { fontSize: 19, fontWeight: '700', fontVariant: ['tabular-nums'] },
     summaryLabel: { color: t.secondary, fontSize: 10, marginTop: 3 },
-    searchBox: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: t.border },
-    searchInput: { flex: 1, minHeight: 40, paddingVertical: 0, color: t.ink, fontSize: 13 },
-    filters: { flexDirection: 'row', alignItems: 'stretch', borderBottomWidth: 1, borderBottomColor: t.border },
-    filter: { flex: 1, minHeight: 42, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-    filterActive: { borderBottomColor: t.red },
-    filterText: { color: t.secondary, fontSize: 10.5 },
+    searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: t.card, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+    searchInput: { flex: 1, paddingVertical: 2, color: t.ink, fontSize: 13 },
+    filters: { flexDirection: 'row', gap: 8 },
+    filter: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: t.bg2 },
+    filterActive: { backgroundColor: `${t.red}14` },
+    filterText: { color: t.secondary, fontSize: 12 },
     filterTextActive: { color: t.red, fontWeight: '600' },
-    deviceRow: { paddingVertical: 12, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: t.border, borderLeftWidth: 3 },
+    deviceRow: { marginVertical: 4, borderRadius: 14, backgroundColor: t.card, paddingVertical: 12, paddingHorizontal: 14, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
     deviceHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     deviceTitleBlock: { flex: 1, minWidth: 0 },
     vehicleName: { color: t.ink, fontSize: 13, fontWeight: '700' },
@@ -276,7 +276,7 @@ function createStyles(t: AppTheme) {
     trackerLag: { color: t.idle, fontSize: 10, marginTop: 7 },
     issues: { color: t.idle, fontSize: 10, lineHeight: 15, marginTop: 7 },
     healthy: { color: t.moving, fontSize: 10, marginTop: 7 },
-    error: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: t.border },
+    error: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 11 },
     errorText: { flex: 1, color: t.red, fontSize: 11 },
     retry: { color: t.red, fontSize: 12, fontWeight: '700', padding: 5 },
     state: { alignItems: 'center', justifyContent: 'center', paddingVertical: 42, paddingHorizontal: 25, gap: 9 },
@@ -285,9 +285,9 @@ function createStyles(t: AppTheme) {
     emptyTitle: { color: t.ink, fontSize: 14, fontWeight: '600', textAlign: 'center' },
     emptyText: { color: t.secondary, fontSize: 11, textAlign: 'center', lineHeight: 16 },
     refreshNote: { color: t.muted, textAlign: 'center', paddingVertical: 14, fontSize: 10 },
-    expiringSection: { marginBottom: 12, backgroundColor: t.card, borderRadius: 10, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: t.border },
-    expiringSectionTitle: { fontSize: 11, fontWeight: '700', color: t.secondary, textTransform: 'uppercase', letterSpacing: 0.6, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border },
-    expiringRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 9, borderLeftWidth: 3, gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border },
+    expiringSection: { backgroundColor: t.card, borderRadius: 14, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+    expiringSectionTitle: { fontSize: 11, fontWeight: '700', color: t.secondary, textTransform: 'uppercase', letterSpacing: 0.6, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border2 },
+    expiringRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 9, borderLeftWidth: 3, gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border2 },
     expiringVehicle: { fontSize: 13, fontWeight: '600', color: t.ink },
     expiringImei: { fontSize: 10, color: t.secondary, marginTop: 1 },
     expiringBadge: { fontSize: 10, fontWeight: '700', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5, borderWidth: 1 },

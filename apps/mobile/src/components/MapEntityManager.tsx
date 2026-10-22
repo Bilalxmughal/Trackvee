@@ -161,7 +161,7 @@ export default function MapEntityManager({ kind }: { kind: Kind }) {
     const filteredIcons = POI_ICONS.filter(icon => !iconQuery.trim() || `${icon.label} ${icon.id}`.toLowerCase().includes(iconQuery.trim().toLowerCase()));
     const zoneColor = /^#[\da-fA-F]{6}$/.test(draft.color) ? draft.color : t.red;
     return <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}><Pressable onPress={() => setDraft(null)} accessibilityLabel="Back to list" style={styles.headerBack}><TablerIcon name="back" size={19} color={t.ink}/></Pressable><Text style={styles.headerTitle}>{draft.id ? 'Edit' : 'New'} {kind === 'geofences' ? 'Geofence' : 'POI'}</Text><View style={{ width: 36 }}/></View>
+      <View style={styles.header}><Pressable onPress={() => setDraft(null)} accessibilityLabel="Back to list" style={styles.headerBack}><TablerIcon name="arrow-left" size={19} color={t.ink}/></Pressable><Text style={styles.headerTitle}>{draft.id ? 'Edit' : 'New'} {kind === 'geofences' ? 'Geofence' : 'POI'}</Text><View style={{ width: 36 }}/></View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.editorContent}>
         <Text style={styles.label}>Name</Text>
         <TextInput value={draft.name} onChangeText={name => updateDraft({ name })} placeholder={kind === 'geofences' ? 'Zone name' : 'POI name'} placeholderTextColor={t.muted} style={styles.field}/>
@@ -218,11 +218,11 @@ export default function MapEntityManager({ kind }: { kind: Kind }) {
 
   if (!canDo(feature)) return null;
   return <SafeAreaView style={styles.container} edges={['top']}>
-    <View style={styles.header}><Pressable onPress={() => router.back()} accessibilityLabel="Back" style={styles.headerBack}><TablerIcon name="back" size={19} color={t.ink}/></Pressable><View style={{ flex: 1 }}><Text style={styles.headerTitle}>{title}</Text><Text style={styles.headerSubtitle}>{items.length} {items.length === 1 ? 'item' : 'items'}</Text></View>{canDo(feature, 'add') && <Pressable onPress={startCreate} accessibilityRole="button" accessibilityLabel={`Add ${kind === 'geofences' ? 'geofence' : 'POI'}`} style={styles.addButton}><TablerIcon name="plus" size={21} color={t.red}/></Pressable>}</View>
+    <View style={styles.header}><Pressable onPress={() => router.back()} accessibilityLabel="Back" style={styles.headerBack}><TablerIcon name="arrow-left" size={19} color={t.ink}/></Pressable><View style={{ flex: 1 }}><Text style={styles.headerTitle}>{title}</Text><Text style={styles.headerSubtitle}>{items.length} {items.length === 1 ? 'item' : 'items'}</Text></View>{canDo(feature, 'add') && <Pressable onPress={startCreate} accessibilityRole="button" accessibilityLabel={`Add ${kind === 'geofences' ? 'geofence' : 'POI'}`} style={styles.addButton}><TablerIcon name="plus" size={19} color="#fff"/></Pressable>}</View>
     <View style={styles.search}><TablerIcon name="search" size={17} color={t.secondary}/><TextInput value={query} onChangeText={setQuery} placeholder={`Search ${kind === 'geofences' ? 'geofences' : 'POIs'}`} placeholderTextColor={t.muted} style={styles.searchInput}/></View>
     {kind === 'pois' && groups.length > 0 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.groupFilters} contentContainerStyle={styles.groupFilterContent}>{['', ...groups].map(group => <Pressable key={group || 'all'} onPress={() => setGroupFilter(group)} style={[styles.groupFilter, groupFilter === group && styles.groupFilterSelected]}><Text style={[styles.groupFilterText, groupFilter === group && styles.groupFilterTextSelected]}>{group || 'All groups'}</Text></Pressable>)}</ScrollView> : null}
     {error ? <Pressable onPress={() => void load()} style={styles.errorBox}><Text style={styles.error}>{error}  Retry</Text></Pressable> : null}
-    {loading && !items.length ? <ActivityIndicator style={{ marginTop: 32 }} color={t.red}/> : <FlatList data={filtered} keyExtractor={item => item.id} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={t.red}/>} contentContainerStyle={!filtered.length ? styles.emptyList : undefined} renderItem={({ item }) => <View style={styles.itemRow}>
+    {loading && !items.length ? <ActivityIndicator style={{ marginTop: 32 }} color={t.red}/> : <FlatList data={filtered} keyExtractor={item => item.id} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void load()} tintColor={t.red}/>} contentContainerStyle={!filtered.length ? styles.emptyList : styles.listContent} renderItem={({ item }) => <View style={styles.itemRow}>
       <View style={[styles.itemAccent, { backgroundColor: kind === 'geofences' ? (item as Geofence).color || t.red : t.red }]}/>
       {kind === 'pois' ? <View style={styles.itemIcon}><IconGlyph name={(item as Poi).icon} color={t.red}/></View> : <TablerIcon name="geofence" size={20} color={t.red}/>}
       <View style={styles.itemMain}><Text numberOfLines={1} style={styles.itemName}>{item.name}</Text><Text numberOfLines={1} style={styles.itemMeta}>{kind === 'geofences' ? geofenceSummary(item as Geofence) : poiSummary(item as Poi)}</Text></View>
@@ -242,24 +242,25 @@ function geofenceSummary(item: Geofence) {
 function poiSummary(item: Poi) { return [item.group, `${item.radius || 0} m`].filter(Boolean).join(' · '); }
 
 function createStyles(t: AppTheme) {
-  const inputStyle = { minHeight: 43, borderWidth: 1, borderColor: t.border, borderRadius: 7, paddingHorizontal: 11, color: t.ink, fontSize: 13, backgroundColor: t.inputBg } as const;
+  const inputStyle = { minHeight: 43, borderWidth: 1, borderColor: t.border, borderRadius: 10, paddingHorizontal: 11, color: t.ink, fontSize: 13, backgroundColor: t.inputBg } as const;
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: t.bg },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg },
-    header: { minHeight: 62, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: t.border },
-    headerBack: { width: 34, height: 42, alignItems: 'flex-start', justifyContent: 'center' },
-    headerTitle: { color: t.ink, fontSize: 19, fontWeight: '700' },
-    headerSubtitle: { color: t.secondary, fontSize: 11, marginTop: 2 },
-    addButton: { width: 40, height: 42, alignItems: 'center', justifyContent: 'center' },
-    search: { minHeight: 42, marginHorizontal: 16, marginTop: 10, marginBottom: 4, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 8 },
-    searchInput: { flex: 1, height: 40, paddingHorizontal: 2, color: t.ink, fontSize: 14 },
-    groupFilters: { maxHeight: 40, borderBottomWidth: 1, borderBottomColor: t.border },
-    groupFilterContent: { paddingHorizontal: 16, gap: 14 },
-    groupFilter: { minHeight: 38, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-    groupFilterSelected: { borderBottomColor: t.red },
+    header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    headerBack: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg2 },
+    headerTitle: { color: t.ink, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+    headerSubtitle: { color: t.secondary, fontSize: 12, marginTop: 2 },
+    addButton: { width: 34, height: 34, borderRadius: 10, backgroundColor: t.red, alignItems: 'center', justifyContent: 'center' },
+    search: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 10, marginBottom: 4, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: t.card, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+    searchInput: { flex: 1, fontSize: 14, paddingVertical: 2, color: t.ink },
+    groupFilters: { maxHeight: 44 },
+    groupFilterContent: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, alignItems: 'center' },
+    groupFilter: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: t.bg2 },
+    groupFilterSelected: { backgroundColor: `${t.red}14` },
     groupFilterText: { color: t.secondary, fontSize: 12 },
     groupFilterTextSelected: { color: t.red, fontWeight: '700' },
-    itemRow: { minHeight: 70, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: 1, borderBottomColor: t.border },
+    itemRow: { minHeight: 70, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 11, marginHorizontal: 16, marginVertical: 4, borderRadius: 14, backgroundColor: t.card, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+    listContent: { paddingTop: 4, paddingBottom: 24 },
     itemAccent: { width: 3, height: 44, borderRadius: 2 },
     itemIcon: { width: 26, alignItems: 'center' },
     itemMain: { flex: 1, minWidth: 0 },
@@ -278,13 +279,13 @@ function createStyles(t: AppTheme) {
     multiline: { minHeight: 80, paddingVertical: 10, textAlignVertical: 'top' },
     helper: { marginTop: 7, color: t.secondary, fontSize: 11 },
     segmentRow: { flexDirection: 'row', gap: 8 },
-    segment: { flex: 1, minHeight: 43, alignItems: 'center', justifyContent: 'center', borderRadius: 7, backgroundColor: t.bg2 },
+    segment: { flex: 1, minHeight: 43, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: t.bg2 },
     segmentSelected: { backgroundColor: t.red },
     segmentText: { color: t.secondary, fontSize: 13, fontWeight: '500' },
     segmentTextSelected: { color: '#fff', fontWeight: '600' },
     colorRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     colorSwatch: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: t.border },
-    mapFrame: { height: 290, marginTop: 12, overflow: 'hidden', borderRadius: 9, borderWidth: 1, borderColor: t.border, backgroundColor: '#eef1f2' },
+    mapFrame: { height: 290, marginTop: 12, overflow: 'hidden', borderRadius: 12, borderWidth: 1, borderColor: t.border, backgroundColor: '#eef1f2' },
     mapHint: { position: 'absolute', left: 8, bottom: 8, paddingHorizontal: 9, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.95)', borderWidth: 1, borderColor: t.border, borderRadius: 5 },
     mapHintText: { color: t.ink, fontSize: 10, fontWeight: '600' },
     pointMarker: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: t.red, borderWidth: 2, borderColor: '#fff' },
@@ -293,7 +294,7 @@ function createStyles(t: AppTheme) {
     inlineLabel: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, marginBottom: 7 },
     value: { color: t.red, fontSize: 12, fontWeight: '700' },
     radiusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    stepButton: { width: 43, height: 43, borderWidth: 1, borderColor: t.border, borderRadius: 7, backgroundColor: t.bg2, alignItems: 'center', justifyContent: 'center' },
+    stepButton: { width: 43, height: 43, borderWidth: 1, borderColor: t.border, borderRadius: 10, backgroundColor: t.bg2, alignItems: 'center', justifyContent: 'center' },
     stepText: { color: t.red, fontSize: 22, lineHeight: 26 },
     pointRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: t.border },
     pointIndex: { width: 21, height: 21, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: t.red },
@@ -311,9 +312,9 @@ function createStyles(t: AppTheme) {
     iconChoice: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: t.bg2 },
     iconChoiceSelected: { backgroundColor: `${t.red}18`, borderWidth: 1.5, borderColor: t.red },
     footer: { flexDirection: 'row', gap: 10, marginTop: 20 },
-    cancelButton: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.border, borderRadius: 8 },
+    cancelButton: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.border, borderRadius: 12, backgroundColor: t.bg2 },
     cancelText: { color: t.secondary, fontSize: 13, fontWeight: '600' },
-    saveButton: { flex: 2, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: t.red },
+    saveButton: { flex: 2, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: t.red },
     saveText: { color: '#fff', fontSize: 13, fontWeight: '700' },
     disabled: { opacity: 0.6 },
   });

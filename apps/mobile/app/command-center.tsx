@@ -96,14 +96,14 @@ export default function CommandCenterScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={goBack} style={styles.back} accessibilityRole="button" accessibilityLabel="Go back">
-          <TablerIcon name="back" size={21} color={t.ink} />
+        <Pressable onPress={goBack} style={[styles.back, { backgroundColor: t.bg2 }]} accessibilityRole="button" accessibilityLabel="Go back">
+          <TablerIcon name="arrow-left" size={19} color={t.ink} />
         </Pressable>
         <View style={styles.headerCopy}>
           <Text style={styles.headerTitle}>Command Center</Text>
           <Text style={styles.headerSubtitle}>Engine cut &amp; restore commands</Text>
         </View>
-        <Pressable onPress={() => { void load(true); }} disabled={refreshing} style={styles.refresh} accessibilityRole="button" accessibilityLabel="Refresh">
+        <Pressable onPress={() => { void load(true); }} disabled={refreshing} style={[styles.refresh, { backgroundColor: t.bg2 }]} accessibilityRole="button" accessibilityLabel="Refresh">
           {refreshing ? <ActivityIndicator size="small" color={t.red} /> : <TablerIcon name="refresh" size={19} color={t.red} />}
         </Pressable>
       </View>
@@ -121,14 +121,14 @@ export default function CommandCenterScreen() {
           { label: 'Active', value: vehicles.filter(v => !v.lastImmobilizer).length, color: t.moving },
           { label: 'Cut', value: vehicles.filter(v => v.lastImmobilizer).length, color: t.red },
         ].map(s => (
-          <View key={s.label} style={[styles.statCell, { backgroundColor: t.card, borderColor: t.border }]}>
+          <View key={s.label} style={[styles.statCell, { backgroundColor: t.card }]}>
             <Text style={[styles.statValue, { color: s.color }]}>{loading ? '—' : s.value}</Text>
             <Text style={[styles.statLabel, { color: t.secondary }]}>{s.label}</Text>
           </View>
         ))}
       </View>
 
-      <View style={[styles.searchBox, { backgroundColor: t.card, borderColor: t.border }]}>
+      <View style={[styles.searchBox, { backgroundColor: t.card }]}>
         <TablerIcon name="search" size={17} color={t.muted} />
         <TextInput value={query} onChangeText={setQuery} placeholder="Search by plate, name or IMEI"
           placeholderTextColor={t.muted} style={[styles.searchInput, { color: t.ink }]}
@@ -149,7 +149,7 @@ export default function CommandCenterScreen() {
           const isImmobilized = !!v.lastImmobilizer;
           const noImei = !v.imei;
           return (
-            <View key={v.id} style={[styles.row, { backgroundColor: t.card, borderColor: t.border }]}>
+            <View key={v.id} style={[styles.row, { backgroundColor: t.card }]}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[styles.plate, { color: t.ink }]} numberOfLines={1}>{v.licensePlate || `#${v.displayId}`}</Text>
                 {v.name && <Text style={[styles.name, { color: t.secondary }]} numberOfLines={1}>{v.name}</Text>}
@@ -187,20 +187,20 @@ function createStyles(t: AppTheme) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: t.bg },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border, gap: 10 },
-    back: { padding: 4 },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, gap: 10 },
+    back: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     headerCopy: { flex: 1 },
-    headerTitle: { fontSize: 17, fontWeight: '700', color: t.ink },
-    headerSubtitle: { fontSize: 11, color: t.secondary, marginTop: 1 },
-    refresh: { padding: 6 },
-    statsRow: { flexDirection: 'row', gap: 10, padding: 14 },
-    statCell: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: t.ink, letterSpacing: -0.4 },
+    headerSubtitle: { fontSize: 12, color: t.secondary, marginTop: 1 },
+    refresh: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    statsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
+    statCell: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
     statValue: { fontSize: 22, fontWeight: '700' },
     statLabel: { fontSize: 10, fontWeight: '600', marginTop: 2, textTransform: 'uppercase' },
-    searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 14, marginBottom: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
+    searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 4, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
     searchInput: { flex: 1, fontSize: 14 },
-    list: { paddingHorizontal: 14, paddingBottom: 20, gap: 8 },
-    row: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, gap: 10 },
+    list: { paddingHorizontal: 16, paddingBottom: 20, gap: 8 },
+    row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, gap: 10, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
     plate: { fontSize: 14, fontWeight: '700' },
     name: { fontSize: 11, marginTop: 1 },
     imei: { fontSize: 10, fontFamily: 'monospace', marginTop: 2 },
