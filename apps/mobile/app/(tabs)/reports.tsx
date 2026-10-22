@@ -313,18 +313,17 @@ export default function ReportsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={{ flex: 1 }}>
         <View style={styles.header}>
-          <View><Text style={styles.title}>Reports</Text><Text style={styles.subtitle}>Fleet activity and trip summaries</Text></View>
-          <View style={[styles.headerIcon, { backgroundColor: `${t.red}14` }]}><TablerIcon name="report" size={20} color={t.red} /></View>
+          <View style={{ flex: 1 }}><Text style={styles.title}>Reports</Text><Text style={styles.subtitle}>Fleet activity and trip summaries</Text></View>
         </View>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <Text style={styles.label}>Report Type</Text>
-          <Pressable onPress={() => setPicker('type')} style={styles.select}><Text numberOfLines={1} style={styles.selectText}>{report.label}</Text><TablerIcon name="down" size={14} color={t.secondary} /></Pressable>
+          <Pressable onPress={() => setPicker('type')} style={styles.select}><Text numberOfLines={1} style={styles.selectText}>{report.label}</Text><TablerIcon name="chevron-down" size={14} color={t.secondary} /></Pressable>
 
           <Text style={styles.label}>Vehicles</Text>
-          <Pressable onPress={() => { setVehicleSearch(''); setPicker('vehicles'); }} style={styles.select}><Text style={styles.selectText}>{selectionLabel}</Text><TablerIcon name="down" size={14} color={t.secondary} /></Pressable>
+          <Pressable onPress={() => { setVehicleSearch(''); setPicker('vehicles'); }} style={styles.select}><Text style={styles.selectText}>{selectionLabel}</Text><TablerIcon name="chevron-down" size={14} color={t.secondary} /></Pressable>
 
           <Text style={styles.label}>Period</Text>
-          <Pressable onPress={() => setPicker('period')} style={styles.select}><Text style={styles.selectText}>{period}</Text><TablerIcon name="down" size={14} color={t.secondary} /></Pressable>
+          <Pressable onPress={() => setPicker('period')} style={styles.select}><Text style={styles.selectText}>{period}</Text><TablerIcon name="chevron-down" size={14} color={t.secondary} /></Pressable>
           <View style={styles.dateRow}>
             <DateField label="From · PKT" value={from} onPress={() => setDateTarget('from')} />
             <DateField label="To · PKT" value={to} onPress={() => setDateTarget('to')} />
@@ -336,12 +335,12 @@ export default function ReportsScreen() {
           {report.options?.includes('geofence') ? <>
             <Text style={styles.label}>Geofence</Text>
             <Pressable onPress={() => setPicker('geofence')} style={styles.select}>
-              <Text style={styles.selectText}>{selectedGeofences.length ? geofences.filter(item => selectedGeofences.includes(item.id)).map(item => item.name).join(', ') || `${selectedGeofences.length} selected` : 'All Geofences'}</Text><TablerIcon name="down" size={14} color={t.secondary} />
+              <Text style={styles.selectText}>{selectedGeofences.length ? geofences.filter(item => selectedGeofences.includes(item.id)).map(item => item.name).join(', ') || `${selectedGeofences.length} selected` : 'All Geofences'}</Text><TablerIcon name="chevron-down" size={14} color={t.secondary} />
             </Pressable>
           </> : null}
 
           <Text style={styles.label}>Group By</Text>
-          <Pressable onPress={() => setPicker('groupBy')} style={styles.select}><Text style={styles.selectText}>{GROUP_BY_OPTIONS.find(item => item.id === groupBy)?.label ?? 'None'}</Text><TablerIcon name="down" size={14} color={t.secondary} /></Pressable>
+          <Pressable onPress={() => setPicker('groupBy')} style={styles.select}><Text style={styles.selectText}>{GROUP_BY_OPTIONS.find(item => item.id === groupBy)?.label ?? 'None'}</Text><TablerIcon name="chevron-down" size={14} color={t.secondary} /></Pressable>
 
           <Pressable disabled={busy || !vehicleIds.length} onPress={generate} style={({ pressed }) => [styles.generate, pressed && styles.pressed, (busy || !vehicleIds.length) && styles.disabled]}>
             {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.generateText}>Generate Report</Text>}
@@ -495,7 +494,7 @@ function DateTimePickerModal({ value, visible, onClose, onApply }: { value: stri
   const monthTitle = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(month.year, month.month - 1, 1)));
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={styles.pickerScrim}><View style={styles.pickerCard}>
-      <View style={styles.pickerHeader}><Pressable accessibilityLabel="Previous month" onPress={() => changeMonth(-1)} style={styles.pickerArrow}><TablerIcon name="back" size={17} color={t.ink} /></Pressable><Text style={styles.pickerTitle}>{monthTitle}</Text><Pressable accessibilityLabel="Next month" onPress={() => changeMonth(1)} style={styles.pickerArrow}><TablerIcon name="forward" size={17} color={t.ink} /></Pressable></View>
+      <View style={styles.pickerHeader}><Pressable accessibilityLabel="Previous month" onPress={() => changeMonth(-1)} style={styles.pickerArrow}><TablerIcon name="chevron-left" size={17} color={t.ink} /></Pressable><Text style={styles.pickerTitle}>{monthTitle}</Text><Pressable accessibilityLabel="Next month" onPress={() => changeMonth(1)} style={styles.pickerArrow}><TablerIcon name="chevron-right" size={17} color={t.ink} /></Pressable></View>
       <View style={styles.calendarGrid}>
         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => <Text key={`${day}-${index}`} style={styles.calendarWeekday}>{day}</Text>)}
         {Array.from({ length: firstWeekday }, (_, index) => <View key={`blank-${index}`} style={styles.calendarDay} />)}
@@ -518,9 +517,9 @@ function DateTimePickerModal({ value, visible, onClose, onApply }: { value: stri
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
-  header: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 26, fontWeight: '700', color: t.ink, letterSpacing: -0.4 }, subtitle: { marginTop: 2, color: t.secondary, fontSize: 13 },
-  headerIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, flexDirection: 'row', alignItems: 'center' },
+  title: { fontSize: 22, fontWeight: '800', color: t.ink, letterSpacing: -0.4 }, subtitle: { marginTop: 2, color: t.secondary, fontSize: 12 },
+  headerIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   body: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 34 }, label: { color: t.ink, fontSize: 13, fontWeight: '600', marginTop: 16, marginBottom: 8 },
   select: { minHeight: 46, borderWidth: 1, borderColor: t.border, borderRadius: 8, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: t.inputBg },
   selectText: { flex: 1, fontSize: 14, color: t.ink, marginRight: 8 },
