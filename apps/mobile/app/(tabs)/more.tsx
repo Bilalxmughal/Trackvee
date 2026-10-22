@@ -25,8 +25,9 @@ export default function MoreScreen() {
         <View style={styles.profileText}><Text style={[styles.name, { color: t.ink }]}>{name}</Text><Text style={[styles.email, { color: t.secondary }]}>{user?.organizationName || user?.email}</Text></View>
       </View>
 
-      {(canDo('vehicles') || canDo('geofences') || canDo('pois') || canDo('driver-behavior') || canDo('users') || canDo('maintenance')) ? <>
+      {(canDo('vehicles') || canDo('geofences') || canDo('pois') || canDo('driver-behavior') || canDo('users') || canDo('maintenance') || canDo('alerts')) ? <>
         <Text style={[styles.sectionLabel, styles.accountLabel, { color: t.secondary }]}>FLEET TOOLS</Text>
+        {canDo('alerts') ? <ToolRow icon="bell" title="Alerts" subtitle="View alert history and notifications" t={t} onPress={() => router.push('/alerts')} /> : null}
         {canDo('vehicles') ? <ToolRow icon="cpu" title="Device Health" subtitle="Connection, GPS, signal and power status" t={t} onPress={() => router.push('/device-health')} /> : null}
         {canDo('maintenance') ? <ToolRow icon="tool" title="Maintenance" subtitle="Service history and due reminders" t={t} onPress={() => router.push('/maintenance')} /> : null}
         {canDo('driver-behavior') ? <ToolRow icon="activity" title="Driver Behavior" subtitle="Safety scores, events and settings" t={t} onPress={() => router.push('/behavior')} /> : null}

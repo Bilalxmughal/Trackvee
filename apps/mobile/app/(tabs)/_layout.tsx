@@ -35,7 +35,7 @@ function TabItem({ route, focused, iconName, label, navigation, t }: { route: an
 }
 
 const ICON_NAMES: Record<string, string> = {
-  map: 'map', vehicles: 'fleet', alerts: 'bell', reports: 'report', more: 'more',
+  map: 'map', vehicles: 'fleet', dashboard: 'layout-dashboard', reports: 'report', more: 'more',
 };
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -114,7 +114,8 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="map" options={{ title: 'Map' }} />
       <Tabs.Screen name="vehicles" options={{ title: 'Vehicles', href: canDo('vehicles') ? '/vehicles' : null }} />
-      <Tabs.Screen name="alerts" options={{ title: 'Alerts', href: canDo('alerts') ? '/alerts' : null }} />
+      <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+      <Tabs.Screen name="alerts" options={{ title: 'Alerts', href: null }} />
       <Tabs.Screen name="reports" options={{ title: 'Reports', href: canDo('reports') ? '/reports' : null }} />
       <Tabs.Screen name="more" options={{ title: 'More' }} />
     </Tabs>
