@@ -15,8 +15,13 @@ function PanelButton({
   badge?: number;
 }) {
   const { activePanel, openPanel } = usePortalPanel();
+  const navigate = useNavigate();
+  const location = useLocation();
   const active = activePanel === panelKey;
-  const open = () => openPanel(panelKey);
+  const open = () => {
+    openPanel(panelKey);
+    if (location.pathname !== '/map') navigate('/map');
+  };
   return (
     <button
       onClick={open}
