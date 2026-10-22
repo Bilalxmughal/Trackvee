@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { IconDeviceFloppy, IconCheck, IconPhoto, IconUpload, IconX, IconAlertCircle } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconCheck, IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
 import api from '../api/client';
 import { useTheme } from '../contexts/ThemeContext';
 import Spinner from '../components/Spinner';
@@ -41,14 +41,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// ─── InfoBox ──────────────────────────────────────────────────────────────────
-function InfoBox({ children }: { children: React.ReactNode }) {
-  const { dark } = useTheme();
+// ─── Hint ─────────────────────────────────────────────────────────────────────
+function Hint({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 14px', background: dark ? '#1a1a1a' : '#fffbeb', border: `1px solid ${dark ? '#333' : '#fde68a'}`, borderRadius: 8, fontSize: 12, color: dark ? '#a16207' : '#92400e', marginBottom: 20 }}>
-      <IconAlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-      <span>{children}</span>
-    </div>
+    <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>{children}</p>
   );
 }
 
@@ -106,7 +102,7 @@ function LaunchScreenTab() {
       <div style={{ marginBottom: 20 }}>
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Launch Screen</h3>
         <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-          Mobile app open hone pe yeh image full-screen dikhti hai configured duration tak.
+          Shown full-screen when the mobile app opens, for the configured duration.
         </p>
       </div>
 
@@ -168,19 +164,13 @@ function LaunchScreenTab() {
               {duration}s
             </div>
           </div>
-          <div style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
-            User yeh screen {duration} second{duration !== 1 ? 's' : ''} dekhe ga. "Skip" button se pehle bhi dismiss kar sakta hai.
-          </div>
+          <Hint>Displayed for {duration} second{duration !== 1 ? 's' : ''}. Users can dismiss it early with the Skip button.</Hint>
         </Field>
       </div>
 
-      <InfoBox>
-        Sirf tab dikhaye ga jab image set ho. Agar koi image nahi hai toh launch screen skip ho jaye gi.
-      </InfoBox>
-
       {/* URL override (optional) */}
       <div style={card({ marginBottom: 20 })}>
-        <Field label="Ya Image URL directly dalen">
+        <Field label="Or enter image URL directly">
           <input
             style={inp}
             value={imageUrl}
@@ -190,7 +180,8 @@ function LaunchScreenTab() {
         </Field>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Hint>Launch screen is skipped if no image is configured.</Hint>
         <SaveBtn saving={saving} saved={saved} disabled={!imageUrl} onClick={handleSave} />
       </div>
     </div>
