@@ -1834,10 +1834,10 @@ export default function PortalMapPage() {
 
   const handleOpenMapOdo = useCallback((imei: string) => {
     const dev = deviceMap.get(imei);
-    const odo = dev?.vehicle?.odometerKm ?? 0;
-    setMapOdoInput(String(odo));
+    const vc = dev?.vehicleId ? vehicleDetails.get(dev.vehicleId) : undefined;
+    setMapOdoInput(String(vc?.odometerKm ?? 0));
     setMapOdoImei(imei);
-  }, [deviceMap]);
+  }, [deviceMap, vehicleDetails]);
 
   const handleSaveMapOdo = async () => {
     if (!mapOdoImei) return;

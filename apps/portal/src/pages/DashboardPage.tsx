@@ -247,7 +247,7 @@ export default function DashboardPage() {
                   const ageStr = age < 60 ? `${age}m ago` : `${Math.floor(age / 60)}h ago`;
                   return (
                     <div key={log.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid #f9fafb' }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: log.acknowledged ? '#d1d5db' : '#dc2626', flexShrink: 0 }}/>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#dc2626', flexShrink: 0 }}/>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {log.alertName}
@@ -320,8 +320,8 @@ export default function DashboardPage() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: '#555' }}>Active alerts</span>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: alertLogs.filter(l => !l.acknowledged).length > 0 ? '#dc2626' : '#111' }}>
-                    {loading ? '—' : alertLogs.filter(l => !l.acknowledged).length}
+                  <span style={{ fontSize: 18, fontWeight: 800, color: alertLogs.length > 0 ? '#dc2626' : '#111' }}>
+                    {loading ? '—' : alertLogs.length}
                   </span>
                 </div>
               </div>
