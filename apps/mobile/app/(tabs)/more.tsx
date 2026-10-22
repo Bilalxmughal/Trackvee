@@ -1,4 +1,5 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/auth/AuthProvider';
@@ -15,11 +16,20 @@ export default function MoreScreen() {
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Account';
   const initial = name[0]?.toUpperCase() ?? 'U';
   const roleLabel = user?.role.replace('client_', '').replaceAll('_', ' ') || '';
-  const signOut = () =>
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => { void logout(); } },
-    ]);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const slideAnim = useRef(new Animated.Value(80)).current;
+
+  const openSignOut = () => {
+    setShowSignOutConfirm(true);
+    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }).start();
+  };
+  const closeSignOut = () => {
+    Animated.timing(slideAnim, { toValue: 80, duration: 200, useNativeDriver: true }).start(() => setShowSignOutConfirm(false));
+  };
+  const confirmSignOut = () => {
+    closeSignOut();
+    setTimeout(() => { void logout(); }, 220);
+  };
 
   const hasFleet = canDo('vehicles') || canDo('geofences') || canDo('pois') || canDo('driver-behavior') || canDo('maintenance') || canDo('alerts') || canDo('engine_cut');
   const hasAdmin = canDo('users');
@@ -27,6 +37,7 @@ export default function MoreScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
 
         {/* Header */}
         <Text style={[styles.pageTitle, { color: t.ink }]}>More</Text>
@@ -102,7 +113,7 @@ export default function MoreScreen() {
             </View>
           </View>
           <View style={[styles.divider, { backgroundColor: t.border }]} />
-          <Pressable onPress={signOut} style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}>
+          <Pressable onPress={openSignOut} style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}>
             <View style={[styles.iconWrap, { backgroundColor: '#EF44440f' }]}>
               <TablerIcon name="logout" size={18} color="#EF4444" />
             </View>
@@ -115,6 +126,26 @@ export default function MoreScreen() {
 
         <Text style={[styles.version, { color: t.muted }]}>Trackvee Mobile · Expo SDK 57</Text>
       </ScrollView>
+
+      {/* Sign out bottom confirmation */}
+      {showSignOutConfirm && (
+        <Pressable style={styles.overlay} onPress={closeSignOut}>
+          <Animated.View style={[styles.signOutSheet, { backgroundColor: t.card, transform: [{ translateY: slideAnim }] }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: t.border }]} />
+            <View style={[styles.sheetIconWrap, { backgroundColor: '#EF44440f' }]}>
+              <TablerIcon name="logout" size={22} color="#EF4444" />
+            </View>
+            <Text style={[styles.sheetTitle, { color: t.ink }]}>Sign out?</Text>
+            <Text style={[styles.sheetSub, { color: t.secondary }]}>You will need to sign in again to access your fleet.</Text>
+            <Pressable onPress={confirmSignOut} style={styles.sheetConfirmBtn}>
+              <Text style={styles.sheetConfirmText}>Sign out</Text>
+            </Pressable>
+            <Pressable onPress={closeSignOut} style={[styles.sheetCancelBtn, { backgroundColor: t.bg2 }]}>
+              <Text style={[styles.sheetCancelText, { color: t.ink }]}>Cancel</Text>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      )}
     </SafeAreaView>
   );
 }
@@ -218,4 +249,15 @@ const styles = StyleSheet.create({
   segText: { fontSize: 10.5 },
 
   version: { textAlign: 'center', marginTop: 24, fontSize: 11 },
+
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  signOutSheet: { borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 24, paddingBottom: 36, paddingTop: 12, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, shadowOffset: { width: 0, height: -4 }, elevation: 16 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, marginBottom: 20 },
+  sheetIconWrap: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  sheetTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
+  sheetSub: { fontSize: 13, textAlign: 'center', lineHeight: 19, marginBottom: 24 },
+  sheetConfirmBtn: { width: '100%', backgroundColor: '#EF4444', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  sheetConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  sheetCancelBtn: { width: '100%', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  sheetCancelText: { fontSize: 15, fontWeight: '600' },
 });

@@ -50,8 +50,8 @@ export default function SupportScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: t.border }]}>
-        <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10}>
-          <TablerIcon name="arrow-left" size={20} color={t.ink} />
+        <Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: t.bg2 }]} hitSlop={10}>
+          <TablerIcon name="arrow-left" size={18} color={t.ink} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: t.ink }]}>Support</Text>
         <View style={{ width: 36 }} />
@@ -161,8 +161,8 @@ const WA_GREEN = '#25D366';
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
-  back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  back: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 16, fontWeight: '700' },
   content: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40, gap: 10 },
 

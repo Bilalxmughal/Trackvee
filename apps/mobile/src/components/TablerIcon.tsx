@@ -77,6 +77,9 @@ const PATHS: Record<string, string[]> = {
   rewind: ['m21 5-9 7 9 7V5z', 'm12 5-9 7 9 7V5z'],
   list: ['M9 6h11', 'M9 12h11', 'M9 18h11', 'M5 6v.01', 'M5 12v.01', 'M5 18v.01'],
   satellite: ['M13 7L7 13', 'M10 4L4 10', 'M4.5 10.5l9 9', 'M17 3l4 4-9.5 9.5-4-4L17 3z', 'M20 17l2 2-2 2-2-2 2-2z'],
+  bolt: ['M13 2L3 14h9l-1 8 10-12h-9l1-8z'],
+  'map-off': ['M5 5l14 14', 'M9 18l-6 3V6', 'M15 6l-6-3m6 3v4', 'M18 11.5V5l-3 1.5'],
+  database: ['M12 6m-8 0a8 3 0 1 0 16 0a8 3 0 1 0-16 0', 'M4 6v6a8 3 0 0 0 16 0V6', 'M4 12v6a8 3 0 0 0 16 0v-6'],
 };
 
 export function TablerIcon({ name, size = 22, color = '#111827', strokeWidth = 1.8 }: { name: string; size?: number; color?: string; strokeWidth?: number }) {

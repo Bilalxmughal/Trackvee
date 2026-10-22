@@ -7,12 +7,10 @@ import { usePortalPermissions } from '../src/auth/PortalPermissionsProvider';
 import { TablerIcon } from '../src/components/TablerIcon';
 import { getAlertSoundEnabled, getFleetRefreshOnResume, hasCachedPushRegistration, isPushNotificationsEnabled, setAlertSoundEnabled, setFleetRefreshOnResume, syncAlertSoundPreference, syncPushRegistration, unregisterPushToken } from '../src/lib/pushNotifications';
 import { useTheme } from '../src/hooks/useTheme';
-import type { AppTheme } from '../src/theme';
 
 export default function SettingsScreen() {
   const { canDo, loading: permissionsLoading } = usePortalPermissions();
   const t = useTheme();
-  const s = useMemo(() => createStyles(t), [t]);
   const [loading, setLoading] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -81,40 +79,151 @@ export default function SettingsScreen() {
     } catch { Alert.alert('Update failed', 'The refresh preference could not be saved. Please try again.'); }
   };
 
-  return <SafeAreaView style={s.container} edges={['top']}>
-    <View style={s.header}>
-      <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.back}><TablerIcon name="back" size={20} color={t.ink}/></Pressable>
-      <View style={s.headerTitleWrap}><Text style={s.title}>Settings</Text><Text style={s.subtitle}>Notifications and fleet updates</Text></View>
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]} edges={['top']}>
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: t.border }]}>
+        <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10}>
+          <TablerIcon name="arrow-left" size={20} color={t.ink} />
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: t.ink }]}>Settings</Text>
+        <View style={{ width: 36 }} />
+      </View>
+
+      {loading || permissionsLoading ? (
+        <View style={styles.loader}><ActivityIndicator color={t.red} /></View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+          {/* Notifications */}
+          {canDo('alerts') ? (
+            <>
+              <SectionLabel label="NOTIFICATIONS" t={t} />
+              <View style={[styles.card, { backgroundColor: t.card }]}>
+                <ToggleRow
+                  icon="bell"
+                  iconBg="#EF44440f"
+                  iconColor="#EF4444"
+                  title="Push Notifications"
+                  sub="Receive fleet alerts on this device"
+                  value={pushEnabled}
+                  disabled={pushBusy}
+                  onChange={togglePush}
+                  t={t}
+                />
+                <View style={[styles.divider, { backgroundColor: t.border }]} />
+                <ToggleRow
+                  icon="sun"
+                  iconBg="#F59E0B0f"
+                  iconColor="#F59E0B"
+                  title="Alert Sounds"
+                  sub="Play sound set on each alert rule"
+                  value={soundEnabled}
+                  disabled={soundBusy || !pushEnabled}
+                  onChange={toggleSound}
+                  t={t}
+                  last
+                />
+              </View>
+              {!pushEnabled && (
+                <Text style={[styles.hint, { color: t.muted }]}>
+                  Enable push notifications to change sound delivery.
+                </Text>
+              )}
+            </>
+          ) : (
+            <>
+              <SectionLabel label="NOTIFICATIONS" t={t} />
+              <View style={[styles.card, { backgroundColor: t.card }]}>
+                <View style={styles.noAccessRow}>
+                  <View style={[styles.iconWrap, { backgroundColor: '#6B72800f' }]}>
+                    <TablerIcon name="bell" size={18} color="#6B7280" />
+                  </View>
+                  <Text style={[styles.noAccessText, { color: t.secondary }]}>
+                    Alert access not enabled for this account.
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
+
+          {/* Fleet Data */}
+          <SectionLabel label="FLEET DATA" t={t} />
+          <View style={[styles.card, { backgroundColor: t.card }]}>
+            <ToggleRow
+              icon="refresh"
+              iconBg="#10B9810f"
+              iconColor="#10B981"
+              title="Refresh on Return"
+              sub="Fetch positions when app comes to foreground"
+              value={refreshOnResume}
+              onChange={toggleRefresh}
+              t={t}
+              last
+            />
+          </View>
+          <Text style={[styles.hint, { color: t.muted }]}>
+            The OS may suspend apps in the background. This setting refreshes data on return — it does not run continuous GPS tracking.
+          </Text>
+
+        </ScrollView>
+      )}
+    </SafeAreaView>
+  );
+}
+
+function SectionLabel({ label, t }: { label: string; t: ReturnType<typeof useTheme> }) {
+  return <Text style={[styles.sectionLabel, { color: t.secondary }]}>{label}</Text>;
+}
+
+function ToggleRow({ icon, iconBg, iconColor, title, sub, value, disabled, onChange, t, last }: {
+  icon: string; iconBg: string; iconColor: string;
+  title: string; sub: string; value: boolean; disabled?: boolean;
+  onChange: (v: boolean) => void; t: ReturnType<typeof useTheme>; last?: boolean;
+}) {
+  return (
+    <View style={[styles.toggleRow, disabled && styles.dimmed]}>
+      <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
+        <TablerIcon name={icon} size={18} color={iconColor} />
+      </View>
+      <View style={styles.toggleText}>
+        <Text style={[styles.toggleTitle, { color: t.ink }]}>{title}</Text>
+        <Text style={[styles.toggleSub, { color: t.secondary }]}>{sub}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled}
+        trackColor={{ false: '#d1d5db', true: t.red }}
+        thumbColor="#fff"
+      />
     </View>
-    {loading || permissionsLoading ? <View style={s.loading}><ActivityIndicator color={t.red}/></View> : <ScrollView contentContainerStyle={s.content}>
-      {canDo('alerts') ? <>
-        <Text style={s.section}>NOTIFICATIONS</Text>
-        <PreferenceRow title="Mobile push notifications" description="Receive enabled fleet alerts on this device, including while Trackvee is closed." value={pushEnabled} disabled={pushBusy} onChange={togglePush} s={s} t={t} />
-        <PreferenceRow title="Alert sounds" description="Play the sound chosen by each alert rule. Muted rules stay silent." value={soundEnabled} disabled={soundBusy || !pushEnabled} onChange={toggleSound} s={s} t={t} />
-        {!pushEnabled ? <Text style={s.note}>Enable mobile push to change sound delivery. Sound choices can still be set on each alert rule.</Text> : null}
-      </> : <Text style={s.note}>Alert preferences are unavailable because this account does not have Alerts access.</Text>}
-
-      <Text style={s.section}>FLEET DATA</Text>
-      <PreferenceRow title="Refresh when returning to Trackvee" description="Fetch vehicle positions immediately when the app returns to the foreground. Live polling pauses in the background; regular foreground updates resume afterward." value={refreshOnResume} onChange={toggleRefresh} s={s} t={t} />
-      <View style={s.info}><TablerIcon name="refresh" size={16} color={t.secondary}/><Text style={s.infoText}>The operating system may suspend apps in the background. This setting refreshes data on return; it does not run continuous GPS tracking.</Text></View>
-    </ScrollView>}
-  </SafeAreaView>;
+  );
 }
 
-function PreferenceRow({ title, description, value, disabled, onChange, s, t }: { title: string; description: string; value: boolean; disabled?: boolean; onChange: (value: boolean) => void; s: ReturnType<typeof createStyles>; t: AppTheme }) {
-  return <View style={[s.row, disabled && s.disabled]}>
-    <View style={s.copy}><Text style={s.rowTitle}>{title}</Text><Text style={s.rowDescription}>{description}</Text></View>
-    <Switch value={value} onValueChange={onChange} disabled={disabled} trackColor={{ false: '#d1d5db', true: t.red }} thumbColor="#fff" accessibilityLabel={title}/>
-  </View>;
-}
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
+  back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 16, fontWeight: '700' },
+  loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 },
 
-function createStyles(t: AppTheme) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.bg },
-    header: { minHeight: 70, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, borderBottomWidth: 1, borderColor: t.border, gap: 10 },
-    back: { width: 38, height: 42, justifyContent: 'center' }, headerTitleWrap: { flex: 1 }, title: { color: t.ink, fontSize: 17, fontWeight: '700' }, subtitle: { color: t.secondary, fontSize: 11, marginTop: 3 },
-    content: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 30 }, section: { color: t.secondary, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginTop: 24, marginBottom: 7 },
-    row: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderColor: t.border, paddingVertical: 12 }, copy: { flex: 1 }, rowTitle: { color: t.ink, fontSize: 13, fontWeight: '600' }, rowDescription: { color: t.secondary, fontSize: 11, lineHeight: 16, marginTop: 4 }, disabled: { opacity: 0.5 },
-    note: { color: t.secondary, fontSize: 11, lineHeight: 17, marginTop: 9 }, info: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginTop: 13, paddingVertical: 11 }, infoText: { flex: 1, color: t.secondary, fontSize: 10, lineHeight: 16 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  });
-}
+  sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8, marginTop: 20, marginBottom: 8, paddingHorizontal: 4 },
+
+  card: { borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+
+  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 13 },
+  dimmed: { opacity: 0.45 },
+  iconWrap: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  toggleText: { flex: 1 },
+  toggleTitle: { fontSize: 14, fontWeight: '600' },
+  toggleSub: { fontSize: 12, marginTop: 2, lineHeight: 17 },
+
+  divider: { height: StyleSheet.hairlineWidth, marginLeft: 67 },
+
+  noAccessRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 13 },
+  noAccessText: { flex: 1, fontSize: 13, lineHeight: 18 },
+
+  hint: { fontSize: 11.5, lineHeight: 17, marginTop: 8, paddingHorizontal: 4 },
+});

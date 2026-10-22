@@ -116,36 +116,60 @@ export default function UsersScreen() {
     }}
   />;
 
+  const AVATAR_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
+  const avatarColor = (str: string) => AVATAR_COLORS[str.charCodeAt(0) % AVATAR_COLORS.length] ?? AVATAR_COLORS[0]!;
+
   return <SafeAreaView style={styles.container} edges={['top']}>
-    <View style={styles.header}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} hitSlop={10} style={styles.back}><TablerIcon name="back" size={20} color={t.ink}/></Pressable>
-      <View style={styles.headerTitle}><Text style={styles.title}>Users</Text><Text style={styles.subtitle}>{users.length} organization users</Text></View>
-      {canDo('users', 'add') ? <Pressable onPress={openNew} accessibilityRole="button" accessibilityLabel="Add user" style={styles.addButton}><TablerIcon name="plus" size={23} color={t.red}/></Pressable> : null}
+    {/* Header */}
+    <View style={[styles.header, { borderBottomColor: t.border }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.back()} hitSlop={10} style={styles.back}><TablerIcon name="arrow-left" size={20} color={t.ink}/></Pressable>
+      <View style={styles.headerTitle}>
+        <Text style={styles.title}>Users</Text>
+        <Text style={styles.subtitle}>{users.length} member{users.length !== 1 ? 's' : ''}</Text>
+      </View>
+      {canDo('users', 'add') ? <Pressable onPress={openNew} accessibilityRole="button" accessibilityLabel="Add user" style={[styles.addButton, { backgroundColor: `${t.red}14` }]}><TablerIcon name="plus" size={20} color={t.red}/></Pressable> : null}
     </View>
-    <View style={styles.search}><TablerIcon name="search" size={17} color={t.secondary}/><TextInput value={query} onChangeText={setQuery} placeholder="Search name or email" placeholderTextColor={t.muted} style={styles.searchInput} autoCapitalize="none" returnKeyType="search" accessibilityLabel="Search users"/></View>
-    {error ? <Pressable onPress={() => void load(true)} style={styles.error}><Text style={styles.errorText}>{error}  Retry</Text></Pressable> : null}
-    <ScrollView contentContainerStyle={filteredUsers.length ? styles.list : styles.empty} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={t.red}/> }>
-      {refreshing ? <ActivityIndicator color={t.red} style={{ marginBottom: 12 }}/> : null}
-      {filteredUsers.map(entry => {
+
+    {/* Search */}
+    <View style={[styles.searchWrap, { backgroundColor: t.card, borderColor: t.border }]}>
+      <TablerIcon name="search" size={16} color={t.muted}/>
+      <TextInput value={query} onChangeText={setQuery} placeholder="Search name or email" placeholderTextColor={t.muted} style={[styles.searchInput, { color: t.ink }]} autoCapitalize="none" returnKeyType="search" accessibilityLabel="Search users"/>
+      {query ? <Pressable onPress={() => setQuery('')} hitSlop={8}><TablerIcon name="close" size={15} color={t.muted}/></Pressable> : null}
+    </View>
+
+    {error ? <Pressable onPress={() => void load(true)} style={[styles.errorBanner, { backgroundColor: `${t.red}10` }]}><TablerIcon name="alert-triangle" size={14} color={t.red}/><Text style={[styles.errorText, { color: t.red }]}>{error} · Tap to retry</Text></Pressable> : null}
+
+    <ScrollView contentContainerStyle={filteredUsers.length ? styles.list : styles.emptyWrap} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={t.red}/>}>
+      {filteredUsers.map((entry, index) => {
         const self = entry.id === user?.id;
         const manageable = (ROLE_LEVEL[entry.role] ?? 0) < (ROLE_LEVEL[user?.role ?? ''] ?? 0);
         const label = userLabel(entry);
-        return <View key={entry.id} style={styles.userRow}>
-          <View style={[styles.userAvatar, { backgroundColor: t.bg2 }]}><Text style={[styles.userAvatarText, { color: t.ink }]}>{label[0]?.toUpperCase() ?? 'U'}</Text></View>
+        const color = avatarColor(label);
+        const isLast = index === filteredUsers.length - 1;
+        return <View key={entry.id} style={[styles.userCard, { backgroundColor: t.card }]}>
+          <View style={[styles.userAvatar, { backgroundColor: color }]}>
+            <Text style={styles.userAvatarText}>{label[0]?.toUpperCase() ?? 'U'}</Text>
+          </View>
           <View style={styles.userInfo}>
-            <Text style={styles.userName} numberOfLines={1}>{label}</Text>
-            <Text style={styles.userEmail} numberOfLines={1}>{entry.email}</Text>
+            <Text style={[styles.userName, { color: t.ink }]} numberOfLines={1}>{label}</Text>
+            <Text style={[styles.userEmail, { color: t.secondary }]} numberOfLines={1}>{entry.email}</Text>
             <View style={styles.metaRow}>
-              <Text style={[styles.roleBadge, { color: t.red, backgroundColor: `${t.red}14` }]}>{ROLE_LABEL[entry.role] ?? entry.role}</Text>
-              <Text style={[styles.statusBadge, { color: entry.isActive ? '#15803d' : t.muted, backgroundColor: entry.isActive ? '#dcfce7' : t.bg2 }]}>{entry.isActive ? 'Active' : 'Inactive'}</Text>
-              {self ? <Text style={[styles.selfBadge, { color: t.secondary, backgroundColor: t.bg2 }]}>You</Text> : null}
+              <View style={[styles.badge, { backgroundColor: `${t.red}14` }]}>
+                <Text style={[styles.badgeText, { color: t.red }]}>{ROLE_LABEL[entry.role] ?? entry.role}</Text>
+              </View>
+              <View style={[styles.badge, { backgroundColor: entry.isActive ? '#dcfce7' : t.bg2 }]}>
+                <Text style={[styles.badgeText, { color: entry.isActive ? '#15803d' : t.muted }]}>{entry.isActive ? 'Active' : 'Inactive'}</Text>
+              </View>
+              {self ? <View style={[styles.badge, { backgroundColor: t.bg2 }]}><Text style={[styles.badgeText, { color: t.secondary }]}>You</Text></View> : null}
             </View>
           </View>
-          {(self || (manageable && canDo('users', 'edit'))) ? <Pressable onPress={() => openEdit(entry)} hitSlop={8} style={styles.rowAction} accessibilityRole="button" accessibilityLabel={`Edit ${label}`}><TablerIcon name="edit" size={18} color={t.secondary}/></Pressable> : null}
-          {!self && manageable && canDo('users', 'delete') ? <Pressable onPress={() => deleteUser(entry)} hitSlop={8} style={styles.rowAction} accessibilityRole="button" accessibilityLabel={`Delete ${label}`}><TablerIcon name="trash" size={18} color={t.red}/></Pressable> : null}
+          <View style={styles.actions}>
+            {(self || (manageable && canDo('users', 'edit'))) ? <Pressable onPress={() => openEdit(entry)} hitSlop={8} style={[styles.actionBtn, { backgroundColor: t.bg2 }]} accessibilityRole="button" accessibilityLabel={`Edit ${label}`}><TablerIcon name="edit" size={16} color={t.secondary}/></Pressable> : null}
+            {!self && manageable && canDo('users', 'delete') ? <Pressable onPress={() => deleteUser(entry)} hitSlop={8} style={[styles.actionBtn, { backgroundColor: `${t.red}10` }]} accessibilityRole="button" accessibilityLabel={`Delete ${label}`}><TablerIcon name="trash" size={16} color={t.red}/></Pressable> : null}
+          </View>
         </View>;
       })}
-      {!filteredUsers.length ? <Text style={styles.emptyText}>{query ? 'No users match your search.' : 'No users found.'}</Text> : null}
+      {!filteredUsers.length ? <Text style={[styles.emptyText, { color: t.secondary }]}>{query ? 'No users match your search.' : 'No users found.'}</Text> : null}
     </ScrollView>
   </SafeAreaView>;
 }
@@ -357,25 +381,30 @@ const checkboxStyle = StyleSheet.create({ box: { width: 20, height: 20, borderWi
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: t.bg },
-    header: { minHeight: 62, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border, gap: 12 },
-    back: { width: 30, height: 40, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { flex: 1 }, title: { color: t.ink, fontSize: 19, fontWeight: '700' }, subtitle: { color: t.secondary, fontSize: 11, marginTop: 2 },
-    addButton: { width: 40, height: 42, alignItems: 'center', justifyContent: 'center' },
-    search: { minHeight: 42, marginHorizontal: 16, marginTop: 12, marginBottom: 4, borderBottomWidth: 1, borderBottomColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 8 },
-    searchInput: { flex: 1, height: 40, paddingHorizontal: 2, color: t.ink, fontSize: 14 },
-    list: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 30 },
-    userRow: { minHeight: 78, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: t.border, gap: 12 },
-    userAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-    userAvatarText: { fontSize: 16, fontWeight: '700' },
-    userInfo: { flex: 1, paddingVertical: 11 }, userName: { color: t.ink, fontSize: 14, fontWeight: '600' }, userEmail: { color: t.secondary, fontSize: 12, marginTop: 2 },
-    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, flexWrap: 'wrap' },
-    roleBadge: { fontSize: 10, fontWeight: '600', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5, overflow: 'hidden', textTransform: 'capitalize' },
-    statusBadge: { fontSize: 10, fontWeight: '600', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5, overflow: 'hidden' },
-    selfBadge: { fontSize: 10, fontWeight: '500', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5, overflow: 'hidden' },
-    rowAction: { width: 34, height: 44, alignItems: 'center', justifyContent: 'center' },
-    metaDot: { color: t.muted, fontSize: 12 },
-    empty: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }, emptyText: { color: t.secondary, fontSize: 13, textAlign: 'center', padding: 20 },
-    error: { marginHorizontal: 16, marginTop: 12, paddingVertical: 9 }, errorText: { color: t.red, fontSize: 12 },
+    header: { minHeight: 60, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
+    back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { flex: 1 },
+    title: { color: t.ink, fontSize: 19, fontWeight: '800', letterSpacing: -0.3 },
+    subtitle: { color: t.secondary, fontSize: 11, marginTop: 2 },
+    addButton: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 12, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
+    searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
+    list: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32, gap: 8 },
+    userCard: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, gap: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+    userAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    userAvatarText: { fontSize: 17, fontWeight: '800', color: '#fff' },
+    userInfo: { flex: 1 },
+    userName: { fontSize: 14, fontWeight: '700' },
+    userEmail: { fontSize: 12, marginTop: 2 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 7, flexWrap: 'wrap' },
+    badge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+    badgeText: { fontSize: 10, fontWeight: '700', textTransform: 'capitalize' },
+    actions: { flexDirection: 'row', gap: 6, flexShrink: 0 },
+    actionBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    emptyWrap: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+    emptyText: { fontSize: 13, textAlign: 'center' },
+    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
+    errorText: { flex: 1, fontSize: 12, fontWeight: '500' },
     loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }, secondary: { color: t.secondary, fontSize: 12 },
     tabs: { flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: t.border }, tab: { minHeight: 42, paddingHorizontal: 14, justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' }, tabActive: { borderBottomColor: t.red }, tabText: { color: t.secondary, fontSize: 13 }, tabTextActive: { color: t.red, fontWeight: '600' },
     form: { paddingHorizontal: 16, paddingTop: 17, paddingBottom: 24 }, field: { marginBottom: 17 }, fieldLabel: { color: t.ink, fontSize: 12, fontWeight: '600', marginBottom: 6 }, input: { minHeight: 43, borderWidth: 1, borderColor: t.border, borderRadius: 7, paddingHorizontal: 11, color: t.ink, fontSize: 13, backgroundColor: t.inputBg },
