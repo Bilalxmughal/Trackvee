@@ -242,8 +242,10 @@ export default function DashboardScreen() {
               <View style={[s.alertIconWrap, { backgroundColor: item.color + '15' }]}>
                 <TablerIcon name={item.icon} size={18} color={item.color} />
               </View>
-              <Text style={[s.alertCount, { color: item.color }]}>{item.count}</Text>
-              <Text style={[s.alertLabel, { color: t.secondary }]}>{item.label}</Text>
+              <View>
+                <Text style={[s.alertCount, { color: item.color }]}>{item.count}</Text>
+                <Text style={[s.alertLabel, { color: t.secondary }]}>{item.label}</Text>
+              </View>
             </Pressable>
           ))}
         </View>
@@ -451,9 +453,9 @@ const s = StyleSheet.create({
 
   // Alert tiles
   alertGrid: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  alertTile: { flex: 1, minWidth: '40%', borderRadius: 14, padding: 14, alignItems: 'center', gap: 5 },
-  alertIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  alertCount: { fontSize: 22, fontWeight: '800' },
+  alertTile: { flex: 1, minWidth: '40%', borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  alertIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  alertCount: { fontSize: 20, fontWeight: '800' },
   alertLabel: { fontSize: 11, fontWeight: '500' },
 
   // Heatmap
