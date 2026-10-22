@@ -71,7 +71,10 @@ function NavigationRoot() {
     api.get<{ imageUrl?: string; duration?: number }>('/site-settings/app-launch')
       .then(r => {
         if (r.data?.imageUrl && r.data?.duration) {
-          setLaunchConfig({ imageUrl: r.data.imageUrl, duration: r.data.duration });
+          const raw = r.data.imageUrl;
+          const apiBase = (api.defaults.baseURL ?? '').replace(/\/api\/v1$/, '');
+          const fullUrl = raw.startsWith('http') ? raw : `${apiBase}${raw}`;
+          setLaunchConfig({ imageUrl: fullUrl, duration: r.data.duration });
         }
       })
       .catch(() => {});

@@ -77,7 +77,7 @@ function LaunchScreenTab() {
       const fd = new FormData();
       fd.append('file', file);
       const res = await api.post<{ url: string }>('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setImageUrl(res.data.url);
+      setImageUrl(`${window.location.origin}${res.data.url}`);
     } catch { /* silent */ } finally { setUploading(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
@@ -89,8 +89,7 @@ function LaunchScreenTab() {
     } catch { /* silent */ } finally { setSaving(false); }
   };
 
-  const apiBase = (api.defaults.baseURL ?? '').replace(/\/api\/v1$/, '');
-  const previewUrl = imageUrl.startsWith('http') ? imageUrl : imageUrl ? `${apiBase}${imageUrl}` : '';
+  const previewUrl = imageUrl;
 
   if (loading) return <div style={{ padding: 40, display: 'flex', justifyContent: 'center' }}><Spinner /></div>;
 
