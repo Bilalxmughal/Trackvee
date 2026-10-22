@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconCar, IconCpu, IconBell, IconZzz, IconParking, IconWifi, IconWifiOff,
   IconKey, IconKeyOff, IconTool, IconRefresh, IconCheck, IconActivity,
-  IconAlertTriangle, IconCircleCheck,
+  IconAlertTriangle, IconCircleCheck, IconGauge, IconMapPin, IconAlertCircle,
+  IconClock,
 } from '@tabler/icons-react';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,9 +18,10 @@ interface DeviceHealth {
   issues: string[]; vehicle?: { licensePlate: string | null; name: string } | null;
 }
 interface AlertLog {
-  id: string; alertName: string; type: string; vehiclePlate: string | null;
-  triggeredAt: string; acknowledged: boolean;
+  id: string; alertName: string; alertType: string; vehiclePlate: string | null;
+  triggeredAt: string;
 }
+interface MileageRow { imei: string; plate: string | null; kmToday: number; }
 interface MaintenanceItem {
   id: string; vehicleLicensePlate: string | null; serviceType: string;
   isDue: boolean; dueDate: string | null; estimatedDueDateFromDistance: string | null;
@@ -66,6 +68,7 @@ export default function DashboardPage() {
   const [alertLogs, setAlertLogs] = useState<AlertLog[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceItem[]>([]);
   const [expiring, setExpiring] = useState<ExpiringDevice[]>([]);
+  const [mileage, setMileage] = useState<MileageRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(Date.now());
@@ -78,16 +81,18 @@ export default function DashboardPage() {
       api.get<LivePoint[]>('/telemetry/live').catch(() => ({ data: [] })),
       api.get<DeviceHealth[]>('/telemetry/device-health').catch(() => ({ data: [] })),
       api.get<ExpiringDevice[]>('/devices/expiring').catch(() => ({ data: [] })),
+      api.get<MileageRow[]>('/telemetry/fleet-mileage').catch(() => ({ data: [] })),
     ];
     if (canDo('alerts', 'view'))
-      requests.push(api.get<AlertLog[]>('/alerts/logs?limit=15').catch(() => ({ data: [] })));
+      requests.push(api.get<AlertLog[]>('/alerts/logs?limit=30').catch(() => ({ data: [] })));
     if (canDo('maintenance', 'view'))
       requests.push(api.get<MaintenanceItem[]>('/maintenance?isDue=true').catch(() => ({ data: [] })));
 
-    Promise.all(requests).then(([live, dev, exp, al, maint]) => {
+    Promise.all(requests).then(([live, dev, exp, mil, al, maint]) => {
       setLivePoints(Array.isArray((live as { data: LivePoint[] }).data) ? (live as { data: LivePoint[] }).data : []);
       setDevices(Array.isArray((dev as { data: DeviceHealth[] }).data) ? (dev as { data: DeviceHealth[] }).data : []);
       setExpiring(Array.isArray((exp as { data: ExpiringDevice[] }).data) ? (exp as { data: ExpiringDevice[] }).data : []);
+      setMileage(Array.isArray((mil as { data: MileageRow[] }).data) ? (mil as { data: MileageRow[] }).data : []);
       if (al) setAlertLogs(Array.isArray((al as { data: AlertLog[] }).data) ? (al as { data: AlertLog[] }).data : []);
       if (maint) setMaintenance(Array.isArray((maint as { data: MaintenanceItem[] }).data) ? (maint as { data: MaintenanceItem[] }).data : []);
       setLastRefreshed(Date.now());
@@ -133,6 +138,24 @@ export default function DashboardPage() {
   const agoLabel = fmtAgo(Date.now() - lastRefreshed);
 
   const dueMaintenance = maintenance.filter(m => m.isDue);
+
+  const expiryWarnings = useMemo(() => expiring.filter(d => {
+    const days = daysUntil(d.expiresAt);
+    return days <= 30;
+  }), [expiring]);
+
+  const geofenceAlerts = useMemo(() =>
+    alertLogs.filter(l => l.alertType === 'geofence' || l.alertType === 'poi').slice(0, 8),
+  [alertLogs]);
+
+  const offlineLong = useMemo(() => devices.filter(d => {
+    if (d.connection !== 'offline' && d.connection !== 'never_seen') return false;
+    if (!d.lastPacketAt) return true;
+    const age = (Date.now() - new Date(d.lastPacketAt).getTime()) / 3600000;
+    return age >= 1;
+  }), [devices]);
+
+  const totalMileageToday = useMemo(() => mileage.reduce((s, r) => s + r.kmToday, 0), [mileage]);
 
   return (
     <div style={{ padding: '24px 28px', overflowY: 'auto', height: '100%' }}>
@@ -340,6 +363,131 @@ export default function DashboardPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ── Subscription / Expiry Warning Banner ── */}
+      {!loading && expiryWarnings.length > 0 && (
+        <div style={{ ...CARD, marginBottom: 14, borderLeft: '4px solid #f59e0b', background: '#fffbeb' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <IconAlertCircle size={15} color="#f59e0b" />
+            <span style={{ ...LABEL, marginBottom: 0, color: '#92400e' }}>
+              Subscription Expiry Warning — {expiryWarnings.length} vehicle{expiryWarnings.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {expiryWarnings.map(d => {
+              const days = daysUntil(d.expiresAt);
+              const color = days <= 0 ? '#dc2626' : days <= 7 ? '#ea580c' : '#92400e';
+              const bg = days <= 0 ? '#fef2f2' : days <= 7 ? '#fff7ed' : '#fefce8';
+              return (
+                <div key={d.id} style={{ background: bg, border: `1px solid ${color}30`, borderRadius: 7, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: '#111' }}>{d.vehicle?.licensePlate ?? d.imei}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color, background: 'transparent' }}>
+                    {days <= 0 ? 'Expired' : `${days}d left`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Row: Daily Mileage + Geofence Notifications + Last Seen Summary ── */}
+      {!loading && (mileage.length > 0 || geofenceAlerts.length > 0 || offlineLong.length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
+
+          {/* Daily Mileage */}
+          <div style={CARD}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
+              <IconGauge size={14} color="#2563eb" />
+              <span style={{ ...LABEL, marginBottom: 0 }}>Today's Mileage</span>
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: '#2563eb', fontWeight: 700 }}>
+                {totalMileageToday.toLocaleString(undefined, { maximumFractionDigits: 0 })} km total
+              </span>
+            </div>
+            {mileage.length === 0 ? (
+              <div style={{ fontSize: 12, color: '#bbb' }}>No movement recorded today.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {mileage.slice(0, 7).map(r => (
+                  <div key={r.imei} style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f9fafb' }}>
+                    <span style={{ flex: 1, fontSize: 12, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.plate ?? r.imei}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#2563eb', minWidth: 50, textAlign: 'right' }}>{r.kmToday.toLocaleString()} km</span>
+                  </div>
+                ))}
+                {mileage.length > 7 && <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>+{mileage.length - 7} more vehicles</div>}
+              </div>
+            )}
+          </div>
+
+          {/* Geofence Notifications */}
+          <div style={CARD}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
+              <IconMapPin size={14} color="#7c3aed" />
+              <span style={{ ...LABEL, marginBottom: 0 }}>Geofence Events</span>
+            </div>
+            {geofenceAlerts.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#16a34a', padding: '4px 0' }}>
+                <IconCircleCheck size={15} />
+                <span style={{ fontSize: 12.5, fontWeight: 600 }}>No geofence events today</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {geofenceAlerts.map(log => {
+                  const age = Math.round((Date.now() - new Date(log.triggeredAt).getTime()) / 60000);
+                  const ageStr = age < 60 ? `${age}m ago` : `${Math.floor(age / 60)}h ago`;
+                  const event = (log as any).payload?.event as string | undefined;
+                  const gfName = (log as any).payload?.geofenceName as string | undefined;
+                  return (
+                    <div key={log.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid #f9fafb' }}>
+                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: event === 'enter' ? '#16a34a' : '#dc2626', flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {log.vehiclePlate ?? '—'} {event ? `• ${event}` : ''}
+                        </div>
+                        <div style={{ fontSize: 10, color: '#aaa' }}>{gfName ?? log.alertName} · {ageStr}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Last Seen Summary */}
+          <div style={CARD}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
+              <IconClock size={14} color="#dc2626" />
+              <span style={{ ...LABEL, marginBottom: 0 }}>Long Offline Vehicles</span>
+            </div>
+            {offlineLong.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#16a34a', padding: '4px 0' }}>
+                <IconCircleCheck size={15} />
+                <span style={{ fontSize: 12.5, fontWeight: 600 }}>All vehicles seen recently</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {offlineLong.slice(0, 7).map(d => {
+                  const age = d.lastPacketAt ? (Date.now() - new Date(d.lastPacketAt).getTime()) / 3600000 : null;
+                  const ageStr = age === null ? 'Never seen' : age < 24 ? `${Math.floor(age)}h offline` : `${Math.floor(age / 24)}d offline`;
+                  const color = age === null || age >= 24 ? '#dc2626' : '#f59e0b';
+                  return (
+                    <div key={d.deviceId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid #f9fafb' }}>
+                      <IconWifiOff size={12} color={color} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {d.vehicle?.licensePlate ?? d.vehicle?.name ?? '—'}
+                        </div>
+                        <div style={{ fontSize: 10, color }}>Last seen: {ageStr}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {offlineLong.length > 7 && <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>+{offlineLong.length - 7} more</div>}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -97,6 +97,13 @@ export class TelemetryController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Get('fleet-mileage')
+  getFleetMileage(@CurrentUser() user: User) {
+    return this.telemetryService.getFleetMileage(user);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get('device-health')
   async getDeviceHealth(@CurrentUser() user: User, @Query('cityId') cityId?: string) {
     if (!ADMIN_ROLES.includes(user.role)) {

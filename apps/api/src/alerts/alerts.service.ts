@@ -211,13 +211,36 @@ export class AlertsService {
     });
   }
 
-  async getLogs(user: User, alertId?: string, limit = 100): Promise<AlertLog[]> {
+  async getLogs(user: User, alertId?: string, limit = 100): Promise<Array<AlertLog & { alertName: string; alertType: string; vehiclePlate: string | null }>> {
     const take = Math.max(1, Math.min(Number.isFinite(limit) ? limit : 100, 500));
-    if (ADMIN_ROLES.includes(user.role)) return this.logRepo.find({ where: alertId ? { alertId } : {}, order: { triggeredAt: 'DESC' }, take });
-    const rules = alertId ? [await this.getAccessibleRule(alertId, user)] : await this.findAll(user);
-    const imeis = (await this.devices.findAll(user)).map(device => device.imei);
-    if (!rules.length || !imeis.length) return [];
-    return this.logRepo.find({ where: { alertId: In(rules.map(rule => rule.id)), imei: In(imeis) }, order: { triggeredAt: 'DESC' }, take });
+    let logs: AlertLog[];
+    let rulesMap: Map<string, Alert>;
+    if (ADMIN_ROLES.includes(user.role)) {
+      logs = await this.logRepo.find({ where: alertId ? { alertId } : {}, order: { triggeredAt: 'DESC' }, take });
+      const alertIds = [...new Set(logs.map(l => l.alertId))];
+      const rules = alertIds.length ? await this.repo.find({ where: { id: In(alertIds) } }) : [];
+      rulesMap = new Map(rules.map(r => [r.id, r]));
+    } else {
+      const rules = alertId ? [await this.getAccessibleRule(alertId, user)] : await this.findAll(user);
+      const userDevices = await this.devices.findAll(user);
+      const imeis = userDevices.map(device => device.imei);
+      if (!rules.length || !imeis.length) return [];
+      logs = await this.logRepo.find({ where: { alertId: In(rules.map(rule => rule.id)), imei: In(imeis) }, order: { triggeredAt: 'DESC' }, take });
+      rulesMap = new Map(rules.map(r => [r.id, r]));
+      const deviceByImei = new Map(userDevices.map(d => [d.imei, d]));
+      return logs.map(log => ({
+        ...log,
+        alertName: rulesMap.get(log.alertId)?.name ?? 'Alert',
+        alertType: rulesMap.get(log.alertId)?.type ?? '',
+        vehiclePlate: deviceByImei.get(log.imei)?.vehicle?.licensePlate ?? deviceByImei.get(log.imei)?.vehicle?.name ?? null,
+      }));
+    }
+    return logs.map(log => ({
+      ...log,
+      alertName: rulesMap.get(log.alertId)?.name ?? 'Alert',
+      alertType: rulesMap.get(log.alertId)?.type ?? '',
+      vehiclePlate: null,
+    }));
   }
 
   async registerPushToken(

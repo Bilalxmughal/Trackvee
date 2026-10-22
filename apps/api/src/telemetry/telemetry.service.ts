@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, MoreThan, Repository } from 'typeorm';
+import { Between, In, MoreThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { Telemetry } from './entities/telemetry.entity.js';
 import { DevicesService } from '../devices/devices.service.js';
 import { AlertsService } from '../alerts/alerts.service.js';
@@ -530,5 +530,38 @@ export class TelemetryService {
         issues,
       };
     });
+  }
+
+  async getFleetMileage(user: User): Promise<Array<{ imei: string; plate: string | null; kmToday: number }>> {
+    const devices = await this.devicesService.findAll(user);
+    if (!devices.length) return [];
+    const imeis = devices.map(d => d.imei);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const rows = await this.repo.query<Array<{ imei: string; lat: number; lng: number }>>(
+      `SELECT imei, latitude AS lat, longitude AS lng
+       FROM telemetry
+       WHERE imei = ANY($1::varchar[]) AND gps_valid = true AND timestamp >= $2
+       ORDER BY imei, timestamp ASC`,
+      [imeis, today],
+    );
+    const byImei = new Map<string, typeof rows>();
+    for (const r of rows) {
+      if (!byImei.has(r.imei)) byImei.set(r.imei, []);
+      byImei.get(r.imei)!.push(r);
+    }
+    const result: Array<{ imei: string; plate: string | null; kmToday: number }> = [];
+    for (const dev of devices) {
+      const pts = byImei.get(dev.imei) ?? [];
+      let km = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const d = haversineKm(pts[i - 1].lat, pts[i - 1].lng, pts[i].lat, pts[i].lng);
+        if (d < 5) km += d;
+      }
+      const kmToday = Math.round(km * 10) / 10;
+      if (kmToday > 0)
+        result.push({ imei: dev.imei, plate: dev.vehicle?.licensePlate ?? dev.vehicle?.name ?? null, kmToday });
+    }
+    return result.sort((a, b) => b.kmToday - a.kmToday);
   }
 }
