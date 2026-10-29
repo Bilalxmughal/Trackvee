@@ -507,17 +507,14 @@ export default function AirlinesPage() {
                       <input style={inputStyle} value={crewForm.stopName} onChange={e => setCrewForm(f => ({ ...f, stopName: e.target.value }))} placeholder="e.g. DHA Phase 5" />
                     </FormField>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      <FormField label="Latitude">
-                        <input style={inputStyle} value={crewForm.stopLat} onChange={e => setCrewForm(f => ({ ...f, stopLat: e.target.value }))} placeholder="e.g. 31.52000" type="number" step="any" />
-                      </FormField>
-                      <FormField label="Longitude">
-                        <input style={inputStyle} value={crewForm.stopLng} onChange={e => setCrewForm(f => ({ ...f, stopLng: e.target.value }))} placeholder="e.g. 74.35000" type="number" step="any" />
-                      </FormField>
-                    </div>
+                    {crewLat && crewLng && (
+                      <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace', marginBottom: 6 }}>
+                        📍 {crewLat.toFixed(5)}, {crewLng.toFixed(5)}
+                      </div>
+                    )}
 
                     <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>
-                      Click on the map to set location, or drag the pin:
+                      Map pe click karein ya pin drag karein location set karne ke liye:
                     </div>
                     <CrewMiniMap lat={crewLat} lng={crewLng} onChange={setCrewCoords} />
                   </div>
