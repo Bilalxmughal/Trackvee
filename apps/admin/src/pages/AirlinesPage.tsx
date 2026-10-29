@@ -507,17 +507,22 @@ export default function AirlinesPage() {
                       <input style={inputStyle} value={crewForm.stopName} onChange={e => setCrewForm(f => ({ ...f, stopName: e.target.value }))} placeholder="e.g. DHA Phase 5" />
                     </FormField>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      <FormField label="Latitude">
-                        <input style={{ ...inputStyle, background: dark ? '#1a1a1a' : '#f5f5f5', color: 'var(--muted)', cursor: 'default' }} value={crewForm.stopLat} readOnly placeholder="Map se set hoga" />
-                      </FormField>
-                      <FormField label="Longitude">
-                        <input style={{ ...inputStyle, background: dark ? '#1a1a1a' : '#f5f5f5', color: 'var(--muted)', cursor: 'default' }} value={crewForm.stopLng} readOnly placeholder="Map se set hoga" />
-                      </FormField>
-                    </div>
+                    <FormField label="Coordinates">
+                      <input
+                        style={inputStyle}
+                        value={crewLat && crewLng ? `${crewForm.stopLat}, ${crewForm.stopLng}` : ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const match = val.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
+                          if (match) setCrewCoords(parseFloat(match[1]), parseFloat(match[2]));
+                          else if (!val.trim()) setCrewForm(f => ({ ...f, stopLat: '', stopLng: '' }));
+                        }}
+                        placeholder="e.g. 31.521993, 74.356665"
+                      />
+                    </FormField>
 
                     <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>
-                      Map pe click karein ya pin drag karein location set karne ke liye:
+                      Coordinates paste karein ya map pe click karein:
                     </div>
                     <CrewMiniMap lat={crewLat} lng={crewLng} onChange={setCrewCoords} />
                   </div>
