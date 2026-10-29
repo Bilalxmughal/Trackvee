@@ -338,12 +338,10 @@ export default function AirlinesPage() {
 
   // Airline Clients filters (client-side)
   const [airlineSearch, setAirlineSearch] = useState('');
-  const [airlineDateRange, setAirlineDateRange] = useState<DateRange | undefined>(undefined);
 
   // All Crews filters (client-side)
   const [crewSearch, setCrewSearch] = useState('');
   const [crewDesignation, setCrewDesignation] = useState('');
-  const [crewDateRange, setCrewDateRange] = useState<DateRange | undefined>(undefined);
 
   // All Vehicles filters (client-side)
   const [vehicleSearch, setVehicleSearch] = useState('');
@@ -364,11 +362,6 @@ export default function AirlinesPage() {
   const filteredAirlines = airlines.filter(a => {
     const q = airlineSearch.toLowerCase();
     if (q && !a.name.toLowerCase().includes(q) && !(a.iataCode ?? '').toLowerCase().includes(q) && !(a.contactPerson ?? '').toLowerCase().includes(q)) return false;
-    if (airlineDateRange?.from) {
-      const d = new Date(a.createdAt);
-      if (d < airlineDateRange.from) return false;
-      if (airlineDateRange.to && d > airlineDateRange.to) return false;
-    }
     return true;
   });
 
@@ -376,11 +369,6 @@ export default function AirlinesPage() {
     const q = crewSearch.toLowerCase();
     if (q && !c.name.toLowerCase().includes(q) && !(c.phone ?? '').includes(q) && !(c.designation ?? '').toLowerCase().includes(q)) return false;
     if (crewDesignation && c.designation !== crewDesignation) return false;
-    if (crewDateRange?.from) {
-      const d = new Date(c.createdAt);
-      if (d < crewDateRange.from) return false;
-      if (crewDateRange.to && d > crewDateRange.to) return false;
-    }
     return true;
   });
 
@@ -903,7 +891,6 @@ export default function AirlinesPage() {
                   <IconSearch size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                   <input style={{ height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', width: 200 }} placeholder="Search name or IATA…" value={airlineSearch} onChange={e => setAirlineSearch(e.target.value)} />
                 </div>
-                <DateRangePicker value={airlineDateRange} onChange={setAirlineDateRange} placeholder="Date range" />
               </div>
               {loading ? <Spinner style={{ height: 300 }} /> : filteredAirlines.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 60, color: 'var(--muted)', fontSize: 14 }}>No airlines found.</div>
@@ -1103,7 +1090,6 @@ export default function AirlinesPage() {
                   <input style={{ height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', width: 200 }} placeholder="Search name or phone…" value={crewSearch} onChange={e => setCrewSearch(e.target.value)} />
                 </div>
                 <CustomSelect value={crewDesignation} onChange={setCrewDesignation} options={[{ value: '', label: 'All Designations' }, ...DESIGNATIONS.map(d => ({ value: d, label: d }))]} />
-                <DateRangePicker value={crewDateRange} onChange={setCrewDateRange} placeholder="Date range" />
               </div>
               {allCrewsLoading ? <Spinner style={{ height: 300 }} /> : filteredCrews.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 60, color: 'var(--muted)', fontSize: 14 }}>No crew members found.</div>
