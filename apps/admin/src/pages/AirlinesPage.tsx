@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   IconArrowLeft, IconPlus, IconPencil, IconTrash, IconPlane,
   IconUsers, IconCar, IconMapPin, IconNfc, IconRefresh,
@@ -87,14 +88,22 @@ function CrewMiniMap({ lat, lng, onChange }: { lat: number | null; lng: number |
 
 // ─── Sub-Sidebar ──────────────────────────────────────────────────────────────
 
-const NAV_ITEMS: { key: PageView; icon: React.ElementType; label: string }[] = [
-  { key: 'dashboard', icon: IconLayoutDashboard, label: 'Dashboard' },
-  { key: 'airlines',  icon: IconPlane,           label: 'Clients' },
-  { key: 'crews',     icon: IconUsers,            label: 'Crew' },
-  { key: 'vehicles',  icon: IconCar,              label: 'Vehicle' },
+const NAV_ITEMS: { key: PageView; path: string; icon: React.ElementType; label: string }[] = [
+  { key: 'dashboard', path: '/airlines/dashboard', icon: IconLayoutDashboard, label: 'Dashboard' },
+  { key: 'airlines',  path: '/airlines/clients',   icon: IconPlane,           label: 'Clients' },
+  { key: 'crews',     path: '/airlines/crew',      icon: IconUsers,            label: 'Crew' },
+  { key: 'vehicles',  path: '/airlines/vehicles',  icon: IconCar,              label: 'Vehicle' },
 ];
 
-function SubSidebar({ view, onChange, dark }: { view: PageView; onChange: (v: PageView) => void; dark: boolean; }) {
+function pathToView(pathname: string): PageView {
+  if (pathname.includes('/airlines/dashboard')) return 'dashboard';
+  if (pathname.includes('/airlines/clients'))   return 'airlines';
+  if (pathname.includes('/airlines/crew'))      return 'crews';
+  if (pathname.includes('/airlines/vehicles'))  return 'vehicles';
+  return 'airlines';
+}
+
+function SubSidebar({ view, onNavigate, dark }: { view: PageView; onNavigate: (path: string) => void; dark: boolean; }) {
   return (
     <div style={{
       width: 180, flexShrink: 0, borderRight: `1px solid ${dark ? '#222' : '#f0f0f0'}`,
@@ -103,10 +112,10 @@ function SubSidebar({ view, onChange, dark }: { view: PageView; onChange: (v: Pa
       <div style={{ padding: '0 12px 10px', fontSize: 10, fontWeight: 700, color: dark ? '#444' : '#ccc', textTransform: 'uppercase', letterSpacing: 1 }}>
         Airlines Module
       </div>
-      {NAV_ITEMS.map(({ key, icon: Icon, label }) => {
+      {NAV_ITEMS.map(({ key, path, icon: Icon, label }) => {
         const active = view === key;
         return (
-          <button key={key} onClick={() => onChange(key)}
+          <button key={key} onClick={() => onNavigate(path)}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '8px 16px', border: 'none', cursor: 'pointer', textAlign: 'left',
@@ -136,8 +145,21 @@ export default function AirlinesPage() {
   const { user } = useAuth();
   const role = (user?.role ?? 'viewer') as UserRole;
   const can = (action: 'view' | 'add' | 'edit' | 'delete') => canPerformAction(role, 'airlines', action);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const [view, setView] = useState<PageView>('airlines');
+  const view = pathToView(location.pathname);
+  const setView = (v: PageView) => {
+    const item = NAV_ITEMS.find(n => n.key === v);
+    if (item) navigate(item.path);
+  };
+
+  // Redirect bare /airlines to /airlines/clients
+  useEffect(() => {
+    if (location.pathname === '/airlines' || location.pathname === '/airlines/') {
+      navigate('/airlines/clients', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   // Airlines
   const [airlines, setAirlines] = useState<Airline[]>([]);
@@ -185,7 +207,7 @@ export default function AirlinesPage() {
   const [dashLoading, setDashLoading] = useState(false);
 
   // ── Styles ────────────────────────────────────────────────────────────────
-  const td: React.CSSProperties = { padding: '10px 14px', fontSize: 13, borderBottom: `1px solid ${dark ? '#222' : '#f3f3f3'}`, verticalAlign: 'middle', color: 'var(--text)' };
+  const td: React.CSSProperties = { padding: '10px 14px', fontSize: 13, borderBottom: `1px solid ${dark ? '#222' : '#f3f3f3'}`, verticalAlign: 'middle', color: 'var(--text)', textAlign: 'left' };
   const th: React.CSSProperties = { ...td, fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, background: dark ? '#161616' : '#fafafa' };
   const badge = (color: string, bg: string): React.CSSProperties => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 500, color, background: bg });
   const tabBtn = (active: boolean): React.CSSProperties => ({ padding: '8px 18px', border: 'none', borderBottom: active ? '2px solid #dc2626' : '2px solid transparent', background: 'none', color: active ? '#dc2626' : 'var(--muted)', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer' });
@@ -505,7 +527,7 @@ export default function AirlinesPage() {
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
       {/* Sub-sidebar */}
-      <SubSidebar view={view} onChange={v => { setView(v); }} dark={dark} />
+      <SubSidebar view={view} onNavigate={path => navigate(path)} dark={dark} />
 
       {/* Main content */}
       <div style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
@@ -709,12 +731,11 @@ export default function AirlinesPage() {
                   {vehiclesLoading ? <Spinner style={{ height: 200 }} /> : assignedVehicles.length === 0 ? <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 14 }}>No vehicles assigned yet.</div> : (
                     <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead><tr><th style={th}>Vehicle</th><th style={th}>Plate</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
+                        <thead><tr><th style={th}>Vehicle</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
                         <tbody>
                           {assignedVehicles.map(v => (
                             <tr key={v.id}>
-                              <td style={td}><span style={{ fontWeight: 500 }}>{v.name}</span></td>
-                              <td style={td}>{v.license_plate || '—'}</td>
+                              <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || `#${v.display_id}`}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.name}</div></td>
                               <td style={td}>{v.type}</td>
                               <td style={td}><span style={badge(v.lifecycle_status === 'active' ? '#059669' : '#6b7280', dark ? '#1a1a1a' : '#f9f9f9')}>{v.lifecycle_status}</span></td>
                               {can('delete') && <td style={{ ...td, textAlign: 'right' }}><button onClick={() => unassignVehicle(v.id)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button></td>}
@@ -822,12 +843,11 @@ export default function AirlinesPage() {
               ) : (
                 <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr><th style={th}>Vehicle</th><th style={th}>Plate</th><th style={th}>Airline</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
+                    <thead><tr><th style={th}>Vehicle</th><th style={th}>Airline</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
                     <tbody>
                       {allVehiclesView.map(v => (
                         <tr key={`${v.id}-${v.airlineName}`}>
-                          <td style={td}><span style={{ fontWeight: 500 }}>{v.name}</span></td>
-                          <td style={td}>{v.license_plate || '—'}</td>
+                          <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || `#${v.display_id}`}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.name}</div></td>
                           <td style={td}><span style={badge('#1d4ed8', dark ? '#1e2a3a' : '#eff6ff')}>{v.airlineName}</span></td>
                           <td style={td}>{v.type}</td>
                           <td style={td}><span style={badge(v.lifecycle_status === 'active' ? '#059669' : '#6b7280', dark ? '#1a1a1a' : '#f9f9f9')}>{v.lifecycle_status}</span></td>
