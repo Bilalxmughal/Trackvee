@@ -443,6 +443,19 @@ export default function AirlinesPage() {
     finally { setTripsListLoading(false); }
   }, [tripSearch, tripStop, tripStatus, tripDateRange, toast]);
 
+  // auto-search on text filter change (debounced)
+  useEffect(() => {
+    if (view !== 'trips') return;
+    const t = setTimeout(() => void loadGroupedTrips(), 400);
+    return () => clearTimeout(t);
+  }, [tripSearch, tripStop]);
+
+  // auto-search on select/date change (immediate)
+  useEffect(() => {
+    if (view !== 'trips') return;
+    void loadGroupedTrips();
+  }, [tripStatus, tripDateRange]);
+
   const openTripDetail = async (groupId: string) => {
     setTripDetail(null); setTripDetailLoading(true);
     try {
@@ -1039,7 +1052,6 @@ export default function AirlinesPage() {
                     placeholder="Search crew name…"
                     value={tripSearch}
                     onChange={e => setTripSearch(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && void loadGroupedTrips()}
                   />
                 </div>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -1049,7 +1061,6 @@ export default function AirlinesPage() {
                     placeholder="Route / stop name…"
                     value={tripStop}
                     onChange={e => setTripStop(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && void loadGroupedTrips()}
                   />
                 </div>
                 <CustomSelect value={tripStatus} onChange={v => setTripStatus(v)} options={[
@@ -1058,8 +1069,6 @@ export default function AirlinesPage() {
                   { value: 'completed', label: 'Completed' },
                 ]} />
                 <DateRangePicker value={tripDateRange} onChange={setTripDateRange} placeholder="Date range" />
-                <button onClick={() => void loadGroupedTrips()} style={{ height: 34, padding: '0 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Search</button>
-                <button onClick={() => { setTripSearch(''); setTripStop(''); setTripStatus(''); setTripDateRange(undefined); void loadGroupedTrips({ search: '', stop: '', status: '', dateRange: undefined }); }} style={{ height: 34, padding: '0 12px', border: '1px solid var(--input-border)', borderRadius: 6, background: 'var(--input-bg)', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer' }}>Clear</button>
               </div>
               {/* Table */}
               {tripsListLoading ? <Spinner style={{ height: 300 }} /> : groupedTrips.length === 0 ? (
