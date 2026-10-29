@@ -29,6 +29,7 @@ import CommandCenterPage from './pages/CommandCenterPage';
 import { OrgRolePermsProvider } from './contexts/OrgRolePermsContext';
 import { ToastProvider } from './contexts/ToastContext';
 import LiveSharePage from './pages/LiveSharePage';
+import AirlinesPage from './pages/AirlinesPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="/telemetry" element={<RoleRoute page="telemetry"><TelemetryPage /></RoleRoute>} />
         <Route path="/map" element={<RoleRoute page="map"><MapPage /></RoleRoute>} />
         <Route path="/command-center" element={<RoleRoute page="command-center"><CommandCenterPage /></RoleRoute>} />
+        <Route path="/airlines" element={<RoleRoute page="airlines"><AirlinesPage /></RoleRoute>} />
         <Route path="/client-users" element={<RoleRoute page="client-users"><ClientUsersPage /></RoleRoute>} />
         <Route path="/driver-behavior" element={<RoleRoute page="driver-behavior"><DriverBehaviorPage /></RoleRoute>} />
         <Route path="/users" element={<RoleRoute page="users"><UsersPage /></RoleRoute>} />

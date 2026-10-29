@@ -6,7 +6,7 @@ import {
   IconShield, IconChevronLeft, IconChevronRight, IconMenu2, IconX,
   IconSun, IconMoon, IconBook, IconDatabase, IconSettings,
   IconBell, IconUsersGroup, IconUserScan, IconChartBar, IconList, IconTool,
-  IconCurrencyDollar, IconFileInvoice, IconChartPie, IconBolt,
+  IconCurrencyDollar, IconFileInvoice, IconChartPie, IconBolt, IconPlane,
 } from '@tabler/icons-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -59,6 +59,12 @@ const NAV_SECTIONS: Section[] = [
       { to: '/financial/pricing',    icon: IconCurrencyDollar, label: 'Pricing' },
       { to: '/financial/statements', icon: IconFileInvoice,    label: 'Client Statements' },
       { to: '/financial/billing',    icon: IconChartPie,       label: 'Billing Dashboard' },
+    ],
+  },
+  {
+    label: 'Services',
+    items: [
+      { to: '/airlines', icon: IconPlane, label: 'Airlines' },
     ],
   },
   {

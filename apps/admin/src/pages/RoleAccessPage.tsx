@@ -19,6 +19,7 @@ const PAGES: PageRow[] = [
   { key: 'devices',   label: 'Devices',         group: 'Management',     actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'device-health', label: 'Device Health', group: 'Management', actions: ['view'] },
   { key: 'setup',     label: 'Setup Guide',     group: 'Management',     actions: ['view'] },
+  { key: 'airlines',    label: 'Airlines',         group: 'Services',       actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'users',       label: 'User Management', group: 'Administration', actions: ['view', 'add', 'edit', 'delete'] },
   { key: 'roles',       label: 'Role Access',     group: 'Administration', actions: ['view'] },
   { key: 'audit-logs',  label: 'Audit Logs',      group: 'Administration', actions: ['view'] },
@@ -38,7 +39,7 @@ const TOPBAR_ROWS: TopbarRow[] = [
   { key: 'engine_cut',  label: 'Engine Cut' },
 ];
 
-const GROUPS       = ['Core', 'Management', 'Administration'];
+const GROUPS       = ['Core', 'Management', 'Services', 'Administration'];
 const ORG_GROUPS   = ORG_PORTAL_GROUPS;
 const ALL_ACTIONS: PageAction[] = ['view', 'add', 'edit', 'delete'];
 const ACTION_LABEL: Record<PageAction, string> = { view: 'View', add: 'Add', edit: 'Edit', delete: 'Delete' };
