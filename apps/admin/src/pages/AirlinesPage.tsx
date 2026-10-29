@@ -4,7 +4,7 @@ import {
   IconArrowLeft, IconPlus, IconPencil, IconTrash, IconPlane,
   IconUsers, IconCar, IconMapPin, IconNfc, IconRefresh,
   IconLayoutDashboard, IconDownload, IconUpload, IconCopy,
-  IconEye, IconHistory, IconSearch,
+  IconEye, IconHistory, IconSearch, IconBan, IconCircleCheck,
 } from '@tabler/icons-react';
 import { MapContainer, TileLayer, Marker, Polyline, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -43,7 +43,7 @@ interface Crew {
   name: string; designation: string | null;
   stopName: string | null; stopLat: number | null; stopLng: number | null;
   nfcCardUid: string | null; phone: string | null;
-  cityId: string | null;
+  cityId: string | null; status: string;
   createdAt: string;
 }
 interface VehicleRow {
@@ -313,6 +313,9 @@ export default function AirlinesPage() {
   const [editingCrew, setEditingCrew] = useState<string | null>(null);
   const [crewSaving, setCrewSaving] = useState(false);
   const [crewError, setCrewError] = useState('');
+  const [crewViewOnly, setCrewViewOnly] = useState(false);
+  const [deleteConfirmCrew, setDeleteConfirmCrew] = useState<Crew | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Vehicles (detail)
   const [assignedVehicles, setAssignedVehicles] = useState<VehicleRow[]>([]);
@@ -370,6 +373,7 @@ export default function AirlinesPage() {
     const q = crewSearch.toLowerCase();
     if (q && !c.name.toLowerCase().includes(q) && !(c.phone ?? '').includes(q) && !(c.designation ?? '').toLowerCase().includes(q)) return false;
     if (crewDesignation && c.designation !== crewDesignation) return false;
+    if (selectedCityId && c.cityId !== selectedCityId) return false;
     return true;
   });
 
@@ -585,11 +589,16 @@ export default function AirlinesPage() {
   const crewLng = crewForm.stopLng ? parseFloat(crewForm.stopLng) : null;
   const setCrewCoords = (lat: number, lng: number) => setCrewForm(f => ({ ...f, stopLat: lat.toFixed(6), stopLng: lng.toFixed(6) }));
 
-  const openCrewAdd = (airlineId?: string) => { setEditingCrew(null); setCrewForm(blankCrew(airlineId ?? selected?.id ?? '')); setCrewError(''); setCrewModal(true); };
+  const openCrewAdd = (airlineId?: string) => { setEditingCrew(null); setCrewForm(blankCrew(airlineId ?? selected?.id ?? '')); setCrewError(''); setCrewViewOnly(false); setCrewModal(true); };
   const openCrewEdit = (c: Crew) => {
     setEditingCrew(c.id);
     setCrewForm({ name: c.name, designation: c.designation ?? '', stopName: c.stopName ?? '', stopLat: c.stopLat != null ? String(c.stopLat) : '', stopLng: c.stopLng != null ? String(c.stopLng) : '', nfcCardUid: c.nfcCardUid ?? '', phone: formatPakPhone(c.phone ?? ''), airlineId: c.airlineId, cityId: c.cityId ?? '' });
-    setCrewError(''); setCrewModal(true);
+    setCrewError(''); setCrewViewOnly(false); setCrewModal(true);
+  };
+  const openCrewView = (c: Crew) => {
+    setEditingCrew(c.id);
+    setCrewForm({ name: c.name, designation: c.designation ?? '', stopName: c.stopName ?? '', stopLat: c.stopLat != null ? String(c.stopLat) : '', stopLng: c.stopLng != null ? String(c.stopLng) : '', nfcCardUid: c.nfcCardUid ?? '', phone: formatPakPhone(c.phone ?? ''), airlineId: c.airlineId, cityId: c.cityId ?? '' });
+    setCrewError(''); setCrewViewOnly(true); setCrewModal(true);
   };
   const saveCrew = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -616,12 +625,21 @@ export default function AirlinesPage() {
     finally { setCrewSaving(false); }
   };
   const deleteCrew = async (c: Crew) => {
-    if (!window.confirm(`Delete ${c.name}?`)) return;
     try {
       await api.delete(`/airlines/${c.airlineId}/crews/${c.id}`); toast('Crew member deleted');
+      setDeleteConfirmCrew(null); setDeleteConfirmText('');
       if (selected) void loadCrews(selected.id);
       if (view === 'crews') void loadAllCrews();
     } catch { toast('Could not delete crew member', 'error'); }
+  };
+  const toggleCrewStatus = async (c: Crew) => {
+    const newStatus = c.status === 'active' ? 'inactive' : 'active';
+    try {
+      await api.put(`/airlines/${c.airlineId}/crews/${c.id}`, { status: newStatus });
+      toast(`Crew member marked ${newStatus}`);
+      if (selected) void loadCrews(selected.id);
+      if (view === 'crews') void loadAllCrews();
+    } catch { toast('Could not update status', 'error'); }
   };
 
   // ── Vehicle Assignment ────────────────────────────────────────────────────
@@ -651,8 +669,12 @@ export default function AirlinesPage() {
   };
 
   const exportCrews = () => {
-    const rows = [['ID', 'Name', 'Designation', 'Airline', 'Stop Name', 'Latitude', 'Longitude', 'NFC Card UID', 'Phone', 'Created At']];
-    allCrews.forEach(c => rows.push([c.id, c.name, c.designation ?? '', c.airlineName ?? '', c.stopName ?? '', c.stopLat != null ? String(c.stopLat) : '', c.stopLng != null ? String(c.stopLng) : '', c.nfcCardUid ?? '', c.phone ?? '', c.createdAt]));
+    const rows = [['ID', 'Name', 'Designation', 'City', 'Airline', 'Stop Name', 'Coordinates', 'NFC Card UID', 'Phone', 'Status', 'Created At']];
+    allCrews.forEach(c => {
+      const cityName = cities.find(ct => ct.id === c.cityId)?.name ?? '';
+      const coords = c.stopLat != null && c.stopLng != null ? `${c.stopLat}, ${c.stopLng}` : '';
+      rows.push([c.id, c.name, c.designation ?? '', cityName, c.airlineName ?? '', c.stopName ?? '', coords, c.nfcCardUid ?? '', c.phone ?? '', c.status ?? 'active', c.createdAt]);
+    });
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -676,10 +698,16 @@ export default function AirlinesPage() {
     'sample_airlines.csv',
   );
 
-  const downloadSampleCrews = () => downloadCsv(
-    `"Name","Designation","Airline","Stop Name","Latitude","Longitude","NFC Card UID","Phone"\n"Ahmed Raza","Cabin Crew","${airlines[0]?.name ?? 'PIA Ground Transport'}","Allama Iqbal Airport","31.52190","74.40361","04:AB:12:CD","0300-0000000"\n"Sara Malik","Captain","${airlines[0]?.name ?? 'PIA Ground Transport'}","Terminal 2","31.52500","74.40900","","0321-0000000"`,
-    'sample_crews.csv',
-  );
+  const downloadSampleCrews = () => {
+    const a0 = airlines[0];
+    const cityName = cities[0]?.name ?? 'Lahore';
+    const content = [
+      `"Name","Designation","Client ID","City","Stop Name","Coordinates","NFC Card UID","Phone"`,
+      `"Ahmed Raza","Cabin Crew","${a0?.displayId ?? 1}","${cityName}","Allama Iqbal Airport","31.52190, 74.40361","04:AB:12:CD","3001234567"`,
+      `"Sara Malik","Captain","${a0?.displayId ?? 1}","${cityName}","Terminal 2","31.52500, 74.40900","","3211234567"`,
+    ].join('\n');
+    downloadCsv(content, 'sample_crews.csv');
+  };
 
   const handleImportFile = async () => {
     if (!importFile || !importModal) return;
@@ -687,30 +715,104 @@ export default function AirlinesPage() {
     const text = await importFile.text();
     const lines = text.split('\n').filter(l => l.trim());
     if (lines.length < 2) { toast('CSV file is empty or has no data rows', 'error'); setImporting(false); return; }
-    const parseRow = (line: string) => line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+    const parseRow = (line: string): string[] => {
+      const result: string[] = [];
+      let i = 0;
+      while (i <= line.length) {
+        if (i === line.length) { result.push(''); break; }
+        if (line[i] === '"') {
+          i++;
+          let val = '';
+          while (i < line.length) {
+            if (line[i] === '"' && line[i + 1] === '"') { val += '"'; i += 2; }
+            else if (line[i] === '"') { i++; break; }
+            else { val += line[i++]; }
+          }
+          result.push(val.trim());
+          if (line[i] === ',') i++;
+        } else {
+          const end = line.indexOf(',', i);
+          if (end === -1) { result.push(line.slice(i).trim()); break; }
+          result.push(line.slice(i, end).trim());
+          i = end + 1;
+        }
+      }
+      return result;
+    };
     const header = parseRow(lines[0]).map(h => h.toLowerCase());
     let added = 0; let failed = 0;
 
     if (importModal === 'crews') {
-      const nameIdx = header.indexOf('name'); const airlineIdx = header.indexOf('airline');
-      const desigIdx = header.indexOf('designation'); const stopIdx = header.indexOf('stop name');
+      const nameIdx = header.indexOf('name'); const clientIdIdx = header.indexOf('client id');
+      const desigIdx = header.indexOf('designation'); const cityColIdx = header.indexOf('city');
+      const stopIdx = header.indexOf('stop name');
+      const coordIdx = header.indexOf('coordinates');
       const latIdx = header.indexOf('latitude'); const lngIdx = header.indexOf('longitude');
       const nfcIdx = header.indexOf('nfc card uid'); const phoneIdx = header.indexOf('phone');
-      if (nameIdx === -1 || airlineIdx === -1) { toast('CSV must have "Name" and "Airline" columns', 'error'); setImporting(false); return; }
+      if (nameIdx === -1 || clientIdIdx === -1) { toast('CSV must have "Name" and "Client ID" columns', 'error'); setImporting(false); return; }
+
+      // parse data rows first so we can check all duplicates upfront
+      type ParsedRow = { name: string; airlineId: string; designation: string | null; cityId: string | null; stopName: string | null; stopLat: number | null; stopLng: number | null; nfcCardUid: string | null; phone: string | null; };
+      const parsed: ParsedRow[] = [];
       for (let i = 1; i < lines.length; i++) {
         const cols = parseRow(lines[i]);
-        const airlineName = cols[airlineIdx];
-        const airline = airlines.find(a => a.name.toLowerCase() === airlineName.toLowerCase() || (a.iataCode ?? '').toLowerCase() === airlineName.toLowerCase());
+        const clientDisplayId = parseInt(cols[clientIdIdx] ?? '', 10);
+        const airline = airlines.find(a => a.displayId === clientDisplayId);
         if (!airline) { failed++; continue; }
+
+        // coordinates: prefer single "Coordinates" column, fall back to separate lat/lng
+        let stopLat: number | null = null; let stopLng: number | null = null;
+        if (coordIdx >= 0 && cols[coordIdx]) {
+          const parts = cols[coordIdx].split(',');
+          if (parts.length >= 2) { stopLat = parseFloat(parts[0].trim()); stopLng = parseFloat(parts[1].trim()); }
+        } else {
+          if (latIdx >= 0 && cols[latIdx]) stopLat = parseFloat(cols[latIdx]);
+          if (lngIdx >= 0 && cols[lngIdx]) stopLng = parseFloat(cols[lngIdx]);
+        }
+
+        // phone: accept raw digits or +92 prefix
+        let phone: string | null = null;
+        if (phoneIdx >= 0 && cols[phoneIdx]) {
+          const digits = formatPakPhone(cols[phoneIdx]);
+          if (isPakPhoneValid(digits)) phone = storedPhone(digits);
+        }
+
+        // city: match by name (case-insensitive)
+        let cityId: string | null = null;
+        if (cityColIdx >= 0 && cols[cityColIdx]) {
+          const matched = cities.find(ct => ct.name.toLowerCase() === cols[cityColIdx].toLowerCase());
+          if (matched) cityId = matched.id;
+        }
+
+        parsed.push({
+          name: cols[nameIdx] ?? '',
+          airlineId: airline.id,
+          designation: desigIdx >= 0 ? cols[desigIdx] || null : null,
+          cityId,
+          stopName: stopIdx >= 0 ? cols[stopIdx] || null : null,
+          stopLat, stopLng,
+          nfcCardUid: nfcIdx >= 0 ? cols[nfcIdx] || null : null,
+          phone,
+        });
+      }
+
+      // check all phone duplicates against existing crews
+      const duplicateMessages: string[] = [];
+      for (const row of parsed) {
+        if (!row.phone) continue;
+        const existing = allCrews.filter(c => c.phone === row.phone);
+        if (existing.length > 0) {
+          duplicateMessages.push(`${row.phone} already used by: ${existing.map(c => c.name).join(', ')}`);
+        }
+      }
+      if (duplicateMessages.length > 0) {
+        toast(`Duplicate phones found:\n${duplicateMessages.join('\n')}`, 'error');
+        setImporting(false); return;
+      }
+
+      for (const row of parsed) {
         try {
-          await api.post(`/airlines/${airline.id}/crews`, {
-            name: cols[nameIdx], designation: desigIdx >= 0 ? cols[desigIdx] || null : null,
-            stopName: stopIdx >= 0 ? cols[stopIdx] || null : null,
-            stopLat: latIdx >= 0 && cols[latIdx] ? parseFloat(cols[latIdx]) : null,
-            stopLng: lngIdx >= 0 && cols[lngIdx] ? parseFloat(cols[lngIdx]) : null,
-            nfcCardUid: nfcIdx >= 0 ? cols[nfcIdx] || null : null,
-            phone: phoneIdx >= 0 ? cols[phoneIdx] || null : null,
-          }); added++;
+          await api.post(`/airlines/${row.airlineId}/crews`, row); added++;
         } catch { failed++; }
       }
       void loadAllCrews();
@@ -725,75 +827,138 @@ export default function AirlinesPage() {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
 
+  const infoRow = (label: string, value: string, color?: string) => (
+    <div key={label} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+      <span style={{ fontSize: 12, color: 'var(--muted)', minWidth: 120, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 500, color: color ?? 'var(--text)' }}>{value || '—'}</span>
+    </div>
+  );
+
   const crewModal$ = (
-    <Modal open={crewModal} title={editingCrew ? 'Edit Crew Member' : 'Add Crew Member'} onClose={() => setCrewModal(false)} width={560}>
-      <form onSubmit={saveCrew}>
-        <FormField label="Airline *">
-          <select style={selectStyle} value={crewForm.airlineId} onChange={e => setCrewForm(f => ({ ...f, airlineId: e.target.value }))} disabled={!!editingCrew && view !== 'crews'}>
-            <option value="">Select airline</option>
-            {airlines.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </FormField>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FormField label="Full Name *">
-            <input style={inputStyle} value={crewForm.name} onChange={e => setCrewForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Ali Ahmed" autoFocus />
-          </FormField>
-          <FormField label="Designation">
-            <select style={selectStyle} value={crewForm.designation} onChange={e => setCrewForm(f => ({ ...f, designation: e.target.value }))}>
-              <option value="">Select designation</option>
-              {DESIGNATIONS.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </FormField>
+    <Modal
+      open={crewModal}
+      title={crewViewOnly ? 'Crew Member Details' : (editingCrew ? 'Edit Crew Member' : 'Add Crew Member')}
+      onClose={() => setCrewModal(false)}
+      width={940}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+        {/* Left: view info OR edit form */}
+        <div>
+          {crewViewOnly ? (
+            <>
+              {infoRow('Name', crewForm.name)}
+              {infoRow('Airline', airlines.find(a => a.id === crewForm.airlineId)?.name ?? '')}
+              {infoRow('Designation', crewForm.designation)}
+              {infoRow('Phone', crewForm.phone ? `+92 ${crewForm.phone}` : '')}
+              {infoRow('City', cities.find(c => c.id === crewForm.cityId)?.name ?? '')}
+              <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '12px 0', paddingTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>Drop-off Location</div>
+                {infoRow('Stop Name', crewForm.stopName)}
+                {infoRow('Coordinates', crewLat && crewLng ? `${Number(crewLat).toFixed(5)}, ${Number(crewLng).toFixed(5)}` : '')}
+              </div>
+              <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '12px 0', paddingTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>NFC Card</div>
+                {infoRow('NFC Card UID', crewForm.nfcCardUid)}
+              </div>
+            </>
+          ) : (
+            <form id="crew-form" onSubmit={saveCrew}>
+              <FormField label="Airline *">
+                <select style={selectStyle} value={crewForm.airlineId} onChange={e => setCrewForm(f => ({ ...f, airlineId: e.target.value }))} disabled={!!editingCrew && view !== 'crews'}>
+                  <option value="">Select airline</option>
+                  {airlines.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </FormField>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <FormField label="Full Name *">
+                  <input style={inputStyle} value={crewForm.name} onChange={e => setCrewForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Ali Ahmed" autoFocus />
+                </FormField>
+                <FormField label="Designation">
+                  <select style={selectStyle} value={crewForm.designation} onChange={e => setCrewForm(f => ({ ...f, designation: e.target.value }))}>
+                    <option value="">Select designation</option>
+                    {DESIGNATIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </FormField>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <FormField label="Phone">
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text)', pointerEvents: 'none', userSelect: 'none' }}>+92</span>
+                    <input style={{ ...inputStyle, paddingLeft: 40 }} value={crewForm.phone} onChange={e => setCrewForm(f => ({ ...f, phone: formatPakPhone(e.target.value) }))} placeholder="3001234567" maxLength={10} inputMode="numeric" />
+                  </div>
+                </FormField>
+                <FormField label="City">
+                  <select style={selectStyle} value={crewForm.cityId} onChange={e => setCrewForm(f => ({ ...f, cityId: e.target.value }))}>
+                    <option value="">— Select City —</option>
+                    {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </FormField>
+              </div>
+              <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '16px 0', paddingTop: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Drop-off Location</div>
+                <FormField label="Stop Name">
+                  <input style={inputStyle} value={crewForm.stopName} onChange={e => setCrewForm(f => ({ ...f, stopName: e.target.value }))} placeholder="e.g. DHA Phase 5" />
+                </FormField>
+                <FormField label="Coordinates">
+                  <input style={inputStyle}
+                    value={crewLat && crewLng ? `${crewForm.stopLat}, ${crewForm.stopLng}` : ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      const match = val.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
+                      if (match) setCrewCoords(parseFloat(match[1]), parseFloat(match[2]));
+                      else if (!val.trim()) setCrewForm(f => ({ ...f, stopLat: '', stopLng: '' }));
+                    }}
+                    placeholder="e.g. 31.521993, 74.356665"
+                  />
+                </FormField>
+              </div>
+              <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '16px 0', paddingTop: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>NFC Card</div>
+                <FormField label="NFC Card UID">
+                  <input style={inputStyle} value={crewForm.nfcCardUid} onChange={e => setCrewForm(f => ({ ...f, nfcCardUid: e.target.value }))} placeholder="e.g. 04A32FB1095C80" />
+                </FormField>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: -8 }}>Enter manually, or scan from the tablet app and copy the UID here.</div>
+              </div>
+              {crewError && <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 12 }}>{crewError}</div>}
+            </form>
+          )}
         </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FormField label="Phone">
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text)', pointerEvents: 'none', userSelect: 'none' }}>+92</span>
-              <input style={{ ...inputStyle, paddingLeft: 40 }} value={crewForm.phone} onChange={e => setCrewForm(f => ({ ...f, phone: formatPakPhone(e.target.value) }))} placeholder="3001234567" maxLength={10} inputMode="numeric" />
-            </div>
-          </FormField>
-          <FormField label="City">
-            <select style={selectStyle} value={crewForm.cityId} onChange={e => setCrewForm(f => ({ ...f, cityId: e.target.value }))}>
-              <option value="">— Select City —</option>
-              {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </FormField>
+        {/* Right: map */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>Stop Location on Map</div>
+          {!crewViewOnly && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>Map pe click karein ya pin drag karein:</div>}
+          <div style={{ flex: 1, minHeight: 380 }}>
+            <CrewMiniMap lat={crewLat} lng={crewLng} onChange={crewViewOnly ? () => {} : setCrewCoords} />
+          </div>
         </div>
+      </div>
+      {/* Footer */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
+        <button type="button" onClick={() => setCrewModal(false)} style={{ padding: '7px 16px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Close</button>
+        {crewViewOnly
+          ? can('edit') && <button type="button" onClick={() => setCrewViewOnly(false)} style={{ padding: '7px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><IconPencil size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />Edit</button>
+          : <button type="submit" form="crew-form" disabled={crewSaving} style={{ padding: '7px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: crewSaving ? 'not-allowed' : 'pointer', opacity: crewSaving ? 0.7 : 1 }}>{crewSaving ? 'Saving…' : (editingCrew ? 'Save Changes' : 'Add Crew')}</button>
+        }
+      </div>
+    </Modal>
+  );
 
-        <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '16px 0', paddingTop: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Drop-off Location</div>
-          <FormField label="Stop Name">
-            <input style={inputStyle} value={crewForm.stopName} onChange={e => setCrewForm(f => ({ ...f, stopName: e.target.value }))} placeholder="e.g. DHA Phase 5" />
-          </FormField>
-          <FormField label="Coordinates">
-            <input style={inputStyle}
-              value={crewLat && crewLng ? `${crewForm.stopLat}, ${crewForm.stopLng}` : ''}
-              onChange={e => {
-                const val = e.target.value;
-                const match = val.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
-                if (match) setCrewCoords(parseFloat(match[1]), parseFloat(match[2]));
-                else if (!val.trim()) setCrewForm(f => ({ ...f, stopLat: '', stopLng: '' }));
-              }}
-              placeholder="e.g. 31.521993, 74.356665"
-            />
-          </FormField>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Map pe click karein ya pin drag karein:</div>
-          <CrewMiniMap lat={crewLat} lng={crewLng} onChange={setCrewCoords} />
-        </div>
-
-        <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '16px 0', paddingTop: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>NFC Card</div>
-          <FormField label="NFC Card UID">
-            <input style={inputStyle} value={crewForm.nfcCardUid} onChange={e => setCrewForm(f => ({ ...f, nfcCardUid: e.target.value }))} placeholder="e.g. 04A32FB1095C80" />
-          </FormField>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: -8 }}>Enter manually, or scan from the tablet app and copy the UID here.</div>
-        </div>
-
-        {crewError && <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 12 }}>{crewError}</div>}
-        <FormActions onClose={() => setCrewModal(false)} loading={crewSaving} />
-      </form>
+  const deleteConfirmModal$ = deleteConfirmCrew && (
+    <Modal open={!!deleteConfirmCrew} title="Confirm Delete" onClose={() => { setDeleteConfirmCrew(null); setDeleteConfirmText(''); }} width={420}>
+      <p style={{ fontSize: 13, color: 'var(--text)', marginBottom: 16 }}>
+        This will permanently delete <strong>{deleteConfirmCrew.name}</strong>. Type <strong>DELETE</strong> to confirm.
+      </p>
+      <input
+        style={{ ...inputStyle, marginBottom: 16 }}
+        value={deleteConfirmText}
+        onChange={e => setDeleteConfirmText(e.target.value)}
+        placeholder="Type DELETE"
+        autoFocus
+      />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button type="button" onClick={() => { setDeleteConfirmCrew(null); setDeleteConfirmText(''); }} style={{ padding: '7px 16px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+        <button type="button" disabled={deleteConfirmText !== 'DELETE'} onClick={() => deleteCrew(deleteConfirmCrew)} style={{ padding: '7px 16px', background: deleteConfirmText === 'DELETE' ? '#dc2626' : (dark ? '#333' : '#e8e8e8'), color: deleteConfirmText === 'DELETE' ? '#fff' : 'var(--muted)', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: deleteConfirmText === 'DELETE' ? 'pointer' : 'not-allowed' }}>Delete</button>
+      </div>
     </Modal>
   );
 
@@ -980,20 +1145,23 @@ export default function AirlinesPage() {
                   {crewLoading ? <Spinner style={{ height: 200 }} /> : crews.length === 0 ? <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 14 }}>No crew members yet.</div> : (
                     <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead><tr><th style={th}>ID</th><th style={th}>Name</th><th style={th}>Designation</th><th style={th}>Stop Location</th><th style={th}>Coordinates</th><th style={th}>NFC Card</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
+                        <thead><tr><th style={th}>ID</th><th style={th}>Name</th><th style={th}>Designation</th><th style={th}>City</th><th style={th}>Stop Location</th><th style={th}>Coordinates</th><th style={th}>NFC Card</th><th style={th}>Status</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
                         <tbody>
                           {crews.map(c => (
                             <tr key={c.id}>
                               <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{c.displayId}</span></td>
                               <td style={td}><div style={{ fontWeight: 500 }}>{c.name}</div>{c.phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}</div>}</td>
                               <td style={td}>{c.designation || '—'}</td>
+                              <td style={td}>{cities.find(ct => ct.id === c.cityId)?.name || '—'}</td>
                               <td style={td}>{c.stopName ? <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconMapPin size={13} color="#dc2626" /><span style={{ fontSize: 12 }}>{c.stopName}</span></div> : '—'}</td>
                               <td style={td}>{c.stopLat && c.stopLng ? <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>{Number(c.stopLat).toFixed(5)}, {Number(c.stopLng).toFixed(5)}</span> : '—'}</td>
-                              <td style={td}>{c.nfcCardUid ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconNfc size={13} color="#059669" /><code style={{ fontSize: 11 }}>{c.nfcCardUid}</code></span> : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Not assigned</span>}</td>
+                              <td style={td}>{c.nfcCardUid ? <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconNfc size={13} color="#059669" /><code style={{ fontSize: 11 }}>{c.nfcCardUid}</code><button onClick={() => { navigator.clipboard.writeText(c.nfcCardUid!).catch(() => { const el = document.createElement('textarea'); el.value = c.nfcCardUid!; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); }); toast('NFC UID copied'); }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }} title="Copy NFC UID"><IconCopy size={12} color="var(--muted)" /></button></div> : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Not assigned</span>}</td>
+                              <td style={td}><span style={{ fontSize: 11, fontWeight: 500, color: c.status === 'inactive' ? '#dc2626' : '#059669' }}>{c.status === 'inactive' ? 'Inactive' : 'Active'}</span></td>
                               <td style={{ ...td, textAlign: 'right' }}>
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                                  {can('edit') && <button onClick={() => openCrewEdit(c)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconPencil size={14} color="var(--muted)" /></button>}
-                                  {can('delete') && <button onClick={() => deleteCrew(c)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>}
+                                  <button onClick={() => openCrewView(c)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="View"><IconEye size={14} color="var(--muted)" /></button>
+                                  {can('edit') && <button onClick={() => toggleCrewStatus(c)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title={c.status === 'inactive' ? 'Mark Active' : 'Mark Inactive'}>{c.status === 'inactive' ? <IconCircleCheck size={14} color="#059669" /> : <IconBan size={14} color="#f59e0b" />}</button>}
+                                  {can('delete') && <button onClick={() => { setDeleteConfirmCrew(c); setDeleteConfirmText(''); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Delete"><IconTrash size={14} color="#dc2626" /></button>}
                                 </div>
                               </td>
                             </tr>
@@ -1101,7 +1269,7 @@ export default function AirlinesPage() {
               ) : (
                 <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr><th style={th}>ID</th><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Airline</th><th style={th}>Designation</th><th style={th}>Stop</th><th style={th}>Coordinates</th><th style={th}>NFC Card</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
+                    <thead><tr><th style={th}>ID</th><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Airline</th><th style={th}>Designation</th><th style={th}>City</th><th style={th}>Stop</th><th style={th}>Coordinates</th><th style={th}>NFC Card</th><th style={th}>Status</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
                     <tbody>
                       {filteredCrews.map(c => (
                         <tr key={c.id}>
@@ -1121,6 +1289,7 @@ export default function AirlinesPage() {
                           </td>
                           <td style={td}>{c.airlineName}</td>
                           <td style={td}>{c.designation || '—'}</td>
+                          <td style={td}>{cities.find(ct => ct.id === c.cityId)?.name || '—'}</td>
                           <td style={td}>{c.stopName ? <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconMapPin size={13} color="#dc2626" /><span style={{ fontSize: 12 }}>{c.stopName}</span></div> : '—'}</td>
                           <td style={td}>
                             {c.stopLat && c.stopLng ? (
@@ -1146,11 +1315,13 @@ export default function AirlinesPage() {
                               </div>
                             ) : '—'}
                           </td>
-                          <td style={td}>{c.nfcCardUid ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconNfc size={13} color="#059669" /><code style={{ fontSize: 11 }}>{c.nfcCardUid}</code></span> : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Not assigned</span>}</td>
+                          <td style={td}>{c.nfcCardUid ? <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconNfc size={13} color="#059669" /><code style={{ fontSize: 11 }}>{c.nfcCardUid}</code><button onClick={() => { navigator.clipboard.writeText(c.nfcCardUid!).catch(() => { const el = document.createElement('textarea'); el.value = c.nfcCardUid!; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); }); toast('NFC UID copied'); }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }} title="Copy NFC UID"><IconCopy size={12} color="var(--muted)" /></button></div> : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Not assigned</span>}</td>
+                          <td style={td}><span style={{ fontSize: 11, fontWeight: 500, color: c.status === 'inactive' ? '#dc2626' : '#059669' }}>{c.status === 'inactive' ? 'Inactive' : 'Active'}</span></td>
                           <td style={{ ...td, textAlign: 'right' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                              {can('edit') && <button onClick={() => openCrewEdit(c)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconPencil size={14} color="var(--muted)" /></button>}
-                              {can('delete') && <button onClick={() => deleteCrew(c)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>}
+                              <button onClick={() => openCrewView(c)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="View"><IconEye size={14} color="var(--muted)" /></button>
+                              {can('edit') && <button onClick={() => toggleCrewStatus(c)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title={c.status === 'inactive' ? 'Mark Active' : 'Mark Inactive'}>{c.status === 'inactive' ? <IconCircleCheck size={14} color="#059669" /> : <IconBan size={14} color="#f59e0b" />}</button>}
+                              {can('delete') && <button onClick={() => { setDeleteConfirmCrew(c); setDeleteConfirmText(''); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Delete"><IconTrash size={14} color="#dc2626" /></button>}
                             </div>
                           </td>
                         </tr>
@@ -1302,6 +1473,7 @@ export default function AirlinesPage() {
 
       {/* Shared crew modal */}
       {crewModal$}
+      {deleteConfirmModal$}
 
       {/* Import modal */}
       <Modal open={!!importModal} title={importModal === 'airlines' ? 'Import Airlines' : 'Import Crew'} onClose={() => { setImportModal(null); setImportFile(null); }}>
