@@ -62,9 +62,9 @@ const NAV_SECTIONS: Section[] = [
     ],
   },
   {
-    label: 'Aviation',
+    label: 'Services',
     items: [
-      { to: '/airlines', icon: IconPlane, label: 'Aviation' },
+      { to: '/airlines', icon: IconPlane, label: 'Airline Client' },
     ],
   },
   {

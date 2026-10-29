@@ -89,7 +89,7 @@ function CrewMiniMap({ lat, lng, onChange }: { lat: number | null; lng: number |
 
 const NAV_ITEMS: { key: PageView; icon: React.ElementType; label: string }[] = [
   { key: 'dashboard', icon: IconLayoutDashboard, label: 'Dashboard' },
-  { key: 'airlines',  icon: IconPlane,           label: 'Airlines' },
+  { key: 'airlines',  icon: IconPlane,           label: 'Clients' },
   { key: 'crews',     icon: IconUsers,            label: 'Crew' },
   { key: 'vehicles',  icon: IconCar,              label: 'Vehicle' },
 ];
@@ -293,8 +293,7 @@ export default function AirlinesPage() {
   // ── Airline CRUD ──────────────────────────────────────────────────────────
 
   const openAirlineAdd = () => { setEditingAirline(null); setAirlineForm(blankAirline()); setAirlineError(''); setAirlineModal(true); };
-  const openAirlineEdit = (a: Airline, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const openAirlineEdit = (a: Airline) => {
     setEditingAirline(a.id);
     setAirlineForm({ name: a.name, iataCode: a.iataCode ?? '', contactPerson: a.contactPerson ?? '', contactPhone: a.contactPhone ?? '' });
     setAirlineError(''); setAirlineModal(true);
@@ -311,8 +310,7 @@ export default function AirlinesPage() {
     } catch (err: any) { setAirlineError(err?.response?.data?.message ?? 'Could not save airline.'); }
     finally { setAirlineSaving(false); }
   };
-  const deleteAirline = async (a: Airline, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const deleteAirline = async (a: Airline) => {
     if (!window.confirm(`Delete "${a.name}"? All crews and trips will be deleted.`)) return;
     try { await api.delete(`/airlines/${a.id}`); toast('Airline deleted'); void loadAirlines(); if (selected?.id === a.id) setSelected(null); }
     catch { toast('Could not delete airline', 'error'); }
@@ -388,6 +386,21 @@ export default function AirlinesPage() {
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'crews.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const downloadSampleAirlines = () => {
+    const csv = `"Name","IATA Code","Contact Person","Contact Phone"\n"PIA Ground Transport","PK","Ali Khan","+92 300 0000000"\n"Emirates Crew Logistics","EK","Sara Ahmed","+971 50 0000000"`;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'sample_airlines.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const downloadSampleCrews = () => {
+    const airlineName = airlines[0]?.name ?? 'PIA Ground Transport';
+    const csv = `"Name","Designation","Airline","Stop Name","Latitude","Longitude","NFC Card UID","Phone"\n"Ahmed Raza","Cabin Crew","${airlineName}","Allama Iqbal Airport","31.52190","74.40361","04:AB:12:CD","0300-0000000"\n"Sara Malik","Captain","${airlineName}","Terminal 2","31.52500","74.40900","","0321-0000000"`;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'sample_crews.csv'; a.click(); URL.revokeObjectURL(url);
   };
 
   const importCrewsRef = useRef<HTMLInputElement>(null);
@@ -567,8 +580,11 @@ export default function AirlinesPage() {
         {/* ── AIRLINES VIEW ──────────────────────────────────────────────── */}
         {view === 'airlines' && !selected && (
           <div>
-            <PageHeader title="Airlines" subtitle="Manage airline clients and their crew transport">
+            <PageHeader title="Airline Clients" subtitle="Manage airline clients and their crew transport">
               <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={downloadSampleAirlines} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
+                  <IconDownload size={14} /> Sample
+                </button>
                 <button onClick={exportAirlines} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
                   <IconDownload size={14} /> Export
                 </button>
@@ -594,7 +610,7 @@ export default function AirlinesPage() {
                     </thead>
                     <tbody>
                       {airlines.map(a => (
-                        <tr key={a.id} onClick={() => openDetail(a)} style={{ cursor: 'pointer' }}
+                        <tr key={a.id}
                           onMouseEnter={e => (e.currentTarget.style.background = dark ? '#1a1a1a' : '#fafafa')}
                           onMouseLeave={e => (e.currentTarget.style.background = '')}>
                           <td style={td}><span style={{ fontWeight: 600 }}>{a.name}</span></td>
@@ -604,9 +620,9 @@ export default function AirlinesPage() {
                           <td style={td}><span style={badge('#059669', dark ? '#052e16' : '#f0fdf4')}>{a.crewCount}</span></td>
                           <td style={td}><span style={badge('#7c3aed', dark ? '#1e1a3a' : '#f5f3ff')}>{a.vehicleCount}</span></td>
                           <td style={{ ...td, textAlign: 'right' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }} onClick={e => e.stopPropagation()}>
-                              {can('edit') && <button onClick={e => openAirlineEdit(a, e)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconPencil size={14} color="var(--muted)" /></button>}
-                              {can('delete') && <button onClick={e => deleteAirline(a, e)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                              {can('edit') && <button onClick={() => openAirlineEdit(a)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconPencil size={14} color="var(--muted)" /></button>}
+                              {can('delete') && <button onClick={() => deleteAirline(a)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>}
                             </div>
                           </td>
                         </tr>
@@ -747,6 +763,9 @@ export default function AirlinesPage() {
           <div>
             <PageHeader title="All Crew Members" subtitle="All crew across all airlines">
               <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={downloadSampleCrews} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
+                  <IconDownload size={14} /> Sample
+                </button>
                 <button onClick={exportCrews} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
                   <IconDownload size={14} /> Export
                 </button>

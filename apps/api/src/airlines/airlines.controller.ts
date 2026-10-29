@@ -69,6 +69,11 @@ export class AirlinesController {
 
   // ─── Vehicle Assignment ──────────────────────────────────────────────────────
 
+  @Get('by-vehicle/:vehicleId')
+  getAirlineByVehicle(@Param('vehicleId') vehicleId: string) {
+    return this.svc.getAirlineByVehicle(vehicleId);
+  }
+
   @Get(':airlineId/vehicles')
   listVehicles(@CurrentUser() user: User, @Param('airlineId') airlineId: string) {
     return this.svc.listAssignedVehicles(user, airlineId);

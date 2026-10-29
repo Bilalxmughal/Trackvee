@@ -179,6 +179,13 @@ export class AirlinesService {
     return { success: true };
   }
 
+  async getAirlineByVehicle(vehicleId: string) {
+    const row = await this.avRepo.findOne({ where: { vehicleId } });
+    if (!row) return null;
+    const airline = await this.airlineRepo.findOne({ where: { id: row.airlineId } });
+    return airline ? { id: airline.id, name: airline.name, iataCode: airline.iataCode } : null;
+  }
+
   // ─── Trips: Check-in / Check-out ─────────────────────────────────────────────
 
   async checkin(body: { nfcUid: string; vehicleId: string; flightNumber?: string; lat: number; lng: number }) {

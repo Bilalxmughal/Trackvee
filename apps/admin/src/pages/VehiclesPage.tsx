@@ -50,6 +50,8 @@ export default function VehiclesPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [airlines, setAirlines] = useState<AirlineOpt[]>([]);
   const [clientTab, setClientTab] = useState<'client' | 'airline'>('client');
+  const [vehicleAirlineId, setVehicleAirlineId] = useState(''); // current airline assignment (from airline_vehicles table)
+  const [selectedAirlineId, setSelectedAirlineId] = useState(''); // airline selected in form
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -152,12 +154,16 @@ export default function VehiclesPage() {
     } catch { toast('Failed to update odometer', 'error'); } finally { setOdoSaving(false); }
   };
 
-  const openAdd = () => { setEditing(null); setForm(empty); setModal(true); };
-  const openEdit = (v: Vehicle) => {
+  const openAdd = () => { setEditing(null); setForm(empty); setClientTab('client'); setVehicleAirlineId(''); setSelectedAirlineId(''); setModal(true); };
+  const openEdit = async (v: Vehicle) => {
     setEditing(v);
     setForm({ licensePlate: v.licensePlate ?? '', make: v.make ?? '', model: v.model ?? '', year: v.year ? String(v.year) : '', cityId: v.cityId ?? '', lifecycleStatus: v.lifecycleStatus ?? (v.isActive ? 'active' : 'archived'), expiresAt: v.expiresAt ? v.expiresAt.slice(0, 10) : '', organizationId: v.organizationId ?? '', odometerKm: String(v.odometerKm ?? 0) });
-    const isAirline = v.organizationId ? airlines.some(a => a.id === v.organizationId) : false;
-    setClientTab(isAirline ? 'airline' : 'client');
+    setClientTab('client'); setVehicleAirlineId(''); setSelectedAirlineId('');
+    try {
+      const res = await api.get<{ id: string; name: string; iataCode: string | null } | null>(`/airlines/by-vehicle/${v.id}`);
+      const al = res.data;
+      if (al) { setVehicleAirlineId(al.id); setSelectedAirlineId(al.id); setClientTab('airline'); }
+    } catch {}
     setModal(true);
   };
   const closeModal = () => { setModal(false); setEditing(null); };
@@ -168,16 +174,33 @@ export default function VehiclesPage() {
     setSaving(true);
     try {
       const { lifecycleStatus, expiresAt, odometerKm, ...profile } = form;
-      const payload = { ...profile, year: form.year ? Number(form.year) : null, organizationId: form.organizationId || null, cityId: form.cityId || null };
+      // When airline tab is active, don't set organizationId (airlines use their own junction table)
+      const orgId = clientTab === 'airline' ? null : (form.organizationId || null);
+      const payload = { ...profile, year: form.year ? Number(form.year) : null, organizationId: orgId, cityId: form.cityId || null };
       const odoKm = parseFloat(odometerKm);
+      let vehicleId: string;
       if (editing) {
+        vehicleId = editing.id;
         await api.patch(`/vehicles/${editing.id}`, payload);
         if (canManageLifecycle) await api.patch(`/vehicles/${editing.id}/lifecycle`, { lifecycleStatus, expiresAt: expiresAt || null });
         if (Number.isFinite(odoKm) && odoKm >= 0 && odoKm !== (editing.odometerKm ?? 0)) await api.patch(`/vehicles/${editing.id}/odometer`, { odometerKm: odoKm });
       } else {
         const created = await api.post<Vehicle>('/vehicles', payload);
-        if (canManageLifecycle && (lifecycleStatus !== 'active' || expiresAt)) await api.patch(`/vehicles/${created.data.id}/lifecycle`, { lifecycleStatus, expiresAt: expiresAt || null });
-        if (Number.isFinite(odoKm) && odoKm > 0) await api.patch(`/vehicles/${created.data.id}/odometer`, { odometerKm: odoKm });
+        vehicleId = created.data.id;
+        if (canManageLifecycle && (lifecycleStatus !== 'active' || expiresAt)) await api.patch(`/vehicles/${vehicleId}/lifecycle`, { lifecycleStatus, expiresAt: expiresAt || null });
+        if (Number.isFinite(odoKm) && odoKm > 0) await api.patch(`/vehicles/${vehicleId}/odometer`, { odometerKm: odoKm });
+      }
+      // Handle airline assignment separately
+      if (clientTab === 'airline') {
+        if (vehicleAirlineId && vehicleAirlineId !== selectedAirlineId) {
+          await api.delete(`/airlines/${vehicleAirlineId}/vehicles/${vehicleId}`);
+        }
+        if (selectedAirlineId) {
+          await api.post(`/airlines/${selectedAirlineId}/vehicles`, { vehicleId });
+        }
+      } else if (vehicleAirlineId) {
+        // switched to client tab — unassign from airline
+        await api.delete(`/airlines/${vehicleAirlineId}/vehicles/${vehicleId}`);
       }
       await load(); closeModal();
       toast(editing ? 'Vehicle updated' : 'Vehicle added');
@@ -334,7 +357,7 @@ export default function VehiclesPage() {
               {/* Tab toggle */}
               <div style={{ display: 'flex', gap: 0, marginBottom: 6, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--input-border)' }}>
                 {(['client', 'airline'] as const).map(t => (
-                  <button key={t} type="button" onClick={() => { setClientTab(t); set('organizationId', ''); }}
+                  <button key={t} type="button" onClick={() => setClientTab(t)}
                     style={{ flex: 1, padding: '5px 0', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: clientTab === t ? 700 : 400, background: clientTab === t ? '#dc2626' : 'var(--input-bg)', color: clientTab === t ? '#fff' : 'var(--muted)' }}>
                     {t === 'client' ? 'Client' : 'Airline'}
                   </button>
@@ -346,7 +369,7 @@ export default function VehiclesPage() {
                   {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
               ) : (
-                <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
+                <select value={selectedAirlineId} onChange={e => setSelectedAirlineId(e.target.value)} style={selectStyle}>
                   <option value="">— None —</option>
                   {airlines.map(a => <option key={a.id} value={a.id}>{a.name}{a.iataCode ? ` (${a.iataCode})` : ''}</option>)}
                 </select>
