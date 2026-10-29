@@ -8,6 +8,7 @@ export class AirlineCrew {
   displayId: number;
 
   @Column({ name: 'airline_id', type: 'uuid' }) airlineId: string;
+  @Column({ name: 'city_id', type: 'uuid', nullable: true }) cityId: string | null;
 
   @Column({ type: 'varchar', length: 100 }) name: string;
 

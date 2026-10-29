@@ -55,13 +55,14 @@ export class AirlinesService {
 
   // ─── Airlines CRUD ───────────────────────────────────────────────────────────
 
-  async listAirlines(user: User, organizationId?: string) {
+  async listAirlines(user: User, organizationId?: string, cityId?: string) {
     const qb = this.airlineRepo.createQueryBuilder('a');
     if (!this.isInternal(user)) {
       qb.where('a.organization_id = :orgId', { orgId: user.organizationId });
     } else if (organizationId) {
       qb.where('a.organization_id = :orgId', { orgId: organizationId });
     }
+    if (cityId) qb.andWhere('a.city_id = :cityId', { cityId });
     const airlines = await qb.orderBy('a.created_at', 'DESC').getMany();
 
     // Attach counts

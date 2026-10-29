@@ -20,6 +20,7 @@ import FormField, { inputStyle, selectStyle, FormActions } from '../components/F
 import Spinner from '../components/Spinner';
 import { useAuth } from '../contexts/AuthContext';
 import { canPerformAction } from '../config/roles';
+import { useCityFilter } from '../contexts/CityFilterContext';
 import type { UserRole } from '@yotrack/types';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -34,13 +35,16 @@ L.Icon.Default.mergeOptions({
 interface Airline {
   id: string; displayId: number; name: string; iataCode: string | null;
   contactPerson: string | null; contactPhone: string | null;
+  cityId: string | null;
   createdAt: string; crewCount: number; vehicleCount: number;
 }
 interface Crew {
   id: string; displayId: number; airlineId: string; airlineName?: string;
   name: string; designation: string | null;
   stopName: string | null; stopLat: number | null; stopLng: number | null;
-  nfcCardUid: string | null; phone: string | null; createdAt: string;
+  nfcCardUid: string | null; phone: string | null;
+  cityId: string | null;
+  createdAt: string;
 }
 interface VehicleRow {
   id: string; display_id: number; name: string;
@@ -56,8 +60,8 @@ interface Trip {
   vehicle_name: string; license_plate: string | null;
 }
 
-type AirlineForm = { name: string; iataCode: string; contactPerson: string; contactPhone: string; };
-type CrewForm = { name: string; designation: string; stopName: string; stopLat: string; stopLng: string; nfcCardUid: string; phone: string; airlineId: string; };
+type AirlineForm = { name: string; iataCode: string; contactPerson: string; contactPhone: string; cityId: string; };
+type CrewForm = { name: string; designation: string; stopName: string; stopLat: string; stopLng: string; nfcCardUid: string; phone: string; airlineId: string; cityId: string; };
 type PageView = 'dashboard' | 'airlines' | 'crews' | 'vehicles' | 'trips';
 
 interface GroupedTrip {
@@ -82,8 +86,8 @@ interface TripDetailData {
   checkin_at: string; checkout_at: string | null; checkin_stop: string | null; flight_number: string | null;
 }
 
-const blankAirline = (): AirlineForm => ({ name: '', iataCode: '', contactPerson: '', contactPhone: '' });
-const blankCrew = (airlineId = ''): CrewForm => ({ name: '', designation: '', stopName: '', stopLat: '', stopLng: '', nfcCardUid: '', phone: '', airlineId });
+const blankAirline = (): AirlineForm => ({ name: '', iataCode: '', contactPerson: '', contactPhone: '', cityId: '' });
+const blankCrew = (airlineId = ''): CrewForm => ({ name: '', designation: '', stopName: '', stopLat: '', stopLng: '', nfcCardUid: '', phone: '', airlineId, cityId: '' });
 const DESIGNATIONS = ['Captain', 'Co-Pilot', 'Senior Cabin Crew', 'Cabin Crew', 'Purser', 'Engineer', 'Ground Staff', 'Other'];
 
 // ─── Mini Map ─────────────────────────────────────────────────────────────────
@@ -253,6 +257,7 @@ export default function AirlinesPage() {
   const { user } = useAuth();
   const role = (user?.role ?? 'viewer') as UserRole;
   const can = (action: 'view' | 'add' | 'edit' | 'delete') => canPerformAction(role, 'airlines', action);
+  const { cities, selectedCityId } = useCityFilter();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -335,10 +340,15 @@ export default function AirlinesPage() {
 
   const loadAirlines = useCallback(async () => {
     setLoading(true);
-    try { const r = await api.get<Airline[]>('/airlines'); setAirlines(r.data); }
+    try {
+      const params = new URLSearchParams();
+      if (selectedCityId) params.set('cityId', selectedCityId);
+      const r = await api.get<Airline[]>(`/airlines?${params}`);
+      setAirlines(r.data);
+    }
     catch { toast('Could not load airlines', 'error'); }
     finally { setLoading(false); }
-  }, [toast]);
+  }, [toast, selectedCityId]);
 
   useEffect(() => { void loadAirlines(); }, [loadAirlines]);
 
@@ -487,7 +497,7 @@ export default function AirlinesPage() {
   const openAirlineAdd = () => { setEditingAirline(null); setAirlineForm(blankAirline()); setAirlineError(''); setAirlineModal(true); };
   const openAirlineEdit = (a: Airline) => {
     setEditingAirline(a.id);
-    setAirlineForm({ name: a.name, iataCode: a.iataCode ?? '', contactPerson: a.contactPerson ?? '', contactPhone: a.contactPhone ?? '' });
+    setAirlineForm({ name: a.name, iataCode: a.iataCode ?? '', contactPerson: a.contactPerson ?? '', contactPhone: a.contactPhone ?? '', cityId: a.cityId ?? '' });
     setAirlineError(''); setAirlineModal(true);
   };
   const saveAirline = async (e: React.FormEvent) => {
@@ -495,7 +505,7 @@ export default function AirlinesPage() {
     if (!airlineForm.name.trim()) { setAirlineError('Airline name is required.'); return; }
     setAirlineSaving(true); setAirlineError('');
     try {
-      const payload = { name: airlineForm.name.trim(), iataCode: airlineForm.iataCode.trim() || null, contactPerson: airlineForm.contactPerson.trim() || null, contactPhone: airlineForm.contactPhone.trim() || null };
+      const payload = { name: airlineForm.name.trim(), iataCode: airlineForm.iataCode.trim() || null, contactPerson: airlineForm.contactPerson.trim() || null, contactPhone: airlineForm.contactPhone.trim() || null, cityId: airlineForm.cityId || null };
       if (editingAirline) { await api.put(`/airlines/${editingAirline}`, payload); toast('Airline updated'); }
       else { await api.post('/airlines', payload); toast('Airline added'); }
       setAirlineModal(false); await loadAirlines();
@@ -517,7 +527,7 @@ export default function AirlinesPage() {
   const openCrewAdd = (airlineId?: string) => { setEditingCrew(null); setCrewForm(blankCrew(airlineId ?? selected?.id ?? '')); setCrewError(''); setCrewModal(true); };
   const openCrewEdit = (c: Crew) => {
     setEditingCrew(c.id);
-    setCrewForm({ name: c.name, designation: c.designation ?? '', stopName: c.stopName ?? '', stopLat: c.stopLat != null ? String(c.stopLat) : '', stopLng: c.stopLng != null ? String(c.stopLng) : '', nfcCardUid: c.nfcCardUid ?? '', phone: c.phone ?? '', airlineId: c.airlineId });
+    setCrewForm({ name: c.name, designation: c.designation ?? '', stopName: c.stopName ?? '', stopLat: c.stopLat != null ? String(c.stopLat) : '', stopLng: c.stopLng != null ? String(c.stopLng) : '', nfcCardUid: c.nfcCardUid ?? '', phone: c.phone ?? '', airlineId: c.airlineId, cityId: c.cityId ?? '' });
     setCrewError(''); setCrewModal(true);
   };
   const saveCrew = async (e: React.FormEvent) => {
@@ -527,7 +537,7 @@ export default function AirlinesPage() {
     if (!targetAirlineId) { setCrewError('Please select an airline.'); return; }
     setCrewSaving(true); setCrewError('');
     try {
-      const payload = { name: crewForm.name.trim(), designation: crewForm.designation.trim() || null, stopName: crewForm.stopName.trim() || null, stopLat: crewForm.stopLat ? parseFloat(crewForm.stopLat) : null, stopLng: crewForm.stopLng ? parseFloat(crewForm.stopLng) : null, nfcCardUid: crewForm.nfcCardUid.trim() || null, phone: crewForm.phone.trim() || null };
+      const payload = { name: crewForm.name.trim(), designation: crewForm.designation.trim() || null, stopName: crewForm.stopName.trim() || null, stopLat: crewForm.stopLat ? parseFloat(crewForm.stopLat) : null, stopLng: crewForm.stopLng ? parseFloat(crewForm.stopLng) : null, nfcCardUid: crewForm.nfcCardUid.trim() || null, phone: crewForm.phone.trim() || null, cityId: crewForm.cityId || null };
       if (editingCrew) { await api.put(`/airlines/${targetAirlineId}/crews/${editingCrew}`, payload); toast('Crew member updated'); }
       else { await api.post(`/airlines/${targetAirlineId}/crews`, payload); toast('Crew member added'); }
       setCrewModal(false);
@@ -668,9 +678,17 @@ export default function AirlinesPage() {
           </FormField>
         </div>
 
-        <FormField label="Phone">
-          <input style={inputStyle} value={crewForm.phone} onChange={e => setCrewForm(f => ({ ...f, phone: e.target.value }))} placeholder="+92 300 0000000" />
-        </FormField>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <FormField label="Phone">
+            <input style={inputStyle} value={crewForm.phone} onChange={e => setCrewForm(f => ({ ...f, phone: e.target.value }))} placeholder="+92 300 0000000" />
+          </FormField>
+          <FormField label="City">
+            <select style={selectStyle} value={crewForm.cityId} onChange={e => setCrewForm(f => ({ ...f, cityId: e.target.value }))}>
+              <option value="">— Select City —</option>
+              {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </FormField>
+        </div>
 
         <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '16px 0', paddingTop: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Drop-off Location</div>
@@ -843,6 +861,12 @@ export default function AirlinesPage() {
                   <FormField label="Contact Person"><input style={inputStyle} value={airlineForm.contactPerson} onChange={e => setAirlineForm(f => ({ ...f, contactPerson: e.target.value }))} placeholder="Name" /></FormField>
                   <FormField label="Contact Phone"><input style={inputStyle} value={airlineForm.contactPhone} onChange={e => setAirlineForm(f => ({ ...f, contactPhone: e.target.value }))} placeholder="+92 300 0000000" /></FormField>
                 </div>
+                <FormField label="City">
+                  <select style={selectStyle} value={airlineForm.cityId} onChange={e => setAirlineForm(f => ({ ...f, cityId: e.target.value }))}>
+                    <option value="">— Select City —</option>
+                    {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </FormField>
                 {airlineError && <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 12 }}>{airlineError}</div>}
                 <FormActions onClose={() => setAirlineModal(false)} loading={airlineSaving} />
               </form>

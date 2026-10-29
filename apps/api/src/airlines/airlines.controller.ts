@@ -17,8 +17,8 @@ export class AirlinesController {
   // ─── Airlines ───────────────────────────────────────────────────────────────
 
   @Get()
-  list(@CurrentUser() user: User, @Query('organizationId') organizationId?: string) {
-    return this.svc.listAirlines(user, organizationId);
+  list(@CurrentUser() user: User, @Query('organizationId') organizationId?: string, @Query('cityId') cityId?: string) {
+    return this.svc.listAirlines(user, organizationId, cityId);
   }
 
   @Post()
