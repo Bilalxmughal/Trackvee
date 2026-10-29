@@ -3,6 +3,10 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 @Entity('airlines')
 export class Airline {
   @PrimaryGeneratedColumn('uuid') id: string;
+
+  @Column({ name: 'display_id', type: 'int', unique: true, default: () => "nextval('global_display_id_seq')" })
+  displayId: number;
+
   @Column({ name: 'organization_id', type: 'uuid', nullable: true }) organizationId: string | null;
   @Column({ type: 'varchar', length: 100 }) name: string;
   @Column({ name: 'iata_code', type: 'varchar', length: 10, nullable: true }) iataCode: string | null;

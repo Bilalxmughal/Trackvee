@@ -62,8 +62,8 @@ SERVER,1,[your-domain],5023,0#
 
 ```text
 ATS-GO Device
-    ↓ TCP / AT06 / Port 5023
-apps/gateway — TCP Gateway + AT06 Decoder
+    ↓ TCP / GT06 / Port 5023
+apps/gateway — TCP Gateway + GT06 Decoder
     ↓
 apps/api — NestJS REST API + WebSocket
     ↓              ↓

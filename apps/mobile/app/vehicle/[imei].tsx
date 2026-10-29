@@ -141,7 +141,7 @@ export default function VehicleDetailScreen() {
               initialRegion={{ latitude: point.latitude, longitude: point.longitude, latitudeDelta: 0.025, longitudeDelta: 0.025 }}
               mapType={mapStyle === 'street' ? 'none' : mapStyle}
               showsCompass={false} toolbarEnabled={false} moveOnMarkerPress={false}>
-              {mapStyle === 'street' && <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256} zIndex={0} />}
+              {mapStyle === 'street' && <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256} zIndex={0} />}
               <Marker.Animated coordinate={animated as unknown as LatLng} tracksViewChanges={false} stopPropagation>
                 <View style={s.marker}>
                   <Image source={carIcon} resizeMode="contain" style={[s.car, { transform: [{ rotate: `${((point.heading ?? 0) + 180) % 360}deg` }] }]} />

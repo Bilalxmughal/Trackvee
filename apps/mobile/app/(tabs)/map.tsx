@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import MapView, { AnimatedRegion, Marker, UrlTile, type LatLng, type Region } from 'react-native-maps';
+import MapView, { AnimatedRegion, Circle, Marker, Polygon, UrlTile, type LatLng, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path, Text as SvgText } from 'react-native-svg';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useFleet, displayVehicleName, getFleetStatus, type FleetItem, type LivePoint } from '../../src/hooks/useFleet';
 import { TablerIcon } from '../../src/components/TablerIcon';
 import { usePortalPermissions } from '../../src/auth/PortalPermissionsProvider';
@@ -18,8 +18,7 @@ import carIcon from '../../assets/car-icon.png';
 interface VehicleGroup { id: string; name: string; vehicleIds: string[]; }
 interface Geofence {
   id: string; name: string; type: 'circle' | 'polygon';
-  latitude?: number; longitude?: number; radius?: number;
-  coordinates?: { latitude: number; longitude: number }[];
+  coordinates: { center: [number, number]; radius: number } | { points: [number, number][] };
   color?: string;
 }
 interface Poi { id: string; name: string; latitude: number; longitude: number; description?: string; }
@@ -293,8 +292,19 @@ export default function LiveMapScreen() {
         onRegionChange={next => { regionRef.current = next; }}
         onRegionChangeComplete={next => { regionRef.current = next; setRegion(next); fittingRef.current = false; }}
       >
-        {mapStyle === 'street' && <UrlTile urlTemplate={isOffline ? `${FileSystem.cacheDirectory}map-tiles/{z}_{x}_{y}.png` : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'} maximumZ={19} tileSize={256} zIndex={0} />}
+        {mapStyle === 'street' && <UrlTile urlTemplate={isOffline ? `${FileSystem.cacheDirectory}map-tiles/{z}_{x}_{y}.png` : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'} maximumZ={19} tileSize={256} zIndex={0} />}
         {trafficOn && process.env.EXPO_PUBLIC_HERE_API_KEY ? <UrlTile urlTemplate={`https://traffic.maps.ls.hereapi.com/mapviewer/v1/traffictiles/flow/6/{z}/{x}/{y}/256/png8?apiKey=${process.env.EXPO_PUBLIC_HERE_API_KEY}`} maximumZ={19} tileSize={256} zIndex={450} opacity={0.7} /> : null}
+
+        {showGeofences && geofences.map(geofence => {
+          const color = geofence.color || t.red;
+          if (geofence.type === 'circle' && 'center' in geofence.coordinates) {
+            return <Circle key={`geofence-${geofence.id}`} center={{ latitude: geofence.coordinates.center[0], longitude: geofence.coordinates.center[1] }} radius={geofence.coordinates.radius} strokeColor={`${color}cc`} fillColor={`${color}24`} strokeWidth={2} />;
+          }
+          if (geofence.type === 'polygon' && 'points' in geofence.coordinates && geofence.coordinates.points.length >= 3) {
+            return <Polygon key={`geofence-${geofence.id}`} coordinates={geofence.coordinates.points.map(([latitude, longitude]) => ({ latitude, longitude }))} strokeColor={`${color}cc`} fillColor={`${color}24`} strokeWidth={2} />;
+          }
+          return null;
+        })}
 
         {/* Speed heatmap — colored vehicle markers when active */}
         {showHeatmap && filtered.map(item => item.point ? (

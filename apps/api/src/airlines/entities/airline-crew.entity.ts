@@ -4,7 +4,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 export class AirlineCrew {
   @PrimaryGeneratedColumn('uuid') id: string;
 
-  @Column({ name: 'display_id', type: 'int', unique: true, default: () => "nextval('crew_display_id_seq')" })
+  @Column({ name: 'display_id', type: 'int', unique: true, default: () => "nextval('global_display_id_seq')" })
   displayId: number;
 
   @Column({ name: 'airline_id', type: 'uuid' }) airlineId: string;

@@ -25,7 +25,6 @@ export default function LoginScreen() {
     setError('');
     try {
       await login(email.trim(), password);
-      router.dismissAll();
       router.replace('/map');
     } catch (cause) {
       if (isAxiosError(cause) && !cause.response) {

@@ -51,6 +51,8 @@ YoTrack is production-active. Core API, gateway, admin portal, and client portal
 
 ## Blockers
 
+- Mobile Android startup: fresh physical-device logs confirmed the installed binary crashes because its Android manifest has no Google Maps API key. Source now requires the EAS `GOOGLE_MAPS_ANDROID_API_KEY` for Android builds and mobile street tile URLs use the supported literal OSM host. A rebuilt APK is still required. The local Firebase config is gitignored and must be supplied to EAS as `GOOGLE_SERVICES_JSON`; the EAS FCM V1 service-account credential is not configured, blocking push delivery QA. Web alert push/sound are UI settings only; server delivery is not implemented. See `apps/mobile/BUILD_CHECKLIST.md` and `KNOWN_ISSUES.md`.
+
 Mobile foundation is in progress. Android export is verified; native-device interaction, remaining mobile parity, signed EAS builds, and store distribution setup remain. Production maintenance also requires migration 029 before the API restart.
 
 Scheduled report delivery has one successful production send; pause/resume behavior still needs an authenticated UI check with a non-customer schedule. Device Health admin UI and API scoping verified in production and source; client portal session verification was not performed (no test client account available). Gateway CRC runtime verification complete: fresh build/restart 2026-10-14, zero post-restart CRC warnings, GPS persisted.

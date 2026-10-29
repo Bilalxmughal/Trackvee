@@ -297,7 +297,7 @@ export function VehicleRouteScreen({ mode }: { mode: RouteMode }) {
     </View>
     <View style={[s.mapWrap, mode === 'history' && { flex: 1.15 }]}>
       {current ? <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={{ latitude: current.latitude, longitude: current.longitude, latitudeDelta: 0.025, longitudeDelta: 0.025 }} mapType={mapStyle === 'street' ? 'none' : mapStyle} showsCompass={false} toolbarEnabled={false} moveOnMarkerPress={false} onRegionChangeComplete={region => { regionRef.current = region; }}>
-        {mapStyle === 'street' && <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256} zIndex={0} />}
+        {mapStyle === 'street' && <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} tileSize={256} zIndex={0} />}
         {track.segments.map((segment, index) => segment.length > 1 && <Polyline key={`route-${index}`} coordinates={segment.map(point => ({ latitude: point.latitude, longitude: point.longitude }))} strokeColor={t.red} strokeWidth={3} />)}
         {track.gaps.map((gap, index) => <Polyline key={`gap-${index}`} coordinates={[{ latitude: gap.from.latitude, longitude: gap.from.longitude }, { latitude: gap.to.latitude, longitude: gap.to.longitude }]} strokeColor="#6b7280" strokeWidth={3} lineDashPattern={[6, 7]} />)}
         {selectedEvent?.kind === 'Driving' && <Polyline coordinates={route.filter(p => new Date(p.timestamp).getTime() >= new Date(selectedEvent.point.timestamp).getTime() && new Date(p.timestamp).getTime() <= new Date(selectedEvent.end.timestamp).getTime()).map(p => ({latitude:p.latitude,longitude:p.longitude}))} strokeColor="#16a34a" strokeWidth={5} zIndex={3} />}

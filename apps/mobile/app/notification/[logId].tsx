@@ -80,7 +80,7 @@ function createStyles(t: AppTheme) {
     back: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
     headerTitle: { color: t.ink, fontWeight: '700', fontSize: 16 },
     body: { padding: 20 },
-    icon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff5f5', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+    icon: { width: 48, height: 48, borderRadius: 24, backgroundColor: `${t.red}14`, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
     title: { color: t.ink, fontSize: 22, fontWeight: '700' },
     subtitle: { color: t.secondary, fontSize: 13, textTransform: 'capitalize', marginTop: 5 },
     section: { marginTop: 22, borderTopWidth: 1, borderColor: t.border },

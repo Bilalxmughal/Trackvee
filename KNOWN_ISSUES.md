@@ -405,3 +405,21 @@ Alert-rule list responses must also be organization- and vehicle-scoped: remove 
 **Cause:** History consumers requested one capped result page from an ascending date range. Dense ranges could omit later points, including long parked periods. Portal also used GPS-invalid fixes for endpoints, and stop segments could count a long location jump as parked time.
 
 **Rule:** Keep deterministic `(timestamp, id)` ordering, bounded API pages, and fetch until a short page is returned. Filter invalid GPS fixes consistently across clients. Any >10-minute telemetry gap ends the GPS route segment, remains visible as a `GPS data gap`, and is drawn only as a dashed connector. If the last fix is stationary (<=2 km/h), the next fix is moving (>=5 km/h), and the gap is 10–15 minutes, extend the stop event through the first moving fix but mark its duration as estimated and state that the gap is included. Never present this as recovered/confirmed GPS data. Gaps over 15 minutes remain unconfirmed and excluded from stop duration. Keep this behavior aligned across admin, portal, and mobile. START is a green circle, END a red circle, and parked `P` markers are black.
+
+## Mobile native startup checks
+
+Android MapView requires a configured Maps SDK key even when OSM UrlTile supplies street tiles. A physical-device crash was confirmed with `API key not found`; rebuild and reinstall after configuring `GOOGLE_MAPS_ANDROID_API_KEY` for the EAS profile. Street tile templates must use a literal host such as `https://tile.openstreetmap.org/{z}/{x}/{y}.png`; `{s}` is not a supported react-native-maps UrlTile substitution and causes Android URI errors. Check every mobile map screen when changing tile configuration. See apps/mobile/BUILD_CHECKLIST.md.
+
+For SDK 57, offline tile-cache calls using cacheDirectory and legacy filesystem functions must import expo-file-system/legacy. Typecheck before building to prevent undefined filesystem constants and deprecated API calls.
+
+---
+
+## KI-033 — Alert web push settings must not imply delivery
+
+**Status:** Active feature gap
+
+**Area:** API / Admin / Client portal / Web notifications
+
+**Problem:** Alert forms persist `webPush` and `webSound`, but the API currently sends mobile push only; web subscriptions, service-worker delivery, and browser sound are not implemented. A saved toggle therefore does not notify the web client.
+
+**Rule:** Keep web delivery explicitly marked as unavailable until subscription registration, tenant-scoped delivery, service-worker handling, and permission-aware browser sound are implemented and verified. Do not treat mobile Expo push credentials as web-push configuration.

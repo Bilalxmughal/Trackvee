@@ -93,10 +93,10 @@ export default function OfflineMapScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.header}>
         <Pressable onPress={goBack} style={styles.back} accessibilityRole="button" accessibilityLabel="Go back">
-          <TablerIcon name="back" size={21} color={t.ink} />
+          <TablerIcon name="arrow-left" size={19} color={t.ink} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Offline Map Cache</Text>
+          <Text style={styles.headerTitle}>Offline Maps</Text>
           <Text style={styles.headerSubtitle}>Download map tiles for use without internet</Text>
         </View>
       </View>
@@ -137,7 +137,7 @@ export default function OfflineMapScreen() {
               <ActivityIndicator size="small" color={t.red} />
               <Text style={[styles.cardTitle, { color: t.ink }]}>Downloading {activePreset}…</Text>
             </View>
-            <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               <View style={[styles.progressBar, { backgroundColor: t.border }]}>
                 <View style={[styles.progressFill, {
                   width: progress.total > 0 ? `${Math.round((progress.downloaded / progress.total) * 100)}%` as any : '0%',
@@ -155,41 +155,57 @@ export default function OfflineMapScreen() {
           </View>
         )}
 
+        {/* Benefit Info */}
+        <View style={[styles.benefitCard, { backgroundColor: `${t.red}0d` }]}>
+          <View style={[styles.benefitIconWrap, { backgroundColor: `${t.red}18` }]}>
+            <TablerIcon name="map-pin" size={18} color={t.red} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.benefitTitle, { color: t.ink }]}>Works without internet</Text>
+            <Text style={[styles.benefitText, { color: t.secondary }]}>Vehicle GPS still updates live — only the map background needs a connection. Pre-load your city to track vehicles in remote areas, industrial zones, or wherever mobile data is unreliable.</Text>
+          </View>
+        </View>
+
         {/* City Presets */}
         <Text style={[styles.sectionLabel, { color: t.secondary }]}>DOWNLOAD AREA</Text>
         <Text style={[styles.sectionNote, { color: t.muted }]}>
-          Downloads OSM tiles at zoom levels 12–16 (up to 2000 tiles per area, ~5–15 MB).
+          Downloads OSM tiles at zoom levels 12–16 (up to ~2000 tiles, 5–15 MB per city).
         </Text>
 
-        {PRESETS.map(preset => (
-          <View key={preset.label} style={[styles.presetRow, { backgroundColor: t.card, borderColor: t.border }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.presetName, { color: t.ink }]}>{preset.label}</Text>
-              <Text style={[styles.presetBounds, { color: t.muted }]}>
-                {preset.bounds.south.toFixed(2)}°N – {preset.bounds.north.toFixed(2)}°N, {preset.bounds.west.toFixed(2)}°E – {preset.bounds.east.toFixed(2)}°E
-              </Text>
+        <View style={[styles.presetsCard, { backgroundColor: t.card }]}>
+          {PRESETS.map((preset, index) => (
+            <View key={preset.label}>
+              {index > 0 && <View style={[styles.presetDivider, { backgroundColor: t.border }]} />}
+              <View style={styles.presetRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.presetName, { color: t.ink }]}>{preset.label}</Text>
+                  <Text style={[styles.presetBounds, { color: t.muted }]}>
+                    {preset.bounds.south.toFixed(2)}–{preset.bounds.north.toFixed(2)}°N, {preset.bounds.west.toFixed(2)}–{preset.bounds.east.toFixed(2)}°E
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => { void startDownload(preset); }}
+                  disabled={downloading}
+                  style={[styles.dlBtn, { backgroundColor: t.red, opacity: downloading ? 0.5 : 1 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Download ${preset.label}`}
+                >
+                  {activePreset === preset.label ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <TablerIcon name="download" size={13} color="#fff" />
+                      <Text style={styles.dlBtnText}>Download</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
             </View>
-            <Pressable
-              onPress={() => { void startDownload(preset); }}
-              disabled={downloading}
-              style={[styles.dlBtn, { backgroundColor: t.red, opacity: downloading ? 0.5 : 1 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Download ${preset.label}`}
-            >
-              {activePreset === preset.label ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <TablerIcon name="download" size={13} color="#fff" />
-                  <Text style={styles.dlBtnText}>Download</Text>
-                </>
-              )}
-            </Pressable>
-          </View>
-        ))}
+          ))}
+        </View>
 
         <Text style={[styles.note, { color: t.muted }]}>
-          Tiles are cached from OpenStreetMap and used automatically when offline. Cache clears with app updates.
+          Map data from OpenStreetMap. Tiles are used automatically when offline and cleared on app updates.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -199,33 +215,39 @@ export default function OfflineMapScreen() {
 function createStyles(t: AppTheme) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: t.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border, gap: 10 },
-    back: { padding: 4 },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border, gap: 12 },
+    back: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg2 },
     headerCopy: { flex: 1 },
-    headerTitle: { fontSize: 17, fontWeight: '700', color: t.ink },
+    headerTitle: { fontSize: 16, fontWeight: '700', color: t.ink },
     headerSubtitle: { fontSize: 11, color: t.secondary, marginTop: 1 },
-    content: { padding: 16, gap: 12, paddingBottom: 32 },
-    card: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, backgroundColor: t.card, overflow: 'hidden' },
-    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border },
+    content: { paddingHorizontal: 16, paddingTop: 16, gap: 12, paddingBottom: 32 },
+    card: { borderRadius: 16, backgroundColor: t.card, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border },
     cardTitle: { fontSize: 14, fontWeight: '700' },
-    statsRow: { flexDirection: 'row', padding: 14, gap: 20 },
+    statsRow: { flexDirection: 'row', padding: 16, gap: 20 },
     statItem: { alignItems: 'center' },
     statValue: { fontSize: 22, fontWeight: '700' },
     statLabel: { fontSize: 10, fontWeight: '600', marginTop: 2, textTransform: 'uppercase' },
-    clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, margin: 14, marginTop: 0, padding: 10, borderRadius: 8, borderWidth: 1, justifyContent: 'center' },
+    clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 14, marginBottom: 14, padding: 10, borderRadius: 10, borderWidth: 1, justifyContent: 'center' },
     clearBtnText: { fontSize: 13, fontWeight: '600' },
     progressBar: { height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
     progressFill: { height: '100%', borderRadius: 3 },
     progressText: { fontSize: 12, textAlign: 'center', marginBottom: 8 },
     cancelBtn: { alignItems: 'center', paddingVertical: 6 },
     cancelBtnText: { fontSize: 13 },
-    sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, marginTop: 8 },
+    benefitCard: { borderRadius: 14, padding: 14, flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+    benefitIconWrap: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
+    benefitTitle: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
+    benefitText: { fontSize: 12, lineHeight: 18 },
+    sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.7, marginTop: 4, marginBottom: 2 },
     sectionNote: { fontSize: 11, marginBottom: 4 },
-    presetRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, gap: 12 },
+    presetsCard: { borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+    presetRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13, gap: 12 },
+    presetDivider: { height: StyleSheet.hairlineWidth, marginLeft: 16 },
     presetName: { fontSize: 14, fontWeight: '600' },
     presetBounds: { fontSize: 10, marginTop: 2 },
-    dlBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+    dlBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 9 },
     dlBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-    note: { fontSize: 10.5, textAlign: 'center', marginTop: 8 },
+    note: { fontSize: 10.5, textAlign: 'center', marginTop: 4 },
   });
 }

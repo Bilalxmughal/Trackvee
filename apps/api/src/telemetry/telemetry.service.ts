@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, MoreThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { Telemetry } from './entities/telemetry.entity.js';
@@ -79,6 +79,8 @@ const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 @Injectable()
 export class TelemetryService {
+  private readonly logger = new Logger(TelemetryService.name);
+
   constructor(
     @InjectRepository(Telemetry)
     private repo: Repository<Telemetry>,
@@ -108,7 +110,9 @@ export class TelemetryService {
     const record = this.repo.create(data);
     const saved = await this.repo.save(record);
     // Fire-and-forget evaluations
-    this.evaluateAlerts(saved).catch(() => {});
+    this.evaluateAlerts(saved).catch(error => {
+      this.logger.error(`Alert evaluation failed (${error instanceof Error ? error.name : 'UnknownError'})`);
+    });
     this.evaluateDriverBehavior(saved).catch(() => {});
     this.updateOdometer(saved).catch(() => {});
     return saved;

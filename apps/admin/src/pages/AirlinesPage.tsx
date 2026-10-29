@@ -29,7 +29,7 @@ L.Icon.Default.mergeOptions({
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Airline {
-  id: string; name: string; iataCode: string | null;
+  id: string; displayId: number; name: string; iataCode: string | null;
   contactPerson: string | null; contactPhone: string | null;
   createdAt: string; crewCount: number; vehicleCount: number;
 }
@@ -594,12 +594,12 @@ export default function AirlinesPage() {
                         <tbody>
                           {recentTrips.map(t => (
                             <tr key={t.t_id}>
-                              <td style={td}><div style={{ fontWeight: 500 }}>{t.crew_name}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>#{t.crew_display_id}</div></td>
-                              <td style={td}>{t.t_flight_number ? <span style={badge('#1d4ed8', dark ? '#1e2a3a' : '#eff6ff')}>{t.t_flight_number}</span> : '—'}</td>
+                              <td style={td}><div style={{ fontWeight: 500 }}>{t.crew_name}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.crew_display_id}</div></td>
+                              <td style={td}>{t.t_flight_number || '—'}</td>
                               <td style={td}><div style={{ fontSize: 12 }}>{fmtDt(t.t_checkin_at)}</div></td>
                               <td style={td}><div style={{ fontSize: 12 }}>{fmtDt(t.t_checkout_at)}</div></td>
                               <td style={td}>{t.t_km_travelled ? <strong style={{ color: '#059669' }}>{Number(t.t_km_travelled).toFixed(1)} km</strong> : '—'}</td>
-                              <td style={td}><span style={badge(t.t_status === 'completed' ? '#059669' : '#f59e0b', dark ? '#1a1a1a' : '#f9f9f9')}>{t.t_status === 'in_progress' ? 'In Progress' : 'Completed'}</span></td>
+                              <td style={td}>{t.t_status === 'in_progress' ? 'In Progress' : 'Completed'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -635,7 +635,7 @@ export default function AirlinesPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        <th style={th}>Airline Name</th><th style={th}>IATA Code</th><th style={th}>Contact Person</th>
+                        <th style={th}>ID</th><th style={th}>Airline Name</th><th style={th}>IATA Code</th><th style={th}>Contact Person</th>
                         <th style={th}>Contact Phone</th><th style={th}>Crew</th><th style={th}>Vehicles</th>
                         <th style={{ ...th, textAlign: 'right' }}>Actions</th>
                       </tr>
@@ -645,12 +645,13 @@ export default function AirlinesPage() {
                         <tr key={a.id}
                           onMouseEnter={e => (e.currentTarget.style.background = dark ? '#1a1a1a' : '#fafafa')}
                           onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                          <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{a.displayId}</span></td>
                           <td style={td}><span style={{ fontWeight: 600 }}>{a.name}</span></td>
-                          <td style={td}>{a.iataCode ? <span style={badge('#1d4ed8', dark ? '#1e2a3a' : '#eff6ff')}>{a.iataCode}</span> : '—'}</td>
+                          <td style={td}>{a.iataCode || '—'}</td>
                           <td style={td}>{a.contactPerson || '—'}</td>
                           <td style={td}>{a.contactPhone || '—'}</td>
-                          <td style={td}><span style={badge('#059669', dark ? '#052e16' : '#f0fdf4')}>{a.crewCount}</span></td>
-                          <td style={td}><span style={badge('#7c3aed', dark ? '#1e1a3a' : '#f5f3ff')}>{a.vehicleCount}</span></td>
+                          <td style={td}>{a.crewCount}</td>
+                          <td style={td}>{a.vehicleCount}</td>
                           <td style={{ ...td, textAlign: 'right' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                               {can('edit') && <button onClick={() => openAirlineEdit(a)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconPencil size={14} color="var(--muted)" /></button>}
@@ -706,7 +707,7 @@ export default function AirlinesPage() {
                         <tbody>
                           {crews.map(c => (
                             <tr key={c.id}>
-                              <td style={td}><span style={badge('#dc2626', dark ? '#2a1010' : '#fff0f0')}>#{c.displayId}</span></td>
+                              <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{c.displayId}</span></td>
                               <td style={td}><div style={{ fontWeight: 500 }}>{c.name}</div>{c.phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}</div>}</td>
                               <td style={td}>{c.designation || '—'}</td>
                               <td style={td}>{c.stopName ? <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconMapPin size={13} color="#dc2626" /><span style={{ fontSize: 12 }}>{c.stopName}</span></div> : '—'}</td>
@@ -747,7 +748,7 @@ export default function AirlinesPage() {
                             <tr key={v.id}>
                               <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || `#${v.display_id}`}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.name}</div></td>
                               <td style={td}>{v.type}</td>
-                              <td style={td}><span style={badge(v.lifecycle_status === 'active' ? '#059669' : '#6b7280', dark ? '#1a1a1a' : '#f9f9f9')}>{v.lifecycle_status}</span></td>
+                              <td style={td}>{v.lifecycle_status}</td>
                               {can('delete') && <td style={{ ...td, textAlign: 'right' }}><button onClick={() => unassignVehicle(v.id)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button></td>}
                             </tr>
                           ))}
@@ -770,13 +771,13 @@ export default function AirlinesPage() {
                         <tbody>
                           {trips.map(t => (
                             <tr key={t.t_id}>
-                              <td style={td}><div style={{ fontWeight: 500 }}>{t.crew_name}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.crew_designation || ''} · #{t.crew_display_id}</div></td>
-                              <td style={td}>{t.t_flight_number ? <span style={badge('#1d4ed8', dark ? '#1e2a3a' : '#eff6ff')}>{t.t_flight_number}</span> : '—'}</td>
+                              <td style={td}><div style={{ fontWeight: 500 }}>{t.crew_name}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.crew_designation || ''} · {t.crew_display_id}</div></td>
+                              <td style={td}>{t.t_flight_number || '—'}</td>
                               <td style={td}>{t.vehicle_name}<br /><span style={{ fontSize: 11, color: 'var(--muted)' }}>{t.license_plate || ''}</span></td>
                               <td style={td}><div style={{ fontSize: 12 }}>{fmtDt(t.t_checkin_at)}</div>{t.t_checkin_stop && <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}><IconMapPin size={11} />{t.t_checkin_stop}</div>}</td>
                               <td style={td}><div style={{ fontSize: 12 }}>{fmtDt(t.t_checkout_at)}</div>{t.t_checkout_stop && <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}><IconMapPin size={11} />{t.t_checkout_stop}</div>}</td>
                               <td style={td}>{t.t_km_travelled ? <strong style={{ color: '#059669' }}>{Number(t.t_km_travelled).toFixed(1)} km</strong> : '—'}</td>
-                              <td style={td}><span style={badge(t.t_status === 'completed' ? '#059669' : '#f59e0b', dark ? '#1a1a1a' : '#f9f9f9')}>{t.t_status === 'in_progress' ? 'In Progress' : 'Completed'}</span></td>
+                              <td style={td}>{t.t_status === 'in_progress' ? 'In Progress' : 'Completed'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -817,9 +818,9 @@ export default function AirlinesPage() {
                     <tbody>
                       {allCrews.map(c => (
                         <tr key={c.id}>
-                          <td style={td}><span style={badge('#dc2626', dark ? '#2a1010' : '#fff0f0')}>#{c.displayId}</span></td>
+                          <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{c.displayId}</span></td>
                           <td style={td}><div style={{ fontWeight: 500 }}>{c.name}</div>{c.phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}</div>}</td>
-                          <td style={td}><span style={badge('#1d4ed8', dark ? '#1e2a3a' : '#eff6ff')}>{c.airlineName}</span></td>
+                          <td style={td}>{c.airlineName}</td>
                           <td style={td}>{c.designation || '—'}</td>
                           <td style={td}>{c.stopName ? <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconMapPin size={13} color="#dc2626" /><span style={{ fontSize: 12 }}>{c.stopName}</span></div> : '—'}</td>
                           <td style={td}>{c.nfcCardUid ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconNfc size={13} color="#059669" /><code style={{ fontSize: 11 }}>{c.nfcCardUid}</code></span> : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Not assigned</span>}</td>
@@ -854,9 +855,9 @@ export default function AirlinesPage() {
                       {allVehiclesView.map(v => (
                         <tr key={`${v.id}-${v.airlineName}`}>
                           <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || `#${v.display_id}`}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.name}</div></td>
-                          <td style={td}><span style={badge('#1d4ed8', dark ? '#1e2a3a' : '#eff6ff')}>{v.airlineName}</span></td>
+                          <td style={td}>{v.airlineName}</td>
                           <td style={td}>{v.type}</td>
-                          <td style={td}><span style={badge(v.lifecycle_status === 'active' ? '#059669' : '#6b7280', dark ? '#1a1a1a' : '#f9f9f9')}>{v.lifecycle_status}</span></td>
+                          <td style={td}>{v.lifecycle_status}</td>
                           {can('delete') && <td style={{ ...td, textAlign: 'right' }}>
                             <button onClick={() => { const a = airlines.find(al => al.name === v.airlineName); if (a) unassignVehicle(v.id, a.id); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>
                           </td>}

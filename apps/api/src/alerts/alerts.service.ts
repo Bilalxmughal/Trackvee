@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { Alert } from './entities/alert.entity.js';
@@ -17,6 +17,8 @@ type AlertWithAccess = Alert & { fleetWide?: boolean; canEdit?: boolean; canDele
 
 @Injectable()
 export class AlertsService {
+  private readonly logger = new Logger(AlertsService.name);
+
   constructor(
     @InjectRepository(Alert) private repo: Repository<Alert>,
     @InjectRepository(AlertLog) private logRepo: Repository<AlertLog>,
@@ -397,21 +399,33 @@ export class AlertsService {
           body: JSON.stringify(messages.slice(start, start + 100)),
           signal: AbortSignal.timeout(5000),
         });
-        if (!response.ok) continue;
+        if (!response.ok) {
+          this.logger.warn(`Expo push request failed with HTTP ${response.status}`);
+          continue;
+        }
         const result = await response.json() as { data?: Array<{ status?: string; details?: { error?: string } }> };
         const receipts = result.data ?? [];
+        const rejectionCodes = [...new Set(receipts.flatMap(receipt => receipt.status === 'error' && receipt.details?.error ? [receipt.details.error] : []))];
+        if (rejectionCodes.length) this.logger.warn(`Expo rejected push messages: ${rejectionCodes.join(', ')}`);
         const invalid = receipts.flatMap((receipt, index) => receipt.status === 'error' && receipt.details?.error === 'DeviceNotRegistered' ? [messages[start + index]?.to] : []).filter((token): token is string => !!token);
         if (invalid.length) await this.pushTokenRepo.delete({ token: In(invalid) });
       }
-    } catch {
+    } catch (error) {
       // Push delivery must never interrupt telemetry ingestion or event persistence.
+      this.logger.error(`Mobile push delivery failed (${error instanceof Error ? error.name : 'UnknownError'})`);
     }
   }
 
   async logTrigger(alertId: string, imei: string, payload: Record<string, unknown>): Promise<void> {
     const log = this.logRepo.create({ alertId, imei, payload });
-    const saved = await this.logRepo.save(log).catch(() => null);
-    const alert = saved ? await this.repo.findOne({ where: { id: alertId } }).catch(() => null) : null;
+    const saved = await this.logRepo.save(log).catch(error => {
+      this.logger.error(`Alert event could not be persisted (${error instanceof Error ? error.name : 'UnknownError'})`);
+      return null;
+    });
+    const alert = saved ? await this.repo.findOne({ where: { id: alertId } }).catch(error => {
+      this.logger.error(`Triggered alert rule could not be loaded (${error instanceof Error ? error.name : 'UnknownError'})`);
+      return null;
+    }) : null;
     if (alert && saved) void this.sendMobilePush(alert, saved);
   }
 

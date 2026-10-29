@@ -93,15 +93,15 @@ export default function AlertsScreen() {
 
   return <SafeAreaView style={s.container} edges={['top']}>
     <View style={s.header}>
-      <View><Text style={s.title}>Alerts</Text><Text style={s.subtitle}>Rules for your fleet</Text></View>
+      <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={[s.backBtn, { backgroundColor: t.bg2 }]}><TablerIcon name="arrow-left" size={19} color={t.ink}/></Pressable>
+      <View style={{ flex: 1 }}><Text style={s.title}>Alerts</Text><Text style={s.subtitle}>Rules for your fleet</Text></View>
       <View style={s.headerActions}>
         {canDo('alerts', 'add') ? <Pressable onPress={openNew} accessibilityRole="button" accessibilityLabel="Create alert rule" style={s.addBtn}><TablerIcon name="plus" size={20} color="#fff"/></Pressable> : null}
-        <Pressable onPress={() => void load()} accessibilityLabel="Refresh alerts" style={s.iconBtn}><TablerIcon name="refresh" size={18} color={t.ink} /></Pressable>
+        <Pressable onPress={() => void load()} accessibilityLabel="Refresh alerts" style={[s.iconBtn, { backgroundColor: t.bg2 }]}><TablerIcon name="refresh" size={18} color={t.ink} /></Pressable>
       </View>
     </View>
 
-
-    <View style={[s.search, { borderBottomColor: t.border }]}>
+    <View style={[s.search, { backgroundColor: t.card }]}>
       <TablerIcon name="search" size={16} color={t.secondary}/>
       <TextInput value={query} onChangeText={setQuery} placeholder="Search alert rules" placeholderTextColor={t.muted} style={[s.searchInput, { color: t.ink }]}/>
     </View>
@@ -128,7 +128,7 @@ export default function AlertsScreen() {
         const activeBg = item.active ? `${t.red}14` : t.bg2;
         const activeColor = item.active ? t.red : t.muted;
         return (
-          <View style={[s.rule, { borderBottomColor: t.border }]}>
+          <View style={[s.rule, { backgroundColor: t.card }]}>
             <View style={[s.ruleAccent, { backgroundColor: item.active ? t.red : t.border }]}/>
             <View style={s.ruleMain}>
               <Text style={[s.ruleName, { color: t.ink }]} numberOfLines={1}>{item.name}</Text>
@@ -187,12 +187,13 @@ export default function AlertsScreen() {
 
 function createStyles(t: AppTheme) { return StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
-  header: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 26, fontWeight: '700', color: t.ink, letterSpacing: -0.4 },
-  subtitle: { fontSize: 13, color: t.secondary, marginTop: 2 },
+  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backBtn: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  title: { fontSize: 22, fontWeight: '800', color: t.ink, letterSpacing: -0.4 },
+  subtitle: { fontSize: 12, color: t.secondary, marginTop: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  addBtn: { width: 36, height: 36, borderRadius: 9, backgroundColor: t.red, alignItems: 'center', justifyContent: 'center' },
-  iconBtn: { width: 36, height: 36, borderRadius: 9, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
+  addBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: t.red, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   pushCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 12, padding: 13, borderWidth: 1, borderRadius: 10 },
   pushIcon: { width: 36, height: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   pushTitle: { fontSize: 13, fontWeight: '600' },
@@ -201,13 +202,13 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   enabledText: { fontSize: 11, fontWeight: '600' },
   enableBtn: { borderWidth: 1, borderRadius: 7, paddingHorizontal: 12, paddingVertical: 6 },
   enableBtnText: { fontSize: 12, fontWeight: '600' },
-  search: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   searchInput: { flex: 1, fontSize: 14, paddingVertical: 2 },
-  pillRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
+  pillRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
   pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   pillText: { fontSize: 12 },
-  listContent: { paddingBottom: 20 },
-  rule: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, gap: 10 },
+  listContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 20, gap: 8 },
+  rule: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 13, gap: 10, borderRadius: 14, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   ruleAccent: { width: 3, height: 36, borderRadius: 2 },
   ruleMain: { flex: 1, minWidth: 0 },
   ruleName: { fontSize: 14, fontWeight: '600' },

@@ -88,58 +88,68 @@ export default function SupportScreen() {
 
         <Text style={[styles.sectionLabel, { color: t.secondary }]}>OTHER CHANNELS</Text>
 
-        {/* Phone */}
-        {contact?.phone ? (
-          <Pressable onPress={openPhone} style={({ pressed }) => [styles.row, { borderColor: t.border, backgroundColor: pressed ? t.bg2 : t.card }]}>
-            <View style={[styles.rowIcon, { backgroundColor: t.bg2 }]}>
-              <TablerIcon name="phone" size={18} color={t.red} />
-            </View>
-            <View style={styles.rowText}>
-              <Text style={[styles.rowTitle, { color: t.ink }]}>Phone</Text>
-              <Text style={[styles.rowValue, { color: t.secondary }]}>{contact.phone}</Text>
-            </View>
-            <TablerIcon name="chevron-right" size={16} color={t.secondary} />
-          </Pressable>
-        ) : null}
+        {(contact?.phone || contact?.emailSupport || contact?.hours || contact?.address) ? (
+          <View style={[styles.channelCard, { backgroundColor: t.card }]}>
+            {/* Phone */}
+            {contact?.phone ? (
+              <Pressable onPress={openPhone} style={({ pressed }) => [styles.row, { backgroundColor: pressed ? t.bg2 : 'transparent' }]}>
+                <View style={[styles.rowIcon, { backgroundColor: t.bg2 }]}>
+                  <TablerIcon name="phone" size={18} color={t.red} />
+                </View>
+                <View style={styles.rowText}>
+                  <Text style={[styles.rowTitle, { color: t.ink }]}>Phone</Text>
+                  <Text style={[styles.rowValue, { color: t.secondary }]}>{contact.phone}</Text>
+                </View>
+                <TablerIcon name="chevron-right" size={16} color={t.secondary} />
+              </Pressable>
+            ) : null}
 
-        {/* Email */}
-        {contact?.emailSupport ? (
-          <Pressable onPress={openEmail} style={({ pressed }) => [styles.row, { borderColor: t.border, backgroundColor: pressed ? t.bg2 : t.card }]}>
-            <View style={[styles.rowIcon, { backgroundColor: t.bg2 }]}>
-              <TablerIcon name="mail" size={18} color={t.red} />
-            </View>
-            <View style={styles.rowText}>
-              <Text style={[styles.rowTitle, { color: t.ink }]}>Email Support</Text>
-              <Text style={[styles.rowValue, { color: t.secondary }]}>{contact.emailSupport}</Text>
-            </View>
-            <TablerIcon name="chevron-right" size={16} color={t.secondary} />
-          </Pressable>
-        ) : null}
+            {contact?.phone && contact?.emailSupport ? <View style={[styles.rowDivider, { backgroundColor: t.border }]} /> : null}
 
-        {/* Hours */}
-        {contact?.hours ? (
-          <View style={[styles.row, styles.rowStatic, { borderColor: t.border, backgroundColor: t.card }]}>
-            <View style={[styles.rowIcon, { backgroundColor: t.bg2 }]}>
-              <TablerIcon name="clock" size={18} color={t.red} />
-            </View>
-            <View style={styles.rowText}>
-              <Text style={[styles.rowTitle, { color: t.ink }]}>Business Hours</Text>
-              <Text style={[styles.rowValue, { color: t.secondary }]}>{contact.hours}</Text>
-              {contact.hoursSub ? <Text style={[styles.rowSub, { color: t.muted }]}>{contact.hoursSub}</Text> : null}
-            </View>
-          </View>
-        ) : null}
+            {/* Email */}
+            {contact?.emailSupport ? (
+              <Pressable onPress={openEmail} style={({ pressed }) => [styles.row, { backgroundColor: pressed ? t.bg2 : 'transparent' }]}>
+                <View style={[styles.rowIcon, { backgroundColor: t.bg2 }]}>
+                  <TablerIcon name="mail" size={18} color={t.red} />
+                </View>
+                <View style={styles.rowText}>
+                  <Text style={[styles.rowTitle, { color: t.ink }]}>Email Support</Text>
+                  <Text style={[styles.rowValue, { color: t.secondary }]}>{contact.emailSupport}</Text>
+                </View>
+                <TablerIcon name="chevron-right" size={16} color={t.secondary} />
+              </Pressable>
+            ) : null}
 
-        {/* Address */}
-        {contact?.address ? (
-          <View style={[styles.row, styles.rowStatic, { borderColor: t.border, backgroundColor: t.card }]}>
-            <View style={[styles.rowIcon, { backgroundColor: t.bg2 }]}>
-              <TablerIcon name="map-pin" size={18} color={t.red} />
-            </View>
-            <View style={styles.rowText}>
-              <Text style={[styles.rowTitle, { color: t.ink }]}>Address</Text>
-              <Text style={[styles.rowValue, { color: t.secondary }]}>{contact.address}</Text>
-            </View>
+            {(contact?.phone || contact?.emailSupport) && contact?.hours ? <View style={[styles.rowDivider, { backgroundColor: t.border }]} /> : null}
+
+            {/* Hours */}
+            {contact?.hours ? (
+              <View style={styles.row}>
+                <View style={[styles.rowIcon, { backgroundColor: t.bg2 }]}>
+                  <TablerIcon name="clock" size={18} color={t.red} />
+                </View>
+                <View style={styles.rowText}>
+                  <Text style={[styles.rowTitle, { color: t.ink }]}>Business Hours</Text>
+                  <Text style={[styles.rowValue, { color: t.secondary }]}>{contact.hours}</Text>
+                  {contact.hoursSub ? <Text style={[styles.rowSub, { color: t.muted }]}>{contact.hoursSub}</Text> : null}
+                </View>
+              </View>
+            ) : null}
+
+            {(contact?.phone || contact?.emailSupport || contact?.hours) && contact?.address ? <View style={[styles.rowDivider, { backgroundColor: t.border }]} /> : null}
+
+            {/* Address */}
+            {contact?.address ? (
+              <View style={styles.row}>
+                <View style={[styles.rowIcon, { backgroundColor: t.bg2 }]}>
+                  <TablerIcon name="map-pin" size={18} color={t.red} />
+                </View>
+                <View style={styles.rowText}>
+                  <Text style={[styles.rowTitle, { color: t.ink }]}>Address</Text>
+                  <Text style={[styles.rowValue, { color: t.secondary }]}>{contact.address}</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -180,9 +190,11 @@ const styles = StyleSheet.create({
   badge247: { backgroundColor: 'rgba(255,255,255,0.28)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
   badge247Text: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
 
-  sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.7, marginTop: 8, marginBottom: 2 },
+  sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.7, marginTop: 8, marginBottom: 8 },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, borderWidth: 1 },
+  channelCard: { borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  rowDivider: { height: StyleSheet.hairlineWidth, marginLeft: 68 },
   rowStatic: {},
   rowIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   rowText: { flex: 1 },
