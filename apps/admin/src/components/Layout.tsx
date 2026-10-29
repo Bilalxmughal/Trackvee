@@ -62,9 +62,9 @@ const NAV_SECTIONS: Section[] = [
     ],
   },
   {
-    label: 'Services',
+    label: 'Aviation',
     items: [
-      { to: '/airlines', icon: IconPlane, label: 'Airlines' },
+      { to: '/airlines', icon: IconPlane, label: 'Aviation' },
     ],
   },
   {
@@ -123,46 +123,6 @@ function NavItem({ to, icon: Icon, label, collapsed }: NavItemDef & { collapsed:
           {label}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Airlines Widget ───────────────────────────────────────────────────────────
-
-function AirlinesWidget({ dark }: { dark: boolean }) {
-  const [stats, setStats] = useState<{ airlines: number; crews: number; active: number } | null>(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    api.get<{ id: string; crewCount: number }[]>('/airlines').then(r => {
-      const list = r.data;
-      setStats({ airlines: list.length, crews: list.reduce((s, a) => s + a.crewCount, 0), active: 0 });
-    }).catch(() => {});
-  }, []);
-
-  if (!stats) return null;
-
-  return (
-    <div style={{ margin: '0 10px 8px', borderRadius: 10, border: `1px solid ${dark ? '#222' : '#f0f0f0'}`, background: dark ? '#161616' : '#fafafa', padding: '10px 12px', cursor: 'pointer' }}
-      onClick={() => navigate('/airlines')}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = '#dc2626')}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = dark ? '#222' : '#f0f0f0')}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-        <IconPlane size={13} color="#dc2626" />
-        <span style={{ fontSize: 11, fontWeight: 700, color: dark ? '#888' : '#aaa', textTransform: 'uppercase', letterSpacing: 0.8 }}>Airlines</span>
-      </div>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: dark ? '#e5e5e5' : '#1a1a1a', lineHeight: 1 }}>{stats.airlines}</div>
-          <div style={{ fontSize: 10, color: dark ? '#555' : '#bbb', marginTop: 2 }}>Airlines</div>
-        </div>
-        <div style={{ width: 1, background: dark ? '#222' : '#e8e8e8' }} />
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: dark ? '#e5e5e5' : '#1a1a1a', lineHeight: 1 }}>{stats.crews}</div>
-          <div style={{ fontSize: 10, color: dark ? '#555' : '#bbb', marginTop: 2 }}>Crew</div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -353,11 +313,6 @@ function LayoutInner() {
             </div>
           ))}
         </nav>
-
-        {/* Airlines widget */}
-        {!collapsed && visibleSections.some(s => s.items.some(i => i.to === '/airlines')) && (
-          <AirlinesWidget dark={dark} />
-        )}
 
         {/* Profile + logout */}
         <div style={{ padding: collapsed ? '10px 0' : '10px 12px', borderTop: `1px solid ${dark ? '#222' : '#f5f5f5'}`, flexShrink: 0 }}>

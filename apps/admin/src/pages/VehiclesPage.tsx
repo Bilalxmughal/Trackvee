@@ -21,6 +21,7 @@ import TablePagination, { useTablePagination } from '../components/TablePaginati
 
 interface Vehicle { id: string; displayId: number; licensePlate: string | null; make: string | null; model: string | null; year: number | null; cityId: string | null; organizationId: string | null; isActive: boolean; lifecycleStatus: 'active' | 'expired' | 'archived'; expiresAt: string | null; createdAt: string; odometerKm: number; }
 interface Org { id: string; name: string; }
+interface AirlineOpt { id: string; name: string; iataCode: string | null; }
 interface DeviceAssignment { id: string; vehicleId: string; assignedAt: string; unassignedAt: string | null; action: string; reason: string | null; odometerKm: number | null; notes: string | null; deviceDisplayId: number; imei: string; simNumber: string | null; assignedByFirstName: string | null; assignedByLastName: string | null; }
 interface InventoryDevice { id: string; displayId: number; imei: string; name: string | null; simNumber: string | null; inventoryStatus: 'in_stock' | 'assigned' | 'maintenance' | 'retired'; vehicleId: string | null; licensePlate: string | null; }
 function ClientSearchSelect({ orgs, value, onChange }: { orgs: Org[]; value: string; onChange: (id: string) => void }) {
@@ -47,6 +48,8 @@ export default function VehiclesPage() {
   const { toast } = useToast();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [orgs, setOrgs] = useState<Org[]>([]);
+  const [airlines, setAirlines] = useState<AirlineOpt[]>([]);
+  const [clientTab, setClientTab] = useState<'client' | 'airline'>('client');
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -81,8 +84,8 @@ export default function VehiclesPage() {
 
   const load = () => {
     const p = selectedCityId ? `?cityId=${selectedCityId}` : '';
-    Promise.all([api.get<Vehicle[]>(`/vehicles${p}`), api.get<Org[]>('/organizations')])
-      .then(([v, o]) => { setVehicles(v.data); setOrgs(o.data); })
+    Promise.all([api.get<Vehicle[]>(`/vehicles${p}`), api.get<Org[]>('/organizations'), api.get<AirlineOpt[]>('/airlines')])
+      .then(([v, o, a]) => { setVehicles(v.data); setOrgs(o.data); setAirlines(a.data); })
       .catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [selectedCityId]);
@@ -153,6 +156,8 @@ export default function VehiclesPage() {
   const openEdit = (v: Vehicle) => {
     setEditing(v);
     setForm({ licensePlate: v.licensePlate ?? '', make: v.make ?? '', model: v.model ?? '', year: v.year ? String(v.year) : '', cityId: v.cityId ?? '', lifecycleStatus: v.lifecycleStatus ?? (v.isActive ? 'active' : 'archived'), expiresAt: v.expiresAt ? v.expiresAt.slice(0, 10) : '', organizationId: v.organizationId ?? '', odometerKm: String(v.odometerKm ?? 0) });
+    const isAirline = v.organizationId ? airlines.some(a => a.id === v.organizationId) : false;
+    setClientTab(isAirline ? 'airline' : 'client');
     setModal(true);
   };
   const closeModal = () => { setModal(false); setEditing(null); };
@@ -325,11 +330,27 @@ export default function VehiclesPage() {
               onFocus={e => (e.currentTarget.style.borderColor = '#dc2626')} onBlur={e => (e.currentTarget.style.borderColor = '#e8e8e8')} />
           </FormField>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-            <FormField label="Organization">
-              <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
-                <option value="">None</option>
-                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
+            <FormField label="Client">
+              {/* Tab toggle */}
+              <div style={{ display: 'flex', gap: 0, marginBottom: 6, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--input-border)' }}>
+                {(['client', 'airline'] as const).map(t => (
+                  <button key={t} type="button" onClick={() => { setClientTab(t); set('organizationId', ''); }}
+                    style={{ flex: 1, padding: '5px 0', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: clientTab === t ? 700 : 400, background: clientTab === t ? '#dc2626' : 'var(--input-bg)', color: clientTab === t ? '#fff' : 'var(--muted)' }}>
+                    {t === 'client' ? 'Client' : 'Airline'}
+                  </button>
+                ))}
+              </div>
+              {clientTab === 'client' ? (
+                <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
+                  <option value="">— None —</option>
+                  {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              ) : (
+                <select value={form.organizationId} onChange={e => set('organizationId', e.target.value)} style={selectStyle}>
+                  <option value="">— None —</option>
+                  {airlines.map(a => <option key={a.id} value={a.id}>{a.name}{a.iataCode ? ` (${a.iataCode})` : ''}</option>)}
+                </select>
+              )}
             </FormField>
             <FormField label="City">
               <select value={form.cityId} onChange={e => set('cityId', e.target.value)} style={selectStyle}>

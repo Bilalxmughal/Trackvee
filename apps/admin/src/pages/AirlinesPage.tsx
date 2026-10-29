@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   IconArrowLeft, IconPlus, IconPencil, IconTrash, IconPlane,
   IconUsers, IconCar, IconMapPin, IconNfc, IconRefresh,
-  IconLayoutDashboard, IconX,
+  IconLayoutDashboard, IconDownload, IconUpload,
 } from '@tabler/icons-react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -370,6 +370,60 @@ export default function AirlinesPage() {
     catch { toast('Could not unassign vehicle', 'error'); }
   };
 
+  // ── Import / Export ───────────────────────────────────────────────────────
+
+  const exportAirlines = () => {
+    const rows = [['ID', 'Name', 'IATA Code', 'Contact Person', 'Contact Phone', 'Crew Count', 'Vehicle Count', 'Created At']];
+    airlines.forEach(a => rows.push([a.id, a.name, a.iataCode ?? '', a.contactPerson ?? '', a.contactPhone ?? '', String(a.crewCount), String(a.vehicleCount), a.createdAt]));
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'airlines.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const exportCrews = () => {
+    const rows = [['ID', 'Name', 'Designation', 'Airline', 'Stop Name', 'Latitude', 'Longitude', 'NFC Card UID', 'Phone', 'Created At']];
+    allCrews.forEach(c => rows.push([c.id, c.name, c.designation ?? '', c.airlineName ?? '', c.stopName ?? '', c.stopLat != null ? String(c.stopLat) : '', c.stopLng != null ? String(c.stopLng) : '', c.nfcCardUid ?? '', c.phone ?? '', c.createdAt]));
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'crews.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const importCrewsRef = useRef<HTMLInputElement>(null);
+  const importCrews = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const text = await file.text();
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) { toast('CSV file is empty or has no data rows', 'error'); return; }
+    const header = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+    const nameIdx = header.indexOf('name'); const airlineIdx = header.indexOf('airline');
+    const desigIdx = header.indexOf('designation'); const stopIdx = header.indexOf('stop name');
+    const latIdx = header.indexOf('latitude'); const lngIdx = header.indexOf('longitude');
+    const nfcIdx = header.indexOf('nfc card uid'); const phoneIdx = header.indexOf('phone');
+    if (nameIdx === -1 || airlineIdx === -1) { toast('CSV must have "Name" and "Airline" columns', 'error'); return; }
+    const parseRow = (line: string) => line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+    let added = 0; let failed = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseRow(lines[i]);
+      const airlineName = cols[airlineIdx];
+      const airline = airlines.find(a => a.name.toLowerCase() === airlineName.toLowerCase() || (a.iataCode ?? '').toLowerCase() === airlineName.toLowerCase());
+      if (!airline) { failed++; continue; }
+      try {
+        await api.post(`/airlines/${airline.id}/crews`, {
+          name: cols[nameIdx], designation: desigIdx >= 0 ? cols[desigIdx] || null : null,
+          stopName: stopIdx >= 0 ? cols[stopIdx] || null : null,
+          stopLat: latIdx >= 0 && cols[latIdx] ? parseFloat(cols[latIdx]) : null,
+          stopLng: lngIdx >= 0 && cols[lngIdx] ? parseFloat(cols[lngIdx]) : null,
+          nfcCardUid: nfcIdx >= 0 ? cols[nfcIdx] || null : null,
+          phone: phoneIdx >= 0 ? cols[phoneIdx] || null : null,
+        }); added++;
+      } catch { failed++; }
+    }
+    toast(`Imported ${added} crew${failed ? `, ${failed} failed` : ''}`, failed ? 'error' : 'success');
+    void loadAllCrews(); if (importCrewsRef.current) importCrewsRef.current.value = '';
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
@@ -377,15 +431,12 @@ export default function AirlinesPage() {
   const crewModal$ = (
     <Modal open={crewModal} title={editingCrew ? 'Edit Crew Member' : 'Add Crew Member'} onClose={() => setCrewModal(false)} width={560}>
       <form onSubmit={saveCrew}>
-        {/* Airline selector — only in global Crew view */}
-        {view === 'crews' && !editingCrew && (
-          <FormField label="Airline *">
-            <select style={selectStyle} value={crewForm.airlineId} onChange={e => setCrewForm(f => ({ ...f, airlineId: e.target.value }))}>
-              <option value="">Select airline</option>
-              {airlines.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </FormField>
-        )}
+        <FormField label="Airline *">
+          <select style={selectStyle} value={crewForm.airlineId} onChange={e => setCrewForm(f => ({ ...f, airlineId: e.target.value }))} disabled={!!editingCrew && view !== 'crews'}>
+            <option value="">Select airline</option>
+            {airlines.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </FormField>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FormField label="Full Name *">
@@ -517,11 +568,16 @@ export default function AirlinesPage() {
         {view === 'airlines' && !selected && (
           <div>
             <PageHeader title="Airlines" subtitle="Manage airline clients and their crew transport">
-              {can('add') && (
-                <button onClick={openAirlineAdd} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-                  <IconPlus size={15} /> Add Airline
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={exportAirlines} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
+                  <IconDownload size={14} /> Export
                 </button>
-              )}
+                {can('add') && (
+                  <button onClick={openAirlineAdd} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                    <IconPlus size={15} /> Add Airline
+                  </button>
+                )}
+              </div>
             </PageHeader>
             <div style={{ padding: '0 24px 24px' }}>
               {loading ? <Spinner style={{ height: 300 }} /> : airlines.length === 0 ? (
@@ -531,8 +587,9 @@ export default function AirlinesPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        <th style={th}>Airline</th><th style={th}>IATA</th><th style={th}>Contact</th>
-                        <th style={th}>Crews</th><th style={th}>Vehicles</th><th style={{ ...th, textAlign: 'right' }}>Actions</th>
+                        <th style={th}>Airline Name</th><th style={th}>IATA Code</th><th style={th}>Contact Person</th>
+                        <th style={th}>Contact Phone</th><th style={th}>Crew</th><th style={th}>Vehicles</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -540,18 +597,12 @@ export default function AirlinesPage() {
                         <tr key={a.id} onClick={() => openDetail(a)} style={{ cursor: 'pointer' }}
                           onMouseEnter={e => (e.currentTarget.style.background = dark ? '#1a1a1a' : '#fafafa')}
                           onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                          <td style={td}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <div style={{ width: 36, height: 36, borderRadius: 10, background: dark ? '#1e1e1e' : '#fff0f0', display: 'grid', placeItems: 'center' }}>
-                                <IconPlane size={18} color="#dc2626" />
-                              </div>
-                              <div style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</div>
-                            </div>
-                          </td>
+                          <td style={td}><span style={{ fontWeight: 600 }}>{a.name}</span></td>
                           <td style={td}>{a.iataCode ? <span style={badge('#1d4ed8', dark ? '#1e2a3a' : '#eff6ff')}>{a.iataCode}</span> : '—'}</td>
-                          <td style={td}><div style={{ fontSize: 13 }}>{a.contactPerson || '—'}</div>{a.contactPhone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{a.contactPhone}</div>}</td>
-                          <td style={td}><span style={badge('#059669', dark ? '#052e16' : '#f0fdf4')}>{a.crewCount} crew</span></td>
-                          <td style={td}><span style={badge('#7c3aed', dark ? '#1e1a3a' : '#f5f3ff')}>{a.vehicleCount} vehicles</span></td>
+                          <td style={td}>{a.contactPerson || '—'}</td>
+                          <td style={td}>{a.contactPhone || '—'}</td>
+                          <td style={td}><span style={badge('#059669', dark ? '#052e16' : '#f0fdf4')}>{a.crewCount}</span></td>
+                          <td style={td}><span style={badge('#7c3aed', dark ? '#1e1a3a' : '#f5f3ff')}>{a.vehicleCount}</span></td>
                           <td style={{ ...td, textAlign: 'right' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }} onClick={e => e.stopPropagation()}>
                               {can('edit') && <button onClick={e => openAirlineEdit(a, e)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconPencil size={14} color="var(--muted)" /></button>}
@@ -695,7 +746,20 @@ export default function AirlinesPage() {
         {view === 'crews' && (
           <div>
             <PageHeader title="All Crew Members" subtitle="All crew across all airlines">
-              {can('add') && <button onClick={() => openCrewAdd()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><IconPlus size={15} /> Add Crew</button>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={exportCrews} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
+                  <IconDownload size={14} /> Export
+                </button>
+                {can('add') && (
+                  <>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
+                      <IconUpload size={14} /> Import
+                      <input ref={importCrewsRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={importCrews} />
+                    </label>
+                    <button onClick={() => openCrewAdd()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><IconPlus size={15} /> Add Crew</button>
+                  </>
+                )}
+              </div>
             </PageHeader>
             <div style={{ padding: '0 24px 24px' }}>
               {allCrewsLoading ? <Spinner style={{ height: 300 }} /> : allCrews.length === 0 ? (
