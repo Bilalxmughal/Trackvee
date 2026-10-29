@@ -23,6 +23,7 @@ import { BillingModule } from './billing/billing.module.js';
 import { SiteSettingsModule } from './site-settings/site-settings.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
 import { ShareLinksModule } from './share-links/share-links.module.js';
+import { AirlinesModule } from './airlines/airlines.module.js';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { ShareLinksModule } from './share-links/share-links.module.js';
     SiteSettingsModule,
     UploadsModule,
     ShareLinksModule,
+    AirlinesModule,
   ],
 })
 export class AppModule {}
