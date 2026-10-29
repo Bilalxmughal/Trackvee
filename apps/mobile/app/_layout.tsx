@@ -150,6 +150,7 @@ function NavigationRoot() {
         <Stack.Screen name="behavior" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
         <Stack.Screen name="geofences" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
         <Stack.Screen name="pois" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
+        <Stack.Screen name="scan" options={{ animation: 'default', animationMatchesGesture: true, gestureEnabled: true, fullScreenGestureEnabled: true }} />
       </Stack>
     </>
   );

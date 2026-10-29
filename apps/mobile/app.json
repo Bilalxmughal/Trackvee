@@ -4,8 +4,17 @@
     "slug": "trackvee-mobile",
     "scheme": "trackvee",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5e702258-0bf7-46b4-a447-ac2cbdc4c6f0",
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
     "orientation": "portrait",
-    "icon": "./assets/trackvee-app-icon.png",
+    "icon": "./assets/trackvee-launcher-icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
@@ -13,10 +22,12 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
-        ]
+        ],
+        "NFCReaderUsageDescription": "Trackvee uses NFC to identify crew members by their card."
       },
       "entitlements": {
-        "aps-environment": "production"
+        "aps-environment": "production",
+        "com.apple.developer.nfc.readersession.formats": ["TAG"]
       }
     },
     "android": {
@@ -24,12 +35,13 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/trackvee-app-icon.png"
+        "foregroundImage": "./assets/trackvee-launcher-foreground.png"
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.NFC"
       ]
     },
     "web": {
@@ -37,6 +49,12 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-updates",
+        {
+          "handleMissingAppDirOption": true
+        }
+      ],
       "expo-secure-store",
       [
         "expo-audio",
