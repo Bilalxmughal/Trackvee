@@ -160,7 +160,7 @@ export class AirlinesService {
 
     const vehicleIds = rows.map(r => r.vehicleId);
     const vehicles = await this.dataSource.query(
-      `SELECT v.id, v.display_id, v.name, v.license_plate, v.type, v.lifecycle_status FROM vehicles v WHERE v.id = ANY($1)`,
+      `SELECT v.id, v.display_id, v.name, v.license_plate, v.make, v.model, v.type, v.lifecycle_status, v.city_id FROM vehicles v WHERE v.id = ANY($1)`,
       [vehicleIds],
     );
     return vehicles;

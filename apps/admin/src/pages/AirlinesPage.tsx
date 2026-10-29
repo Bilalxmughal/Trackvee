@@ -48,7 +48,8 @@ interface Crew {
 }
 interface VehicleRow {
   id: string; display_id: number; name: string;
-  license_plate: string | null; type: string; lifecycle_status: string;
+  license_plate: string | null; make: string | null; model: string | null;
+  type: string; lifecycle_status: string; city_id: string | null;
   airlineName?: string;
 }
 interface Trip {
@@ -374,9 +375,10 @@ export default function AirlinesPage() {
 
   const filteredVehicles = allVehiclesView.filter(v => {
     const q = vehicleSearch.toLowerCase();
-    if (q && !v.name.toLowerCase().includes(q) && !(v.license_plate ?? '').toLowerCase().includes(q)) return false;
+    if (q && !v.name.toLowerCase().includes(q) && !(v.license_plate ?? '').toLowerCase().includes(q) && !(v.make ?? '').toLowerCase().includes(q) && !(v.model ?? '').toLowerCase().includes(q)) return false;
     if (vehicleStatus && v.lifecycle_status !== vehicleStatus) return false;
     if (vehicleAirlineFilter && v.airlineName !== vehicleAirlineFilter) return false;
+    if (selectedCityId && v.city_id !== selectedCityId) return false;
     return true;
   });
 
@@ -1009,7 +1011,7 @@ export default function AirlinesPage() {
                     <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
                       <select style={{ ...selectStyle, maxWidth: 320 }} value={assigningVehicle} onChange={e => setAssigningVehicle(e.target.value)}>
                         <option value="">Select vehicle to assign…</option>
-                        {allVehicles.filter(v => !assignedVehicles.some(av => av.id === v.id)).map(v => <option key={v.id} value={v.id}>{v.license_plate || `#${v.display_id}`} · {v.name}</option>)}
+                        {allVehicles.filter(v => !assignedVehicles.some(av => av.id === v.id)).map(v => <option key={v.id} value={v.id}>{v.license_plate || `#${v.display_id}`}{v.make || v.model ? ` · ${[v.make, v.model].filter(Boolean).join(' ')}` : ''} · {v.name}</option>)}
                       </select>
                       <button onClick={assignVehicle} disabled={!assigningVehicle} style={{ padding: '8px 16px', background: assigningVehicle ? '#dc2626' : '#fca5a5', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: assigningVehicle ? 'pointer' : 'default' }}>Assign</button>
                     </div>
@@ -1017,11 +1019,14 @@ export default function AirlinesPage() {
                   {vehiclesLoading ? <Spinner style={{ height: 200 }} /> : assignedVehicles.length === 0 ? <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 14 }}>No vehicles assigned yet.</div> : (
                     <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead><tr><th style={th}>Vehicle</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
+                        <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
                         <tbody>
                           {assignedVehicles.map(v => (
                             <tr key={v.id}>
-                              <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || `#${v.display_id}`}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.name}</div></td>
+                              <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{v.display_id}</span></td>
+                              <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || '—'}</div></td>
+                              <td style={td}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
+                              <td style={td}>{cities.find(c => c.id === v.city_id)?.name || '—'}</td>
                               <td style={td}>{v.type}</td>
                               <td style={td}>{v.lifecycle_status}</td>
                               {can('delete') && <td style={{ ...td, textAlign: 'right' }}><button onClick={() => unassignVehicle(v.id)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button></td>}
@@ -1269,12 +1274,15 @@ export default function AirlinesPage() {
               ) : (
                 <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr><th style={th}>Vehicle</th><th style={th}>Airline</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
+                    <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>Airline</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
                     <tbody>
                       {filteredVehicles.map(v => (
                         <tr key={`${v.id}-${v.airlineName}`}>
-                          <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || `#${v.display_id}`}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.name}</div></td>
+                          <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{v.display_id}</span></td>
+                          <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || '—'}</div></td>
+                          <td style={td}>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
                           <td style={td}>{v.airlineName}</td>
+                          <td style={td}>{cities.find(c => c.id === v.city_id)?.name || '—'}</td>
                           <td style={td}>{v.type}</td>
                           <td style={td}>{v.lifecycle_status}</td>
                           {can('delete') && <td style={{ ...td, textAlign: 'right' }}>
