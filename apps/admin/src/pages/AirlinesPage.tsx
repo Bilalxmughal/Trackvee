@@ -410,53 +410,66 @@ export default function AirlinesPage() {
     const a = document.createElement('a'); a.href = url; a.download = 'crews.csv'; a.click(); URL.revokeObjectURL(url);
   };
 
-  const downloadSampleAirlines = () => {
-    const csv = `"Name","IATA Code","Contact Person","Contact Phone"\n"PIA Ground Transport","PK","Ali Khan","+92 300 0000000"\n"Emirates Crew Logistics","EK","Sara Ahmed","+971 50 0000000"`;
-    const blob = new Blob([csv], { type: 'text/csv' });
+  // ── Import modals state ───────────────────────────────────────────────────
+  const [importModal, setImportModal] = useState<'airlines' | 'crews' | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
+
+  const downloadCsv = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'sample_airlines.csv'; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
   };
 
-  const downloadSampleCrews = () => {
-    const airlineName = airlines[0]?.name ?? 'PIA Ground Transport';
-    const csv = `"Name","Designation","Airline","Stop Name","Latitude","Longitude","NFC Card UID","Phone"\n"Ahmed Raza","Cabin Crew","${airlineName}","Allama Iqbal Airport","31.52190","74.40361","04:AB:12:CD","0300-0000000"\n"Sara Malik","Captain","${airlineName}","Terminal 2","31.52500","74.40900","","0321-0000000"`;
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'sample_crews.csv'; a.click(); URL.revokeObjectURL(url);
-  };
+  const downloadSampleAirlines = () => downloadCsv(
+    `"Name","IATA Code","Contact Person","Contact Phone"\n"PIA Ground Transport","PK","Ali Khan","+92 300 0000000"\n"Emirates Crew Logistics","EK","Sara Ahmed","+971 50 0000000"`,
+    'sample_airlines.csv',
+  );
 
-  const importCrewsRef = useRef<HTMLInputElement>(null);
-  const importCrews = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const text = await file.text();
+  const downloadSampleCrews = () => downloadCsv(
+    `"Name","Designation","Airline","Stop Name","Latitude","Longitude","NFC Card UID","Phone"\n"Ahmed Raza","Cabin Crew","${airlines[0]?.name ?? 'PIA Ground Transport'}","Allama Iqbal Airport","31.52190","74.40361","04:AB:12:CD","0300-0000000"\n"Sara Malik","Captain","${airlines[0]?.name ?? 'PIA Ground Transport'}","Terminal 2","31.52500","74.40900","","0321-0000000"`,
+    'sample_crews.csv',
+  );
+
+  const handleImportFile = async () => {
+    if (!importFile || !importModal) return;
+    setImporting(true);
+    const text = await importFile.text();
     const lines = text.split('\n').filter(l => l.trim());
-    if (lines.length < 2) { toast('CSV file is empty or has no data rows', 'error'); return; }
-    const header = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
-    const nameIdx = header.indexOf('name'); const airlineIdx = header.indexOf('airline');
-    const desigIdx = header.indexOf('designation'); const stopIdx = header.indexOf('stop name');
-    const latIdx = header.indexOf('latitude'); const lngIdx = header.indexOf('longitude');
-    const nfcIdx = header.indexOf('nfc card uid'); const phoneIdx = header.indexOf('phone');
-    if (nameIdx === -1 || airlineIdx === -1) { toast('CSV must have "Name" and "Airline" columns', 'error'); return; }
+    if (lines.length < 2) { toast('CSV file is empty or has no data rows', 'error'); setImporting(false); return; }
     const parseRow = (line: string) => line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+    const header = parseRow(lines[0]).map(h => h.toLowerCase());
     let added = 0; let failed = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const cols = parseRow(lines[i]);
-      const airlineName = cols[airlineIdx];
-      const airline = airlines.find(a => a.name.toLowerCase() === airlineName.toLowerCase() || (a.iataCode ?? '').toLowerCase() === airlineName.toLowerCase());
-      if (!airline) { failed++; continue; }
-      try {
-        await api.post(`/airlines/${airline.id}/crews`, {
-          name: cols[nameIdx], designation: desigIdx >= 0 ? cols[desigIdx] || null : null,
-          stopName: stopIdx >= 0 ? cols[stopIdx] || null : null,
-          stopLat: latIdx >= 0 && cols[latIdx] ? parseFloat(cols[latIdx]) : null,
-          stopLng: lngIdx >= 0 && cols[lngIdx] ? parseFloat(cols[lngIdx]) : null,
-          nfcCardUid: nfcIdx >= 0 ? cols[nfcIdx] || null : null,
-          phone: phoneIdx >= 0 ? cols[phoneIdx] || null : null,
-        }); added++;
-      } catch { failed++; }
+
+    if (importModal === 'crews') {
+      const nameIdx = header.indexOf('name'); const airlineIdx = header.indexOf('airline');
+      const desigIdx = header.indexOf('designation'); const stopIdx = header.indexOf('stop name');
+      const latIdx = header.indexOf('latitude'); const lngIdx = header.indexOf('longitude');
+      const nfcIdx = header.indexOf('nfc card uid'); const phoneIdx = header.indexOf('phone');
+      if (nameIdx === -1 || airlineIdx === -1) { toast('CSV must have "Name" and "Airline" columns', 'error'); setImporting(false); return; }
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseRow(lines[i]);
+        const airlineName = cols[airlineIdx];
+        const airline = airlines.find(a => a.name.toLowerCase() === airlineName.toLowerCase() || (a.iataCode ?? '').toLowerCase() === airlineName.toLowerCase());
+        if (!airline) { failed++; continue; }
+        try {
+          await api.post(`/airlines/${airline.id}/crews`, {
+            name: cols[nameIdx], designation: desigIdx >= 0 ? cols[desigIdx] || null : null,
+            stopName: stopIdx >= 0 ? cols[stopIdx] || null : null,
+            stopLat: latIdx >= 0 && cols[latIdx] ? parseFloat(cols[latIdx]) : null,
+            stopLng: lngIdx >= 0 && cols[lngIdx] ? parseFloat(cols[lngIdx]) : null,
+            nfcCardUid: nfcIdx >= 0 ? cols[nfcIdx] || null : null,
+            phone: phoneIdx >= 0 ? cols[phoneIdx] || null : null,
+          }); added++;
+        } catch { failed++; }
+      }
+      void loadAllCrews();
     }
-    toast(`Imported ${added} crew${failed ? `, ${failed} failed` : ''}`, failed ? 'error' : 'success');
-    void loadAllCrews(); if (importCrewsRef.current) importCrewsRef.current.value = '';
+
+    toast(`Imported ${added} row${added !== 1 ? 's' : ''}${failed ? `, ${failed} failed` : ''}`, failed ? 'error' : 'success');
+    setImporting(false); setImportModal(null); setImportFile(null);
+    if (importFileRef.current) importFileRef.current.value = '';
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -604,9 +617,6 @@ export default function AirlinesPage() {
           <div>
             <PageHeader title="Airline Clients" subtitle="Manage airline clients and their crew transport">
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={downloadSampleAirlines} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
-                  <IconDownload size={14} /> Sample
-                </button>
                 <button onClick={exportAirlines} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
                   <IconDownload size={14} /> Export
                 </button>
@@ -784,18 +794,14 @@ export default function AirlinesPage() {
           <div>
             <PageHeader title="All Crew Members" subtitle="All crew across all airlines">
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={downloadSampleCrews} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
-                  <IconDownload size={14} /> Sample
-                </button>
                 <button onClick={exportCrews} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
                   <IconDownload size={14} /> Export
                 </button>
                 {can('add') && (
                   <>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
+                    <button onClick={() => { setImportFile(null); setImportModal('crews'); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
                       <IconUpload size={14} /> Import
-                      <input ref={importCrewsRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={importCrews} />
-                    </label>
+                    </button>
                     <button onClick={() => openCrewAdd()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><IconPlus size={15} /> Add Crew</button>
                   </>
                 )}
@@ -868,6 +874,52 @@ export default function AirlinesPage() {
 
       {/* Shared crew modal */}
       {crewModal$}
+
+      {/* Import modal */}
+      <Modal open={!!importModal} title={importModal === 'airlines' ? 'Import Airlines' : 'Import Crew'} onClose={() => { setImportModal(null); setImportFile(null); }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Step 1: Sample */}
+          <div style={{ background: dark ? '#161616' : '#fafafa', border: `1px solid ${dark ? '#222' : '#eee'}`, borderRadius: 10, padding: 16 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>Step 1 — Download Sample</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+              {importModal === 'airlines'
+                ? 'CSV columns: Name, IATA Code, Contact Person, Contact Phone'
+                : 'CSV columns: Name, Designation, Airline, Stop Name, Latitude, Longitude, NFC Card UID, Phone'}
+            </div>
+            <button
+              type="button"
+              onClick={importModal === 'airlines' ? downloadSampleAirlines : downloadSampleCrews}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: dark ? '#1e1e1e' : '#fff', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>
+              <IconDownload size={14} /> Download Sample CSV
+            </button>
+          </div>
+
+          {/* Step 2: Upload */}
+          <div style={{ background: dark ? '#161616' : '#fafafa', border: `1px solid ${dark ? '#222' : '#eee'}`, borderRadius: 10, padding: 16 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>Step 2 — Upload CSV File</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Fill the sample and upload it here.</div>
+            <label style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '24px 16px', border: `2px dashed ${importFile ? '#dc2626' : (dark ? '#333' : '#ddd')}`,
+              borderRadius: 10, cursor: 'pointer', color: importFile ? '#dc2626' : 'var(--muted)', fontSize: 13,
+              background: importFile ? (dark ? 'rgba(220,38,38,0.05)' : '#fff5f5') : 'transparent',
+            }}>
+              <IconUpload size={16} />
+              {importFile ? importFile.name : 'Click to choose CSV file'}
+              <input ref={importFileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={e => setImportFile(e.target.files?.[0] ?? null)} />
+            </label>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button type="button" onClick={() => { setImportModal(null); setImportFile(null); }} style={{ padding: '8px 16px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+            <button type="button" onClick={() => void handleImportFile()} disabled={!importFile || importing}
+              style={{ padding: '8px 18px', background: !importFile || importing ? '#fca5a5' : '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: !importFile || importing ? 'default' : 'pointer' }}>
+              {importing ? 'Importing…' : 'Import'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
