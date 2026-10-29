@@ -60,6 +60,7 @@ interface Trip {
   vehicle_name: string; license_plate: string | null;
 }
 
+// phone fields store raw digits (10 digits after +92), e.g. "3001234567"
 type AirlineForm = { name: string; iataCode: string; contactPerson: string; contactPhone: string; cityId: string; };
 type CrewForm = { name: string; designation: string; stopName: string; stopLat: string; stopLng: string; nfcCardUid: string; phone: string; airlineId: string; cityId: string; };
 type PageView = 'dashboard' | 'airlines' | 'crews' | 'vehicles' | 'trips';
@@ -89,6 +90,22 @@ interface TripDetailData {
 const blankAirline = (): AirlineForm => ({ name: '', iataCode: '', contactPerson: '', contactPhone: '', cityId: '' });
 const blankCrew = (airlineId = ''): CrewForm => ({ name: '', designation: '', stopName: '', stopLat: '', stopLng: '', nfcCardUid: '', phone: '', airlineId, cityId: '' });
 const DESIGNATIONS = ['Captain', 'Co-Pilot', 'Senior Cabin Crew', 'Cabin Crew', 'Purser', 'Engineer', 'Ground Staff', 'Other'];
+
+// Pakistani phone: +92 3XX XXXXXXX (10 digits after country code, starting with 3)
+function formatPakPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '').replace(/^92/, '').replace(/^0/, '');
+  return digits.slice(0, 10);
+}
+function isPakPhoneValid(digits: string): boolean {
+  return digits.length === 10 && digits.startsWith('3');
+}
+function displayPhone(digits: string): string {
+  if (!digits) return '';
+  return `+92 ${digits}`;
+}
+function storedPhone(digits: string): string {
+  return digits ? `+92${digits}` : '';
+}
 
 // ─── Mini Map ─────────────────────────────────────────────────────────────────
 
@@ -319,6 +336,20 @@ export default function AirlinesPage() {
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
   const [dashLoading, setDashLoading] = useState(false);
 
+  // Airline Clients filters (client-side)
+  const [airlineSearch, setAirlineSearch] = useState('');
+  const [airlineDateRange, setAirlineDateRange] = useState<DateRange | undefined>(undefined);
+
+  // All Crews filters (client-side)
+  const [crewSearch, setCrewSearch] = useState('');
+  const [crewDesignation, setCrewDesignation] = useState('');
+  const [crewDateRange, setCrewDateRange] = useState<DateRange | undefined>(undefined);
+
+  // All Vehicles filters (client-side)
+  const [vehicleSearch, setVehicleSearch] = useState('');
+  const [vehicleStatus, setVehicleStatus] = useState('');
+  const [vehicleAirlineFilter, setVehicleAirlineFilter] = useState('');
+
   // Trips page
   const [groupedTrips, setGroupedTrips] = useState<GroupedTrip[]>([]);
   const [tripsListLoading, setTripsListLoading] = useState(false);
@@ -328,6 +359,38 @@ export default function AirlinesPage() {
   const [tripDateRange, setTripDateRange] = useState<DateRange | undefined>(undefined);
   const [tripDetail, setTripDetail] = useState<TripDetailData | null>(null);
   const [tripDetailLoading, setTripDetailLoading] = useState(false);
+
+  // ── Filtered data ─────────────────────────────────────────────────────────
+  const filteredAirlines = airlines.filter(a => {
+    const q = airlineSearch.toLowerCase();
+    if (q && !a.name.toLowerCase().includes(q) && !(a.iataCode ?? '').toLowerCase().includes(q) && !(a.contactPerson ?? '').toLowerCase().includes(q)) return false;
+    if (airlineDateRange?.from) {
+      const d = new Date(a.createdAt);
+      if (d < airlineDateRange.from) return false;
+      if (airlineDateRange.to && d > airlineDateRange.to) return false;
+    }
+    return true;
+  });
+
+  const filteredCrews = allCrews.filter(c => {
+    const q = crewSearch.toLowerCase();
+    if (q && !c.name.toLowerCase().includes(q) && !(c.phone ?? '').includes(q) && !(c.designation ?? '').toLowerCase().includes(q)) return false;
+    if (crewDesignation && c.designation !== crewDesignation) return false;
+    if (crewDateRange?.from) {
+      const d = new Date(c.createdAt);
+      if (d < crewDateRange.from) return false;
+      if (crewDateRange.to && d > crewDateRange.to) return false;
+    }
+    return true;
+  });
+
+  const filteredVehicles = allVehiclesView.filter(v => {
+    const q = vehicleSearch.toLowerCase();
+    if (q && !v.name.toLowerCase().includes(q) && !(v.license_plate ?? '').toLowerCase().includes(q)) return false;
+    if (vehicleStatus && v.lifecycle_status !== vehicleStatus) return false;
+    if (vehicleAirlineFilter && v.airlineName !== vehicleAirlineFilter) return false;
+    return true;
+  });
 
   // ── Styles ────────────────────────────────────────────────────────────────
   const td: React.CSSProperties = { padding: '10px 14px', fontSize: 13, borderBottom: `1px solid ${dark ? '#222' : '#f3f3f3'}`, verticalAlign: 'middle', color: 'var(--text)', textAlign: 'left' };
@@ -497,15 +560,23 @@ export default function AirlinesPage() {
   const openAirlineAdd = () => { setEditingAirline(null); setAirlineForm(blankAirline()); setAirlineError(''); setAirlineModal(true); };
   const openAirlineEdit = (a: Airline) => {
     setEditingAirline(a.id);
-    setAirlineForm({ name: a.name, iataCode: a.iataCode ?? '', contactPerson: a.contactPerson ?? '', contactPhone: a.contactPhone ?? '', cityId: a.cityId ?? '' });
+    setAirlineForm({ name: a.name, iataCode: a.iataCode ?? '', contactPerson: a.contactPerson ?? '', contactPhone: formatPakPhone(a.contactPhone ?? ''), cityId: a.cityId ?? '' });
     setAirlineError(''); setAirlineModal(true);
   };
   const saveAirline = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!airlineForm.name.trim()) { setAirlineError('Airline name is required.'); return; }
+    if (airlineForm.contactPhone && !isPakPhoneValid(airlineForm.contactPhone)) {
+      setAirlineError('Phone must be 10 digits starting with 3 (e.g. 3001234567).'); return;
+    }
+    const phoneStored = storedPhone(airlineForm.contactPhone);
+    if (phoneStored) {
+      const dup = airlines.find(a => a.contactPhone === phoneStored && a.id !== editingAirline);
+      if (dup) { setAirlineError(`Phone already used by "${dup.name}".`); return; }
+    }
     setAirlineSaving(true); setAirlineError('');
     try {
-      const payload = { name: airlineForm.name.trim(), iataCode: airlineForm.iataCode.trim() || null, contactPerson: airlineForm.contactPerson.trim() || null, contactPhone: airlineForm.contactPhone.trim() || null, cityId: airlineForm.cityId || null };
+      const payload = { name: airlineForm.name.trim(), iataCode: airlineForm.iataCode.trim() || null, contactPerson: airlineForm.contactPerson.trim() || null, contactPhone: phoneStored || null, cityId: airlineForm.cityId || null };
       if (editingAirline) { await api.put(`/airlines/${editingAirline}`, payload); toast('Airline updated'); }
       else { await api.post('/airlines', payload); toast('Airline added'); }
       setAirlineModal(false); await loadAirlines();
@@ -527,7 +598,7 @@ export default function AirlinesPage() {
   const openCrewAdd = (airlineId?: string) => { setEditingCrew(null); setCrewForm(blankCrew(airlineId ?? selected?.id ?? '')); setCrewError(''); setCrewModal(true); };
   const openCrewEdit = (c: Crew) => {
     setEditingCrew(c.id);
-    setCrewForm({ name: c.name, designation: c.designation ?? '', stopName: c.stopName ?? '', stopLat: c.stopLat != null ? String(c.stopLat) : '', stopLng: c.stopLng != null ? String(c.stopLng) : '', nfcCardUid: c.nfcCardUid ?? '', phone: c.phone ?? '', airlineId: c.airlineId, cityId: c.cityId ?? '' });
+    setCrewForm({ name: c.name, designation: c.designation ?? '', stopName: c.stopName ?? '', stopLat: c.stopLat != null ? String(c.stopLat) : '', stopLng: c.stopLng != null ? String(c.stopLng) : '', nfcCardUid: c.nfcCardUid ?? '', phone: formatPakPhone(c.phone ?? ''), airlineId: c.airlineId, cityId: c.cityId ?? '' });
     setCrewError(''); setCrewModal(true);
   };
   const saveCrew = async (e: React.FormEvent) => {
@@ -535,9 +606,17 @@ export default function AirlinesPage() {
     if (!crewForm.name.trim()) { setCrewError('Crew name is required.'); return; }
     const targetAirlineId = crewForm.airlineId || selected?.id;
     if (!targetAirlineId) { setCrewError('Please select an airline.'); return; }
+    if (crewForm.phone && !isPakPhoneValid(crewForm.phone)) {
+      setCrewError('Phone must be 10 digits starting with 3 (e.g. 3001234567).'); return;
+    }
+    const phoneStored = storedPhone(crewForm.phone);
+    if (phoneStored) {
+      const dup = allCrews.find(c => c.phone === phoneStored && c.id !== editingCrew);
+      if (dup) { setCrewError(`Phone already used by crew member "${dup.name}".`); return; }
+    }
     setCrewSaving(true); setCrewError('');
     try {
-      const payload = { name: crewForm.name.trim(), designation: crewForm.designation.trim() || null, stopName: crewForm.stopName.trim() || null, stopLat: crewForm.stopLat ? parseFloat(crewForm.stopLat) : null, stopLng: crewForm.stopLng ? parseFloat(crewForm.stopLng) : null, nfcCardUid: crewForm.nfcCardUid.trim() || null, phone: crewForm.phone.trim() || null, cityId: crewForm.cityId || null };
+      const payload = { name: crewForm.name.trim(), designation: crewForm.designation.trim() || null, stopName: crewForm.stopName.trim() || null, stopLat: crewForm.stopLat ? parseFloat(crewForm.stopLat) : null, stopLng: crewForm.stopLng ? parseFloat(crewForm.stopLng) : null, nfcCardUid: crewForm.nfcCardUid.trim() || null, phone: phoneStored || null, cityId: crewForm.cityId || null };
       if (editingCrew) { await api.put(`/airlines/${targetAirlineId}/crews/${editingCrew}`, payload); toast('Crew member updated'); }
       else { await api.post(`/airlines/${targetAirlineId}/crews`, payload); toast('Crew member added'); }
       setCrewModal(false);
@@ -680,7 +759,10 @@ export default function AirlinesPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FormField label="Phone">
-            <input style={inputStyle} value={crewForm.phone} onChange={e => setCrewForm(f => ({ ...f, phone: e.target.value }))} placeholder="+92 300 0000000" />
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text)', pointerEvents: 'none', userSelect: 'none' }}>+92</span>
+              <input style={{ ...inputStyle, paddingLeft: 40 }} value={crewForm.phone} onChange={e => setCrewForm(f => ({ ...f, phone: formatPakPhone(e.target.value) }))} placeholder="3001234567" maxLength={10} inputMode="numeric" />
+            </div>
           </FormField>
           <FormField label="City">
             <select style={selectStyle} value={crewForm.cityId} onChange={e => setCrewForm(f => ({ ...f, cityId: e.target.value }))}>
@@ -816,8 +898,15 @@ export default function AirlinesPage() {
               </div>
             </PageHeader>
             <div style={{ padding: '0 24px 24px' }}>
-              {loading ? <Spinner style={{ height: 300 }} /> : airlines.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 60, color: 'var(--muted)', fontSize: 14 }}>No airlines yet. Click "Add Airline" to get started.</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 16, alignItems: 'center' }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <IconSearch size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input style={{ height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', width: 200 }} placeholder="Search name or IATA…" value={airlineSearch} onChange={e => setAirlineSearch(e.target.value)} />
+                </div>
+                <DateRangePicker value={airlineDateRange} onChange={setAirlineDateRange} placeholder="Date range" />
+              </div>
+              {loading ? <Spinner style={{ height: 300 }} /> : filteredAirlines.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 60, color: 'var(--muted)', fontSize: 14 }}>No airlines found.</div>
               ) : (
                 <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -829,7 +918,7 @@ export default function AirlinesPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {airlines.map(a => (
+                      {filteredAirlines.map(a => (
                         <tr key={a.id}
                           onMouseEnter={e => (e.currentTarget.style.background = dark ? '#1a1a1a' : '#fafafa')}
                           onMouseLeave={e => (e.currentTarget.style.background = '')}>
@@ -859,7 +948,12 @@ export default function AirlinesPage() {
                 <FormField label="IATA Code"><input style={inputStyle} value={airlineForm.iataCode} onChange={e => setAirlineForm(f => ({ ...f, iataCode: e.target.value.toUpperCase() }))} placeholder="e.g. PK" maxLength={10} /></FormField>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <FormField label="Contact Person"><input style={inputStyle} value={airlineForm.contactPerson} onChange={e => setAirlineForm(f => ({ ...f, contactPerson: e.target.value }))} placeholder="Name" /></FormField>
-                  <FormField label="Contact Phone"><input style={inputStyle} value={airlineForm.contactPhone} onChange={e => setAirlineForm(f => ({ ...f, contactPhone: e.target.value }))} placeholder="+92 300 0000000" /></FormField>
+                  <FormField label="Contact Phone">
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text)', pointerEvents: 'none', userSelect: 'none' }}>+92</span>
+                      <input style={{ ...inputStyle, paddingLeft: 40 }} value={airlineForm.contactPhone} onChange={e => setAirlineForm(f => ({ ...f, contactPhone: formatPakPhone(e.target.value) }))} placeholder="3001234567" maxLength={10} inputMode="numeric" />
+                    </div>
+                  </FormField>
                 </div>
                 <FormField label="City">
                   <select style={selectStyle} value={airlineForm.cityId} onChange={e => setAirlineForm(f => ({ ...f, cityId: e.target.value }))}>
@@ -1003,17 +1097,37 @@ export default function AirlinesPage() {
               </div>
             </PageHeader>
             <div style={{ padding: '0 24px 24px' }}>
-              {allCrewsLoading ? <Spinner style={{ height: 300 }} /> : allCrews.length === 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 16, alignItems: 'center' }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <IconSearch size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input style={{ height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', width: 200 }} placeholder="Search name or phone…" value={crewSearch} onChange={e => setCrewSearch(e.target.value)} />
+                </div>
+                <CustomSelect value={crewDesignation} onChange={setCrewDesignation} options={[{ value: '', label: 'All Designations' }, ...DESIGNATIONS.map(d => ({ value: d, label: d }))]} />
+                <DateRangePicker value={crewDateRange} onChange={setCrewDateRange} placeholder="Date range" />
+              </div>
+              {allCrewsLoading ? <Spinner style={{ height: 300 }} /> : filteredCrews.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 60, color: 'var(--muted)', fontSize: 14 }}>No crew members found.</div>
               ) : (
                 <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr><th style={th}>ID</th><th style={th}>Name</th><th style={th}>Airline</th><th style={th}>Designation</th><th style={th}>Stop</th><th style={th}>Coordinates</th><th style={th}>NFC Card</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
+                    <thead><tr><th style={th}>ID</th><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Airline</th><th style={th}>Designation</th><th style={th}>Stop</th><th style={th}>Coordinates</th><th style={th}>NFC Card</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
                     <tbody>
-                      {allCrews.map(c => (
+                      {filteredCrews.map(c => (
                         <tr key={c.id}>
                           <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{c.displayId}</span></td>
-                          <td style={td}><div style={{ fontWeight: 500 }}>{c.name}</div>{c.phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}</div>}</td>
+                          <td style={td}><div style={{ fontWeight: 500 }}>{c.name}</div></td>
+                          <td style={td}>
+                            {c.phone ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 12 }}>{c.phone}</span>
+                                <button
+                                  onClick={() => { navigator.clipboard.writeText(c.phone!).catch(() => { const el = document.createElement('textarea'); el.value = c.phone!; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); }); toast('Phone copied'); }}
+                                  style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}
+                                  title="Copy phone"
+                                ><IconCopy size={12} color="var(--muted)" /></button>
+                              </div>
+                            ) : '—'}
+                          </td>
                           <td style={td}>{c.airlineName}</td>
                           <td style={td}>{c.designation || '—'}</td>
                           <td style={td}>{c.stopName ? <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconMapPin size={13} color="#dc2626" /><span style={{ fontSize: 12 }}>{c.stopName}</span></div> : '—'}</td>
@@ -1156,14 +1270,22 @@ export default function AirlinesPage() {
           <div>
             <PageHeader title="Assigned Vehicles" subtitle="All vehicles assigned across airlines" />
             <div style={{ padding: '0 24px 24px' }}>
-              {allVehiclesLoading ? <Spinner style={{ height: 300 }} /> : allVehiclesView.length === 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 16, alignItems: 'center' }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <IconSearch size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input style={{ height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', width: 200 }} placeholder="Search vehicle or plate…" value={vehicleSearch} onChange={e => setVehicleSearch(e.target.value)} />
+                </div>
+                <CustomSelect value={vehicleStatus} onChange={setVehicleStatus} options={[{ value: '', label: 'All Statuses' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'maintenance', label: 'Maintenance' }]} />
+                <CustomSelect value={vehicleAirlineFilter} onChange={setVehicleAirlineFilter} options={[{ value: '', label: 'All Airlines' }, ...airlines.map(a => ({ value: a.name, label: a.name }))]} />
+              </div>
+              {allVehiclesLoading ? <Spinner style={{ height: 300 }} /> : filteredVehicles.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 60, color: 'var(--muted)', fontSize: 14 }}>No vehicles assigned to any airline.</div>
               ) : (
                 <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead><tr><th style={th}>Vehicle</th><th style={th}>Airline</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
                     <tbody>
-                      {allVehiclesView.map(v => (
+                      {filteredVehicles.map(v => (
                         <tr key={`${v.id}-${v.airlineName}`}>
                           <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || `#${v.display_id}`}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.name}</div></td>
                           <td style={td}>{v.airlineName}</td>
