@@ -109,6 +109,36 @@ export class AirlinesController {
     return this.svc.checkout(body);
   }
 
+  @Get('trips/grouped')
+  listGroupedTrips(
+    @CurrentUser() user: User,
+    @Query('airlineId') airlineId?: string,
+    @Query('vehicleId') vehicleId?: string,
+    @Query('crewName') crewName?: string,
+    @Query('stop') stop?: string,
+    @Query('status') status?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.svc.listGroupedTrips(user, {
+      airlineId, vehicleId, crewName, stop, status, from, to,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
+
+  @Get('trips/grouped/:groupId/detail')
+  getGroupedTripDetail(@CurrentUser() user: User, @Param('groupId') groupId: string) {
+    return this.svc.getGroupedTripDetail(user, groupId);
+  }
+
+  @Delete('trips/bulk')
+  deleteCrewTrips(@CurrentUser() user: User, @Body('tripIds') tripIds: string[]) {
+    return this.svc.deleteCrewTrips(user, tripIds);
+  }
+
   @Get('trips/list')
   listTrips(
     @CurrentUser() user: User,

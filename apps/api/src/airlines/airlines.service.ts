@@ -343,4 +343,134 @@ export class AirlinesService {
     const trip = await this.tripRepo.findOne({ where: { crewId: crew.id, status: 'in_progress' } });
     return trip ? { trip, crew } : null;
   }
+
+  // ─── Grouped Trips (vehicle-level grouping by 5-min window) ──────────────────
+
+  async listGroupedTrips(user: User, filters: {
+    airlineId?: string; vehicleId?: string; crewName?: string;
+    stop?: string; status?: string; from?: string; to?: string;
+    page?: number; limit?: number;
+  }) {
+    const page = filters.page ?? 1;
+    const limit = Math.min(filters.limit ?? 50, 200);
+    const offset = (page - 1) * limit;
+
+    const params: any[] = [];
+    const conditions: string[] = [];
+
+    if (!this.isInternal(user)) {
+      params.push(user.organizationId); conditions.push(`a.organization_id = $${params.length}`);
+    }
+    if (filters.airlineId)  { params.push(filters.airlineId);         conditions.push(`t.airline_id = $${params.length}`); }
+    if (filters.vehicleId)  { params.push(filters.vehicleId);         conditions.push(`t.vehicle_id = $${params.length}`); }
+    if (filters.crewName)   { params.push(`%${filters.crewName}%`);   conditions.push(`c.name ILIKE $${params.length}`); }
+    if (filters.stop)       { params.push(`%${filters.stop}%`);       conditions.push(`(t.checkin_stop ILIKE $${params.length} OR t.checkout_stop ILIKE $${params.length})`); }
+    if (filters.status)     { params.push(filters.status);            conditions.push(`t.status = $${params.length}`); }
+    if (filters.from)       { params.push(filters.from);              conditions.push(`t.checkin_at >= $${params.length}`); }
+    if (filters.to)         { params.push(filters.to);                conditions.push(`t.checkin_at <= $${params.length}`); }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const groupBy = `
+      t.vehicle_id, v.name, v.license_plate, v.display_id,
+      t.flight_number, t.airline_id, a.name,
+      t.checkin_stop, t.checkin_lat, t.checkin_lng,
+      (FLOOR(EXTRACT(EPOCH FROM t.checkin_at) / 300))::bigint
+    `;
+
+    const innerSql = `
+      FROM crew_trips t
+      LEFT JOIN vehicles v ON v.id = t.vehicle_id
+      LEFT JOIN airlines a ON a.id = t.airline_id
+      LEFT JOIN airline_crews c ON c.id = t.crew_id
+      ${where}
+      GROUP BY ${groupBy}
+    `;
+
+    const countParams = [...params];
+    const [countResult] = await this.dataSource.query(
+      `SELECT COUNT(*) FROM (SELECT MIN(t.id) ${innerSql}) sub`, countParams,
+    );
+
+    params.push(limit);  const limitIdx  = params.length;
+    params.push(offset); const offsetIdx = params.length;
+
+    const rows = await this.dataSource.query(`
+      SELECT
+        MIN(t.id)                                                    AS group_id,
+        COUNT(t.id)::int                                             AS crew_count,
+        t.vehicle_id,
+        v.name                                                       AS vehicle_name,
+        v.license_plate,
+        v.display_id                                                 AS vehicle_display_id,
+        t.flight_number,
+        t.airline_id,
+        a.name                                                       AS airline_name,
+        t.checkin_stop                                               AS origin,
+        t.checkin_lat                                                AS origin_lat,
+        t.checkin_lng                                                AS origin_lng,
+        MIN(t.checkin_at)                                            AS checkin_at,
+        MAX(t.checkout_at)                                           AS checkout_at,
+        MAX(CASE WHEN t.km_travelled IS NOT NULL THEN CAST(t.km_travelled AS FLOAT) ELSE 0 END) AS km_travelled,
+        CASE WHEN bool_or(t.status = 'in_progress') THEN 'in_progress' ELSE 'completed' END AS status,
+        STRING_AGG(DISTINCT c.name, ', ' ORDER BY c.name)           AS crew_names,
+        ARRAY_AGG(t.id ORDER BY t.checkin_at)                       AS trip_ids
+      ${innerSql}
+      ORDER BY MIN(t.checkin_at) DESC
+      LIMIT $${limitIdx} OFFSET $${offsetIdx}
+    `, params);
+
+    return { total: parseInt(countResult?.count ?? '0'), page, limit, rows };
+  }
+
+  async getGroupedTripDetail(user: User, groupId: string) {
+    const [ref] = await this.dataSource.query(
+      `SELECT t.*, v.name AS vehicle_name, v.license_plate, v.display_id AS vehicle_display_id
+       FROM crew_trips t LEFT JOIN vehicles v ON v.id = t.vehicle_id WHERE t.id = $1`, [groupId],
+    );
+    if (!ref) throw new NotFoundException('Trip not found');
+
+    const trips = await this.dataSource.query(`
+      SELECT t.id, t.status, t.checkin_at, t.checkin_stop, t.checkin_lat, t.checkin_lng,
+             t.checkout_at, t.checkout_stop, t.checkout_lat, t.checkout_lng, t.km_travelled, t.flight_number,
+             c.name AS crew_name, c.display_id AS crew_display_id, c.designation AS crew_designation, c.phone AS crew_phone
+      FROM crew_trips t
+      LEFT JOIN airline_crews c ON c.id = t.crew_id
+      WHERE t.vehicle_id = $1
+        AND t.checkin_stop IS NOT DISTINCT FROM $2
+        AND ABS(EXTRACT(EPOCH FROM t.checkin_at) - EXTRACT(EPOCH FROM $3::timestamptz)) < 300
+      ORDER BY t.checkin_at ASC
+    `, [ref.vehicle_id, ref.checkin_stop, ref.checkin_at]);
+
+    const [device] = await this.dataSource.query(
+      `SELECT imei FROM devices WHERE vehicle_id = $1 AND status != 'unassigned' LIMIT 1`, [ref.vehicle_id],
+    );
+
+    let route: any[] = [];
+    if (device && ref.checkin_at) {
+      const endTime = ref.checkout_at ?? new Date().toISOString();
+      route = await this.dataSource.query(`
+        SELECT latitude, longitude, speed, heading, timestamp
+        FROM telemetry
+        WHERE imei = $1 AND timestamp BETWEEN $2 AND $3 AND gps_valid = true
+        ORDER BY timestamp ASC
+        LIMIT 2000
+      `, [device.imei, ref.checkin_at, endTime]);
+    }
+
+    return {
+      groupId,
+      vehicle: { id: ref.vehicle_id, name: ref.vehicle_name, licensePlate: ref.license_plate, displayId: ref.vehicle_display_id },
+      trips,
+      route,
+      checkin_at: ref.checkin_at,
+      checkout_at: ref.checkout_at,
+      checkin_stop: ref.checkin_stop,
+      flight_number: ref.flight_number,
+    };
+  }
+
+  async deleteCrewTrips(user: User, tripIds: string[]) {
+    await this.tripRepo.delete(tripIds);
+    return { success: true, deleted: tripIds.length };
+  }
 }

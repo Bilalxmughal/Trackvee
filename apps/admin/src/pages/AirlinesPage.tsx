@@ -3,12 +3,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   IconArrowLeft, IconPlus, IconPencil, IconTrash, IconPlane,
   IconUsers, IconCar, IconMapPin, IconNfc, IconRefresh,
-  IconLayoutDashboard, IconDownload, IconUpload,
+  IconLayoutDashboard, IconDownload, IconUpload, IconCopy,
+  IconEye, IconHistory, IconSearch,
 } from '@tabler/icons-react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../api/client';
+import CustomSelect from '../components/CustomSelect';
+import DateRangePicker, { DateRange } from '../components/DateRangePicker';
 import { useToast } from '../contexts/ToastContext';
 import { useTheme } from '../contexts/ThemeContext';
 import PageHeader from '../components/PageHeader';
@@ -55,7 +58,29 @@ interface Trip {
 
 type AirlineForm = { name: string; iataCode: string; contactPerson: string; contactPhone: string; };
 type CrewForm = { name: string; designation: string; stopName: string; stopLat: string; stopLng: string; nfcCardUid: string; phone: string; airlineId: string; };
-type PageView = 'dashboard' | 'airlines' | 'crews' | 'vehicles';
+type PageView = 'dashboard' | 'airlines' | 'crews' | 'vehicles' | 'trips';
+
+interface GroupedTrip {
+  group_id: string; crew_count: number;
+  vehicle_id: string; vehicle_name: string; license_plate: string | null; vehicle_display_id: number;
+  flight_number: string | null; airline_id: string; airline_name: string;
+  origin: string | null; origin_lat: number | null; origin_lng: number | null;
+  checkin_at: string; checkout_at: string | null;
+  km_travelled: number; status: string; crew_names: string; trip_ids: string[];
+}
+interface TripDetailData {
+  groupId: string;
+  vehicle: { id: string; name: string; licensePlate: string | null; displayId: number };
+  trips: Array<{
+    id: string; status: string;
+    checkin_at: string; checkin_stop: string | null; checkin_lat: number | null; checkin_lng: number | null;
+    checkout_at: string | null; checkout_stop: string | null; checkout_lat: number | null; checkout_lng: number | null;
+    km_travelled: string | null; flight_number: string | null;
+    crew_name: string; crew_display_id: number; crew_designation: string | null; crew_phone: string | null;
+  }>;
+  route: Array<{ latitude: number; longitude: number; speed: number; heading: number; timestamp: string }>;
+  checkin_at: string; checkout_at: string | null; checkin_stop: string | null; flight_number: string | null;
+}
 
 const blankAirline = (): AirlineForm => ({ name: '', iataCode: '', contactPerson: '', contactPhone: '' });
 const blankCrew = (airlineId = ''): CrewForm => ({ name: '', designation: '', stopName: '', stopLat: '', stopLng: '', nfcCardUid: '', phone: '', airlineId });
@@ -93,6 +118,7 @@ const NAV_ITEMS: { key: PageView; path: string; icon: React.ElementType; label: 
   { key: 'airlines',  path: '/airlines/clients',   icon: IconPlane,           label: 'Clients' },
   { key: 'crews',     path: '/airlines/crew',      icon: IconUsers,            label: 'Crew' },
   { key: 'vehicles',  path: '/airlines/vehicles',  icon: IconCar,              label: 'Vehicle' },
+  { key: 'trips',     path: '/airlines/trips',     icon: IconHistory,          label: 'Trips' },
 ];
 
 function pathToView(pathname: string): PageView {
@@ -100,6 +126,7 @@ function pathToView(pathname: string): PageView {
   if (pathname.includes('/airlines/clients'))   return 'airlines';
   if (pathname.includes('/airlines/crew'))      return 'crews';
   if (pathname.includes('/airlines/vehicles'))  return 'vehicles';
+  if (pathname.includes('/airlines/trips'))     return 'trips';
   return 'airlines';
 }
 
@@ -133,6 +160,87 @@ function SubSidebar({ view, onNavigate, dark }: { view: PageView; onNavigate: (p
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// ─── Trip Replay Map ──────────────────────────────────────────────────────────
+
+function MapFlyTo({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => { map.panTo([lat, lng], { animate: true }); }, [lat, lng, map]);
+  return null;
+}
+
+function TripReplayMap({ route, dark }: {
+  route: Array<{ latitude: number; longitude: number; speed: number; heading: number; timestamp: string }>;
+  dark: boolean;
+}) {
+  const [playing, setPlaying] = useState(false);
+  const [idx, setIdx] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (!playing || route.length === 0) return;
+    intervalRef.current = setInterval(() => {
+      setIdx(prev => {
+        if (prev >= route.length - 1) { setPlaying(false); return prev; }
+        return prev + 1;
+      });
+    }, 80);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [playing, route.length]);
+
+  const routePoints: [number, number][] = route.map(p => [p.latitude, p.longitude]);
+  const center: [number, number] = routePoints[0] ?? [30.3753, 69.3451];
+  const current = route[idx];
+
+  return (
+    <div>
+      <div style={{ height: 360, borderRadius: 10, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#e0e0e0'}` }}>
+        {route.length === 0 ? (
+          <div style={{ height: '100%', display: 'grid', placeItems: 'center', background: dark ? '#161616' : '#f5f5f5', color: 'var(--muted)', fontSize: 13 }}>
+            No GPS data available for this trip
+          </div>
+        ) : (
+          <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }}>
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            {routePoints.length > 1 && <Polyline positions={routePoints} color="#dc2626" weight={3} opacity={0.7} />}
+            {routePoints[0] && <Marker position={routePoints[0]} icon={L.divIcon({ className: '', html: '<div style="background:#059669;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>', iconSize: [12, 12], iconAnchor: [6, 6] })} />}
+            {routePoints[routePoints.length - 1] && <Marker position={routePoints[routePoints.length - 1]} icon={L.divIcon({ className: '', html: '<div style="background:#7c3aed;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>', iconSize: [12, 12], iconAnchor: [6, 6] })} />}
+            {current && (
+              <>
+                <Marker position={[current.latitude, current.longitude]} icon={L.divIcon({ className: 'leaflet-interactive', html: '<div style="background:#1d4ed8;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.5)"></div>', iconSize: [14, 14], iconAnchor: [7, 7] })} />
+                <MapFlyTo lat={current.latitude} lng={current.longitude} />
+              </>
+            )}
+          </MapContainer>
+        )}
+      </div>
+      {route.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+            <button onClick={() => setPlaying(p => !p)} style={{ padding: '6px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              {playing ? '⏸ Pause' : '▶ Play'}
+            </button>
+            <button onClick={() => { setPlaying(false); setIdx(0); }} style={{ padding: '6px 12px', border: `1px solid ${dark ? '#333' : '#e0e0e0'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer' }}>
+              ↺ Reset
+            </button>
+            <input type="range" min={0} max={route.length - 1} value={idx}
+              onChange={e => { setPlaying(false); setIdx(Number(e.target.value)); }}
+              style={{ flex: 1 }} />
+            <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{idx + 1}/{route.length}</span>
+          </div>
+          {current && (
+            <div style={{ display: 'flex', gap: 16, marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
+              <span>{new Date(current.timestamp).toLocaleTimeString()}</span>
+              <span>{Number(current.speed ?? 0).toFixed(1)} km/h</span>
+              <span style={{ fontFamily: 'monospace' }}>{Number(current.latitude).toFixed(5)}, {Number(current.longitude).toFixed(5)}</span>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -205,6 +313,16 @@ export default function AirlinesPage() {
   const [stats, setStats] = useState({ airlines: 0, crews: 0, vehicles: 0, activeTrips: 0 });
   const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
   const [dashLoading, setDashLoading] = useState(false);
+
+  // Trips page
+  const [groupedTrips, setGroupedTrips] = useState<GroupedTrip[]>([]);
+  const [tripsListLoading, setTripsListLoading] = useState(false);
+  const [tripSearch, setTripSearch] = useState('');
+  const [tripStop, setTripStop] = useState('');
+  const [tripStatus, setTripStatus] = useState('');
+  const [tripDateRange, setTripDateRange] = useState<DateRange | undefined>(undefined);
+  const [tripDetail, setTripDetail] = useState<TripDetailData | null>(null);
+  const [tripDetailLoading, setTripDetailLoading] = useState(false);
 
   // ── Styles ────────────────────────────────────────────────────────────────
   const td: React.CSSProperties = { padding: '10px 14px', fontSize: 13, borderBottom: `1px solid ${dark ? '#222' : '#f3f3f3'}`, verticalAlign: 'middle', color: 'var(--text)', textAlign: 'left' };
@@ -305,11 +423,50 @@ export default function AirlinesPage() {
     finally { setDashLoading(false); }
   }, []);
 
+  const loadGroupedTrips = useCallback(async (opts?: { search?: string; stop?: string; status?: string; dateRange?: DateRange }) => {
+    setTripsListLoading(true);
+    try {
+      const search    = opts?.search    ?? tripSearch;
+      const stop      = opts?.stop      ?? tripStop;
+      const status    = opts?.status    ?? tripStatus;
+      const dateRange = opts?.dateRange !== undefined ? opts.dateRange : tripDateRange;
+      const params = new URLSearchParams();
+      if (search)            params.set('crewName', search);
+      if (stop)              params.set('stop', stop);
+      if (status)            params.set('status', status);
+      if (dateRange?.from)   params.set('from', dateRange.from.toISOString());
+      if (dateRange?.to)     params.set('to', new Date(dateRange.to!.setHours(23, 59, 59)).toISOString());
+      params.set('limit', '100');
+      const r = await api.get<{ rows: GroupedTrip[] }>(`/airlines/trips/grouped?${params}`);
+      setGroupedTrips(r.data.rows ?? []);
+    } catch { toast('Could not load trips', 'error'); }
+    finally { setTripsListLoading(false); }
+  }, [tripSearch, tripStop, tripStatus, tripDateRange, toast]);
+
+  const openTripDetail = async (groupId: string) => {
+    setTripDetail(null); setTripDetailLoading(true);
+    try {
+      const r = await api.get<TripDetailData>(`/airlines/trips/grouped/${groupId}/detail`);
+      setTripDetail(r.data);
+    } catch { toast('Could not load trip detail', 'error'); }
+    finally { setTripDetailLoading(false); }
+  };
+
+  const deleteTrip = async (tripIds: string[]) => {
+    if (!window.confirm(`Delete this trip (${tripIds.length} crew record${tripIds.length > 1 ? 's' : ''})?`)) return;
+    try {
+      await api.delete('/airlines/trips/bulk', { data: { tripIds } });
+      toast('Trip deleted');
+      void loadGroupedTrips();
+    } catch { toast('Could not delete trip', 'error'); }
+  };
+
   useEffect(() => {
     if (view === 'dashboard') void loadDashboard();
     if (view === 'crews')     void loadAllCrews();
     if (view === 'vehicles')  void loadAllVehicles();
     if (view === 'airlines')  { setSelected(null); }
+    if (view === 'trips')     void loadGroupedTrips();
   }, [view]);
 
   // ── Airline CRUD ──────────────────────────────────────────────────────────
@@ -814,7 +971,7 @@ export default function AirlinesPage() {
               ) : (
                 <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr><th style={th}>ID</th><th style={th}>Name</th><th style={th}>Airline</th><th style={th}>Designation</th><th style={th}>Stop</th><th style={th}>NFC Card</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
+                    <thead><tr><th style={th}>ID</th><th style={th}>Name</th><th style={th}>Airline</th><th style={th}>Designation</th><th style={th}>Stop</th><th style={th}>Coordinates</th><th style={th}>NFC Card</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
                     <tbody>
                       {allCrews.map(c => (
                         <tr key={c.id}>
@@ -823,11 +980,132 @@ export default function AirlinesPage() {
                           <td style={td}>{c.airlineName}</td>
                           <td style={td}>{c.designation || '—'}</td>
                           <td style={td}>{c.stopName ? <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconMapPin size={13} color="#dc2626" /><span style={{ fontSize: 12 }}>{c.stopName}</span></div> : '—'}</td>
+                          <td style={td}>
+                            {c.stopLat && c.stopLng ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                                  {Number(c.stopLat).toFixed(5)}, {Number(c.stopLng).toFixed(5)}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    const coords = `${Number(c.stopLat).toFixed(5)}, ${Number(c.stopLng).toFixed(5)}`;
+                                    navigator.clipboard.writeText(coords).catch(() => {
+                                      const el = document.createElement('textarea');
+                                      el.value = coords; document.body.appendChild(el); el.select();
+                                      document.execCommand('copy'); document.body.removeChild(el);
+                                    });
+                                    toast('Coordinates copied', 'success');
+                                  }}
+                                  style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}
+                                  title="Copy coordinates"
+                                >
+                                  <IconCopy size={12} color="var(--muted)" />
+                                </button>
+                              </div>
+                            ) : '—'}
+                          </td>
                           <td style={td}>{c.nfcCardUid ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IconNfc size={13} color="#059669" /><code style={{ fontSize: 11 }}>{c.nfcCardUid}</code></span> : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Not assigned</span>}</td>
                           <td style={{ ...td, textAlign: 'right' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                               {can('edit') && <button onClick={() => openCrewEdit(c)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconPencil size={14} color="var(--muted)" /></button>}
                               {can('delete') && <button onClick={() => deleteCrew(c)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── TRIPS VIEW ─────────────────────────────────────────────────── */}
+        {view === 'trips' && (
+          <div>
+            <PageHeader title="Trips" subtitle="All crew transport trips grouped by vehicle run">
+              <button onClick={() => void loadGroupedTrips()} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
+                <IconRefresh size={14} /> Refresh
+              </button>
+            </PageHeader>
+            <div style={{ padding: '0 24px 24px' }}>
+              {/* Filters */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 0 16px', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <IconSearch size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input
+                    style={{ height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', width: 190 }}
+                    placeholder="Search crew name…"
+                    value={tripSearch}
+                    onChange={e => setTripSearch(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && void loadGroupedTrips()}
+                  />
+                </div>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <IconSearch size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input
+                    style={{ height: 34, padding: '0 10px 0 30px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, color: 'var(--input-color)', background: 'var(--input-bg)', outline: 'none', width: 190 }}
+                    placeholder="Route / stop name…"
+                    value={tripStop}
+                    onChange={e => setTripStop(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && void loadGroupedTrips()}
+                  />
+                </div>
+                <CustomSelect value={tripStatus} onChange={v => setTripStatus(v)} options={[
+                  { value: '', label: 'All Statuses' },
+                  { value: 'in_progress', label: 'In Progress' },
+                  { value: 'completed', label: 'Completed' },
+                ]} />
+                <DateRangePicker value={tripDateRange} onChange={setTripDateRange} placeholder="Date range" />
+                <button onClick={() => void loadGroupedTrips()} style={{ height: 34, padding: '0 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Search</button>
+                <button onClick={() => { setTripSearch(''); setTripStop(''); setTripStatus(''); setTripDateRange(undefined); void loadGroupedTrips({ search: '', stop: '', status: '', dateRange: undefined }); }} style={{ height: 34, padding: '0 12px', border: '1px solid var(--input-border)', borderRadius: 6, background: 'var(--input-bg)', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer' }}>Clear</button>
+              </div>
+              {/* Table */}
+              {tripsListLoading ? <Spinner style={{ height: 300 }} /> : groupedTrips.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 60, color: 'var(--muted)', fontSize: 14 }}>No trips found. Crew check-ins will appear here.</div>
+              ) : (
+                <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={th}>Origin</th>
+                        <th style={th}>Block Type</th>
+                        <th style={th}>Vehicle</th>
+                        <th style={th}>Crew</th>
+                        <th style={th}>Crew Count</th>
+                        <th style={th}>KM</th>
+                        <th style={th}>Date / Time</th>
+                        <th style={th}>Status</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupedTrips.map(t => (
+                        <tr key={t.group_id}
+                          onMouseEnter={e => (e.currentTarget.style.background = dark ? '#1a1a1a' : '#fafafa')}
+                          onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                          <td style={td}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <IconMapPin size={13} color="#dc2626" />
+                              <span style={{ fontWeight: 500 }}>{t.origin || '—'}</span>
+                            </div>
+                            {t.flight_number && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Flight: {t.flight_number}</div>}
+                          </td>
+                          <td style={td}>Drop Off</td>
+                          <td style={td}>
+                            <div style={{ fontWeight: 500 }}>{t.license_plate || `#${t.vehicle_display_id}`}</div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.vehicle_name}</div>
+                          </td>
+                          <td style={td}><div style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.crew_names}>{t.crew_names || '—'}</div></td>
+                          <td style={td}>{t.crew_count}</td>
+                          <td style={td}>{t.km_travelled > 0 ? `${Number(t.km_travelled).toFixed(1)} km` : '—'}</td>
+                          <td style={td}><div style={{ fontSize: 12 }}>{fmtDt(t.checkin_at)}</div></td>
+                          <td style={td}><span style={{ color: t.status === 'in_progress' ? '#f59e0b' : '#059669', fontWeight: 500, fontSize: 12 }}>{t.status === 'in_progress' ? 'In Progress' : 'Completed'}</span></td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                              <button onClick={() => void openTripDetail(t.group_id)} title="View detail" style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconEye size={14} color="var(--muted)" /></button>
+                              {can('delete') && <button onClick={() => deleteTrip(t.trip_ids)} title="Delete trip" style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>}
                             </div>
                           </td>
                         </tr>
@@ -920,6 +1198,64 @@ export default function AirlinesPage() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Trip Detail Modal */}
+      <Modal open={!!tripDetail || tripDetailLoading} title="Trip Detail" onClose={() => setTripDetail(null)} width={960}>
+        {tripDetailLoading ? <Spinner style={{ height: 300 }} /> : tripDetail && (
+          <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, maxHeight: '75vh', overflow: 'hidden' }}>
+            {/* Left panel */}
+            <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Vehicle */}
+              <div style={{ background: dark ? '#161616' : '#fafafa', borderRadius: 10, padding: 14, border: `1px solid ${dark ? '#222' : '#eee'}` }}>
+                <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Vehicle</div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{tripDetail.vehicle.licensePlate || `#${tripDetail.vehicle.displayId}`}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{tripDetail.vehicle.name}</div>
+              </div>
+              {/* Trip info */}
+              <div style={{ background: dark ? '#161616' : '#fafafa', borderRadius: 10, padding: 14, border: `1px solid ${dark ? '#222' : '#eee'}` }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Origin</div><div style={{ fontSize: 13, fontWeight: 500 }}>{tripDetail.checkin_stop || '—'}</div></div>
+                  <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Block Type</div><div style={{ fontSize: 13 }}>Drop Off</div></div>
+                  <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Check-in</div><div style={{ fontSize: 12 }}>{fmtDt(tripDetail.checkin_at)}</div></div>
+                  <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Check-out</div><div style={{ fontSize: 12 }}>{fmtDt(tripDetail.checkout_at)}</div></div>
+                  {tripDetail.flight_number && <div style={{ gridColumn: '1/-1' }}><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Flight</div><div style={{ fontSize: 13 }}>{tripDetail.flight_number}</div></div>}
+                </div>
+              </div>
+              {/* Crew members */}
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Crew Members ({tripDetail.trips.length})</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {tripDetail.trips.map(t => (
+                    <div key={t.id} style={{ background: dark ? '#161616' : '#fafafa', borderRadius: 8, padding: 12, border: `1px solid ${dark ? '#222' : '#eee'}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ fontWeight: 500, fontSize: 13 }}>{t.crew_name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.crew_designation || ''}{t.crew_designation ? ' · ' : ''}{t.crew_display_id}</div>
+                          {t.crew_phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.crew_phone}</div>}
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 500, color: t.status === 'in_progress' ? '#f59e0b' : '#059669' }}>{t.status === 'in_progress' ? 'Active' : 'Done'}</span>
+                      </div>
+                      {t.checkout_stop && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
+                          <IconMapPin size={11} color="#dc2626" /> {t.checkout_stop}
+                        </div>
+                      )}
+                      {t.km_travelled && <div style={{ fontSize: 11, color: '#059669', marginTop: 3, fontWeight: 500 }}>{Number(t.km_travelled).toFixed(1)} km</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {/* Right panel: map + replay */}
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+                Route Replay — {tripDetail.route.length} GPS Points
+              </div>
+              <TripReplayMap route={tripDetail.route} dark={dark} />
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
