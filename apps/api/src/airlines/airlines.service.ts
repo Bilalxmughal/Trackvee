@@ -393,7 +393,7 @@ export class AirlinesService {
 
     const countParams = [...params];
     const [countResult] = await this.dataSource.query(
-      `SELECT COUNT(*) FROM (SELECT MIN(t.id) ${innerSql}) sub`, countParams,
+      `SELECT COUNT(*) FROM (SELECT 1 ${innerSql}) sub`, countParams,
     );
 
     params.push(limit);  const limitIdx  = params.length;
@@ -401,7 +401,7 @@ export class AirlinesService {
 
     const rows = await this.dataSource.query(`
       SELECT
-        MIN(t.id)                                                    AS group_id,
+        (ARRAY_AGG(t.id ORDER BY t.checkin_at))[1]                  AS group_id,
         COUNT(t.id)::int                                             AS crew_count,
         t.vehicle_id,
         v.name                                                       AS vehicle_name,
