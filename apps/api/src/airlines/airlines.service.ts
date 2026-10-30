@@ -493,7 +493,7 @@ export class AirlinesService {
   }
 
   async createAirport(user: User, body: { name: string; iataCode?: string; cityId?: string; lat: number; lng: number }) {
-    const orgId = this.orgId(user) ?? user.organizationId;
+    const orgId = this.isInternal(user) ? null : user.organizationId;
     const airport = this.airportRepo.create({ name: body.name, lat: body.lat, lng: body.lng, iataCode: body.iataCode ?? null, cityId: body.cityId ?? null, organizationId: orgId } as any);
     return this.airportRepo.save(airport);
   }
