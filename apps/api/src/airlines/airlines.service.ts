@@ -189,7 +189,7 @@ export class AirlinesService {
 
   // ─── Trips: Check-in / Check-out ─────────────────────────────────────────────
 
-  async checkin(body: { nfcUid: string; vehicleId: string; flightNumber?: string; lat: number; lng: number }) {
+  async checkin(body: { nfcUid: string; vehicleId: string; flightNumber?: string; flightDate?: string; passengerCount?: number; notes?: string; lat: number; lng: number }) {
     const crew = await this.crewRepo.findOne({ where: { nfcCardUid: body.nfcUid } });
     if (!crew) throw new NotFoundException('NFC card not registered');
     if (crew.status === 'inactive') throw new BadRequestException(`${crew.name} is inactive and cannot check in`);
@@ -210,6 +210,9 @@ export class AirlinesService {
       vehicleId: body.vehicleId,
       airlineId: crew.airlineId,
       flightNumber: body.flightNumber ?? null,
+      flightDate: body.flightDate ?? null,
+      passengerCount: body.passengerCount ?? null,
+      notes: body.notes ?? null,
       status: 'in_progress',
       checkinAt: new Date(),
       checkinLat: body.lat,

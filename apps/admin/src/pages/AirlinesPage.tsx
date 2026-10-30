@@ -63,7 +63,7 @@ interface Trip {
 
 // phone fields store raw digits (10 digits after +92), e.g. "3001234567"
 type AirlineForm = { name: string; iataCode: string; contactPerson: string; contactPhone: string; cityId: string; };
-type CrewForm = { name: string; designation: string; stopName: string; stopLat: string; stopLng: string; nfcCardUid: string; phone: string; airlineId: string; cityId: string; };
+type CrewForm = { name: string; designation: string; stopName: string; stopLat: string; stopLng: string; nfcCardUid: string; phone: string; airlineId: string; cityId: string; status: string; };
 type PageView = 'dashboard' | 'airlines' | 'crews' | 'vehicles' | 'trips';
 
 interface GroupedTrip {
@@ -89,7 +89,7 @@ interface TripDetailData {
 }
 
 const blankAirline = (): AirlineForm => ({ name: '', iataCode: '', contactPerson: '', contactPhone: '', cityId: '' });
-const blankCrew = (airlineId = ''): CrewForm => ({ name: '', designation: '', stopName: '', stopLat: '', stopLng: '', nfcCardUid: '', phone: '', airlineId, cityId: '' });
+const blankCrew = (airlineId = ''): CrewForm => ({ name: '', designation: '', stopName: '', stopLat: '', stopLng: '', nfcCardUid: '', phone: '', airlineId, cityId: '', status: 'active' });
 const DESIGNATIONS = ['Captain', 'Co-Pilot', 'Senior Cabin Crew', 'Cabin Crew', 'Purser', 'Engineer', 'Ground Staff', 'Other'];
 
 // Pakistani phone: +92 3XX XXXXXXX (10 digits after country code, starting with 3)
@@ -592,16 +592,17 @@ export default function AirlinesPage() {
   const openCrewAdd = (airlineId?: string) => { setEditingCrew(null); setCrewForm(blankCrew(airlineId ?? selected?.id ?? '')); setCrewError(''); setCrewViewOnly(false); setCrewModal(true); };
   const openCrewEdit = (c: Crew) => {
     setEditingCrew(c.id);
-    setCrewForm({ name: c.name, designation: c.designation ?? '', stopName: c.stopName ?? '', stopLat: c.stopLat != null ? String(c.stopLat) : '', stopLng: c.stopLng != null ? String(c.stopLng) : '', nfcCardUid: c.nfcCardUid ?? '', phone: formatPakPhone(c.phone ?? ''), airlineId: c.airlineId, cityId: c.cityId ?? '' });
+    setCrewForm({ name: c.name, designation: c.designation ?? '', stopName: c.stopName ?? '', stopLat: c.stopLat != null ? String(c.stopLat) : '', stopLng: c.stopLng != null ? String(c.stopLng) : '', nfcCardUid: c.nfcCardUid ?? '', phone: formatPakPhone(c.phone ?? ''), airlineId: c.airlineId, cityId: c.cityId ?? '', status: c.status ?? 'active' });
     setCrewError(''); setCrewViewOnly(false); setCrewModal(true);
   };
   const openCrewView = (c: Crew) => {
     setEditingCrew(c.id);
-    setCrewForm({ name: c.name, designation: c.designation ?? '', stopName: c.stopName ?? '', stopLat: c.stopLat != null ? String(c.stopLat) : '', stopLng: c.stopLng != null ? String(c.stopLng) : '', nfcCardUid: c.nfcCardUid ?? '', phone: formatPakPhone(c.phone ?? ''), airlineId: c.airlineId, cityId: c.cityId ?? '' });
+    setCrewForm({ name: c.name, designation: c.designation ?? '', stopName: c.stopName ?? '', stopLat: c.stopLat != null ? String(c.stopLat) : '', stopLng: c.stopLng != null ? String(c.stopLng) : '', nfcCardUid: c.nfcCardUid ?? '', phone: formatPakPhone(c.phone ?? ''), airlineId: c.airlineId, cityId: c.cityId ?? '', status: c.status ?? 'active' });
     setCrewError(''); setCrewViewOnly(true); setCrewModal(true);
   };
   const saveCrew = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (crewViewOnly) return;
     if (!crewForm.name.trim()) { setCrewError('Crew name is required.'); return; }
     const targetAirlineId = crewForm.airlineId || selected?.id;
     if (!targetAirlineId) { setCrewError('Please select an airline.'); return; }
@@ -840,105 +841,119 @@ export default function AirlinesPage() {
       title={crewViewOnly ? 'Crew Member Details' : (editingCrew ? 'Edit Crew Member' : 'Add Crew Member')}
       onClose={() => setCrewModal(false)}
       width={940}
+      height='min(860px, 95vh)'
     >
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        {/* Left: view info OR edit form */}
-        <div>
-          {crewViewOnly ? (
-            <>
-              {infoRow('Name', crewForm.name)}
-              {infoRow('Airline', airlines.find(a => a.id === crewForm.airlineId)?.name ?? '')}
-              {infoRow('Designation', crewForm.designation)}
-              {infoRow('Phone', crewForm.phone ? `+92 ${crewForm.phone}` : '')}
-              {infoRow('City', cities.find(c => c.id === crewForm.cityId)?.name ?? '')}
-              <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '12px 0', paddingTop: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>Drop-off Location</div>
-                {infoRow('Stop Name', crewForm.stopName)}
-                {infoRow('Coordinates', crewLat && crewLng ? `${Number(crewLat).toFixed(5)}, ${Number(crewLng).toFixed(5)}` : '')}
-              </div>
-              <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '12px 0', paddingTop: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>NFC Card</div>
-                {infoRow('NFC Card UID', crewForm.nfcCardUid)}
-              </div>
-            </>
-          ) : (
-            <form id="crew-form" onSubmit={saveCrew}>
-              <FormField label="Airline *">
-                <select style={selectStyle} value={crewForm.airlineId} onChange={e => setCrewForm(f => ({ ...f, airlineId: e.target.value }))} disabled={!!editingCrew && view !== 'crews'}>
-                  <option value="">Select airline</option>
-                  {airlines.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
-              </FormField>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <FormField label="Full Name *">
-                  <input style={inputStyle} value={crewForm.name} onChange={e => setCrewForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Ali Ahmed" autoFocus />
-                </FormField>
-                <FormField label="Designation">
-                  <select style={selectStyle} value={crewForm.designation} onChange={e => setCrewForm(f => ({ ...f, designation: e.target.value }))}>
-                    <option value="">Select designation</option>
-                    {DESIGNATIONS.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </FormField>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <FormField label="Phone">
-                  <div style={{ position: 'relative' }}>
-                    <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text)', pointerEvents: 'none', userSelect: 'none' }}>+92</span>
-                    <input style={{ ...inputStyle, paddingLeft: 40 }} value={crewForm.phone} onChange={e => setCrewForm(f => ({ ...f, phone: formatPakPhone(e.target.value) }))} placeholder="3001234567" maxLength={10} inputMode="numeric" />
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, flex: 1, minHeight: 0 }}>
+          {/* Left: view info OR edit fields */}
+          <div style={{ overflowY: 'auto', paddingRight: 4 }}>
+            {crewViewOnly ? (
+              <>
+                {/* Profile header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18, fontWeight: 700, flexShrink: 0 }}>
+                    {crewForm.name ? crewForm.name[0].toUpperCase() : '?'}
                   </div>
-                </FormField>
-                <FormField label="City">
-                  <select style={selectStyle} value={crewForm.cityId} onChange={e => setCrewForm(f => ({ ...f, cityId: e.target.value }))}>
-                    <option value="">— Select City —</option>
-                    {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{crewForm.name || '—'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{crewForm.designation || 'No designation'}</div>
+                  </div>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: crewForm.status === 'active' ? '#d1fae5' : '#fee2e2', color: crewForm.status === 'active' ? '#059669' : '#dc2626' }}>
+                    {crewForm.status.toUpperCase()}
+                  </span>
+                </div>
+                {infoRow('Airline', airlines.find(a => a.id === crewForm.airlineId)?.name ?? '')}
+                {infoRow('Phone', crewForm.phone ? `+92 ${crewForm.phone}` : '')}
+                {infoRow('City', cities.find(c => c.id === crewForm.cityId)?.name ?? '')}
+                <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '14px 0', paddingTop: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>Drop-off Location</div>
+                  {infoRow('Stop Name', crewForm.stopName)}
+                  {infoRow('Coordinates', crewLat && crewLng ? `${Number(crewLat).toFixed(5)}, ${Number(crewLng).toFixed(5)}` : '')}
+                </div>
+                <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '14px 0', paddingTop: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>NFC Card</div>
+                  {infoRow('NFC Card UID', crewForm.nfcCardUid)}
+                </div>
+              </>
+            ) : (
+              <>
+                <FormField label="Airline *">
+                  <select style={selectStyle} value={crewForm.airlineId} onChange={e => setCrewForm(f => ({ ...f, airlineId: e.target.value }))} disabled={!!editingCrew && view !== 'crews'}>
+                    <option value="">Select airline</option>
+                    {airlines.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </FormField>
-              </div>
-              <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '16px 0', paddingTop: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Drop-off Location</div>
-                <FormField label="Stop Name">
-                  <input style={inputStyle} value={crewForm.stopName} onChange={e => setCrewForm(f => ({ ...f, stopName: e.target.value }))} placeholder="e.g. DHA Phase 5" />
-                </FormField>
-                <FormField label="Coordinates">
-                  <input style={inputStyle}
-                    value={crewLat && crewLng ? `${crewForm.stopLat}, ${crewForm.stopLng}` : ''}
-                    onChange={e => {
-                      const val = e.target.value;
-                      const match = val.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
-                      if (match) setCrewCoords(parseFloat(match[1]), parseFloat(match[2]));
-                      else if (!val.trim()) setCrewForm(f => ({ ...f, stopLat: '', stopLng: '' }));
-                    }}
-                    placeholder="e.g. 31.521993, 74.356665"
-                  />
-                </FormField>
-              </div>
-              <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '16px 0', paddingTop: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>NFC Card</div>
-                <FormField label="NFC Card UID">
-                  <input style={inputStyle} value={crewForm.nfcCardUid} onChange={e => setCrewForm(f => ({ ...f, nfcCardUid: e.target.value }))} placeholder="e.g. 04A32FB1095C80" />
-                </FormField>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: -8 }}>Enter manually, or scan from the tablet app and copy the UID here.</div>
-              </div>
-              {crewError && <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 12 }}>{crewError}</div>}
-            </form>
-          )}
-        </div>
-        {/* Right: map */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>Stop Location on Map</div>
-          {!crewViewOnly && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>Map pe click karein ya pin drag karein:</div>}
-          <div style={{ flex: 1, minHeight: 380 }}>
-            <CrewMiniMap lat={crewLat} lng={crewLng} onChange={crewViewOnly ? () => {} : setCrewCoords} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <FormField label="Full Name *">
+                    <input style={inputStyle} value={crewForm.name} onChange={e => setCrewForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Ali Ahmed" autoFocus />
+                  </FormField>
+                  <FormField label="Designation">
+                    <select style={selectStyle} value={crewForm.designation} onChange={e => setCrewForm(f => ({ ...f, designation: e.target.value }))}>
+                      <option value="">Select designation</option>
+                      {DESIGNATIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </FormField>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <FormField label="Phone">
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text)', pointerEvents: 'none', userSelect: 'none' }}>+92</span>
+                      <input style={{ ...inputStyle, paddingLeft: 40 }} value={crewForm.phone} onChange={e => setCrewForm(f => ({ ...f, phone: formatPakPhone(e.target.value) }))} placeholder="3001234567" maxLength={10} inputMode="numeric" />
+                    </div>
+                  </FormField>
+                  <FormField label="City">
+                    <select style={selectStyle} value={crewForm.cityId} onChange={e => setCrewForm(f => ({ ...f, cityId: e.target.value }))}>
+                      <option value="">— Select City —</option>
+                      {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </FormField>
+                </div>
+                <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '16px 0', paddingTop: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Drop-off Location</div>
+                  <FormField label="Stop Name">
+                    <input style={inputStyle} value={crewForm.stopName} onChange={e => setCrewForm(f => ({ ...f, stopName: e.target.value }))} placeholder="e.g. DHA Phase 5" />
+                  </FormField>
+                  <FormField label="Coordinates">
+                    <input style={inputStyle}
+                      value={crewLat && crewLng ? `${crewForm.stopLat}, ${crewForm.stopLng}` : ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        const match = val.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
+                        if (match) setCrewCoords(parseFloat(match[1]), parseFloat(match[2]));
+                        else if (!val.trim()) setCrewForm(f => ({ ...f, stopLat: '', stopLng: '' }));
+                      }}
+                      placeholder="e.g. 31.521993, 74.356665"
+                    />
+                  </FormField>
+                </div>
+                <div style={{ borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, margin: '16px 0', paddingTop: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>NFC Card</div>
+                  <FormField label="NFC Card UID">
+                    <input style={inputStyle} value={crewForm.nfcCardUid} onChange={e => setCrewForm(f => ({ ...f, nfcCardUid: e.target.value }))} placeholder="e.g. 04A32FB1095C80" />
+                  </FormField>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: -8 }}>Enter manually, or scan from the tablet app and copy the UID here.</div>
+                </div>
+                {crewError && <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 12 }}>{crewError}</div>}
+              </>
+            )}
+          </div>
+          {/* Right: map */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>Stop Location on Map</div>
+            {!crewViewOnly && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>Map pe click karein ya pin drag karein:</div>}
+            <div style={{ flex: 1, minHeight: 500 }}>
+              <CrewMiniMap lat={crewLat} lng={crewLng} onChange={crewViewOnly ? () => {} : setCrewCoords} />
+            </div>
           </div>
         </div>
-      </div>
-      {/* Footer */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
-        <button type="button" onClick={() => setCrewModal(false)} style={{ padding: '7px 16px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Close</button>
-        {crewViewOnly
-          ? can('edit') && <button type="button" onClick={() => setCrewViewOnly(false)} style={{ padding: '7px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><IconPencil size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />Edit</button>
-          : <button type="submit" form="crew-form" disabled={crewSaving} style={{ padding: '7px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: crewSaving ? 'not-allowed' : 'pointer', opacity: crewSaving ? 0.7 : 1 }}>{crewSaving ? 'Saving…' : (editingCrew ? 'Save Changes' : 'Add Crew')}</button>
-        }
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, flexShrink: 0 }}>
+          <button type="button" onClick={() => setCrewModal(false)} style={{ padding: '7px 16px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Close</button>
+          {crewViewOnly
+            ? <button type="button" onClick={() => setCrewViewOnly(false)} style={{ padding: '7px 20px', minWidth: 120, background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><IconPencil size={13} />Edit</button>
+            : <button type="button" onClick={() => void saveCrew({ preventDefault: () => {} } as React.FormEvent)} disabled={crewSaving} style={{ padding: '7px 20px', minWidth: 120, background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: crewSaving ? 'not-allowed' : 'pointer', opacity: crewSaving ? 0.7 : 1 }}>{crewSaving ? 'Saving…' : (editingCrew ? 'Save Changes' : 'Add Crew')}</button>
+          }
+        </div>
       </div>
     </Modal>
   );

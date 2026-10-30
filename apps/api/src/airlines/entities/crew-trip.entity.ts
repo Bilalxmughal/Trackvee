@@ -23,5 +23,9 @@ export class CrewTrip {
 
   @Column({ name: 'km_travelled', type: 'numeric', precision: 10, scale: 2, nullable: true }) kmTravelled: string | null;
 
+  @Column({ name: 'flight_date', type: 'date', nullable: true }) flightDate: string | null;
+  @Column({ name: 'passenger_count', type: 'smallint', nullable: true }) passengerCount: number | null;
+  @Column({ type: 'text', nullable: true }) notes: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
 }

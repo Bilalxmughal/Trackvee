@@ -100,7 +100,7 @@ export class AirlinesController {
   // ─── Trips ──────────────────────────────────────────────────────────────────
 
   @Post('trips/checkin')
-  checkin(@Body() body: { nfcUid: string; vehicleId: string; flightNumber?: string; lat: number; lng: number }) {
+  checkin(@Body() body: { nfcUid: string; vehicleId: string; flightNumber?: string; flightDate?: string; passengerCount?: number; notes?: string; lat: number; lng: number }) {
     return this.svc.checkin(body);
   }
 
