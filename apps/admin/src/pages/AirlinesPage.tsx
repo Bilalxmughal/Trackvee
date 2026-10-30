@@ -67,8 +67,8 @@ type CrewForm = { name: string; designation: string; stopName: string; stopLat: 
 type PageView = 'dashboard' | 'airlines' | 'crews' | 'vehicles' | 'trips';
 
 interface GroupedTrip {
-  group_id: string; crew_count: number;
-  vehicle_id: string; vehicle_name: string; license_plate: string | null; vehicle_display_id: number;
+  group_id: string; display_id: number; crew_count: number;
+  vehicle_id: string; vehicle_name: string; license_plate: string | null; make: string | null; model: string | null; vehicle_display_id: number;
   flight_number: string | null; airline_id: string; airline_name: string;
   origin: string | null; origin_lat: number | null; origin_lng: number | null;
   checkin_at: string; checkout_at: string | null;
@@ -1393,11 +1393,13 @@ export default function AirlinesPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        <th style={th}>Origin</th>
-                        <th style={th}>Block Type</th>
+                        <th style={th}>Trip ID</th>
                         <th style={th}>Vehicle</th>
+                        <th style={th}>Airline</th>
+                        <th style={th}>Flight No.</th>
                         <th style={th}>Crew</th>
                         <th style={th}>Crew Count</th>
+                        <th style={th}>Origin</th>
                         <th style={th}>KM</th>
                         <th style={th}>Date / Time</th>
                         <th style={th}>Status</th>
@@ -1410,19 +1412,24 @@ export default function AirlinesPage() {
                           onMouseEnter={e => (e.currentTarget.style.background = dark ? '#1a1a1a' : '#fafafa')}
                           onMouseLeave={e => (e.currentTarget.style.background = '')}>
                           <td style={td}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <IconMapPin size={13} color="#dc2626" />
-                              <span style={{ fontWeight: 500 }}>{t.origin || '—'}</span>
-                            </div>
-                            {t.flight_number && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Flight: {t.flight_number}</div>}
+                            <span style={{ fontWeight: 600, color: 'var(--text)' }}>#{t.display_id}</span>
                           </td>
-                          <td style={td}>Drop Off</td>
                           <td style={td}>
                             <div style={{ fontWeight: 500 }}>{t.license_plate || `#${t.vehicle_display_id}`}</div>
-                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.vehicle_name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{[t.make, t.model].filter(Boolean).join(' ') || t.vehicle_name || '—'}</div>
                           </td>
-                          <td style={td}><div style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.crew_names}>{t.crew_names || '—'}</div></td>
+                          <td style={td}><div style={{ fontSize: 12 }}>{t.airline_name || '—'}</div></td>
+                          <td style={td}><div style={{ fontSize: 12 }}>{t.flight_number || '—'}</div></td>
+                          <td style={td}>
+                            <div style={{ fontSize: 12, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.crew_names}>{t.crew_names || '—'}</div>
+                          </td>
                           <td style={td}>{t.crew_count}</td>
+                          <td style={td}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <IconMapPin size={13} color="#dc2626" />
+                              <span style={{ fontSize: 12 }}>{t.origin || '—'}</span>
+                            </div>
+                          </td>
                           <td style={td}>{t.km_travelled > 0 ? `${Number(t.km_travelled).toFixed(1)} km` : '—'}</td>
                           <td style={td}><div style={{ fontSize: 12 }}>{fmtDt(t.checkin_at)}</div></td>
                           <td style={td}><span style={{ color: t.status === 'in_progress' ? '#f59e0b' : '#059669', fontWeight: 500, fontSize: 12 }}>{t.status === 'in_progress' ? 'In Progress' : 'Completed'}</span></td>

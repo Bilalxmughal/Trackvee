@@ -3,6 +3,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeor
 @Entity('crew_trips')
 export class CrewTrip {
   @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'display_id', type: 'int', unique: true, default: () => "nextval('global_display_id_seq')" }) displayId: number;
   @Column({ name: 'crew_id', type: 'uuid' }) crewId: string;
   @Column({ name: 'vehicle_id', type: 'uuid' }) vehicleId: string;
   @Column({ name: 'airline_id', type: 'uuid' }) airlineId: string;

@@ -376,7 +376,7 @@ export class AirlinesService {
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const groupBy = `
-      t.vehicle_id, v.name, v.license_plate, v.display_id,
+      t.vehicle_id, v.name, v.license_plate, v.make, v.model, v.display_id,
       t.flight_number, t.airline_id, a.name,
       t.checkin_stop, t.checkin_lat, t.checkin_lng,
       (FLOOR(EXTRACT(EPOCH FROM t.checkin_at) / 300))::bigint
@@ -402,10 +402,13 @@ export class AirlinesService {
     const rows = await this.dataSource.query(`
       SELECT
         (ARRAY_AGG(t.id ORDER BY t.checkin_at))[1]                  AS group_id,
+        MIN(t.display_id)                                            AS display_id,
         COUNT(t.id)::int                                             AS crew_count,
         t.vehicle_id,
         v.name                                                       AS vehicle_name,
         v.license_plate,
+        v.make,
+        v.model,
         v.display_id                                                 AS vehicle_display_id,
         t.flight_number,
         t.airline_id,
