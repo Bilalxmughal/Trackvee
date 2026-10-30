@@ -163,4 +163,22 @@ export class AirlinesController {
   scanStatus(@Query('nfcUid') nfcUid: string) {
     return this.svc.getActiveTripByNfc(nfcUid);
   }
+
+  // ─── Airport Settings ────────────────────────────────────────────────────────
+
+  @Get('settings/airports')
+  listAirports(@CurrentUser() user: User) { return this.svc.listAirports(user); }
+
+  @Post('settings/airports')
+  createAirport(@CurrentUser() user: User, @Body() body: { name: string; iataCode?: string; cityId?: string; lat: number; lng: number }) {
+    return this.svc.createAirport(user, body);
+  }
+
+  @Put('settings/airports/:id')
+  updateAirport(@CurrentUser() user: User, @Param('id') id: string, @Body() body: { name?: string; iataCode?: string; cityId?: string; lat?: number; lng?: number }) {
+    return this.svc.updateAirport(user, id, body);
+  }
+
+  @Delete('settings/airports/:id')
+  deleteAirport(@CurrentUser() user: User, @Param('id') id: string) { return this.svc.deleteAirport(user, id); }
 }

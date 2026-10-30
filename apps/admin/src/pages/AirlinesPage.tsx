@@ -5,6 +5,7 @@ import {
   IconUsers, IconCar, IconMapPin, IconNfc, IconRefresh,
   IconLayoutDashboard, IconDownload, IconUpload, IconCopy,
   IconEye, IconHistory, IconSearch, IconBan, IconCircleCheck,
+  IconSettings,
 } from '@tabler/icons-react';
 import { MapContainer, TileLayer, Marker, Polyline, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -61,10 +62,17 @@ interface Trip {
   vehicle_name: string; license_plate: string | null;
 }
 
+interface AirlineAirport {
+  id: string; displayId: number; organizationId: string;
+  name: string; iataCode: string | null; cityId: string | null;
+  lat: number; lng: number; createdAt: string;
+}
+
 // phone fields store raw digits (10 digits after +92), e.g. "3001234567"
 type AirlineForm = { name: string; iataCode: string; contactPerson: string; contactPhone: string; cityId: string; };
 type CrewForm = { name: string; designation: string; stopName: string; stopLat: string; stopLng: string; nfcCardUid: string; phone: string; airlineId: string; cityId: string; status: string; };
-type PageView = 'dashboard' | 'airlines' | 'crews' | 'vehicles' | 'trips';
+type AirportForm = { name: string; iataCode: string; cityId: string; lat: string; lng: string; };
+type PageView = 'dashboard' | 'airlines' | 'crews' | 'vehicles' | 'trips' | 'settings';
 
 interface GroupedTrip {
   group_id: string; display_id: number; crew_count: number;
@@ -115,12 +123,12 @@ function MapClickHandler({ onMove }: { onMove: (lat: number, lng: number) => voi
   return null;
 }
 
-function CrewMiniMap({ lat, lng, onChange }: { lat: number | null; lng: number | null; onChange: (lat: number, lng: number) => void; }) {
+function CrewMiniMap({ lat, lng, onChange, height = 180 }: { lat: number | null; lng: number | null; onChange: (lat: number, lng: number) => void; height?: number; }) {
   const center: [number, number] = (lat && lng) ? [lat, lng] : [30.3753, 69.3451];
   const zoom = (lat && lng) ? 14 : 5;
   const markerRef = useRef<L.Marker | null>(null);
   return (
-    <div style={{ height: 180, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--input-border)', marginTop: 6 }}>
+    <div style={{ height, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--input-border)', marginTop: 6 }}>
       <MapContainer key={`${lat}-${lng}-init`} center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} zoomControl>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <MapClickHandler onMove={onChange} />
@@ -141,6 +149,7 @@ const NAV_ITEMS: { key: PageView; path: string; icon: React.ElementType; label: 
   { key: 'crews',     path: '/airlines/crew',      icon: IconUsers,            label: 'Crew' },
   { key: 'vehicles',  path: '/airlines/vehicles',  icon: IconCar,              label: 'Vehicle' },
   { key: 'trips',     path: '/airlines/trips',     icon: IconHistory,          label: 'Trips' },
+  { key: 'settings',  path: '/airlines/settings',  icon: IconSettings,         label: 'Settings' },
 ];
 
 function pathToView(pathname: string): PageView {
@@ -149,6 +158,7 @@ function pathToView(pathname: string): PageView {
   if (pathname.includes('/airlines/crew'))      return 'crews';
   if (pathname.includes('/airlines/vehicles'))  return 'vehicles';
   if (pathname.includes('/airlines/trips'))     return 'trips';
+  if (pathname.includes('/airlines/settings'))  return 'settings';
   return 'airlines';
 }
 
@@ -362,6 +372,16 @@ export default function AirlinesPage() {
   const [tripDetail, setTripDetail] = useState<TripDetailData | null>(null);
   const [tripDetailLoading, setTripDetailLoading] = useState(false);
 
+  // Airports (settings)
+  const [airports, setAirports] = useState<AirlineAirport[]>([]);
+  const [airportsLoading, setAirportsLoading] = useState(false);
+  const [airportModal, setAirportModal] = useState(false);
+  const [airportForm, setAirportForm] = useState<AirportForm>({ name: '', iataCode: '', cityId: '', lat: '', lng: '' });
+  const [editingAirport, setEditingAirport] = useState<string | null>(null);
+  const [airportSaving, setAirportSaving] = useState(false);
+  const [airportError, setAirportError] = useState('');
+  const [settingsTab, setSettingsTab] = useState<'airports'>('airports');
+
   // ── Filtered data ─────────────────────────────────────────────────────────
   const filteredAirlines = airlines.filter(a => {
     const q = airlineSearch.toLowerCase();
@@ -541,12 +561,20 @@ export default function AirlinesPage() {
     } catch { toast('Could not delete trip', 'error'); }
   };
 
+  const loadAirports = useCallback(async () => {
+    setAirportsLoading(true);
+    try { const r = await api.get<AirlineAirport[]>('/airlines/settings/airports'); setAirports(r.data); }
+    catch { toast('Could not load airports', 'error'); }
+    finally { setAirportsLoading(false); }
+  }, [toast]);
+
   useEffect(() => {
     if (view === 'dashboard') void loadDashboard();
     if (view === 'crews')     void loadAllCrews();
     if (view === 'vehicles')  void loadAllVehicles();
     if (view === 'airlines')  { setSelected(null); }
     if (view === 'trips')     void loadGroupedTrips();
+    if (view === 'settings')  void loadAirports();
   }, [view]);
 
   // ── Airline CRUD ──────────────────────────────────────────────────────────
@@ -656,6 +684,36 @@ export default function AirlinesPage() {
     if (!window.confirm('Remove this vehicle from the airline?')) return;
     try { await api.delete(`/airlines/${aid}/vehicles/${vehicleId}`); toast('Vehicle unassigned'); void loadVehicles(aid); if (view === 'vehicles') void loadAllVehicles(); }
     catch { toast('Could not unassign vehicle', 'error'); }
+  };
+
+  // ── Airport CRUD ──────────────────────────────────────────────────────────
+
+  const airportLat = airportForm.lat ? parseFloat(airportForm.lat) : null;
+  const airportLng = airportForm.lng ? parseFloat(airportForm.lng) : null;
+  const setAirportCoords = (lat: number, lng: number) => setAirportForm(f => ({ ...f, lat: lat.toFixed(6), lng: lng.toFixed(6) }));
+
+  const openAirportAdd = () => { setEditingAirport(null); setAirportForm({ name: '', iataCode: '', cityId: '', lat: '', lng: '' }); setAirportError(''); setAirportModal(true); };
+  const openAirportEdit = (a: AirlineAirport) => {
+    setEditingAirport(a.id);
+    setAirportForm({ name: a.name, iataCode: a.iataCode ?? '', cityId: a.cityId ?? '', lat: String(a.lat), lng: String(a.lng) });
+    setAirportError(''); setAirportModal(true);
+  };
+  const saveAirport = async () => {
+    if (!airportForm.name.trim()) { setAirportError('Airport name is required.'); return; }
+    if (!airportForm.lat || !airportForm.lng) { setAirportError('Please set coordinates on the map.'); return; }
+    setAirportSaving(true); setAirportError('');
+    try {
+      const payload = { name: airportForm.name.trim(), iataCode: airportForm.iataCode.trim() || null, cityId: airportForm.cityId || null, lat: parseFloat(airportForm.lat), lng: parseFloat(airportForm.lng) };
+      if (editingAirport) { await api.put(`/airlines/settings/airports/${editingAirport}`, payload); toast('Airport updated'); }
+      else { await api.post('/airlines/settings/airports', payload); toast('Airport added'); }
+      setAirportModal(false); void loadAirports();
+    } catch (err: any) { setAirportError(err?.response?.data?.message ?? 'Could not save airport.'); }
+    finally { setAirportSaving(false); }
+  };
+  const deleteAirport = async (a: AirlineAirport) => {
+    if (!window.confirm(`Delete "${a.name}"?`)) return;
+    try { await api.delete(`/airlines/settings/airports/${a.id}`); toast('Airport deleted'); void loadAirports(); }
+    catch { toast('Could not delete airport', 'error'); }
   };
 
   // ── Import / Export ───────────────────────────────────────────────────────
@@ -1446,6 +1504,130 @@ export default function AirlinesPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── SETTINGS VIEW ─────────────────────────────────────────────── */}
+        {view === 'settings' && (
+          <div>
+            <PageHeader title="Settings" subtitle="Configure airlines module settings">
+              {settingsTab === 'airports' && can('add') && (
+                <button onClick={openAirportAdd} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                  <IconPlus size={15} /> Add Airport
+                </button>
+              )}
+            </PageHeader>
+            {/* Settings tabs */}
+            <div style={{ borderBottom: `1px solid ${dark ? '#222' : '#f0f0f0'}`, paddingLeft: 24, display: 'flex', gap: 4 }}>
+              <button style={tabBtn(settingsTab === 'airports')} onClick={() => setSettingsTab('airports')}>
+                <IconMapPin size={14} style={{ marginRight: 5, verticalAlign: 'middle' }} />Airport Locations
+              </button>
+            </div>
+
+            {/* Airports tab */}
+            {settingsTab === 'airports' && (
+              <div style={{ padding: '24px' }}>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>
+                  Configure airport coordinates. These are used as the default map center when crew members are assigned to a city.
+                </div>
+                {airportsLoading ? <Spinner style={{ height: 200 }} /> : airports.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 60, color: 'var(--muted)', fontSize: 14 }}>
+                    No airports configured yet. Click "Add Airport" to get started.
+                  </div>
+                ) : (
+                  <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <th style={th}>ID</th>
+                          <th style={th}>Airport Name</th>
+                          <th style={th}>IATA Code</th>
+                          <th style={th}>City</th>
+                          <th style={th}>Coordinates</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {airports.map(a => (
+                          <tr key={a.id}
+                            onMouseEnter={e => (e.currentTarget.style.background = dark ? '#1a1a1a' : '#fafafa')}
+                            onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                            <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{a.displayId}</span></td>
+                            <td style={td}><div style={{ fontWeight: 600 }}>{a.name}</div></td>
+                            <td style={td}>{a.iataCode || '—'}</td>
+                            <td style={td}>{cities.find(c => c.id === a.cityId)?.name || '—'}</td>
+                            <td style={td}>
+                              <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                                {Number(a.lat).toFixed(5)}, {Number(a.lng).toFixed(5)}
+                              </span>
+                            </td>
+                            <td style={{ ...td, textAlign: 'right' }}>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                                {can('edit') && <button onClick={() => openAirportEdit(a)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconPencil size={14} color="var(--muted)" /></button>}
+                                {can('delete') && <button onClick={() => deleteAirport(a)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Airport Add/Edit Modal */}
+            <Modal
+              open={airportModal}
+              title={editingAirport ? 'Edit Airport' : 'Add Airport'}
+              onClose={() => setAirportModal(false)}
+              width={860}
+              height='min(700px, 90vh)'
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, flex: 1, minHeight: 0 }}>
+                  {/* Left: fields */}
+                  <div style={{ overflowY: 'auto', paddingRight: 4 }}>
+                    <FormField label="Airport Name *">
+                      <input style={inputStyle} value={airportForm.name} onChange={e => setAirportForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Allama Iqbal International Airport" autoFocus />
+                    </FormField>
+                    <FormField label="IATA Code">
+                      <input style={inputStyle} value={airportForm.iataCode} onChange={e => setAirportForm(f => ({ ...f, iataCode: e.target.value.toUpperCase() }))} placeholder="e.g. LHE" maxLength={10} />
+                    </FormField>
+                    <FormField label="City">
+                      <select style={selectStyle} value={airportForm.cityId} onChange={e => setAirportForm(f => ({ ...f, cityId: e.target.value }))}>
+                        <option value="">— Select City —</option>
+                        {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </FormField>
+                    <FormField label="Coordinates">
+                      <input style={inputStyle}
+                        value={airportLat && airportLng ? `${airportForm.lat}, ${airportForm.lng}` : ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const match = val.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
+                          if (match) setAirportCoords(parseFloat(match[1]), parseFloat(match[2]));
+                          else if (!val.trim()) setAirportForm(f => ({ ...f, lat: '', lng: '' }));
+                        }}
+                        placeholder="e.g. 31.52190, 74.40361"
+                      />
+                    </FormField>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: -8, marginBottom: 12 }}>Or click on the map to set coordinates.</div>
+                    {airportError && <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 12 }}>{airportError}</div>}
+                  </div>
+                  {/* Right: map */}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>Airport Location on Map</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>Map pe click karein ya pin drag karein:</div>
+                    <CrewMiniMap lat={airportLat} lng={airportLng} onChange={setAirportCoords} height={400} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${dark ? '#222' : '#f0f0f0'}`, flexShrink: 0 }}>
+                  <button type="button" onClick={() => setAirportModal(false)} style={{ padding: '7px 16px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+                  <button type="button" onClick={() => void saveAirport()} disabled={airportSaving} style={{ padding: '7px 20px', minWidth: 120, background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: airportSaving ? 'not-allowed' : 'pointer', opacity: airportSaving ? 0.7 : 1 }}>{airportSaving ? 'Saving…' : (editingAirport ? 'Save Changes' : 'Add Airport')}</button>
+                </div>
+              </div>
+            </Modal>
           </div>
         )}
 

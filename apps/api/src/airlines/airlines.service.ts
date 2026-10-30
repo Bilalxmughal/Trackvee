@@ -5,6 +5,7 @@ import { Airline } from './entities/airline.entity.js';
 import { AirlineCrew } from './entities/airline-crew.entity.js';
 import { AirlineVehicle } from './entities/airline-vehicle.entity.js';
 import { CrewTrip } from './entities/crew-trip.entity.js';
+import { AirlineAirport } from './entities/airline-airport.entity.js';
 import { User } from '../users/entities/user.entity.js';
 
 const INTERNAL_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
@@ -40,6 +41,7 @@ export class AirlinesService {
     @InjectRepository(AirlineCrew)  private crewRepo: Repository<AirlineCrew>,
     @InjectRepository(AirlineVehicle) private avRepo: Repository<AirlineVehicle>,
     @InjectRepository(CrewTrip)     private tripRepo: Repository<CrewTrip>,
+    @InjectRepository(AirlineAirport) private airportRepo: Repository<AirlineAirport>,
     private dataSource: DataSource,
   ) {}
 
@@ -480,5 +482,31 @@ export class AirlinesService {
   async deleteCrewTrips(user: User, tripIds: string[]) {
     await this.tripRepo.delete(tripIds);
     return { success: true, deleted: tripIds.length };
+  }
+
+  // ─── Airport Settings ────────────────────────────────────────────────────────
+
+  async listAirports(user: User) {
+    const orgId = this.orgId(user);
+    const where = orgId ? { organizationId: orgId } : {};
+    return this.airportRepo.find({ where, order: { displayId: 'ASC' } });
+  }
+
+  async createAirport(user: User, body: { name: string; iataCode?: string; cityId?: string; lat: number; lng: number }) {
+    const orgId = this.orgId(user) ?? user.organizationId;
+    const airport = this.airportRepo.create({ ...body, iataCode: body.iataCode ?? null, cityId: body.cityId ?? null, organizationId: orgId });
+    return this.airportRepo.save(airport);
+  }
+
+  async updateAirport(user: User, id: string, body: { name?: string; iataCode?: string; cityId?: string; lat?: number; lng?: number }) {
+    const airport = await this.airportRepo.findOneBy({ id });
+    if (!airport) throw new NotFoundException('Airport not found');
+    Object.assign(airport, body);
+    return this.airportRepo.save(airport);
+  }
+
+  async deleteAirport(user: User, id: string) {
+    await this.airportRepo.delete(id);
+    return { success: true };
   }
 }
