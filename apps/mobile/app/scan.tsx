@@ -67,30 +67,24 @@ function PulseRing({ color, delay }: { color: string; delay: number }) {
   );
 }
 
-// ─── WiFi-style scan icon (SVG-drawn with Views) ──────────────────────────────
+// ─── WiFi-style scan icon ─────────────────────────────────────────────────────
+
+function WifiArc({ r, th, color }: { r: number; th: number; color: string }) {
+  return (
+    <View style={{ width: r * 2, height: r, overflow: 'hidden', position: 'absolute', bottom: th * 1.2 }}>
+      <View style={{ width: r * 2, height: r * 2, borderRadius: r, borderWidth: th, borderColor: color }} />
+    </View>
+  );
+}
 
 function WifiScanIcon({ size, color }: { size: number; color: string }) {
-  const r = size / 2;
-  const arcStyle = (scale: number) => ({
-    position: 'absolute' as const,
-    width: size * scale, height: size * scale,
-    borderRadius: (size * scale) / 2,
-    borderWidth: size * 0.065,
-    borderColor: color,
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
-    transform: [{ rotate: '-135deg' }],
-  });
+  const th = Math.max(2.5, size * 0.055);
+  const dot = th * 2.2;
+  const radii = [size * 0.19, size * 0.33, size * 0.47];
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={arcStyle(1)} />
-      <View style={arcStyle(0.7)} />
-      <View style={arcStyle(0.42)} />
-      {/* center dot */}
-      <View style={{
-        width: size * 0.13, height: size * 0.13, borderRadius: (size * 0.13) / 2,
-        backgroundColor: color, position: 'absolute', bottom: size * 0.19,
-      }} />
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: size * 0.06 }}>
+      {radii.map((r, i) => <WifiArc key={i} r={r} th={th} color={color} />)}
+      <View style={{ width: dot, height: dot, borderRadius: dot / 2, backgroundColor: color }} />
     </View>
   );
 }
@@ -360,13 +354,8 @@ export default function ScanScreen() {
     <SafeAreaView style={s.container}>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false, fullScreenGestureEnabled: false }} />
 
-      {/* Top bar: Logout top-right */}
-      <View style={s.topBar}>
-        <View style={{ flex: 1 }} />
-        <Pressable onPress={logout} hitSlop={12}>
-          <Text style={s.logoutText}>Logout</Text>
-        </Pressable>
-      </View>
+      {/* Top bar: empty spacer to keep safe-area padding */}
+      <View style={s.topBar} />
 
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
 
@@ -382,18 +371,16 @@ export default function ScanScreen() {
             {/* Large tappable WiFi-style scan icon */}
             <Pressable
               onPress={scanState === 'idle' ? startScan : cancelScan}
-              style={({ pressed }) => [s.wifiIconWrap, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [s.wifiIconWrap, pressed && { opacity: 0.65 }]}
             >
-              <View style={{ position: 'relative', width: 160, height: 160, justifyContent: 'center', alignItems: 'center' }}>
+              <View style={{ position: 'relative', width: 180, height: 180, justifyContent: 'center', alignItems: 'center' }}>
                 {scanState === 'scanning' && (
                   <>
                     <PulseRing color="#dc2626" delay={0} />
                     <PulseRing color="#dc2626" delay={500} />
                   </>
                 )}
-                <View style={[s.iconCircle, { borderColor: scanState === 'scanning' ? '#dc2626' : t.border }]}>
-                  <WifiScanIcon size={72} color={scanState === 'scanning' ? '#dc2626' : t.secondary} />
-                </View>
+                <WifiScanIcon size={110} color={scanState === 'scanning' ? '#dc2626' : t.secondary} />
               </View>
             </Pressable>
 
@@ -519,14 +506,12 @@ function makeStyles(t: AppTheme) {
 
     // ── Scan screen ──
     container:      { flex: 1, backgroundColor: t.bg },
-    topBar:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 8 },
-    logoutText:     { fontSize: 14, fontWeight: '600' as const, color: '#dc2626' },
+    topBar:         { height: 8 },
 
     headerAirline:  { fontSize: 18, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 4 },
     headerVehicle:  { fontSize: 14, color: t.secondary, textAlign: 'center', marginBottom: 36 },
 
     wifiIconWrap:   { marginBottom: 32 },
-    iconCircle:     { width: 140, height: 140, borderRadius: 70, borderWidth: 2, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg2 },
 
     scanTitle:      { fontSize: 20, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 8 },
     scanSubtitle:   { fontSize: 13, color: t.secondary, textAlign: 'center' },

@@ -5,7 +5,7 @@ import {
   IconUsers, IconCar, IconMapPin, IconNfc, IconRefresh,
   IconLayoutDashboard, IconDownload, IconUpload, IconCopy,
   IconEye, IconHistory, IconSearch, IconBan, IconCircleCheck,
-  IconSettings, IconKey, IconLock,
+  IconSettings, IconKey, IconLock, IconLogout,
 } from '@tabler/icons-react';
 import { MapContainer, TileLayer, Marker, Polyline, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -52,6 +52,7 @@ interface VehicleRow {
   license_plate: string | null; make: string | null; model: string | null;
   type: string; lifecycle_status: string; city_id: string | null;
   airlineId?: string; airlineName?: string; has_pin?: boolean;
+  last_login_at?: string | null; session_revoked_at?: string | null;
 }
 interface Trip {
   t_id: string; t_flight_number: string | null; t_status: string;
@@ -736,6 +737,18 @@ export default function AirlinesPage() {
     } finally { setPinSaving(false); }
   };
 
+  const forceLogoutVehicle = async (airlineId: string, vehicleId: string, label: string) => {
+    if (!confirm(`Force logout "${label}" from tablet?`)) return;
+    try {
+      await api.post(`/airlines/${airlineId}/vehicles/${vehicleId}/logout`);
+      toast('Vehicle logged out');
+      void loadVehicles(airlineId);
+      void loadAllVehicles();
+    } catch (e: any) {
+      toast(e?.response?.data?.message ?? 'Could not logout vehicle', 'error');
+    }
+  };
+
   // ── Import / Export ───────────────────────────────────────────────────────
 
   const exportAirlines = () => {
@@ -1281,9 +1294,12 @@ export default function AirlinesPage() {
                   {vehiclesLoading ? <Spinner style={{ height: 200 }} /> : assignedVehicles.length === 0 ? <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 14 }}>No vehicles assigned yet.</div> : (
                     <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th><th style={th}>Tablet PIN</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
+                        <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th><th style={th}>Tablet PIN</th><th style={th}>Login Status</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
                         <tbody>
-                          {assignedVehicles.map(v => (
+                          {assignedVehicles.map(v => {
+                            const isRevoked = v.session_revoked_at && v.last_login_at && new Date(v.session_revoked_at) > new Date(v.last_login_at);
+                            const isLoggedIn = v.last_login_at && !isRevoked;
+                            return (
                             <tr key={v.id}>
                               <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{v.display_id}</span></td>
                               <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || '—'}</div></td>
@@ -1296,14 +1312,21 @@ export default function AirlinesPage() {
                                   ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#059669' }}><IconLock size={12} /> Set</span>
                                   : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)' }}><IconLock size={12} /> Not set</span>}
                               </td>
+                              <td style={td}>
+                                {isLoggedIn
+                                  ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669', fontWeight: 600 }}><IconCircleCheck size={12} /> Signed In</span>
+                                  : <span style={{ fontSize: 11, color: 'var(--muted)' }}>{v.last_login_at ? 'Logged out' : 'Never'}</span>}
+                              </td>
                               <td style={{ ...td, textAlign: 'right' }}>
                                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                  {can('edit') && isLoggedIn && <button onClick={() => forceLogoutVehicle(selected!.id, v.id, v.license_plate || v.name)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Force Logout"><IconLogout size={14} color="#dc2626" /></button>}
                                   {can('edit') && <button onClick={() => { setPinModal({ vehicleId: v.id, airlineId: selected!.id, label: v.license_plate || v.name }); setPinValue(''); setPinError(''); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Set PIN"><IconKey size={14} color="var(--muted)" /></button>}
                                   {can('delete') && <button onClick={() => unassignVehicle(v.id)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Unassign"><IconTrash size={14} color="#dc2626" /></button>}
                                 </div>
                               </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1707,9 +1730,12 @@ export default function AirlinesPage() {
               ) : (
                 <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>Airline</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th><th style={th}>Tablet PIN</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
+                    <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>Airline</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th><th style={th}>Tablet PIN</th><th style={th}>Login Status</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
                     <tbody>
-                      {filteredVehicles.map(v => (
+                      {filteredVehicles.map(v => {
+                        const isRevoked = v.session_revoked_at && v.last_login_at && new Date(v.session_revoked_at) > new Date(v.last_login_at);
+                        const isLoggedIn = v.last_login_at && !isRevoked;
+                        return (
                         <tr key={`${v.id}-${v.airlineName}`}>
                           <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{v.display_id}</span></td>
                           <td style={td}><div style={{ fontWeight: 600 }}>{v.license_plate || '—'}</div></td>
@@ -1723,14 +1749,21 @@ export default function AirlinesPage() {
                               ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#16a34a', fontWeight: 600 }}><IconLock size={12} />Set</span>
                               : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Not set</span>}
                           </td>
+                          <td style={td}>
+                            {isLoggedIn
+                              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669', fontWeight: 600 }}><IconCircleCheck size={12} /> Signed In</span>
+                              : <span style={{ fontSize: 11, color: 'var(--muted)' }}>{v.last_login_at ? 'Logged out' : 'Never'}</span>}
+                          </td>
                           <td style={{ ...td, textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                              {can('edit') && v.airlineId && isLoggedIn && <button onClick={() => forceLogoutVehicle(v.airlineId!, v.id, v.license_plate || v.name)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Force Logout"><IconLogout size={14} color="#dc2626" /></button>}
                               {can('edit') && v.airlineId && <button onClick={() => { setPinModal({ vehicleId: v.id, airlineId: v.airlineId!, label: v.license_plate || v.name }); setPinValue(''); setPinError(''); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Set PIN"><IconKey size={14} color="var(--muted)" /></button>}
                               {can('delete') && <button onClick={() => { const a = airlines.find(al => al.name === v.airlineName); if (a) unassignVehicle(v.id, a.id); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>}
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

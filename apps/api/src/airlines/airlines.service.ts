@@ -161,7 +161,8 @@ export class AirlinesService {
     await this.getAirline(user, airlineId);
     const vehicles = await this.dataSource.query(
       `SELECT v.id, v.display_id, v.name, v.license_plate, v.make, v.model, v.type, v.lifecycle_status, v.city_id,
-              (av.pin_hash IS NOT NULL) AS has_pin
+              (av.pin_hash IS NOT NULL) AS has_pin,
+              av.last_login_at, av.session_revoked_at
        FROM airline_vehicles av
        JOIN vehicles v ON v.id = av.vehicle_id
        WHERE av.airline_id = $1`,
@@ -176,6 +177,15 @@ export class AirlinesService {
     const av = await this.avRepo.findOne({ where: { airlineId, vehicleId } });
     if (!av) throw new NotFoundException('Vehicle not assigned to this airline');
     av.pinHash = await bcrypt.hash(pin, 10);
+    await this.avRepo.save(av);
+    return { success: true };
+  }
+
+  async forceLogoutVehicle(user: User, airlineId: string, vehicleId: string) {
+    await this.getAirline(user, airlineId);
+    const av = await this.avRepo.findOne({ where: { airlineId, vehicleId } });
+    if (!av) throw new NotFoundException('Vehicle not assigned to this airline');
+    av.sessionRevokedAt = new Date();
     await this.avRepo.save(av);
     return { success: true };
   }
@@ -196,7 +206,12 @@ export class AirlinesService {
     const valid = await bcrypt.compare(pin, row.pin_hash);
     if (!valid) throw new UnauthorizedException('Invalid PIN');
 
-    const payload = { sub: `vehicle:${row.vehicle_id}`, vehicleId: row.vehicle_id, airlineId: row.airline_id, type: 'vehicle' };
+    await this.dataSource.query(
+      `UPDATE airline_vehicles SET last_login_at = NOW(), session_revoked_at = NULL WHERE vehicle_id = $1`,
+      [row.vehicle_id],
+    );
+
+    const payload = { sub: `vehicle:${row.vehicle_id}`, vehicleId: row.vehicle_id, airlineId: row.airline_id, type: 'vehicle', iat: Math.floor(Date.now() / 1000) };
     const token = this.jwtService.sign(payload, { expiresIn: '30d' });
 
     return {

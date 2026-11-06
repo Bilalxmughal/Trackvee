@@ -107,6 +107,15 @@ export class AirlinesController {
     return this.svc.setVehiclePin(user, airlineId, vehicleId, pin);
   }
 
+  @Post(':airlineId/vehicles/:vehicleId/logout')
+  forceLogoutVehicle(
+    @CurrentUser() user: User,
+    @Param('airlineId') airlineId: string,
+    @Param('vehicleId') vehicleId: string,
+  ) {
+    return this.svc.forceLogoutVehicle(user, airlineId, vehicleId);
+  }
+
   // ─── Trips ──────────────────────────────────────────────────────────────────
 
   @Post('trips/checkin')
