@@ -730,6 +730,7 @@ export default function AirlinesPage() {
       toast('PIN set successfully');
       setPinModal(null); setPinValue('');
       void loadVehicles(pinModal.airlineId);
+      void loadAllVehicles();
     } catch (e: any) {
       setPinError(e?.response?.data?.message ?? 'Could not set PIN');
     } finally { setPinSaving(false); }
@@ -1706,7 +1707,7 @@ export default function AirlinesPage() {
               ) : (
                 <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>Airline</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
+                    <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>Airline</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th><th style={th}>Tablet PIN</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
                     <tbody>
                       {filteredVehicles.map(v => (
                         <tr key={`${v.id}-${v.airlineName}`}>
@@ -1717,9 +1718,17 @@ export default function AirlinesPage() {
                           <td style={td}>{cities.find(c => c.id === v.city_id)?.name || '—'}</td>
                           <td style={td}>{v.type}</td>
                           <td style={td}>{v.lifecycle_status}</td>
-                          {can('delete') && <td style={{ ...td, textAlign: 'right' }}>
-                            <button onClick={() => { const a = airlines.find(al => al.name === v.airlineName); if (a) unassignVehicle(v.id, a.id); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>
-                          </td>}
+                          <td style={td}>
+                            {v.has_pin
+                              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#16a34a', fontWeight: 600 }}><IconLock size={12} />Set</span>
+                              : <span style={{ fontSize: 11, color: 'var(--muted)' }}>Not set</span>}
+                          </td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                              {can('edit') && <button onClick={() => { setPinModal({ vehicleId: v.id, airlineId: v.airlineId, label: v.license_plate || v.name }); setPinValue(''); setPinError(''); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Set PIN"><IconKey size={14} color="var(--muted)" /></button>}
+                              {can('delete') && <button onClick={() => { const a = airlines.find(al => al.name === v.airlineName); if (a) unassignVehicle(v.id, a.id); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>}
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
