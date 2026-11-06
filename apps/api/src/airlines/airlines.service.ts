@@ -211,6 +211,19 @@ export class AirlinesService {
     };
   }
 
+  async lookupCrewByPartialUid(digits: string): Promise<{ nfcUid: string }> {
+    if (!digits || !/^\w{1,8}$/.test(digits)) throw new BadRequestException('Enter 1–8 alphanumeric characters');
+    const result = await this.dataSource.query(
+      `SELECT nfc_card_uid FROM airline_crews
+       WHERE nfc_card_uid IS NOT NULL
+         AND UPPER(REPLACE(REPLACE(nfc_card_uid, ':', ''), '-', '')) LIKE UPPER($1)`,
+      [`%${digits}`],
+    );
+    if (result.length === 0) throw new NotFoundException('No crew card found with those digits');
+    if (result.length > 1) throw new BadRequestException('Multiple cards match — enter more digits');
+    return { nfcUid: result[0].nfc_card_uid };
+  }
+
   async assignVehicle(user: User, airlineId: string, vehicleId: string) {
     await this.getAirline(user, airlineId);
     const existing = await this.avRepo.findOne({ where: { airlineId, vehicleId } });
