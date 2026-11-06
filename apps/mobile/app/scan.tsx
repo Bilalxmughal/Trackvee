@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, Easing, Platform,
+  ActivityIndicator, Alert, Animated, Easing, Image, KeyboardAvoidingView, Platform,
   Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { TablerIcon } from '../src/components/TablerIcon';
 import api from '../src/lib/api';
 import { useTheme } from '../src/hooks/useTheme';
 import type { AppTheme } from '../src/theme';
+import logo from '../assets/trackvee-logo.png';
 
 // NFC — optional import (only available in custom builds)
 let NfcManager: any = null;
@@ -75,13 +76,13 @@ function PulseRing({ color, delay }: { color: string; delay: number }) {
 
 // ─── OTP PIN Input ────────────────────────────────────────────────────────────
 
-function PinInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const refs = [
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-  ];
+function PinInput({ value, onChange, theme }: { value: string; onChange: (v: string) => void; theme: AppTheme }) {
+  const ref0 = useRef<TextInput>(null);
+  const ref1 = useRef<TextInput>(null);
+  const ref2 = useRef<TextInput>(null);
+  const ref3 = useRef<TextInput>(null);
+  const refs = [ref0, ref1, ref2, ref3];
+  const [focused, setFocused] = useState(-1);
 
   const digits = value.split('').concat(['', '', '', '']).slice(0, 4);
 
@@ -89,9 +90,7 @@ function PinInput({ value, onChange }: { value: string; onChange: (v: string) =>
     const digit = text.replace(/\D/g, '').slice(-1);
     const arr = digits.map((d, i) => (i === index ? digit : d));
     onChange(arr.join(''));
-    if (digit && index < 3) {
-      refs[index + 1].current?.focus();
-    }
+    if (digit && index < 3) refs[index + 1].current?.focus();
   };
 
   const handleKeyPress = (index: number, key: string) => {
@@ -103,26 +102,27 @@ function PinInput({ value, onChange }: { value: string; onChange: (v: string) =>
   };
 
   return (
-    <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center', marginTop: 8 }}>
+    <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center', marginTop: 8 }}>
       {digits.map((d, i) => (
         <TextInput
           key={i}
           ref={refs[i]}
           style={{
-            width: 60, height: 64, borderRadius: 12,
-            borderWidth: 2,
-            borderColor: d ? '#dc2626' : '#e0e0e0',
-            fontSize: 28, fontWeight: '800' as const,
-            textAlign: 'center', color: '#111',
-            backgroundColor: '#fff',
+            width: 62, height: 60, borderRadius: 7,
+            borderWidth: focused === i ? 2 : 1,
+            borderColor: focused === i ? '#dc2626' : theme.border,
+            fontSize: 26, fontWeight: '700' as const,
+            textAlign: 'center', color: theme.ink,
+            backgroundColor: theme.inputBg,
           }}
           value={d}
           onChangeText={text => handleChange(i, text)}
           onKeyPress={({ nativeEvent }) => handleKeyPress(i, nativeEvent.key)}
+          onFocus={() => setFocused(i)}
+          onBlur={() => setFocused(-1)}
           keyboardType="number-pad"
           maxLength={2}
           secureTextEntry
-          caretHidden
         />
       ))}
     </View>
@@ -285,43 +285,44 @@ export default function ScanScreen() {
   // ── Vehicle login screen ───────────────────────────────────────────────────
   if (!sessionVehicle) {
     return (
-      <SafeAreaView style={[s.container, { flex: 1 }]}>
+      <SafeAreaView style={s.loginSafe}>
         <Stack.Screen options={{ headerShown: false }} />
-        <View style={s.header}>
-          <Pressable onPress={() => router.replace('/login')} style={s.backBtn}>
-            <TablerIcon name="arrow-left" size={20} color={t.ink} />
-          </Pressable>
-          <Text style={s.title}>Driver Login</Text>
-        </View>
+        <Pressable onPress={() => router.replace('/login')} style={s.loginBack}>
+          <TablerIcon name="arrow-left" size={20} color={t.ink} />
+        </Pressable>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={s.loginScroll} keyboardShouldPersistTaps="handled">
+            <Image source={logo} resizeMode="contain" style={s.loginLogo} accessibilityLabel="Trackvee" />
+            <Text style={s.loginTitle}>Driver Login</Text>
+            <Text style={s.loginSubtitle}>Enter your vehicle plate and PIN to start scanning.</Text>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 16 }} keyboardShouldPersistTaps="handled">
+            {loginError ? <Text style={s.loginError}>{loginError}</Text> : null}
 
-          <Text style={s.fieldLabel}>Vehicle Plate Number</Text>
-          <TextInput
-            style={s.input}
-            value={plateInput}
-            onChangeText={v => setPlateInput(v.toUpperCase())}
-            placeholder="e.g. LEH-7985"
-            placeholderTextColor={t.muted}
-            autoCapitalize="characters"
-            autoCorrect={false}
-          />
+            <Text style={s.loginLabel}>Vehicle Plate Number</Text>
+            <TextInput
+              style={s.loginInput}
+              value={plateInput}
+              onChangeText={v => setPlateInput(v.toUpperCase())}
+              placeholder="e.g. LEH-7985"
+              placeholderTextColor={t.muted}
+              autoCapitalize="characters"
+              autoCorrect={false}
+            />
 
-          <Text style={[s.fieldLabel, { marginTop: 24 }]}>PIN</Text>
-          <PinInput value={pinInput} onChange={setPinInput} />
+            <Text style={[s.loginLabel, { marginTop: 20 }]}>PIN</Text>
+            <PinInput value={pinInput} onChange={setPinInput} theme={t} />
 
-          {loginError ? <Text style={s.errorText}>{loginError}</Text> : null}
-
-          <Pressable
-            onPress={vehicleLogin}
-            disabled={loginLoading || !plateInput.trim() || pinInput.length !== 4}
-            style={[s.primaryBtn, { marginTop: 32 }, (loginLoading || !plateInput.trim() || pinInput.length !== 4) && { opacity: 0.4 }]}
-          >
-            {loginLoading
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={s.primaryBtnText}>Login</Text>}
-          </Pressable>
-        </ScrollView>
+            <Pressable
+              onPress={vehicleLogin}
+              disabled={loginLoading || !plateInput.trim() || pinInput.length !== 4}
+              style={[s.loginBtn, (loginLoading || !plateInput.trim() || pinInput.length !== 4) && { opacity: 0.55 }]}
+            >
+              {loginLoading
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={s.loginBtnText}>Sign in</Text>}
+            </Pressable>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
@@ -538,6 +539,20 @@ export default function ScanScreen() {
 
 function makeStyles(t: AppTheme) {
   return StyleSheet.create({
+    // login screen styles (matches login.tsx)
+    loginSafe:      { flex: 1, backgroundColor: t.bg },
+    loginBack:      { height: 42, width: 42, justifyContent: 'center', marginLeft: 22 },
+    loginScroll:    { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingTop: 12, paddingBottom: 28 },
+    loginLogo:      { width: 210, height: 60, alignSelf: 'center', marginBottom: 30 },
+    loginTitle:     { fontSize: 30, fontWeight: '700' as const, color: t.ink, letterSpacing: -0.6 },
+    loginSubtitle:  { fontSize: 15, color: t.secondary, marginTop: 8, marginBottom: 28 },
+    loginLabel:     { fontSize: 13, fontWeight: '600' as const, color: t.ink, marginBottom: 8 },
+    loginInput:     { height: 52, borderColor: t.border, borderWidth: 1, borderRadius: 7, paddingHorizontal: 14, fontSize: 15, color: t.ink, backgroundColor: t.inputBg },
+    loginBtn:       { marginTop: 30, height: 54, alignItems: 'center', justifyContent: 'center', backgroundColor: t.red, borderRadius: 8 },
+    loginBtnText:   { color: '#fff', fontSize: 16, fontWeight: '700' as const },
+    loginError:     { color: t.red, fontSize: 13, marginBottom: 16 },
+
+    // scan screen styles
     container:      { flex: 1, backgroundColor: t.bg },
     header:         { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
     backBtn:        { width: 34, height: 34, borderRadius: 10, backgroundColor: t.bg2, justifyContent: 'center', alignItems: 'center' },

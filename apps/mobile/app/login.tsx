@@ -74,14 +74,9 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
           <Pressable onPress={() => router.push('/scan')} style={({ pressed }) => [styles.scanBtn, pressed && { opacity: 0.75 }]}>
-            <View style={styles.scanIconWrap}>
-              <TablerIcon name="nfc" size={28} color="#dc2626" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.scanBtnTitle}>Crew Scan Mode</Text>
-              <Text style={styles.scanBtnSub}>Driver? Login with vehicle PIN to scan crew cards</Text>
-            </View>
-            <TablerIcon name="chevron-right" size={18} color={t.muted} />
+            <TablerIcon name="steering-wheel" size={18} color="#dc2626" />
+            <Text style={styles.scanBtnTitle}>Airline Driver Login</Text>
+            <TablerIcon name="chevron-right" size={16} color={t.muted} />
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -112,9 +107,7 @@ function createStyles(t: AppTheme) {
     dividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 28, marginBottom: 16, gap: 10 },
     dividerLine: { flex: 1, height: 1, backgroundColor: t.border },
     dividerText: { color: t.muted, fontSize: 12, fontWeight: '500' },
-    scanBtn: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 14, backgroundColor: t.card },
-    scanIconWrap: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#fef2f2', justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
-    scanBtnTitle: { fontSize: 15, fontWeight: '700', color: t.ink },
-    scanBtnSub: { fontSize: 12, color: t.secondary, marginTop: 2 },
+    scanBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: t.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 13, backgroundColor: t.card },
+    scanBtnTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: t.ink },
   });
 }
