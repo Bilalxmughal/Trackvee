@@ -188,6 +188,11 @@ export class AirlinesController {
     return this.svc.getActiveTripByNfc(nfcUid);
   }
 
+  @Get('trips/active-trips')
+  activeTripsForVehicle(@Query('vehicleId') vehicleId: string) {
+    return this.svc.getActiveTripsForVehicle(vehicleId);
+  }
+
   // ─── Airport Settings ────────────────────────────────────────────────────────
 
   @Get('settings/airports')

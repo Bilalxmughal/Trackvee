@@ -425,7 +425,25 @@ export class AirlinesService {
     const crew = await this.crewRepo.findOne({ where: { nfcCardUid: nfcUid } });
     if (!crew) return null;
     const trip = await this.tripRepo.findOne({ where: { crewId: crew.id, status: 'in_progress' } });
-    return trip ? { trip, crew } : null;
+    // Always return crew info so app can show name on checkin flow too
+    return { trip: trip ?? null, crew };
+  }
+
+  async getActiveTripsForVehicle(vehicleId: string) {
+    const rows = await this.dataSource.query(
+      `SELECT t.id AS trip_id, t.checkin_at, c.name AS crew_name, c.designation
+       FROM crew_trips t
+       JOIN airline_crews c ON c.id = t.crew_id
+       WHERE t.vehicle_id = $1 AND t.status = 'in_progress'
+       ORDER BY t.checkin_at ASC`,
+      [vehicleId],
+    );
+    return rows.map((r: any) => ({
+      tripId: r.trip_id,
+      crewName: r.crew_name,
+      designation: r.designation ?? null,
+      checkinAt: r.checkin_at,
+    }));
   }
 
   // ─── Grouped Trips (vehicle-level grouping by 5-min window) ──────────────────

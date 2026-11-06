@@ -56,6 +56,11 @@ interface SessionVehicle {
   logoData?: string | null;
 }
 
+interface ActiveCheckin {
+  tripId: string; crewName: string;
+  designation: string | null; checkinAt: string;
+}
+
 interface ScanResult {
   action: 'checkin' | 'checkout';
   crew: { id: string; displayId: number; name: string; designation: string | null };
@@ -112,6 +117,27 @@ function WifiScanIcon({ size, color }: { size: number; color: string }) {
       {radii.map((r, i) => <WifiArc key={i} r={r} th={th} color={color} />)}
       <View style={{ width: dot, height: dot, borderRadius: dot / 2, backgroundColor: color }} />
     </View>
+  );
+}
+
+// ─── Live travel timer ────────────────────────────────────────────────────────
+
+function LiveTimer({ checkinAt }: { checkinAt: string }) {
+  const [elapsed, setElapsed] = useState(() =>
+    Math.floor((Date.now() - new Date(checkinAt).getTime()) / 1000)
+  );
+  useEffect(() => {
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - new Date(checkinAt).getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [checkinAt]);
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  return (
+    <Text style={{ fontSize: 12, fontWeight: '700' as const, color: '#059669' }}>
+      {`${m}m : ${s < 10 ? '0' : ''}${s}s`}
+    </Text>
   );
 }
 
@@ -190,6 +216,9 @@ export default function ScanScreen() {
   const [scanError, setScanError]     = useState('');
   const [nfcSupported, setNfcSupported] = useState<boolean | null>(null);
 
+  // Active checked-in crew list
+  const [activeCheckins, setActiveCheckins] = useState<ActiveCheckin[]>([]);
+
   // Manual entry — now 4-digit last-digits lookup
   const [manualDigits, setManualDigits] = useState('');
   const [showManual, setShowManual]   = useState(false);
@@ -212,9 +241,14 @@ export default function ScanScreen() {
     return () => setVehicleSessionExpiredHandler(null);
   }, []);
 
-  // ── Poll session every 30s to detect admin force-logout in real time ──────
+  // ── Load active crew + poll session every 30s for admin force-logout ────────
   useEffect(() => {
     if (!sessionVehicle) return;
+    // Load active crew list
+    vehicleApi.get<ActiveCheckin[]>(`/airlines/trips/active-trips?vehicleId=${sessionVehicle.vehicleId}`)
+      .then(r => setActiveCheckins(r.data))
+      .catch(() => {});
+    // Poll for revocation
     const id = setInterval(() => {
       vehicleApi.get('/airlines/vehicles/ping').catch(() => {});
     }, 30_000);
@@ -274,14 +308,17 @@ export default function ScanScreen() {
     setScanState('confirming');
     setPendingNfc(uid);
     try {
-      const statusRes = await vehicleApi.get<{ trip: any; crew: any } | null>(`/airlines/trips/scan-status?nfcUid=${uid}`);
-      const existing = statusRes.data;
+      const statusRes = await vehicleApi.get<{ trip: any | null; crew: any } | null>(`/airlines/trips/scan-status?nfcUid=${uid}`);
+      const data = statusRes.data;
+      if (!data) {
+        setScanError('NFC card not registered in system');
+        setScanState('idle');
+        return;
+      }
       setScanResult({
-        action: existing ? 'checkout' : 'checkin',
-        crew: existing
-          ? { id: existing.crew.id, displayId: existing.crew.displayId, name: existing.crew.name, designation: existing.crew.designation }
-          : { id: '', displayId: 0, name: 'Unknown', designation: null },
-        tripId: existing?.trip?.id,
+        action: data.trip ? 'checkout' : 'checkin',
+        crew: { id: data.crew.id, displayId: data.crew.displayId, name: data.crew.name, designation: data.crew.designation },
+        tripId: data.trip?.id,
       });
       setScanState('result');
     } catch (err: any) {
@@ -325,9 +362,16 @@ export default function ScanScreen() {
           lat: 0, lng: 0,
         });
         setScanResult(prev => prev ? { ...prev, checkinAt: res.data.checkinAt, checkinStop: res.data.checkinStop } : prev);
+        setActiveCheckins(prev => [...prev, {
+          tripId: res.data.tripId,
+          crewName: scanResult.crew.name,
+          designation: scanResult.crew.designation,
+          checkinAt: res.data.checkinAt,
+        }]);
       } else {
         const res = await vehicleApi.post('/airlines/trips/checkout', { nfcUid: pendingNfc, lat: 0, lng: 0 });
         setScanResult(prev => prev ? { ...prev, checkoutAt: res.data.checkoutAt, kmTravelled: res.data.kmTravelled } : prev);
+        setActiveCheckins(prev => prev.filter(c => c.tripId !== scanResult.tripId));
       }
       setScanState('success');
       setTimeout(() => { setScanState('idle'); setScanResult(null); setPendingNfc(''); setScanError(''); }, 3000);
@@ -426,23 +470,39 @@ export default function ScanScreen() {
       {/* Top bar: empty spacer to keep safe-area padding */}
       <View style={s.topBar} />
 
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
         {/* ── IDLE / SCANNING ─────────────────────────────────────────── */}
         {(scanState === 'idle' || scanState === 'scanning') && (
           <>
             {/* Airline logo + name + vehicle number */}
             {sessionVehicle.logoData ? (
-              <Image
-                source={{ uri: sessionVehicle.logoData }}
-                style={s.airlineLogo}
-                resizeMode="contain"
-              />
+              <Image source={{ uri: sessionVehicle.logoData }} style={s.airlineLogo} resizeMode="contain" />
             ) : null}
             <Text style={s.headerAirline} numberOfLines={1}>{sessionVehicle.airlineName}</Text>
             <Text style={s.headerVehicle} numberOfLines={1}>
               {sessionVehicle.licensePlate || sessionVehicle.vehicleName}
             </Text>
+
+            {/* Active checked-in crew list */}
+            {activeCheckins.length > 0 && (
+              <View style={s.checkinPanel}>
+                <ScrollView style={{ maxHeight: 180 }} showsVerticalScrollIndicator={false}>
+                  {activeCheckins.map((item, i) => {
+                    const time = new Date(item.checkinAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <View key={item.tripId} style={[s.checkinRow, i < activeCheckins.length - 1 && { borderBottomWidth: 1, borderBottomColor: t.border }]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.checkinName} numberOfLines={1}>{item.crewName}</Text>
+                          <Text style={s.checkinSub}>{item.designation || 'Crew'} · {time}</Text>
+                        </View>
+                        <LiveTimer checkinAt={item.checkinAt} />
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
 
             {/* Large tappable WiFi-style scan icon — faded/watermark when idle */}
             <Pressable
@@ -468,7 +528,7 @@ export default function ScanScreen() {
             <Text style={s.scanSubtitle}>
               {scanState === 'scanning'
                 ? 'Keep the NFC card steady until it vibrates'
-                : 'Or tap the icon to enter card digits manually'}
+                : 'Or tap icon to enter card digits manually'}
             </Text>
 
             {scanError ? <Text style={s.errorText}>{scanError}</Text> : null}
@@ -498,18 +558,22 @@ export default function ScanScreen() {
                 </Text>
               </View>
             </View>
-            <View style={{ gap: 10, marginTop: 20 }}>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
               <Pressable
                 onPress={confirmAction}
                 disabled={scanState === 'confirming'}
-                style={[s.primaryBtn, { backgroundColor: scanResult.action === 'checkin' ? '#059669' : '#dc2626' }]}
+                style={[s.actionCard, { backgroundColor: scanResult.action === 'checkin' ? '#059669' : '#dc2626', flex: 1 }]}
               >
                 {scanState === 'confirming'
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={s.primaryBtnText}>Confirm {scanResult.action === 'checkin' ? 'Check In' : 'Check Out'}</Text>}
+                  : <>
+                      <TablerIcon name={scanResult.action === 'checkin' ? 'check' : 'logout'} size={28} color="#fff" />
+                      <Text style={s.actionCardText}>{scanResult.action === 'checkin' ? 'Check In' : 'Check Out'}</Text>
+                    </>}
               </Pressable>
-              <Pressable onPress={resetScan} style={s.secondaryBtn}>
-                <Text style={s.secondaryBtnText}>Cancel</Text>
+              <Pressable onPress={resetScan} style={[s.actionCard, { backgroundColor: t.card, borderWidth: 1, borderColor: t.border, flex: 1 }]}>
+                <TablerIcon name="x" size={28} color={t.secondary} />
+                <Text style={[s.actionCardText, { color: t.secondary }]}>Cancel</Text>
               </Pressable>
             </View>
           </View>
@@ -529,7 +593,7 @@ export default function ScanScreen() {
             <Text style={s.scanSubtitle}>Ready for next scan in 3s…</Text>
           </View>
         )}
-      </View>
+      </ScrollView>
 
       {/* Manual 4-digit entry modal */}
       {showManual && (
@@ -588,7 +652,15 @@ function makeStyles(t: AppTheme) {
 
     airlineLogo:    { width: 120, height: 56, alignSelf: 'center', marginBottom: 12 },
     headerAirline:  { fontSize: 18, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 4 },
-    headerVehicle:  { fontSize: 14, color: t.secondary, textAlign: 'center', marginBottom: 24 },
+    headerVehicle:  { fontSize: 14, color: t.secondary, textAlign: 'center', marginBottom: 16 },
+
+    checkinPanel:   { width: '100%', backgroundColor: t.card, borderRadius: 12, marginBottom: 20, overflow: 'hidden', borderWidth: 1, borderColor: t.border },
+    checkinRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10 },
+    checkinName:    { fontSize: 14, fontWeight: '600' as const, color: t.ink },
+    checkinSub:     { fontSize: 11, color: t.secondary, marginTop: 1 },
+
+    actionCard:     { alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20, borderRadius: 14 },
+    actionCardText: { color: '#fff', fontSize: 14, fontWeight: '700' as const },
 
     wifiIconWrap:   { marginBottom: 32 },
 
