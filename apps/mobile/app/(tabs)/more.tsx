@@ -57,6 +57,12 @@ export default function MoreScreen() {
           </View>
         </View>
 
+        {/* Crew Scan */}
+        <SectionLabel label="AIRLINES" t={t} />
+        <View style={[styles.card, { backgroundColor: t.card, shadowColor: '#000' }]}>
+          <Row icon="nfc" iconBg="#dc26260f" iconColor="#dc2626" title="Crew Scan" sub="NFC card scan for crew check-in/out" t={t} onPress={() => router.push('/scan')} last />
+        </View>
+
         {/* Fleet Tools */}
         {hasFleet ? (
           <>
