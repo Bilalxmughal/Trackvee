@@ -1,0 +1,1 @@
+ALTER TABLE airlines ADD COLUMN IF NOT EXISTS logo_data TEXT;

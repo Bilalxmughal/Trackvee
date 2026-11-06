@@ -193,7 +193,7 @@ export class AirlinesService {
   async vehicleLogin(plateNumber: string, pin: string) {
     const rows = await this.dataSource.query(
       `SELECT av.pin_hash, v.id AS vehicle_id, v.name AS vehicle_name, v.license_plate, v.display_id,
-              a.id AS airline_id, a.name AS airline_name, a.iata_code
+              a.id AS airline_id, a.name AS airline_name, a.iata_code, a.logo_data
        FROM airline_vehicles av
        JOIN vehicles v ON v.id = av.vehicle_id
        JOIN airlines a ON a.id = av.airline_id
@@ -223,20 +223,26 @@ export class AirlinesService {
       airlineId: row.airline_id,
       airlineName: row.airline_name,
       iataCode: row.iata_code,
+      logoData: row.logo_data ?? null,
     };
   }
 
   async lookupCrewByPartialUid(digits: string): Promise<{ nfcUid: string }> {
     if (!digits || !/^\w{1,8}$/.test(digits)) throw new BadRequestException('Enter 1–8 alphanumeric characters');
-    const result = await this.dataSource.query(
-      `SELECT nfc_card_uid FROM airline_crews
-       WHERE nfc_card_uid IS NOT NULL
-         AND UPPER(REPLACE(REPLACE(nfc_card_uid, ':', ''), '-', '')) LIKE UPPER($1)`,
-      [`%${digits}`],
-    );
-    if (result.length === 0) throw new NotFoundException('No crew card found with those digits');
-    if (result.length > 1) throw new BadRequestException('Multiple cards match — enter more digits');
-    return { nfcUid: result[0].nfc_card_uid };
+    try {
+      const result = await this.dataSource.query(
+        `SELECT nfc_card_uid FROM airline_crews
+         WHERE nfc_card_uid IS NOT NULL
+           AND REPLACE(REPLACE(nfc_card_uid, ':', ''), '-', '') ILIKE $1`,
+        [`%${digits}`],
+      );
+      if (result.length === 0) throw new NotFoundException('No crew card found with those digits');
+      if (result.length > 1) throw new BadRequestException('Multiple cards match — enter more digits');
+      return { nfcUid: result[0].nfc_card_uid };
+    } catch (err) {
+      if (err instanceof NotFoundException || err instanceof BadRequestException) throw err;
+      throw new BadRequestException('Could not search cards — please try again');
+    }
   }
 
   async assignVehicle(user: User, airlineId: string, vehicleId: string) {

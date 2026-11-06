@@ -21,6 +21,22 @@ vehicleApi.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Called by admin force-logout: clears session and triggers React state update
+let _onVehicleSessionExpired: (() => void) | null = null;
+function setVehicleSessionExpiredHandler(cb: (() => void) | null) { _onVehicleSessionExpired = cb; }
+
+vehicleApi.interceptors.response.use(
+  (res) => res,
+  async (err) => {
+    if (err?.response?.status === 401) {
+      await SecureStore.deleteItemAsync('yt_vehicle_token').catch(() => {});
+      await SecureStore.deleteItemAsync('yt_vehicle_data').catch(() => {});
+      _onVehicleSessionExpired?.();
+    }
+    return Promise.reject(err);
+  },
+);
+
 // NFC — optional import (only available in custom builds)
 let NfcManager: any = null;
 let NfcTech: any = null;
@@ -37,6 +53,7 @@ interface SessionVehicle {
   vehicleId: string; airlineId: string;
   vehicleName: string; licensePlate: string | null;
   airlineName: string; iataCode: string | null;
+  logoData?: string | null;
 }
 
 interface ScanResult {
@@ -179,8 +196,9 @@ export default function ScanScreen() {
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState('');
 
-  // ── Restore vehicle session on mount ──────────────────────────────────────
+  // ── Restore vehicle session on mount + wire admin-force-logout handler ───
   useEffect(() => {
+    setVehicleSessionExpiredHandler(() => setSessionVehicle(null));
     (async () => {
       try {
         const dataStr = await SecureStore.getItemAsync('yt_vehicle_data');
@@ -191,6 +209,7 @@ export default function ScanScreen() {
       } catch {}
       finally { setRestoring(false); }
     })();
+    return () => setVehicleSessionExpiredHandler(null);
   }, []);
 
 
@@ -210,8 +229,8 @@ export default function ScanScreen() {
       const res = await vehicleApi.post<{ token: string } & SessionVehicle>('/airlines/vehicles/login', {
         plateNumber: plateInput.trim(), pin: pinInput,
       });
-      const { token, vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode } = res.data;
-      const vehicleData: SessionVehicle = { vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode };
+      const { token, vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode, logoData } = res.data;
+      const vehicleData: SessionVehicle = { vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode, logoData: logoData ?? null };
       await SecureStore.setItemAsync('yt_vehicle_token', token);
       await SecureStore.setItemAsync('yt_vehicle_data', JSON.stringify(vehicleData));
       setSessionVehicle(vehicleData);
@@ -403,25 +422,34 @@ export default function ScanScreen() {
         {/* ── IDLE / SCANNING ─────────────────────────────────────────── */}
         {(scanState === 'idle' || scanState === 'scanning') && (
           <>
-            {/* Airline name + vehicle number header */}
+            {/* Airline logo + name + vehicle number */}
+            {sessionVehicle.logoData ? (
+              <Image
+                source={{ uri: sessionVehicle.logoData }}
+                style={s.airlineLogo}
+                resizeMode="contain"
+              />
+            ) : null}
             <Text style={s.headerAirline} numberOfLines={1}>{sessionVehicle.airlineName}</Text>
             <Text style={s.headerVehicle} numberOfLines={1}>
               {sessionVehicle.licensePlate || sessionVehicle.vehicleName}
             </Text>
 
-            {/* Large tappable WiFi-style scan icon */}
+            {/* Large tappable WiFi-style scan icon — faded/watermark when idle */}
             <Pressable
               onPress={scanState === 'idle' ? startScan : cancelScan}
-              style={({ pressed }) => [s.wifiIconWrap, pressed && { opacity: 0.65 }]}
+              style={({ pressed }) => [s.wifiIconWrap, pressed && { opacity: 0.5 }]}
             >
-              <View style={{ position: 'relative', width: 180, height: 180, justifyContent: 'center', alignItems: 'center' }}>
+              <View style={{ position: 'relative', width: 220, height: 220, justifyContent: 'center', alignItems: 'center' }}>
                 {scanState === 'scanning' && (
                   <>
                     <PulseRing color="#dc2626" delay={0} />
                     <PulseRing color="#dc2626" delay={500} />
                   </>
                 )}
-                <WifiScanIcon size={110} color={scanState === 'scanning' ? '#dc2626' : t.secondary} />
+                <View style={{ opacity: scanState === 'idle' ? 0.18 : 1 }}>
+                  <WifiScanIcon size={160} color={scanState === 'scanning' ? '#dc2626' : t.ink} />
+                </View>
               </View>
             </Pressable>
 
@@ -549,8 +577,9 @@ function makeStyles(t: AppTheme) {
     container:      { flex: 1, backgroundColor: t.bg },
     topBar:         { height: 8 },
 
+    airlineLogo:    { width: 120, height: 56, alignSelf: 'center', marginBottom: 12 },
     headerAirline:  { fontSize: 18, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 4 },
-    headerVehicle:  { fontSize: 14, color: t.secondary, textAlign: 'center', marginBottom: 36 },
+    headerVehicle:  { fontSize: 14, color: t.secondary, textAlign: 'center', marginBottom: 24 },
 
     wifiIconWrap:   { marginBottom: 32 },
 

@@ -36,7 +36,7 @@ L.Icon.Default.mergeOptions({
 interface Airline {
   id: string; displayId: number; name: string; iataCode: string | null;
   contactPerson: string | null; contactPhone: string | null;
-  cityId: string | null;
+  cityId: string | null; logoData: string | null;
   createdAt: string; crewCount: number; vehicleCount: number;
 }
 interface Crew {
@@ -70,7 +70,7 @@ interface AirlineAirport {
 }
 
 // phone fields store raw digits (10 digits after +92), e.g. "3001234567"
-type AirlineForm = { name: string; iataCode: string; contactPerson: string; contactPhone: string; cityId: string; };
+type AirlineForm = { name: string; iataCode: string; contactPerson: string; contactPhone: string; cityId: string; logoData: string; };
 type CrewForm = { name: string; designation: string; stopName: string; stopLat: string; stopLng: string; nfcCardUid: string; phone: string; airlineId: string; cityId: string; status: string; };
 type AirportForm = { name: string; iataCode: string; cityId: string; lat: string; lng: string; };
 type PageView = 'dashboard' | 'airlines' | 'crews' | 'vehicles' | 'trips' | 'settings';
@@ -97,7 +97,7 @@ interface TripDetailData {
   checkin_at: string; checkout_at: string | null; checkin_stop: string | null; flight_number: string | null;
 }
 
-const blankAirline = (): AirlineForm => ({ name: '', iataCode: '', contactPerson: '', contactPhone: '', cityId: '' });
+const blankAirline = (): AirlineForm => ({ name: '', iataCode: '', contactPerson: '', contactPhone: '', cityId: '', logoData: '' });
 const blankCrew = (airlineId = ''): CrewForm => ({ name: '', designation: '', stopName: '', stopLat: '', stopLng: '', nfcCardUid: '', phone: '', airlineId, cityId: '', status: 'active' });
 const DESIGNATIONS = ['Captain', 'Co-Pilot', 'Senior Cabin Crew', 'Cabin Crew', 'Purser', 'Engineer', 'Ground Staff', 'Other'];
 
@@ -588,7 +588,7 @@ export default function AirlinesPage() {
   const openAirlineAdd = () => { setEditingAirline(null); setAirlineForm(blankAirline()); setAirlineError(''); setAirlineModal(true); };
   const openAirlineEdit = (a: Airline) => {
     setEditingAirline(a.id);
-    setAirlineForm({ name: a.name, iataCode: a.iataCode ?? '', contactPerson: a.contactPerson ?? '', contactPhone: formatPakPhone(a.contactPhone ?? ''), cityId: a.cityId ?? '' });
+    setAirlineForm({ name: a.name, iataCode: a.iataCode ?? '', contactPerson: a.contactPerson ?? '', contactPhone: formatPakPhone(a.contactPhone ?? ''), cityId: a.cityId ?? '', logoData: a.logoData ?? '' });
     setAirlineError(''); setAirlineModal(true);
   };
   const saveAirline = async (e: React.FormEvent) => {
@@ -604,7 +604,7 @@ export default function AirlinesPage() {
     }
     setAirlineSaving(true); setAirlineError('');
     try {
-      const payload = { name: airlineForm.name.trim(), iataCode: airlineForm.iataCode.trim() || null, contactPerson: airlineForm.contactPerson.trim() || null, contactPhone: phoneStored || null, cityId: airlineForm.cityId || null };
+      const payload = { name: airlineForm.name.trim(), iataCode: airlineForm.iataCode.trim() || null, contactPerson: airlineForm.contactPerson.trim() || null, contactPhone: phoneStored || null, cityId: airlineForm.cityId || null, logoData: airlineForm.logoData || null };
       if (editingAirline) { await api.put(`/airlines/${editingAirline}`, payload); toast('Airline updated'); }
       else { await api.post('/airlines', payload); toast('Airline added'); }
       setAirlineModal(false); await loadAirlines();
@@ -1173,7 +1173,7 @@ export default function AirlinesPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        <th style={th}>ID</th><th style={th}>Airline Name</th><th style={th}>IATA Code</th><th style={th}>Contact Person</th>
+                        <th style={th}>ID</th><th style={th}>Logo</th><th style={th}>Airline Name</th><th style={th}>IATA Code</th><th style={th}>Contact Person</th>
                         <th style={th}>Contact Phone</th><th style={th}>Crew</th><th style={th}>Vehicles</th>
                         <th style={{ ...th, textAlign: 'right' }}>Actions</th>
                       </tr>
@@ -1184,6 +1184,7 @@ export default function AirlinesPage() {
                           onMouseEnter={e => (e.currentTarget.style.background = dark ? '#1a1a1a' : '#fafafa')}
                           onMouseLeave={e => (e.currentTarget.style.background = '')}>
                           <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{a.displayId}</span></td>
+                          <td style={td}>{a.logoData ? <img src={a.logoData} alt="logo" style={{ height: 28, maxWidth: 60, objectFit: 'contain' }} /> : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}</td>
                           <td style={td}><span style={{ fontWeight: 600 }}>{a.name}</span></td>
                           <td style={td}>{a.iataCode || '—'}</td>
                           <td style={td}>{a.contactPerson || '—'}</td>
@@ -1221,6 +1222,28 @@ export default function AirlinesPage() {
                     <option value="">— Select City —</option>
                     {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
+                </FormField>
+                <FormField label="Airline Logo">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {airlineForm.logoData && (
+                      <img src={airlineForm.logoData} alt="logo preview" style={{ height: 44, maxWidth: 100, objectFit: 'contain', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 6, padding: 4 }} />
+                    )}
+                    <label style={{ cursor: 'pointer', fontSize: 13, color: '#dc2626', fontWeight: 500 }}>
+                      {airlineForm.logoData ? 'Change logo' : 'Upload logo'}
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 150 * 1024) { alert('Logo must be under 150 KB'); return; }
+                        const reader = new FileReader();
+                        reader.onload = ev => setAirlineForm(f => ({ ...f, logoData: (ev.target?.result as string) ?? '' }));
+                        reader.readAsDataURL(file);
+                        e.target.value = '';
+                      }} />
+                    </label>
+                    {airlineForm.logoData && (
+                      <button type="button" onClick={() => setAirlineForm(f => ({ ...f, logoData: '' }))} style={{ fontSize: 12, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Remove</button>
+                    )}
+                  </div>
                 </FormField>
                 {airlineError && <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 12 }}>{airlineError}</div>}
                 <FormActions onClose={() => setAirlineModal(false)} loading={airlineSaving} />

@@ -13,6 +13,7 @@ export class Airline {
   @Column({ name: 'iata_code', type: 'varchar', length: 10, nullable: true }) iataCode: string | null;
   @Column({ name: 'contact_person', type: 'varchar', length: 100, nullable: true }) contactPerson: string | null;
   @Column({ name: 'contact_phone', type: 'varchar', length: 30, nullable: true }) contactPhone: string | null;
+  @Column({ name: 'logo_data', type: 'text', nullable: true }) logoData: string | null;
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' }) updatedAt: Date;
 }
