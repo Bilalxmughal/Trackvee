@@ -5,7 +5,7 @@ import {
   IconUsers, IconCar, IconMapPin, IconNfc, IconRefresh,
   IconLayoutDashboard, IconDownload, IconUpload, IconCopy,
   IconEye, IconHistory, IconSearch, IconBan, IconCircleCheck,
-  IconSettings,
+  IconSettings, IconKey, IconLock,
 } from '@tabler/icons-react';
 import { MapContainer, TileLayer, Marker, Polyline, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -51,7 +51,7 @@ interface VehicleRow {
   id: string; display_id: number; name: string;
   license_plate: string | null; make: string | null; model: string | null;
   type: string; lifecycle_status: string; city_id: string | null;
-  airlineName?: string;
+  airlineName?: string; has_pin?: boolean;
 }
 interface Trip {
   t_id: string; t_flight_number: string | null; t_status: string;
@@ -123,9 +123,10 @@ function MapClickHandler({ onMove }: { onMove: (lat: number, lng: number) => voi
   return null;
 }
 
-function CrewMiniMap({ lat, lng, onChange, height = 180 }: { lat: number | null; lng: number | null; onChange: (lat: number, lng: number) => void; height?: number; }) {
-  const center: [number, number] = (lat && lng) ? [lat, lng] : [30.3753, 69.3451];
-  const zoom = (lat && lng) ? 14 : 5;
+function CrewMiniMap({ lat, lng, onChange, height = 180, defaultCenter }: { lat: number | null; lng: number | null; onChange: (lat: number, lng: number) => void; height?: number; defaultCenter?: [number, number]; }) {
+  const fallback = defaultCenter ?? [30.3753, 69.3451];
+  const center: [number, number] = (lat && lng) ? [lat, lng] : fallback;
+  const zoom = (lat && lng) ? 14 : (defaultCenter ? 12 : 5);
   const markerRef = useRef<L.Marker | null>(null);
   return (
     <div style={{ height, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--input-border)', marginTop: 6 }}>
@@ -381,6 +382,10 @@ export default function AirlinesPage() {
   const [airportSaving, setAirportSaving] = useState(false);
   const [airportError, setAirportError] = useState('');
   const [settingsTab, setSettingsTab] = useState<'airports'>('airports');
+  const [pinModal, setPinModal] = useState<{ vehicleId: string; airlineId: string; label: string } | null>(null);
+  const [pinValue, setPinValue] = useState('');
+  const [pinSaving, setPinSaving] = useState(false);
+  const [pinError, setPinError] = useState('');
 
   // ── Filtered data ─────────────────────────────────────────────────────────
   const filteredAirlines = airlines.filter(a => {
@@ -716,6 +721,20 @@ export default function AirlinesPage() {
     catch { toast('Could not delete airport', 'error'); }
   };
 
+  const savePin = async () => {
+    if (!pinModal) return;
+    if (!/^\d{4}$/.test(pinValue)) { setPinError('PIN exactly 4 digits hona chahiye'); return; }
+    setPinSaving(true); setPinError('');
+    try {
+      await api.patch(`/airlines/${pinModal.airlineId}/vehicles/${pinModal.vehicleId}/pin`, { pin: pinValue });
+      toast('PIN set successfully');
+      setPinModal(null); setPinValue('');
+      void loadVehicles(pinModal.airlineId);
+    } catch (e: any) {
+      setPinError(e?.response?.data?.message ?? 'Could not set PIN');
+    } finally { setPinSaving(false); }
+  };
+
   // ── Import / Export ───────────────────────────────────────────────────────
 
   const exportAirlines = () => {
@@ -1000,7 +1019,8 @@ export default function AirlinesPage() {
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>Stop Location on Map</div>
             {!crewViewOnly && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>Map pe click karein ya pin drag karein:</div>}
             <div style={{ flex: 1, minHeight: 500 }}>
-              <CrewMiniMap lat={crewLat} lng={crewLng} onChange={crewViewOnly ? () => {} : setCrewCoords} />
+              <CrewMiniMap lat={crewLat} lng={crewLng} onChange={crewViewOnly ? () => {} : setCrewCoords}
+                defaultCenter={(() => { const ap = crewForm.cityId ? airports.find(a => a.cityId === crewForm.cityId) : null; return ap ? [ap.lat, ap.lng] : undefined; })()} />
             </div>
           </div>
         </div>
@@ -1260,7 +1280,7 @@ export default function AirlinesPage() {
                   {vehiclesLoading ? <Spinner style={{ height: 200 }} /> : assignedVehicles.length === 0 ? <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 14 }}>No vehicles assigned yet.</div> : (
                     <div style={{ background: 'var(--card)', borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#f0f0f0'}` }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th>{can('delete') && <th style={{ ...th, textAlign: 'right' }}>Actions</th>}</tr></thead>
+                        <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th><th style={th}>Tablet PIN</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
                         <tbody>
                           {assignedVehicles.map(v => (
                             <tr key={v.id}>
@@ -1270,7 +1290,17 @@ export default function AirlinesPage() {
                               <td style={td}>{cities.find(c => c.id === v.city_id)?.name || '—'}</td>
                               <td style={td}>{v.type}</td>
                               <td style={td}>{v.lifecycle_status}</td>
-                              {can('delete') && <td style={{ ...td, textAlign: 'right' }}><button onClick={() => unassignVehicle(v.id)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button></td>}
+                              <td style={td}>
+                                {v.has_pin
+                                  ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#059669' }}><IconLock size={12} /> Set</span>
+                                  : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)' }}><IconLock size={12} /> Not set</span>}
+                              </td>
+                              <td style={{ ...td, textAlign: 'right' }}>
+                                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                  {can('edit') && <button onClick={() => { setPinModal({ vehicleId: v.id, airlineId: selected!.id, label: v.license_plate || v.name }); setPinValue(''); setPinError(''); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Set PIN"><IconKey size={14} color="var(--muted)" /></button>}
+                                  {can('delete') && <button onClick={() => unassignVehicle(v.id)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Unassign"><IconTrash size={14} color="#dc2626" /></button>}
+                                </div>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1629,6 +1659,33 @@ export default function AirlinesPage() {
               </div>
             </Modal>
           </div>
+        )}
+
+        {/* ── PIN MODAL ──────────────────────────────────────────────────── */}
+        {pinModal && (
+          <Modal open title={`Set Tablet PIN — ${pinModal.label}`} onClose={() => setPinModal(null)} width={360}>
+            <div style={{ padding: '0 24px 24px' }}>
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>Driver tablet pe yeh vehicle login karne ke liye 4-digit PIN set karein.</p>
+              <FormField label="4-Digit PIN">
+                <input
+                  style={{ ...inputStyle, letterSpacing: 8, fontSize: 20, textAlign: 'center' }}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  maxLength={4}
+                  value={pinValue}
+                  onChange={e => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="••••"
+                  autoFocus
+                />
+              </FormField>
+              {pinError && <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 12 }}>{pinError}</div>}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+                <button type="button" onClick={() => setPinModal(null)} style={{ padding: '7px 16px', border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, borderRadius: 8, background: 'none', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={() => void savePin()} disabled={pinSaving || pinValue.length !== 4} style={{ padding: '7px 20px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: (pinSaving || pinValue.length !== 4) ? 'not-allowed' : 'pointer', opacity: (pinSaving || pinValue.length !== 4) ? 0.6 : 1 }}>{pinSaving ? 'Saving…' : 'Set PIN'}</button>
+              </div>
+            </div>
+          </Modal>
         )}
 
         {/* ── ALL VEHICLES VIEW ──────────────────────────────────────────── */}

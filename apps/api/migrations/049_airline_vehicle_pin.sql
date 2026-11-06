@@ -1,0 +1,1 @@
+ALTER TABLE airline_vehicles ADD COLUMN IF NOT EXISTS pin_hash VARCHAR(60);

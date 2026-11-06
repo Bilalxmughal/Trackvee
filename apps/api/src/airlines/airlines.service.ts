@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 import { Airline } from './entities/airline.entity.js';
 import { AirlineCrew } from './entities/airline-crew.entity.js';
 import { AirlineVehicle } from './entities/airline-vehicle.entity.js';
@@ -43,6 +45,7 @@ export class AirlinesService {
     @InjectRepository(CrewTrip)     private tripRepo: Repository<CrewTrip>,
     @InjectRepository(AirlineAirport) private airportRepo: Repository<AirlineAirport>,
     private dataSource: DataSource,
+    private jwtService: JwtService,
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -156,16 +159,56 @@ export class AirlinesService {
 
   async listAssignedVehicles(user: User, airlineId: string) {
     await this.getAirline(user, airlineId);
-    const rows = await this.avRepo.find({ where: { airlineId } });
-
-    if (!rows.length) return [];
-
-    const vehicleIds = rows.map(r => r.vehicleId);
     const vehicles = await this.dataSource.query(
-      `SELECT v.id, v.display_id, v.name, v.license_plate, v.make, v.model, v.type, v.lifecycle_status, v.city_id FROM vehicles v WHERE v.id = ANY($1)`,
-      [vehicleIds],
+      `SELECT v.id, v.display_id, v.name, v.license_plate, v.make, v.model, v.type, v.lifecycle_status, v.city_id,
+              (av.pin_hash IS NOT NULL) AS has_pin
+       FROM airline_vehicles av
+       JOIN vehicles v ON v.id = av.vehicle_id
+       WHERE av.airline_id = $1`,
+      [airlineId],
     );
     return vehicles;
+  }
+
+  async setVehiclePin(user: User, airlineId: string, vehicleId: string, pin: string) {
+    if (!/^\d{4}$/.test(pin)) throw new BadRequestException('PIN must be exactly 4 digits');
+    await this.getAirline(user, airlineId);
+    const av = await this.avRepo.findOne({ where: { airlineId, vehicleId } });
+    if (!av) throw new NotFoundException('Vehicle not assigned to this airline');
+    av.pinHash = await bcrypt.hash(pin, 10);
+    await this.avRepo.save(av);
+    return { success: true };
+  }
+
+  async vehicleLogin(plateNumber: string, pin: string) {
+    const rows = await this.dataSource.query(
+      `SELECT av.pin_hash, v.id AS vehicle_id, v.name AS vehicle_name, v.license_plate, v.display_id,
+              a.id AS airline_id, a.name AS airline_name, a.iata_code
+       FROM airline_vehicles av
+       JOIN vehicles v ON v.id = av.vehicle_id
+       JOIN airlines a ON a.id = av.airline_id
+       WHERE UPPER(REPLACE(v.license_plate, ' ', '')) = UPPER(REPLACE($1, ' ', ''))`,
+      [plateNumber.trim()],
+    );
+    if (!rows.length) throw new UnauthorizedException('Vehicle not found');
+    const row = rows[0];
+    if (!row.pin_hash) throw new UnauthorizedException('PIN not configured for this vehicle');
+    const valid = await bcrypt.compare(pin, row.pin_hash);
+    if (!valid) throw new UnauthorizedException('Invalid PIN');
+
+    const payload = { sub: `vehicle:${row.vehicle_id}`, vehicleId: row.vehicle_id, airlineId: row.airline_id, type: 'vehicle' };
+    const token = this.jwtService.sign(payload, { expiresIn: '30d' });
+
+    return {
+      token,
+      vehicleId: row.vehicle_id,
+      vehicleName: row.vehicle_name,
+      licensePlate: row.license_plate,
+      displayId: row.display_id,
+      airlineId: row.airline_id,
+      airlineName: row.airline_name,
+      iataCode: row.iata_code,
+    };
   }
 
   async assignVehicle(user: User, airlineId: string, vehicleId: string) {

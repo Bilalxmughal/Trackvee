@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards,
+  Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -95,6 +95,16 @@ export class AirlinesController {
     @Param('vehicleId') vehicleId: string,
   ) {
     return this.svc.unassignVehicle(user, airlineId, vehicleId);
+  }
+
+  @Patch(':airlineId/vehicles/:vehicleId/pin')
+  setVehiclePin(
+    @CurrentUser() user: User,
+    @Param('airlineId') airlineId: string,
+    @Param('vehicleId') vehicleId: string,
+    @Body('pin') pin: string,
+  ) {
+    return this.svc.setVehiclePin(user, airlineId, vehicleId, pin);
   }
 
   // ─── Trips ──────────────────────────────────────────────────────────────────

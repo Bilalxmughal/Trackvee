@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { TablerIcon } from '../src/components/TablerIcon';
 import api from '../src/lib/api';
 import { useTheme } from '../src/hooks/useTheme';
@@ -22,8 +23,12 @@ try {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Airline { id: string; name: string; iataCode: string | null; }
-interface Vehicle { id: string; display_id: number; name: string; license_plate: string | null; }
+interface SessionVehicle {
+  vehicleId: string; airlineId: string;
+  vehicleName: string; licensePlate: string | null;
+  airlineName: string; iataCode: string | null;
+}
+
 interface ScanResult {
   action: 'checkin' | 'checkout';
   crew: { id: string; displayId: number; name: string; designation: string | null };
@@ -76,11 +81,14 @@ export default function ScanScreen() {
   const t = useTheme();
   const s = useMemo(() => makeStyles(t), [t]);
 
-  // Setup state
-  const [airlines, setAirlines] = useState<Airline[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [selectedAirline, setSelectedAirline] = useState('');
-  const [selectedVehicle, setSelectedVehicle] = useState('');
+  // Vehicle session (replaces airline/vehicle dropdowns)
+  const [sessionVehicle, setSessionVehicle] = useState<SessionVehicle | null>(null);
+  const [plateInput, setPlateInput] = useState('');
+  const [pinInput, setPinInput] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+
+  // After login: flight number entry
   const [flightNumber, setFlightNumber] = useState('');
   const [setupDone, setSetupDone] = useState(false);
 
@@ -95,15 +103,37 @@ export default function ScanScreen() {
   const [manualUid, setManualUid] = useState('');
   const [showManual, setShowManual] = useState(false);
 
-  // ── Load airlines on mount ─────────────────────────────────────────────────
-  useEffect(() => {
-    api.get<Airline[]>('/airlines').then(r => setAirlines(r.data)).catch(() => {});
-  }, []);
+  // ── Vehicle login ──────────────────────────────────────────────────────────
+  const vehicleLogin = async () => {
+    if (!plateInput.trim() || pinInput.length !== 4) return;
+    setLoginLoading(true);
+    setLoginError('');
+    try {
+      const res = await api.post<{ token: string } & SessionVehicle>('/airlines/vehicles/login', {
+        plateNumber: plateInput.trim(),
+        pin: pinInput,
+      });
+      const { token, vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode } = res.data;
+      await SecureStore.setItemAsync('yt_token', token);
+      setSessionVehicle({ vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode });
+      setPlateInput('');
+      setPinInput('');
+    } catch (err: any) {
+      setLoginError(err?.response?.data?.message ?? 'Login failed. Check plate number and PIN.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    if (!selectedAirline) { setVehicles([]); return; }
-    api.get<Vehicle[]>(`/airlines/${selectedAirline}/vehicles`).then(r => setVehicles(r.data)).catch(() => {});
-  }, [selectedAirline]);
+  const logout = () => {
+    setSessionVehicle(null);
+    setSetupDone(false);
+    setFlightNumber('');
+    setScanState('idle');
+    setScanResult(null);
+    setPendingNfc('');
+    setScanError('');
+  };
 
   // ── NFC availability check ─────────────────────────────────────────────────
   useEffect(() => {
@@ -164,20 +194,15 @@ export default function ScanScreen() {
   };
 
   const confirmAction = async () => {
-    if (!scanResult) return;
+    if (!scanResult || !sessionVehicle) return;
     setScanState('confirming');
     try {
       if (scanResult.action === 'checkin') {
-        if (!selectedVehicle) {
-          Alert.alert('Select Vehicle', 'Please select a vehicle before checking in.');
-          setScanState('result');
-          return;
-        }
         const res = await api.post('/airlines/trips/checkin', {
           nfcUid: pendingNfc,
-          vehicleId: selectedVehicle,
+          vehicleId: sessionVehicle.vehicleId,
           flightNumber: flightNumber.trim() || undefined,
-          lat: 0, lng: 0, // tablet GPS not required — approximate
+          lat: 0, lng: 0,
         });
         setScanResult(prev => prev ? { ...prev, checkinAt: res.data.checkinAt, checkinStop: res.data.checkinStop } : prev);
       } else {
@@ -215,9 +240,9 @@ export default function ScanScreen() {
     setManualUid('');
   };
 
-  // ── Setup screen ───────────────────────────────────────────────────────────
+  // ── Vehicle login screen ───────────────────────────────────────────────────
 
-  if (!setupDone) {
+  if (!sessionVehicle) {
     return (
       <SafeAreaView style={[s.container, { flex: 1 }]}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -225,44 +250,96 @@ export default function ScanScreen() {
           <Pressable onPress={() => router.back()} style={s.backBtn}>
             <TablerIcon name="arrow-left" size={20} color={t.ink} />
           </Pressable>
-          <Text style={s.title}>Crew Scan Setup</Text>
+          <Text style={s.title}>Vehicle Login</Text>
         </View>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
-          <Text style={s.sectionLabel}>Select Airline</Text>
-          <View style={s.pickerBox}>
-            {airlines.map(a => (
-              <Pressable
-                key={a.id}
-                onPress={() => setSelectedAirline(a.id)}
-                style={[s.pickerItem, selectedAirline === a.id && s.pickerItemActive]}
-              >
-                <Text style={[s.pickerItemText, selectedAirline === a.id && { color: '#dc2626', fontWeight: '700' as const }]}>
-                  {a.name}{a.iataCode ? ` (${a.iataCode})` : ''}
-                </Text>
-              </Pressable>
-            ))}
-            {airlines.length === 0 && <Text style={s.empty}>No airlines found</Text>}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24 }}>
+          <View style={{ alignItems: 'center', marginBottom: 32, marginTop: 8 }}>
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#fef2f2', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+              <TablerIcon name="car" size={36} color="#dc2626" />
+            </View>
+            <Text style={{ fontSize: 15, color: t.secondary, textAlign: 'center' }}>
+              Vehicle number aur 4-digit PIN enter karein
+            </Text>
           </View>
 
-          <Text style={[s.sectionLabel, { marginTop: 20 }]}>Select Vehicle</Text>
-          <View style={s.pickerBox}>
-            {vehicles.map(v => (
-              <Pressable
-                key={v.id}
-                onPress={() => setSelectedVehicle(v.id)}
-                style={[s.pickerItem, selectedVehicle === v.id && s.pickerItemActive]}
-              >
-                <Text style={[s.pickerItemText, selectedVehicle === v.id && { color: '#dc2626', fontWeight: '700' as const }]}>
-                  {v.license_plate || `#${v.display_id}`} · {v.name}
-                </Text>
-              </Pressable>
-            ))}
-            {selectedAirline && vehicles.length === 0 && <Text style={s.empty}>No vehicles assigned</Text>}
-            {!selectedAirline && <Text style={s.empty}>Select airline first</Text>}
+          <Text style={s.sectionLabel}>Vehicle Number (Plate)</Text>
+          <TextInput
+            style={[s.input, { fontSize: 18, fontWeight: '700' as const, letterSpacing: 1, textAlign: 'center' }]}
+            value={plateInput}
+            onChangeText={v => setPlateInput(v.toUpperCase())}
+            placeholder="e.g. ABC-123"
+            placeholderTextColor={t.muted}
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
+
+          <Text style={[s.sectionLabel, { marginTop: 20 }]}>4-Digit PIN</Text>
+          <TextInput
+            style={[s.input, { fontSize: 28, fontWeight: '800' as const, letterSpacing: 16, textAlign: 'center' }]}
+            value={pinInput}
+            onChangeText={v => setPinInput(v.replace(/\D/g, '').slice(0, 4))}
+            placeholder="••••"
+            placeholderTextColor={t.muted}
+            keyboardType="number-pad"
+            secureTextEntry
+            maxLength={4}
+          />
+
+          {loginError ? <Text style={[s.errorText, { marginTop: 12 }]}>{loginError}</Text> : null}
+
+          <Pressable
+            onPress={vehicleLogin}
+            disabled={loginLoading || !plateInput.trim() || pinInput.length !== 4}
+            style={[s.primaryBtn, { marginTop: 28 }, (loginLoading || !plateInput.trim() || pinInput.length !== 4) && { opacity: 0.4 }]}
+          >
+            {loginLoading
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <>
+                  <TablerIcon name="login" size={18} color="#fff" />
+                  <Text style={s.primaryBtnText}>Login</Text>
+                </>}
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Flight number screen ───────────────────────────────────────────────────
+
+  if (!setupDone) {
+    return (
+      <SafeAreaView style={[s.container, { flex: 1 }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={s.header}>
+          <Pressable onPress={logout} style={s.backBtn}>
+            <TablerIcon name="arrow-left" size={20} color={t.ink} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={s.title}>Start Scanning</Text>
+          </View>
+        </View>
+
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24 }}>
+          {/* Vehicle info card */}
+          <View style={{ backgroundColor: t.card, borderRadius: 16, padding: 16, marginBottom: 24, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#fef2f2', justifyContent: 'center', alignItems: 'center' }}>
+              <TablerIcon name="car" size={24} color="#dc2626" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700' as const, color: t.ink }}>
+                {sessionVehicle.licensePlate || sessionVehicle.vehicleName}
+              </Text>
+              <Text style={{ fontSize: 12, color: t.secondary, marginTop: 2 }}>
+                {sessionVehicle.airlineName}{sessionVehicle.iataCode ? ` (${sessionVehicle.iataCode})` : ''}
+              </Text>
+            </View>
+            <Pressable onPress={logout} style={{ padding: 8 }}>
+              <TablerIcon name="logout" size={18} color={t.muted} />
+            </Pressable>
           </View>
 
-          <Text style={[s.sectionLabel, { marginTop: 20 }]}>Flight Number (optional)</Text>
+          <Text style={s.sectionLabel}>Flight Number (optional)</Text>
           <TextInput
             style={s.input}
             value={flightNumber}
@@ -274,9 +351,9 @@ export default function ScanScreen() {
 
           <Pressable
             onPress={() => setSetupDone(true)}
-            disabled={!selectedAirline || !selectedVehicle}
-            style={[s.primaryBtn, (!selectedAirline || !selectedVehicle) && { opacity: 0.4 }]}
+            style={[s.primaryBtn, { marginTop: 24 }]}
           >
+            <TablerIcon name="nfc" size={18} color="#fff" />
             <Text style={s.primaryBtnText}>Start Scanning</Text>
           </Pressable>
         </ScrollView>
@@ -285,9 +362,6 @@ export default function ScanScreen() {
   }
 
   // ── Scan screen ────────────────────────────────────────────────────────────
-
-  const airline = airlines.find(a => a.id === selectedAirline);
-  const vehicle = vehicles.find(v => v.id === selectedVehicle);
 
   return (
     <SafeAreaView style={[s.container, { flex: 1 }]}>
@@ -300,11 +374,11 @@ export default function ScanScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={s.title}>Crew Scan</Text>
-          {(airline || vehicle) && (
-            <Text style={s.subtitle} numberOfLines={1}>
-              {airline?.name}{vehicle ? ` · ${vehicle.license_plate || vehicle.name}` : ''}{flightNumber ? ` · ${flightNumber}` : ''}
-            </Text>
-          )}
+          <Text style={s.subtitle} numberOfLines={1}>
+            {sessionVehicle.licensePlate || sessionVehicle.vehicleName}
+            {` · ${sessionVehicle.airlineName}`}
+            {flightNumber ? ` · ${flightNumber}` : ''}
+          </Text>
         </View>
       </View>
 
@@ -457,11 +531,6 @@ function makeStyles(t: AppTheme) {
     title: { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.4, color: t.ink },
     subtitle: { fontSize: 12, color: t.secondary, marginTop: 1 },
     sectionLabel: { fontSize: 12, fontWeight: '600' as const, color: t.secondary, letterSpacing: 0.4, textTransform: 'uppercase' },
-    pickerBox: { borderRadius: 12, backgroundColor: t.card, overflow: 'hidden', marginTop: 8 },
-    pickerItem: { paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.border },
-    pickerItemActive: { backgroundColor: t.bg2 },
-    pickerItemText: { fontSize: 14, color: t.ink },
-    empty: { padding: 16, color: t.muted, fontSize: 13, textAlign: 'center' },
     input: { borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 12, fontSize: 14, color: t.ink, backgroundColor: t.card, marginTop: 8 },
     primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#dc2626', padding: 15, borderRadius: 14 },
     primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' as const },
