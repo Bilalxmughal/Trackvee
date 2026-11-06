@@ -117,10 +117,10 @@ function NavigationRoot() {
 
   useEffect(() => {
     if (loading) return;
-    const publicRoute = segments[0] === 'index' || segments[0] === 'login';
-    if (!user && sessionRestoreFailed && segments[0] !== 'login') { router.replace('/login'); return; }
+    const publicRoute = segments[0] === 'index' || segments[0] === 'login' || segments[0] === 'scan';
+    if (!user && sessionRestoreFailed && segments[0] !== 'login' && segments[0] !== 'scan') { router.replace('/login'); return; }
     if (!user && !publicRoute) router.replace('/');
-    if (user && publicRoute) {
+    if (user && publicRoute && segments[0] !== 'scan') {
       router.replace('/map');
     }
   }, [loading, user, sessionRestoreFailed, segments, router]);

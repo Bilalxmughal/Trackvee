@@ -133,6 +133,7 @@ export default function ScanScreen() {
     setScanResult(null);
     setPendingNfc('');
     setScanError('');
+    router.replace('/login');
   };
 
   // ── NFC availability check ─────────────────────────────────────────────────
@@ -247,7 +248,7 @@ export default function ScanScreen() {
       <SafeAreaView style={[s.container, { flex: 1 }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn}>
+          <Pressable onPress={() => router.replace('/login')} style={s.backBtn}>
             <TablerIcon name="arrow-left" size={20} color={t.ink} />
           </Pressable>
           <Text style={s.title}>Vehicle Login</Text>

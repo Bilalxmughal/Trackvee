@@ -66,6 +66,23 @@ export default function LoginScreen() {
             <Text style={styles.submitText}>{busy ? 'Signing in…' : 'Sign in'}</Text>
           </Pressable>
           <Text style={styles.privacy}>Your account is protected with secure sign-in.</Text>
+
+          {/* Driver / Crew Scan entry */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+          <Pressable onPress={() => router.push('/scan')} style={({ pressed }) => [styles.scanBtn, pressed && { opacity: 0.75 }]}>
+            <View style={styles.scanIconWrap}>
+              <TablerIcon name="nfc" size={28} color="#dc2626" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.scanBtnTitle}>Crew Scan Mode</Text>
+              <Text style={styles.scanBtnSub}>Driver? Login with vehicle PIN to scan crew cards</Text>
+            </View>
+            <TablerIcon name="chevron-right" size={18} color={t.muted} />
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -92,5 +109,12 @@ function createStyles(t: AppTheme) {
     submitPressed: { opacity: 0.84 }, submitDisabled: { opacity: 0.55 },
     submitText: { color: '#fff', fontSize: 16, fontWeight: '700' },
     privacy: { color: t.muted, fontSize: 12, textAlign: 'center', marginTop: 22 },
+    dividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 28, marginBottom: 16, gap: 10 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: t.border },
+    dividerText: { color: t.muted, fontSize: 12, fontWeight: '500' },
+    scanBtn: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 14, backgroundColor: t.card },
+    scanIconWrap: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#fef2f2', justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+    scanBtnTitle: { fontSize: 15, fontWeight: '700', color: t.ink },
+    scanBtnSub: { fontSize: 12, color: t.secondary, marginTop: 2 },
   });
 }
