@@ -51,7 +51,7 @@ interface VehicleRow {
   id: string; display_id: number; name: string;
   license_plate: string | null; make: string | null; model: string | null;
   type: string; lifecycle_status: string; city_id: string | null;
-  airlineName?: string; has_pin?: boolean;
+  airlineId?: string; airlineName?: string; has_pin?: boolean;
 }
 interface Trip {
   t_id: string; t_flight_number: string | null; t_status: string;
@@ -488,7 +488,7 @@ export default function AirlinesPage() {
     setAllVehiclesLoading(true);
     try {
       const airlineList = airlines.length ? airlines : (await api.get<Airline[]>('/airlines')).data;
-      const results = await Promise.allSettled(airlineList.map(a => api.get<VehicleRow[]>(`/airlines/${a.id}/vehicles`).then(r => r.data.map(v => ({ ...v, airlineName: a.name })))));
+      const results = await Promise.allSettled(airlineList.map(a => api.get<VehicleRow[]>(`/airlines/${a.id}/vehicles`).then(r => r.data.map(v => ({ ...v, airlineId: a.id, airlineName: a.name })))));
       const flat: (VehicleRow & { airlineName: string })[] = [];
       results.forEach(r => { if (r.status === 'fulfilled') flat.push(...r.value); });
       setAllVehiclesView(flat);
