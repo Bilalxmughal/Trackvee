@@ -74,9 +74,8 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
           <Pressable onPress={() => router.push('/scan')} style={({ pressed }) => [styles.scanBtn, pressed && { opacity: 0.75 }]}>
-            <TablerIcon name="steering-wheel" size={18} color="#dc2626" />
+            <TablerIcon name="steering-wheel" size={16} color={t.secondary} />
             <Text style={styles.scanBtnTitle}>Airline Driver Login</Text>
-            <TablerIcon name="chevron-right" size={16} color={t.muted} />
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -107,7 +106,7 @@ function createStyles(t: AppTheme) {
     dividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 28, marginBottom: 16, gap: 10 },
     dividerLine: { flex: 1, height: 1, backgroundColor: t.border },
     dividerText: { color: t.muted, fontSize: 12, fontWeight: '500' },
-    scanBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: t.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 13, backgroundColor: t.card },
-    scanBtnTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: t.ink },
+    scanBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 48, borderRadius: 8, borderWidth: 1, borderColor: t.border, backgroundColor: t.card },
+    scanBtnTitle: { fontSize: 14, fontWeight: '600', color: t.ink },
   });
 }

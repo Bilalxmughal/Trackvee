@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated, Easing, Image, KeyboardAvoidingView, Platform,
-  Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  Pressable, ScrollView, StyleSheet, Text, TextInput, View, BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
@@ -34,10 +34,8 @@ interface ScanResult {
   action: 'checkin' | 'checkout';
   crew: { id: string; displayId: number; name: string; designation: string | null };
   tripId?: string;
-  checkinAt?: string;
-  checkoutAt?: string;
-  checkinStop?: string;
-  checkoutStop?: string;
+  checkinAt?: string; checkoutAt?: string;
+  checkinStop?: string; checkoutStop?: string;
   kmTravelled?: number | null;
 }
 
@@ -46,30 +44,25 @@ interface ScanResult {
 function PulseRing({ color, delay }: { color: string; delay: number }) {
   const scale = useRef(new Animated.Value(0.6)).current;
   const opacity = useRef(new Animated.Value(0.6)).current;
-
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.parallel([
-          Animated.timing(scale,   { toValue: 1.8, duration: 1400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0,   duration: 1400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scale,   { toValue: 0.6, duration: 0, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0.6, duration: 0, useNativeDriver: true }),
-        ]),
+    const loop = Animated.loop(Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        Animated.timing(scale,   { toValue: 1.8, duration: 1400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0,   duration: 1400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
       ]),
-    );
+      Animated.parallel([
+        Animated.timing(scale,   { toValue: 0.6, duration: 0, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.6, duration: 0, useNativeDriver: true }),
+      ]),
+    ]));
     loop.start();
     return () => loop.stop();
   }, [scale, opacity, delay]);
-
   return (
     <Animated.View style={{
-      position: 'absolute', width: 120, height: 120, borderRadius: 60,
-      borderWidth: 2, borderColor: color,
-      transform: [{ scale }], opacity,
+      position: 'absolute', width: 140, height: 140, borderRadius: 70,
+      borderWidth: 2, borderColor: color, transform: [{ scale }], opacity,
     }} />
   );
 }
@@ -83,7 +76,6 @@ function PinInput({ value, onChange, theme }: { value: string; onChange: (v: str
   const ref3 = useRef<TextInput>(null);
   const refs = [ref0, ref1, ref2, ref3];
   const [focused, setFocused] = useState(-1);
-
   const digits = value.split('').concat(['', '', '', '']).slice(0, 4);
 
   const handleChange = (index: number, text: string) => {
@@ -138,22 +130,29 @@ export default function ScanScreen() {
   const s = useMemo(() => makeStyles(t), [t]);
 
   const [sessionVehicle, setSessionVehicle] = useState<SessionVehicle | null>(null);
-  const [plateInput, setPlateInput] = useState('');
-  const [pinInput, setPinInput] = useState('');
+  const [plateInput, setPlateInput]   = useState('');
+  const [pinInput, setPinInput]       = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
-  const [loginError, setLoginError] = useState('');
+  const [loginError, setLoginError]   = useState('');
 
   const [flightNumber, setFlightNumber] = useState('');
-  const [setupDone, setSetupDone] = useState(false);
+  const [setupDone, setSetupDone]     = useState(false);
 
-  const [scanState, setScanState] = useState<ScanState>('idle');
-  const [pendingNfc, setPendingNfc] = useState('');
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [scanError, setScanError] = useState('');
+  const [scanState, setScanState]     = useState<ScanState>('idle');
+  const [pendingNfc, setPendingNfc]   = useState('');
+  const [scanResult, setScanResult]   = useState<ScanResult | null>(null);
+  const [scanError, setScanError]     = useState('');
   const [nfcSupported, setNfcSupported] = useState<boolean | null>(null);
 
-  const [manualUid, setManualUid] = useState('');
-  const [showManual, setShowManual] = useState(false);
+  const [manualUid, setManualUid]     = useState('');
+  const [showManual, setShowManual]   = useState(false);
+
+  // Disable Android hardware back button after vehicle login
+  useEffect(() => {
+    if (!sessionVehicle) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  }, [sessionVehicle]);
 
   // ── Vehicle login ──────────────────────────────────────────────────────────
   const vehicleLogin = async () => {
@@ -162,8 +161,7 @@ export default function ScanScreen() {
     setLoginError('');
     try {
       const res = await api.post<{ token: string } & SessionVehicle>('/airlines/vehicles/login', {
-        plateNumber: plateInput.trim(),
-        pin: pinInput,
+        plateNumber: plateInput.trim(), pin: pinInput,
       });
       const { token, vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode } = res.data;
       await SecureStore.setItemAsync('yt_token', token);
@@ -245,10 +243,8 @@ export default function ScanScreen() {
     try {
       if (scanResult.action === 'checkin') {
         const res = await api.post('/airlines/trips/checkin', {
-          nfcUid: pendingNfc,
-          vehicleId: sessionVehicle.vehicleId,
-          flightNumber: flightNumber.trim() || undefined,
-          lat: 0, lng: 0,
+          nfcUid: pendingNfc, vehicleId: sessionVehicle.vehicleId,
+          flightNumber: flightNumber.trim() || undefined, lat: 0, lng: 0,
         });
         setScanResult(prev => prev ? { ...prev, checkinAt: res.data.checkinAt, checkinStop: res.data.checkinStop } : prev);
       } else {
@@ -256,24 +252,14 @@ export default function ScanScreen() {
         setScanResult(prev => prev ? { ...prev, checkoutAt: res.data.checkoutAt, kmTravelled: res.data.kmTravelled } : prev);
       }
       setScanState('success');
-      setTimeout(() => {
-        setScanState('idle');
-        setScanResult(null);
-        setPendingNfc('');
-        setScanError('');
-      }, 3000);
+      setTimeout(() => { setScanState('idle'); setScanResult(null); setPendingNfc(''); setScanError(''); }, 3000);
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.message ?? 'Could not complete action');
       setScanState('result');
     }
   };
 
-  const resetScan = () => {
-    setScanState('idle');
-    setScanResult(null);
-    setPendingNfc('');
-    setScanError('');
-  };
+  const resetScan = () => { setScanState('idle'); setScanResult(null); setPendingNfc(''); setScanError(''); };
 
   const submitManual = async () => {
     if (!manualUid.trim()) return;
@@ -286,12 +272,16 @@ export default function ScanScreen() {
   if (!sessionVehicle) {
     return (
       <SafeAreaView style={s.loginSafe}>
-        <Stack.Screen options={{ headerShown: false }} />
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: true }} />
         <Pressable onPress={() => router.replace('/login')} style={s.loginBack}>
           <TablerIcon name="arrow-left" size={20} color={t.ink} />
         </Pressable>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={s.loginScroll} keyboardShouldPersistTaps="handled">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView
+            contentContainerStyle={s.loginScroll}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
             <Image source={logo} resizeMode="contain" style={s.loginLogo} accessibilityLabel="Trackvee" />
             <Text style={s.loginTitle}>Driver Login</Text>
             <Text style={s.loginSubtitle}>Enter your vehicle plate and PIN to start scanning.</Text>
@@ -307,6 +297,7 @@ export default function ScanScreen() {
               placeholderTextColor={t.muted}
               autoCapitalize="characters"
               autoCorrect={false}
+              returnKeyType="next"
             />
 
             <Text style={[s.loginLabel, { marginTop: 20 }]}>PIN</Text>
@@ -331,77 +322,67 @@ export default function ScanScreen() {
   if (!setupDone) {
     return (
       <SafeAreaView style={[s.container, { flex: 1 }]}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={s.header}>
-          <Pressable onPress={logout} style={s.backBtn}>
-            <TablerIcon name="arrow-left" size={20} color={t.ink} />
-          </Pressable>
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
+        {/* Top bar */}
+        <View style={s.topBar}>
           <View style={{ flex: 1 }}>
-            <Text style={s.title}>Start Scanning</Text>
+            <Text style={s.topVehicle} numberOfLines={1}>
+              {sessionVehicle.licensePlate || sessionVehicle.vehicleName}
+            </Text>
+            <Text style={s.topAirline} numberOfLines={1}>
+              {sessionVehicle.airlineName}{sessionVehicle.iataCode ? ` · ${sessionVehicle.iataCode}` : ''}
+            </Text>
           </View>
+          <Pressable onPress={logout} hitSlop={12}>
+            <Text style={s.logoutText}>Logout</Text>
+          </Pressable>
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 16 }}>
-          {/* Vehicle info row */}
-          <View style={s.vehicleRow}>
-            <TablerIcon name="car" size={18} color="#dc2626" />
-            <Text style={s.vehicleRowText} numberOfLines={1}>
-              {sessionVehicle.licensePlate || sessionVehicle.vehicleName}
-              {' · '}{sessionVehicle.airlineName}{sessionVehicle.iataCode ? ` (${sessionVehicle.iataCode})` : ''}
-            </Text>
-            <Pressable onPress={logout} hitSlop={10}>
-              <TablerIcon name="logout" size={16} color={t.muted} />
-            </Pressable>
-          </View>
-
-          <Text style={[s.fieldLabel, { marginTop: 24 }]}>Flight Number <Text style={{ fontWeight: '400' as const, color: t.muted }}>(optional)</Text></Text>
+          <Text style={[s.loginLabel]}>Flight Number <Text style={{ fontWeight: '400' as const, color: t.muted }}>(optional)</Text></Text>
           <TextInput
-            style={s.input}
+            style={s.loginInput}
             value={flightNumber}
             onChangeText={setFlightNumber}
             placeholder="e.g. PK-301"
             placeholderTextColor={t.muted}
             autoCapitalize="characters"
           />
-
-          <Pressable onPress={() => setSetupDone(true)} style={[s.primaryBtn, { marginTop: 28 }]}>
-            <TablerIcon name="nfc" size={18} color="#fff" />
-            <Text style={s.primaryBtnText}>Start Scanning</Text>
+          <Pressable onPress={() => setSetupDone(true)} style={[s.loginBtn, { marginTop: 24 }]}>
+            <Text style={s.loginBtnText}>Start Scanning</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  // ── Scan screen ────────────────────────────────────────────────────────────
+  // ── Scan screen (full screen, no back) ────────────────────────────────────
   return (
     <SafeAreaView style={[s.container, { flex: 1 }]}>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={{ headerShown: false, gestureEnabled: false, fullScreenGestureEnabled: false }} />
 
-      {/* Header */}
-      <View style={s.header}>
-        <Pressable onPress={() => setSetupDone(false)} style={s.backBtn}>
-          <TablerIcon name="arrow-left" size={20} color={t.ink} />
-        </Pressable>
+      {/* Top bar */}
+      <View style={s.topBar}>
         <View style={{ flex: 1 }}>
-          <Text style={s.title}>Crew Scan</Text>
-          <Text style={s.subtitle} numberOfLines={1}>
+          <Text style={s.topVehicle} numberOfLines={1}>
             {sessionVehicle.licensePlate || sessionVehicle.vehicleName}
-            {` · ${sessionVehicle.airlineName}`}
             {flightNumber ? ` · ${flightNumber}` : ''}
           </Text>
+          <Text style={s.topAirline} numberOfLines={1}>
+            {sessionVehicle.airlineName}{sessionVehicle.iataCode ? ` · ${sessionVehicle.iataCode}` : ''}
+          </Text>
         </View>
-        <Pressable onPress={logout} style={s.backBtn}>
-          <TablerIcon name="logout" size={18} color={t.muted} />
+        <Pressable onPress={logout} hitSlop={12}>
+          <Text style={s.logoutText}>Logout</Text>
         </Pressable>
       </View>
 
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
 
-        {/* ── IDLE / SCANNING ─────────────────────────────────────────────── */}
+        {/* ── IDLE / SCANNING ─────────────────────────────────────────── */}
         {(scanState === 'idle' || scanState === 'scanning') && (
           <>
-            <View style={{ position: 'relative', width: 160, height: 160, justifyContent: 'center', alignItems: 'center', marginBottom: 28 }}>
+            <View style={{ position: 'relative', width: 180, height: 180, justifyContent: 'center', alignItems: 'center', marginBottom: 32 }}>
               {scanState === 'scanning' && (
                 <>
                   <PulseRing color="#dc2626" delay={0} />
@@ -409,23 +390,23 @@ export default function ScanScreen() {
                 </>
               )}
               <View style={[s.nfcCircle, { borderColor: scanState === 'scanning' ? '#dc2626' : t.border }]}>
-                <TablerIcon name="nfc" size={52} color={scanState === 'scanning' ? '#dc2626' : t.secondary} />
+                <TablerIcon name="nfc" size={64} color={scanState === 'scanning' ? '#dc2626' : t.secondary} />
               </View>
             </View>
 
             <Text style={s.scanTitle}>
-              {scanState === 'scanning' ? 'Hold card near device…' : 'Ready to scan'}
+              {scanState === 'scanning' ? 'Hold card near device…' : 'Ready to Scan'}
             </Text>
             <Text style={s.scanSubtitle}>
               {scanState === 'scanning'
                 ? 'Keep the NFC card steady until it vibrates'
-                : 'Tap the button to scan crew NFC card'}
+                : 'Tap the button below to scan a crew card'}
             </Text>
 
             {scanError ? <Text style={s.errorText}>{scanError}</Text> : null}
 
             {scanState === 'idle' ? (
-              <View style={{ gap: 10, width: '100%', marginTop: 28 }}>
+              <View style={{ gap: 10, width: '100%', marginTop: 36 }}>
                 <Pressable onPress={startScan} style={s.primaryBtn}>
                   <TablerIcon name="nfc" size={18} color="#fff" />
                   <Text style={s.primaryBtnText}>
@@ -439,14 +420,14 @@ export default function ScanScreen() {
                 )}
               </View>
             ) : (
-              <Pressable onPress={cancelScan} style={[s.secondaryBtn, { marginTop: 28, width: '100%' }]}>
+              <Pressable onPress={cancelScan} style={[s.secondaryBtn, { marginTop: 32, width: '100%' }]}>
                 <Text style={s.secondaryBtnText}>Cancel</Text>
               </Pressable>
             )}
           </>
         )}
 
-        {/* ── RESULT / CONFIRM ────────────────────────────────────────────── */}
+        {/* ── RESULT / CONFIRM ────────────────────────────────────────── */}
         {(scanState === 'result' || scanState === 'confirming') && scanResult && (
           <View style={{ width: '100%' }}>
             <View style={s.crewCard}>
@@ -463,14 +444,12 @@ export default function ScanScreen() {
                 </Text>
               </View>
             </View>
-
             {scanResult.action === 'checkin' && flightNumber ? (
               <View style={s.infoRow}>
                 <TablerIcon name="plane" size={14} color={t.secondary} />
                 <Text style={s.infoText}>Flight: {flightNumber}</Text>
               </View>
             ) : null}
-
             <View style={{ gap: 10, marginTop: 20 }}>
               <Pressable
                 onPress={confirmAction}
@@ -488,15 +467,13 @@ export default function ScanScreen() {
           </View>
         )}
 
-        {/* ── SUCCESS ──────────────────────────────────────────────────────── */}
+        {/* ── SUCCESS ──────────────────────────────────────────────────── */}
         {scanState === 'success' && scanResult && (
           <View style={{ alignItems: 'center' }}>
             <View style={[s.successCircle, { backgroundColor: scanResult.action === 'checkin' ? '#f0fdf4' : '#fff0f0' }]}>
               <TablerIcon name="check" size={48} color={scanResult.action === 'checkin' ? '#059669' : '#dc2626'} />
             </View>
-            <Text style={s.successTitle}>
-              {scanResult.action === 'checkin' ? 'Checked In!' : 'Checked Out!'}
-            </Text>
+            <Text style={s.successTitle}>{scanResult.action === 'checkin' ? 'Checked In!' : 'Checked Out!'}</Text>
             <Text style={s.crewName}>{scanResult.crew.name}</Text>
             {scanResult.action === 'checkout' && scanResult.kmTravelled != null && (
               <Text style={s.kmText}>{Number(scanResult.kmTravelled).toFixed(1)} km travelled</Text>
@@ -510,9 +487,9 @@ export default function ScanScreen() {
       {showManual && (
         <View style={s.manualOverlay}>
           <View style={[s.manualSheet, { backgroundColor: t.card }]}>
-            <Text style={[s.fieldLabel, { marginBottom: 12 }]}>Enter NFC Card UID</Text>
+            <Text style={[s.loginLabel, { marginBottom: 12 }]}>Enter NFC Card UID</Text>
             <TextInput
-              style={s.input}
+              style={s.loginInput}
               value={manualUid}
               onChangeText={setManualUid}
               placeholder="e.g. 04A32FB1095C80"
@@ -539,10 +516,10 @@ export default function ScanScreen() {
 
 function makeStyles(t: AppTheme) {
   return StyleSheet.create({
-    // login screen styles (matches login.tsx)
+    // ── Login screen (matches app login.tsx style) ──
     loginSafe:      { flex: 1, backgroundColor: t.bg },
     loginBack:      { height: 42, width: 42, justifyContent: 'center', marginLeft: 22 },
-    loginScroll:    { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingTop: 12, paddingBottom: 28 },
+    loginScroll:    { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingTop: 12, paddingBottom: 40 },
     loginLogo:      { width: 210, height: 60, alignSelf: 'center', marginBottom: 30 },
     loginTitle:     { fontSize: 30, fontWeight: '700' as const, color: t.ink, letterSpacing: -0.6 },
     loginSubtitle:  { fontSize: 15, color: t.secondary, marginTop: 8, marginBottom: 28 },
@@ -552,24 +529,20 @@ function makeStyles(t: AppTheme) {
     loginBtnText:   { color: '#fff', fontSize: 16, fontWeight: '700' as const },
     loginError:     { color: t.red, fontSize: 13, marginBottom: 16 },
 
-    // scan screen styles
+    // ── Scan screen ──
     container:      { flex: 1, backgroundColor: t.bg },
-    header:         { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
-    backBtn:        { width: 34, height: 34, borderRadius: 10, backgroundColor: t.bg2, justifyContent: 'center', alignItems: 'center' },
-    title:          { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.4, color: t.ink },
-    subtitle:       { fontSize: 12, color: t.secondary, marginTop: 1 },
-    fieldLabel:     { fontSize: 13, fontWeight: '600' as const, color: t.secondary, marginBottom: 6 },
-    input:          { borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 12, fontSize: 15, color: t.ink, backgroundColor: t.card },
+    topBar:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 12 },
+    topVehicle:     { fontSize: 15, fontWeight: '700' as const, color: t.ink },
+    topAirline:     { fontSize: 12, color: t.secondary, marginTop: 1 },
+    logoutText:     { fontSize: 14, fontWeight: '600' as const, color: '#dc2626' },
+    nfcCircle:      { width: 140, height: 140, borderRadius: 70, borderWidth: 2, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg2 },
+    scanTitle:      { fontSize: 22, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 8 },
+    scanSubtitle:   { fontSize: 14, color: t.secondary, textAlign: 'center' },
+    errorText:      { color: '#dc2626', fontSize: 13, textAlign: 'center', marginTop: 12 },
     primaryBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#dc2626', padding: 15, borderRadius: 12 },
     primaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' as const },
     secondaryBtn:   { alignItems: 'center', justifyContent: 'center', padding: 13, borderRadius: 12, borderWidth: 1, borderColor: t.border, backgroundColor: t.bg2 },
     secondaryBtnText: { fontSize: 14, color: t.secondary, fontWeight: '500' as const },
-    vehicleRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: t.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: t.border },
-    vehicleRowText: { flex: 1, fontSize: 13, fontWeight: '600' as const, color: t.ink },
-    nfcCircle:      { width: 120, height: 120, borderRadius: 60, borderWidth: 2, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg2 },
-    scanTitle:      { fontSize: 20, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 8 },
-    scanSubtitle:   { fontSize: 14, color: t.secondary, textAlign: 'center' },
-    errorText:      { color: '#dc2626', fontSize: 13, textAlign: 'center', marginTop: 12 },
     crewCard:       { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: t.card, borderRadius: 14, padding: 14, marginBottom: 12 },
     crewAvatar:     { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center' },
     crewName:       { fontSize: 17, fontWeight: '700' as const, color: t.ink },
