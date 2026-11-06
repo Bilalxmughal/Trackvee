@@ -5,12 +5,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
+import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { TablerIcon } from '../src/components/TablerIcon';
-import api from '../src/lib/api';
 import { useTheme } from '../src/hooks/useTheme';
 import type { AppTheme } from '../src/theme';
 import logo from '../assets/trackvee-logo.png';
+
+// Separate axios instance for vehicle API calls — reads yt_vehicle_token, NOT yt_token
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://portal.trackvee.com/api/v1';
+const vehicleApi = axios.create({ baseURL: API_BASE, timeout: 20000 });
+vehicleApi.interceptors.request.use(async (config) => {
+  const token = await SecureStore.getItemAsync('yt_vehicle_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 // NFC — optional import (only available in custom builds)
 let NfcManager: any = null;
@@ -152,6 +161,7 @@ export default function ScanScreen() {
   const s = useMemo(() => makeStyles(t), [t]);
 
   const [sessionVehicle, setSessionVehicle] = useState<SessionVehicle | null>(null);
+  const [restoring, setRestoring]     = useState(true); // true while checking stored session
   const [plateInput, setPlateInput]   = useState('');
   const [pinInput, setPinInput]       = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
@@ -169,6 +179,21 @@ export default function ScanScreen() {
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState('');
 
+  // ── Restore vehicle session on mount ──────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const dataStr = await SecureStore.getItemAsync('yt_vehicle_data');
+        if (dataStr) {
+          const data = JSON.parse(dataStr) as SessionVehicle;
+          setSessionVehicle(data);
+        }
+      } catch {}
+      finally { setRestoring(false); }
+    })();
+  }, []);
+
+
   // Disable Android hardware back button after vehicle login
   useEffect(() => {
     if (!sessionVehicle) return;
@@ -182,12 +207,14 @@ export default function ScanScreen() {
     setLoginLoading(true);
     setLoginError('');
     try {
-      const res = await api.post<{ token: string } & SessionVehicle>('/airlines/vehicles/login', {
+      const res = await vehicleApi.post<{ token: string } & SessionVehicle>('/airlines/vehicles/login', {
         plateNumber: plateInput.trim(), pin: pinInput,
       });
       const { token, vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode } = res.data;
-      await SecureStore.setItemAsync('yt_token', token);
-      setSessionVehicle({ vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode });
+      const vehicleData: SessionVehicle = { vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode };
+      await SecureStore.setItemAsync('yt_vehicle_token', token);
+      await SecureStore.setItemAsync('yt_vehicle_data', JSON.stringify(vehicleData));
+      setSessionVehicle(vehicleData);
       setPlateInput('');
       setPinInput('');
     } catch (err: any) {
@@ -197,7 +224,9 @@ export default function ScanScreen() {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await SecureStore.deleteItemAsync('yt_vehicle_token');
+    await SecureStore.deleteItemAsync('yt_vehicle_data');
     setSessionVehicle(null);
     setScanState('idle');
     setScanResult(null);
@@ -217,7 +246,7 @@ export default function ScanScreen() {
     setScanState('confirming');
     setPendingNfc(uid);
     try {
-      const statusRes = await api.get<{ trip: any; crew: any } | null>(`/airlines/trips/scan-status?nfcUid=${uid}`);
+      const statusRes = await vehicleApi.get<{ trip: any; crew: any } | null>(`/airlines/trips/scan-status?nfcUid=${uid}`);
       const existing = statusRes.data;
       setScanResult({
         action: existing ? 'checkout' : 'checkin',
@@ -263,13 +292,13 @@ export default function ScanScreen() {
     setScanState('confirming');
     try {
       if (scanResult.action === 'checkin') {
-        const res = await api.post('/airlines/trips/checkin', {
+        const res = await vehicleApi.post('/airlines/trips/checkin', {
           nfcUid: pendingNfc, vehicleId: sessionVehicle.vehicleId,
           lat: 0, lng: 0,
         });
         setScanResult(prev => prev ? { ...prev, checkinAt: res.data.checkinAt, checkinStop: res.data.checkinStop } : prev);
       } else {
-        const res = await api.post('/airlines/trips/checkout', { nfcUid: pendingNfc, lat: 0, lng: 0 });
+        const res = await vehicleApi.post('/airlines/trips/checkout', { nfcUid: pendingNfc, lat: 0, lng: 0 });
         setScanResult(prev => prev ? { ...prev, checkoutAt: res.data.checkoutAt, kmTravelled: res.data.kmTravelled } : prev);
       }
       setScanState('success');
@@ -288,7 +317,7 @@ export default function ScanScreen() {
     setManualLoading(true);
     setManualError('');
     try {
-      const res = await api.get<{ nfcUid: string }>(`/airlines/crews/lookup-uid?digits=${manualDigits}`);
+      const res = await vehicleApi.get<{ nfcUid: string }>(`/airlines/crews/lookup-uid?digits=${manualDigits}`);
       setShowManual(false);
       setManualDigits('');
       await processUid(res.data.nfcUid);
@@ -298,6 +327,18 @@ export default function ScanScreen() {
       setManualLoading(false);
     }
   };
+
+  // ── Loading — checking stored session ─────────────────────────────────────
+  if (restoring) {
+    return (
+      <SafeAreaView style={s.loginSafe}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color={t.red} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ── Vehicle login screen ───────────────────────────────────────────────────
   if (!sessionVehicle) {

@@ -43,6 +43,11 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     let mounted = true;
     (async () => {
       const token = await SecureStore.getItemAsync('yt_token');
+      // If there's a token but no user data, it could be a stale vehicle token from an old build — discard it
+      if (token) {
+        const userStr = await SecureStore.getItemAsync('yt_user');
+        if (!userStr) { await SecureStore.deleteItemAsync('yt_token'); if (mounted) setLoading(false); return; }
+      }
       if (!token) { if (mounted) setLoading(false); return; }
       const cachedUserText = await SecureStore.getItemAsync('yt_user');
       let cachedUser: MobileUser | null = null;
