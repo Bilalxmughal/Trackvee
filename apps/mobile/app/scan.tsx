@@ -212,6 +212,15 @@ export default function ScanScreen() {
     return () => setVehicleSessionExpiredHandler(null);
   }, []);
 
+  // ── Poll session every 30s to detect admin force-logout in real time ──────
+  useEffect(() => {
+    if (!sessionVehicle) return;
+    const id = setInterval(() => {
+      vehicleApi.get('/airlines/vehicles/ping').catch(() => {});
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [sessionVehicle]);
+
 
   // Disable Android hardware back button after vehicle login
   useEffect(() => {

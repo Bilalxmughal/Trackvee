@@ -116,6 +116,11 @@ export class AirlinesController {
     return this.svc.forceLogoutVehicle(user, airlineId, vehicleId);
   }
 
+  // ─── Vehicle session ping (used by app to detect admin force-logout) ────────
+
+  @Get('vehicles/ping')
+  vehiclePing() { return { ok: true }; }
+
   // ─── Trips ──────────────────────────────────────────────────────────────────
 
   @Post('trips/checkin')
