@@ -73,6 +73,62 @@ function PulseRing({ color, delay }: { color: string; delay: number }) {
   );
 }
 
+// ─── OTP PIN Input ────────────────────────────────────────────────────────────
+
+function PinInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const refs = [
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+  ];
+
+  const digits = value.split('').concat(['', '', '', '']).slice(0, 4);
+
+  const handleChange = (index: number, text: string) => {
+    const digit = text.replace(/\D/g, '').slice(-1);
+    const arr = digits.map((d, i) => (i === index ? digit : d));
+    onChange(arr.join(''));
+    if (digit && index < 3) {
+      refs[index + 1].current?.focus();
+    }
+  };
+
+  const handleKeyPress = (index: number, key: string) => {
+    if (key === 'Backspace' && !digits[index] && index > 0) {
+      const arr = digits.map((d, i) => (i === index - 1 ? '' : d));
+      onChange(arr.join(''));
+      refs[index - 1].current?.focus();
+    }
+  };
+
+  return (
+    <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'center', marginTop: 8 }}>
+      {digits.map((d, i) => (
+        <TextInput
+          key={i}
+          ref={refs[i]}
+          style={{
+            width: 60, height: 64, borderRadius: 12,
+            borderWidth: 2,
+            borderColor: d ? '#dc2626' : '#e0e0e0',
+            fontSize: 28, fontWeight: '800' as const,
+            textAlign: 'center', color: '#111',
+            backgroundColor: '#fff',
+          }}
+          value={d}
+          onChangeText={text => handleChange(i, text)}
+          onKeyPress={({ nativeEvent }) => handleKeyPress(i, nativeEvent.key)}
+          keyboardType="number-pad"
+          maxLength={2}
+          secureTextEntry
+          caretHidden
+        />
+      ))}
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 type ScanState = 'idle' | 'scanning' | 'result' | 'confirming' | 'success';
@@ -81,25 +137,21 @@ export default function ScanScreen() {
   const t = useTheme();
   const s = useMemo(() => makeStyles(t), [t]);
 
-  // Vehicle session (replaces airline/vehicle dropdowns)
   const [sessionVehicle, setSessionVehicle] = useState<SessionVehicle | null>(null);
   const [plateInput, setPlateInput] = useState('');
   const [pinInput, setPinInput] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
 
-  // After login: flight number entry
   const [flightNumber, setFlightNumber] = useState('');
   const [setupDone, setSetupDone] = useState(false);
 
-  // Scan state
   const [scanState, setScanState] = useState<ScanState>('idle');
   const [pendingNfc, setPendingNfc] = useState('');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanError, setScanError] = useState('');
   const [nfcSupported, setNfcSupported] = useState<boolean | null>(null);
 
-  // Manual UID entry (fallback)
   const [manualUid, setManualUid] = useState('');
   const [showManual, setShowManual] = useState(false);
 
@@ -143,12 +195,8 @@ export default function ScanScreen() {
   }, []);
 
   // ── Scan NFC ───────────────────────────────────────────────────────────────
-
   const startScan = useCallback(async () => {
-    if (!NfcManager || !nfcSupported) {
-      setShowManual(true);
-      return;
-    }
+    if (!NfcManager || !nfcSupported) { setShowManual(true); return; }
     setScanState('scanning');
     setScanError('');
     try {
@@ -158,9 +206,7 @@ export default function ScanScreen() {
       if (!uid) throw new Error('Could not read card UID');
       await processUid(uid);
     } catch (err: any) {
-      if (err?.message !== 'UserCancel') {
-        setScanError(err?.message ?? 'Scan failed');
-      }
+      if (err?.message !== 'UserCancel') setScanError(err?.message ?? 'Scan failed');
       setScanState('idle');
     } finally {
       NfcManager.cancelTechnologyRequest().catch(() => {});
@@ -188,8 +234,7 @@ export default function ScanScreen() {
       });
       setScanState('result');
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Card not registered';
-      setScanError(msg);
+      setScanError(err?.response?.data?.message ?? 'Card not registered');
       setScanState('idle');
     }
   };
@@ -207,10 +252,7 @@ export default function ScanScreen() {
         });
         setScanResult(prev => prev ? { ...prev, checkinAt: res.data.checkinAt, checkinStop: res.data.checkinStop } : prev);
       } else {
-        const res = await api.post('/airlines/trips/checkout', {
-          nfcUid: pendingNfc,
-          lat: 0, lng: 0,
-        });
+        const res = await api.post('/airlines/trips/checkout', { nfcUid: pendingNfc, lat: 0, lng: 0 });
         setScanResult(prev => prev ? { ...prev, checkoutAt: res.data.checkoutAt, kmTravelled: res.data.kmTravelled } : prev);
       }
       setScanState('success');
@@ -221,8 +263,7 @@ export default function ScanScreen() {
         setScanError('');
       }, 3000);
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Could not complete action';
-      Alert.alert('Error', msg);
+      Alert.alert('Error', err?.response?.data?.message ?? 'Could not complete action');
       setScanState('result');
     }
   };
@@ -242,7 +283,6 @@ export default function ScanScreen() {
   };
 
   // ── Vehicle login screen ───────────────────────────────────────────────────
-
   if (!sessionVehicle) {
     return (
       <SafeAreaView style={[s.container, { flex: 1 }]}>
@@ -251,55 +291,35 @@ export default function ScanScreen() {
           <Pressable onPress={() => router.replace('/login')} style={s.backBtn}>
             <TablerIcon name="arrow-left" size={20} color={t.ink} />
           </Pressable>
-          <Text style={s.title}>Vehicle Login</Text>
+          <Text style={s.title}>Driver Login</Text>
         </View>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24 }}>
-          <View style={{ alignItems: 'center', marginBottom: 32, marginTop: 8 }}>
-            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#fef2f2', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-              <TablerIcon name="car" size={36} color="#dc2626" />
-            </View>
-            <Text style={{ fontSize: 15, color: t.secondary, textAlign: 'center' }}>
-              Vehicle number aur 4-digit PIN enter karein
-            </Text>
-          </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 16 }} keyboardShouldPersistTaps="handled">
 
-          <Text style={s.sectionLabel}>Vehicle Number (Plate)</Text>
+          <Text style={s.fieldLabel}>Vehicle Plate Number</Text>
           <TextInput
-            style={[s.input, { fontSize: 18, fontWeight: '700' as const, letterSpacing: 1, textAlign: 'center' }]}
+            style={s.input}
             value={plateInput}
             onChangeText={v => setPlateInput(v.toUpperCase())}
-            placeholder="e.g. ABC-123"
+            placeholder="e.g. LEH-7985"
             placeholderTextColor={t.muted}
             autoCapitalize="characters"
             autoCorrect={false}
           />
 
-          <Text style={[s.sectionLabel, { marginTop: 20 }]}>4-Digit PIN</Text>
-          <TextInput
-            style={[s.input, { fontSize: 28, fontWeight: '800' as const, letterSpacing: 16, textAlign: 'center' }]}
-            value={pinInput}
-            onChangeText={v => setPinInput(v.replace(/\D/g, '').slice(0, 4))}
-            placeholder="••••"
-            placeholderTextColor={t.muted}
-            keyboardType="number-pad"
-            secureTextEntry
-            maxLength={4}
-          />
+          <Text style={[s.fieldLabel, { marginTop: 24 }]}>PIN</Text>
+          <PinInput value={pinInput} onChange={setPinInput} />
 
-          {loginError ? <Text style={[s.errorText, { marginTop: 12 }]}>{loginError}</Text> : null}
+          {loginError ? <Text style={s.errorText}>{loginError}</Text> : null}
 
           <Pressable
             onPress={vehicleLogin}
             disabled={loginLoading || !plateInput.trim() || pinInput.length !== 4}
-            style={[s.primaryBtn, { marginTop: 28 }, (loginLoading || !plateInput.trim() || pinInput.length !== 4) && { opacity: 0.4 }]}
+            style={[s.primaryBtn, { marginTop: 32 }, (loginLoading || !plateInput.trim() || pinInput.length !== 4) && { opacity: 0.4 }]}
           >
             {loginLoading
               ? <ActivityIndicator color="#fff" size="small" />
-              : <>
-                  <TablerIcon name="login" size={18} color="#fff" />
-                  <Text style={s.primaryBtnText}>Login</Text>
-                </>}
+              : <Text style={s.primaryBtnText}>Login</Text>}
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -307,7 +327,6 @@ export default function ScanScreen() {
   }
 
   // ── Flight number screen ───────────────────────────────────────────────────
-
   if (!setupDone) {
     return (
       <SafeAreaView style={[s.container, { flex: 1 }]}>
@@ -321,26 +340,20 @@ export default function ScanScreen() {
           </View>
         </View>
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24 }}>
-          {/* Vehicle info card */}
-          <View style={{ backgroundColor: t.card, borderRadius: 16, padding: 16, marginBottom: 24, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#fef2f2', justifyContent: 'center', alignItems: 'center' }}>
-              <TablerIcon name="car" size={24} color="#dc2626" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700' as const, color: t.ink }}>
-                {sessionVehicle.licensePlate || sessionVehicle.vehicleName}
-              </Text>
-              <Text style={{ fontSize: 12, color: t.secondary, marginTop: 2 }}>
-                {sessionVehicle.airlineName}{sessionVehicle.iataCode ? ` (${sessionVehicle.iataCode})` : ''}
-              </Text>
-            </View>
-            <Pressable onPress={logout} style={{ padding: 8 }}>
-              <TablerIcon name="logout" size={18} color={t.muted} />
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 16 }}>
+          {/* Vehicle info row */}
+          <View style={s.vehicleRow}>
+            <TablerIcon name="car" size={18} color="#dc2626" />
+            <Text style={s.vehicleRowText} numberOfLines={1}>
+              {sessionVehicle.licensePlate || sessionVehicle.vehicleName}
+              {' · '}{sessionVehicle.airlineName}{sessionVehicle.iataCode ? ` (${sessionVehicle.iataCode})` : ''}
+            </Text>
+            <Pressable onPress={logout} hitSlop={10}>
+              <TablerIcon name="logout" size={16} color={t.muted} />
             </Pressable>
           </View>
 
-          <Text style={s.sectionLabel}>Flight Number (optional)</Text>
+          <Text style={[s.fieldLabel, { marginTop: 24 }]}>Flight Number <Text style={{ fontWeight: '400' as const, color: t.muted }}>(optional)</Text></Text>
           <TextInput
             style={s.input}
             value={flightNumber}
@@ -350,10 +363,7 @@ export default function ScanScreen() {
             autoCapitalize="characters"
           />
 
-          <Pressable
-            onPress={() => setSetupDone(true)}
-            style={[s.primaryBtn, { marginTop: 24 }]}
-          >
+          <Pressable onPress={() => setSetupDone(true)} style={[s.primaryBtn, { marginTop: 28 }]}>
             <TablerIcon name="nfc" size={18} color="#fff" />
             <Text style={s.primaryBtnText}>Start Scanning</Text>
           </Pressable>
@@ -363,7 +373,6 @@ export default function ScanScreen() {
   }
 
   // ── Scan screen ────────────────────────────────────────────────────────────
-
   return (
     <SafeAreaView style={[s.container, { flex: 1 }]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -381,6 +390,9 @@ export default function ScanScreen() {
             {flightNumber ? ` · ${flightNumber}` : ''}
           </Text>
         </View>
+        <Pressable onPress={logout} style={s.backBtn}>
+          <TablerIcon name="logout" size={18} color={t.muted} />
+        </Pressable>
       </View>
 
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
@@ -388,7 +400,7 @@ export default function ScanScreen() {
         {/* ── IDLE / SCANNING ─────────────────────────────────────────────── */}
         {(scanState === 'idle' || scanState === 'scanning') && (
           <>
-            <View style={{ position: 'relative', width: 160, height: 160, justifyContent: 'center', alignItems: 'center', marginBottom: 32 }}>
+            <View style={{ position: 'relative', width: 160, height: 160, justifyContent: 'center', alignItems: 'center', marginBottom: 28 }}>
               {scanState === 'scanning' && (
                 <>
                   <PulseRing color="#dc2626" delay={0} />
@@ -412,7 +424,7 @@ export default function ScanScreen() {
             {scanError ? <Text style={s.errorText}>{scanError}</Text> : null}
 
             {scanState === 'idle' ? (
-              <View style={{ gap: 12, width: '100%', marginTop: 32 }}>
+              <View style={{ gap: 10, width: '100%', marginTop: 28 }}>
                 <Pressable onPress={startScan} style={s.primaryBtn}>
                   <TablerIcon name="nfc" size={18} color="#fff" />
                   <Text style={s.primaryBtnText}>
@@ -426,7 +438,7 @@ export default function ScanScreen() {
                 )}
               </View>
             ) : (
-              <Pressable onPress={cancelScan} style={[s.secondaryBtn, { marginTop: 32, width: '100%' }]}>
+              <Pressable onPress={cancelScan} style={[s.secondaryBtn, { marginTop: 28, width: '100%' }]}>
                 <Text style={s.secondaryBtnText}>Cancel</Text>
               </Pressable>
             )}
@@ -458,7 +470,7 @@ export default function ScanScreen() {
               </View>
             ) : null}
 
-            <View style={{ gap: 10, marginTop: 24 }}>
+            <View style={{ gap: 10, marginTop: 20 }}>
               <Pressable
                 onPress={confirmAction}
                 disabled={scanState === 'confirming'}
@@ -497,7 +509,7 @@ export default function ScanScreen() {
       {showManual && (
         <View style={s.manualOverlay}>
           <View style={[s.manualSheet, { backgroundColor: t.card }]}>
-            <Text style={[s.sectionLabel, { marginBottom: 12 }]}>Enter NFC Card UID</Text>
+            <Text style={[s.fieldLabel, { marginBottom: 12 }]}>Enter NFC Card UID</Text>
             <TextInput
               style={s.input}
               value={manualUid}
@@ -526,33 +538,35 @@ export default function ScanScreen() {
 
 function makeStyles(t: AppTheme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.bg },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
-    backBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: t.bg2, justifyContent: 'center', alignItems: 'center' },
-    title: { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.4, color: t.ink },
-    subtitle: { fontSize: 12, color: t.secondary, marginTop: 1 },
-    sectionLabel: { fontSize: 12, fontWeight: '600' as const, color: t.secondary, letterSpacing: 0.4, textTransform: 'uppercase' },
-    input: { borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 12, fontSize: 14, color: t.ink, backgroundColor: t.card, marginTop: 8 },
-    primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#dc2626', padding: 15, borderRadius: 14 },
-    primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' as const },
-    secondaryBtn: { alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: t.border, backgroundColor: t.bg2 },
+    container:      { flex: 1, backgroundColor: t.bg },
+    header:         { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
+    backBtn:        { width: 34, height: 34, borderRadius: 10, backgroundColor: t.bg2, justifyContent: 'center', alignItems: 'center' },
+    title:          { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.4, color: t.ink },
+    subtitle:       { fontSize: 12, color: t.secondary, marginTop: 1 },
+    fieldLabel:     { fontSize: 13, fontWeight: '600' as const, color: t.secondary, marginBottom: 6 },
+    input:          { borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 12, fontSize: 15, color: t.ink, backgroundColor: t.card },
+    primaryBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#dc2626', padding: 15, borderRadius: 12 },
+    primaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' as const },
+    secondaryBtn:   { alignItems: 'center', justifyContent: 'center', padding: 13, borderRadius: 12, borderWidth: 1, borderColor: t.border, backgroundColor: t.bg2 },
     secondaryBtnText: { fontSize: 14, color: t.secondary, fontWeight: '500' as const },
-    nfcCircle: { width: 120, height: 120, borderRadius: 60, borderWidth: 2, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg2 },
-    scanTitle: { fontSize: 20, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 8 },
-    scanSubtitle: { fontSize: 14, color: t.secondary, textAlign: 'center' },
-    errorText: { color: '#dc2626', fontSize: 13, textAlign: 'center', marginTop: 12 },
-    crewCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: t.card, borderRadius: 16, padding: 16, marginBottom: 16 },
-    crewAvatar: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center' },
-    crewName: { fontSize: 17, fontWeight: '700' as const, color: t.ink },
-    crewDesig: { fontSize: 12, color: t.secondary, marginTop: 2 },
-    actionBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-    actionBadgeText: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.5 },
-    infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 },
-    infoText: { fontSize: 13, color: t.secondary },
-    successCircle: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-    successTitle: { fontSize: 24, fontWeight: '800' as const, color: t.ink, marginBottom: 6 },
-    kmText: { fontSize: 18, fontWeight: '700' as const, color: '#059669', marginTop: 8, marginBottom: 4 },
-    manualOverlay: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    manualSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
+    vehicleRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: t.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: t.border },
+    vehicleRowText: { flex: 1, fontSize: 13, fontWeight: '600' as const, color: t.ink },
+    nfcCircle:      { width: 120, height: 120, borderRadius: 60, borderWidth: 2, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg2 },
+    scanTitle:      { fontSize: 20, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 8 },
+    scanSubtitle:   { fontSize: 14, color: t.secondary, textAlign: 'center' },
+    errorText:      { color: '#dc2626', fontSize: 13, textAlign: 'center', marginTop: 12 },
+    crewCard:       { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: t.card, borderRadius: 14, padding: 14, marginBottom: 12 },
+    crewAvatar:     { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center' },
+    crewName:       { fontSize: 17, fontWeight: '700' as const, color: t.ink },
+    crewDesig:      { fontSize: 12, color: t.secondary, marginTop: 2 },
+    actionBadge:    { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+    actionBadgeText:{ fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.5 },
+    infoRow:        { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 },
+    infoText:       { fontSize: 13, color: t.secondary },
+    successCircle:  { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+    successTitle:   { fontSize: 24, fontWeight: '800' as const, color: t.ink, marginBottom: 6 },
+    kmText:         { fontSize: 18, fontWeight: '700' as const, color: '#059669', marginTop: 8, marginBottom: 4 },
+    manualOverlay:  { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    manualSheet:    { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
   });
 }
