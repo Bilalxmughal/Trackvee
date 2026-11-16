@@ -489,7 +489,7 @@ export default function ScanScreen() {
               <View style={s.checkinPanel}>
                 <ScrollView style={{ maxHeight: 180 }} showsVerticalScrollIndicator={false}>
                   {activeCheckins.map((item, i) => {
-                    const time = new Date(item.checkinAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                    const time = new Date(item.checkinAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
                     return (
                       <View key={item.tripId} style={[s.checkinRow, i < activeCheckins.length - 1 && { borderBottomWidth: 1, borderBottomColor: t.border }]}>
                         <View style={{ flex: 1 }}>
@@ -650,12 +650,12 @@ function makeStyles(t: AppTheme) {
     container:      { flex: 1, backgroundColor: t.bg },
     topBar:         { height: 8 },
 
-    airlineLogo:    { width: 120, height: 56, alignSelf: 'center', marginBottom: 12 },
-    headerAirline:  { fontSize: 18, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 4 },
-    headerVehicle:  { fontSize: 14, color: t.secondary, textAlign: 'center', marginBottom: 16 },
+    airlineLogo:    { width: 120, height: 56, alignSelf: 'center', marginBottom: 6 },
+    headerAirline:  { fontSize: 18, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 2 },
+    headerVehicle:  { fontSize: 14, color: t.secondary, textAlign: 'center', marginBottom: 8 },
 
-    checkinPanel:   { width: '100%', backgroundColor: t.card, borderRadius: 12, marginBottom: 20, overflow: 'hidden', borderWidth: 1, borderColor: t.border },
-    checkinRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10 },
+    checkinPanel:   { width: '100%', backgroundColor: t.card, borderRadius: 10, marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: t.border },
+    checkinRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 6 },
     checkinName:    { fontSize: 14, fontWeight: '600' as const, color: t.ink },
     checkinSub:     { fontSize: 11, color: t.secondary, marginTop: 1 },
 
