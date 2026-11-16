@@ -424,7 +424,36 @@ export class TelemetryService {
       .addOrderBy('t.timestamp', 'DESC')
       .addOrderBy('t.createdAt', 'DESC')
       .getMany();
-    if (!results.length) return [];
+
+    // Build stubs for devices with no telemetry so they still appear in the left panel.
+    const imeiWithData = new Set(results.map(r => r.imei));
+    const devicesByImei = new Map(assignedDevices.map(d => [d.imei, d]));
+    const epoch = new Date(0);
+    const stubs = imeis
+      .filter(imei => !imeiWithData.has(imei))
+      .map(imei => ({
+        id: `stub-${imei}`,
+        imei,
+        deviceId: devicesByImei.get(imei)?.id ?? null,
+        timestamp: epoch,
+        latitude: 0,
+        longitude: 0,
+        speedKmh: 0,
+        heading: 0,
+        satellites: 0,
+        gpsValid: false,
+        ignition: null,
+        externalPower: null,
+        immobilizer: null,
+        voltageLevel: null,
+        gsmSignal: null,
+        altitude: null,
+        raw: null,
+        createdAt: epoch,
+        vehicleStatus: 'offline' as VehicleLiveStatus,
+      } as unknown as Telemetry & { vehicleStatus: VehicleLiveStatus }));
+
+    if (!results.length) return stubs;
 
     // Only query status samples for devices already authorized above.
     const statusRows = await this.repo.query<Array<{
@@ -450,7 +479,10 @@ export class TelemetryService {
       samplesByImei.set(row.imei, samples);
     }
 
-    return results.map(point => ({ ...point, vehicleStatus: resolveVehicleLiveStatus(samplesByImei.get(point.imei) ?? []) }));
+    return [
+      ...results.map(point => ({ ...point, vehicleStatus: resolveVehicleLiveStatus(samplesByImei.get(point.imei) ?? []) })),
+      ...stubs,
+    ];
   }
 
   async getDeviceHealth(user: User, cityId?: string): Promise<DeviceHealthRow[]> {

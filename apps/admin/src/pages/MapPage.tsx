@@ -2592,10 +2592,13 @@ export default function MapPage() {
     try {
       const { data } = await api.get<LivePoint[]>('/telemetry/live');
       if (requestId !== livePollRequestId.current) return;
-      const valid = data.filter(p => p.gpsValid);
+      // Keep all points (including no-GPS stubs) so they appear in the left panel.
+      // Trails and map markers use gpsValid filter separately.
+      const valid = data;
+      const gpsPoints = data.filter(p => p.gpsValid);
       setTrails(prev => {
         let next: Map<string, [number, number][]> | null = null;
-        valid.forEach(pt => {
+        gpsPoints.forEach(pt => {
           const source = next?.get(pt.imei) ?? prev.get(pt.imei);
           const trail = source ?? [];
           const last = trail[trail.length - 1];
@@ -2682,7 +2685,9 @@ export default function MapPage() {
 
   const visiblePoints = useMemo(() => selectedCityId ? points.filter(p => deviceMap.get(p.imei)?.cityId === selectedCityId) : points,
     [selectedCityId, points, deviceMap]);
-  const visibleImeis = useMemo(() => new Set(visiblePoints.map(p => p.imei)), [visiblePoints]);
+  // Map layers (ClusterLayer, trails) only render points with valid GPS coordinates.
+  const mapVisiblePoints = useMemo(() => visiblePoints.filter(p => p.gpsValid), [visiblePoints]);
+  const visibleImeis = useMemo(() => new Set(mapVisiblePoints.map(p => p.imei)), [mapVisiblePoints]);
   const allVehicles = useMemo(() =>
     visiblePoints.map(p => ({ imei: p.imei, plate: fmtPlate(deviceMap.get(p.imei), p.imei) }))
       .sort((a, b) => a.plate.localeCompare(b.plate)),
@@ -3137,13 +3142,13 @@ export default function MapPage() {
                 className={TILE_CONFIG[mapStyle].darkFilter || (mapStyle === 'street' && dark) ? 'map-tiles-dark' : ''}/>
               {trafficOn && <TileLayer key="traffic" url={TRAFFIC_TILE_URL} attribution="© HERE Maps" opacity={0.7} zIndex={450}/>}
               <InvalidateSize/>
-              <FitBounds points={visiblePoints} resetKey={selectedCityId || '__all__'}/>
+              <FitBounds points={mapVisiblePoints} resetKey={selectedCityId || '__all__'}/>
               <FlyToPoint target={flyTarget}/>
               {historyPoints.length > 0
                 ? <HistoryLayer points={historyPoints} speedLimit={alertSettings.speedLimit} selectedSegment={selectedSegment}/>
                 : <>
                     <TrailLayer trails={trails} visibleImeis={visibleImeis}/>
-                    <ClusterLayer points={visiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef} orgExpiredIds={orgExpiredIds} statusTick={statusTick}/>
+                    <ClusterLayer points={mapVisiblePoints} deviceMap={deviceMap} vehicleDetails={vehicleDetails} alertSettingsRef={alertSettingsRef} distanceModeRef={distanceModeRef} orgExpiredIds={orgExpiredIds} statusTick={statusTick}/>
                   </>}
               <DistanceTool active={distanceMode} distanceModeRef={distanceModeRef}/>
               <GeofenceLayer geofences={geofences} editingId={gfEditing?.id ?? null} visible={gfVisible}/>
