@@ -55,7 +55,7 @@ const STEPS = [
     subtitle: 'Send SMS commands',
     description: 'Send SMS commands to the ATS-GO device so it connects to YoTrack server.',
     steps: [
-      'SERVER,1,140.245.61.83,5023,0#',
+      'Server,1,2.31.172.140,5023,0#',
       'STATUS#',
     ],
     link: '/telemetry',
@@ -65,7 +65,7 @@ const STEPS = [
 ];
 
 const SMS_COMMANDS = [
-  { cmd: 'SERVER,1,140.245.61.83,5023,0#', desc: 'Point device to YoTrack server' },
+  { cmd: 'Server,1,2.31.172.140,5023,0#', desc: 'Point device to YoTrack server' },
   { cmd: 'STATUS#', desc: 'Check device status and connection' },
   { cmd: 'RESET#', desc: 'Restart device (if needed)' },
   { cmd: 'PARAM#', desc: 'View all current device settings' },
@@ -212,7 +212,7 @@ export default function SetupGuidePage() {
         {/* Server info */}
         <div style={{ maxWidth: 760, marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
           {[
-            { label: 'Server IP', value: '140.245.61.83' },
+            { label: 'Server IP', value: '2.31.172.140' },
             { label: 'TCP Port', value: '5023' },
             { label: 'Protocol', value: 'AT06 / AOT06 ASCII' },
           ].map(item => (
