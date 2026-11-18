@@ -448,23 +448,6 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
       const part = points.slice(routeStart, i).map(p => [p.latitude, p.longitude] as [number, number]);
       if (part.length > 1) L.polyline(part, { color: '#dc2626', weight: 3.5, opacity: 0.85 }).addTo(layer);
       L.polyline([[points[i - 1]!.latitude, points[i - 1]!.longitude], [points[i]!.latitude, points[i]!.longitude]], { color: '#6b7280', weight: 3, opacity: 0.85, dashArray: '5 7' }).addTo(layer);
-      const gapSec = Math.round((new Date(points[i]!.timestamp).getTime() - new Date(points[i-1]!.timestamp).getTime()) / 1000);
-      const gapAddrId = `gaddr-${i}-${Date.now()}`;
-      const gapHtml = `<div style="width:26px;height:26px;border-radius:50%;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transform:translate(-50%,-50%)">P</div>`;
-      const gapPopup = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:200px;line-height:1.5">
-        <div style="font-weight:700;margin-bottom:5px;color:#111827;font-size:13px">Parked (GPS Off)</div>
-        <div id="${gapAddrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
-        <div style="color:#9ca3af;font-size:10px;margin-bottom:6px">${points[i-1]!.latitude.toFixed(5)}, ${points[i-1]!.longitude.toFixed(5)}</div>
-        <div style="display:flex;gap:14px;font-size:11px">
-          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div><div style="font-weight:600">${formatTsFull(points[i-1]!.timestamp)}</div></div>
-          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div><div style="font-weight:600">${formatTsFull(points[i]!.timestamp)}</div></div>
-        </div>
-        <div style="margin-top:5px;color:#6b7280;font-size:10.5px">Duration: ${formatDuration(gapSec)}</div>
-      </div>`;
-      const gm = L.marker([points[i-1]!.latitude, points[i-1]!.longitude], { icon: L.divIcon({ html: gapHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 100 });
-      gm.bindPopup(gapPopup, { maxWidth: 280 }).addTo(layer);
-      gm.on('popupopen', async () => { const addr = await reverseGeocode(points[i-1]!.latitude, points[i-1]!.longitude); const el = document.getElementById(gapAddrId); if (el) el.textContent = addr; });
-      pMarkersRef.current.set(points[i-1]!.timestamp, gm);
       routeStart = i;
     }
     const finalPart = points.slice(routeStart).map(p => [p.latitude, p.longitude] as [number, number]);
@@ -507,19 +490,33 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
       if (seg.type === 'driving') return;
       const sp = points[seg.start]!, ep = points[seg.end]!;
       const dur = Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000));
+      // Skip parked segments that follow a gap where the pre-gap segment was also parked/idle
+      // (the first segment of this stop already has the P marker)
+      if (seg.start > 0 && isHistoryDataGap(points[seg.start - 1]!, points[seg.start]!)) {
+        const preGapType = tripSegType(points[seg.start - 1]!);
+        if (preGapType === 'parked' || preGapType === 'idle') return;
+      }
       if (dur < 120) return;
       const estimatedStop = estimatedStops.get(sp.timestamp);
-      // Extend duration if this segment follows a GPS gap (vehicle was stopped before gap too)
-      let totalFromTs = sp.timestamp;
-      let totalDurSec = estimatedStop?.durationSec ?? dur;
-      if (seg.start > 0 && isHistoryDataGap(points[seg.start - 1]!, points[seg.start]!)) {
-        let j = seg.start - 1;
-        while (j > 0 && !isHistoryDataGap(points[j - 1]!, points[j]!) && (tripSegType(points[j - 1]!) === 'parked' || tripSegType(points[j - 1]!) === 'idle')) j--;
-        if (tripSegType(points[j]!) === 'parked' || tripSegType(points[j]!) === 'idle') {
-          totalFromTs = points[j]!.timestamp;
-          totalDurSec = Math.round((new Date(ep.timestamp).getTime() - new Date(totalFromTs).getTime()) / 1000);
+      // Trace forward through gap→parked chains to get true end time and total duration
+      let totalDurSec = dur;
+      let totalEndTs = ep.timestamp;
+      {
+        let ns = idx + 1;
+        let lastEnd = seg.end;
+        while (ns < segments.length) {
+          const nSeg = segments[ns]!;
+          if (!isHistoryDataGap(points[lastEnd]!, points[nSeg.start]!)) break;
+          if (nSeg.type !== 'parked' && nSeg.type !== 'idle') break;
+          const gapSec = Math.round((new Date(points[nSeg.start]!.timestamp).getTime() - new Date(points[lastEnd]!.timestamp).getTime()) / 1000);
+          const nDur = Math.round((new Date(points[nSeg.end]!.timestamp).getTime() - new Date(points[nSeg.start]!.timestamp).getTime()) / 1000);
+          totalDurSec += gapSec + nDur;
+          totalEndTs = points[nSeg.end]!.timestamp;
+          lastEnd = nSeg.end;
+          ns++;
         }
       }
+      const totalFromTs = sp.timestamp;
       const isIdle = seg.type === 'idle';
       const color = isIdle ? '#f59e0b' : '#111827';
       const lbl = isIdle ? 'I' : 'P';
@@ -532,7 +529,7 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
         <div style="color:#9ca3af;font-size:10px;margin-bottom:6px">${sp.latitude.toFixed(5)}, ${sp.longitude.toFixed(5)}</div>
         <div style="display:flex;gap:14px;font-size:11px">
           <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div><div style="font-weight:600">${formatTsFull(totalFromTs)}</div></div>
-          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div><div style="font-weight:600">${formatTsFull(ep.timestamp)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div><div style="font-weight:600">${formatTsFull(totalEndTs)}</div></div>
         </div>
         <div style="margin-top:5px;color:#6b7280;font-size:10.5px">Duration: ${formatDuration(totalDurSec)}</div>
       </div>`;
