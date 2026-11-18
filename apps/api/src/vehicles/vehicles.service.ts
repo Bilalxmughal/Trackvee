@@ -204,6 +204,30 @@ export class VehiclesService {
     return result as Partial<Vehicle>;
   }
 
+  async bulkImport(user: User, items: { licensePlate: string; make?: string; model?: string; year?: string | number }[]): Promise<{ imported: number; skipped: string[] }> {
+    const existing = new Set((await this.repo.find({ select: ['licensePlate'] })).map(v => v.licensePlate?.toLowerCase()));
+    let imported = 0;
+    const skipped: string[] = [];
+    for (const item of items) {
+      const plate = item.licensePlate?.trim();
+      if (!plate) { skipped.push(`Empty license plate`); continue; }
+      if (existing.has(plate.toLowerCase())) { skipped.push(`${plate} (duplicate)`); continue; }
+      const yr = item.year ? parseInt(String(item.year), 10) : null;
+      await this.repo.save(this.repo.create({
+        licensePlate: plate,
+        make: item.make?.trim() || null,
+        model: item.model?.trim() || null,
+        year: yr && !isNaN(yr) ? yr : null,
+        name: [item.make, item.model, plate].filter(Boolean).join(' '),
+        ownerId: user.id,
+        organizationId: CLIENT_ROLES.has(user.role) ? user.organizationId : null,
+      }));
+      existing.add(plate.toLowerCase());
+      imported++;
+    }
+    return { imported, skipped };
+  }
+
   private effectiveLifecycle(vehicle: Vehicle): Vehicle {
     if (vehicle.lifecycleStatus === 'active' && vehicle.expiresAt && vehicle.expiresAt.getTime() <= Date.now()) {
       return { ...vehicle, lifecycleStatus: 'expired', isActive: false };

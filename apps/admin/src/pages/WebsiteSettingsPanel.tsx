@@ -124,7 +124,8 @@ function ImageField({ label, value, onChange }: { label: string; value: string; 
     try {
       const fd = new FormData(); fd.append('file', file);
       const res = await api.post<{ url: string }>('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      onChange(`${window.location.origin}${res.data.url}`);
+      const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/api\/v1\/?$/, '') ?? '';
+      onChange(`${apiBase}${res.data.url}`);
     } catch { /* silent */ } finally { setUploading(false); if (fileRef.current) fileRef.current.value = ''; }
   };
   const inp: React.CSSProperties = { ...inputStyle, marginTop: 0 };

@@ -29,6 +29,12 @@ export class VehiclesController {
     return this.vehiclesService.findOne(id, user);
   }
 
+  @Post('bulk-import')
+  @HttpCode(200)
+  async bulkImport(@Body() body: { items: { licensePlate: string; make?: string; model?: string; year?: string | number }[] }, @CurrentUser() user: User) {
+    return this.vehiclesService.bulkImport(user, body.items);
+  }
+
   @Post()
   async create(@Body() body: Partial<Vehicle>, @CurrentUser() user: User, @Req() req: Request) {
     const result = await this.vehiclesService.create(body, user);

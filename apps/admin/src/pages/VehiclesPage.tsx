@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, FormEvent, useRef } from 'react';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconHistory, IconDownload } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconEye, IconHistory, IconDownload, IconFileImport, IconUpload } from '@tabler/icons-react';
 import CustomSelect from '../components/CustomSelect';
 import type { DateRange } from '../components/DateRangePicker';
 import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
@@ -74,6 +74,11 @@ export default function VehiclesPage() {
   const [odoEditId, setOdoEditId] = useState<string | null>(null);
   const [odoInput, setOdoInput] = useState('');
   const [odoSaving, setOdoSaving] = useState(false);
+  const [importModal, setImportModal]   = useState(false);
+  const [importText, setImportText]     = useState('');
+  const [importing, setImporting]       = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: string[] } | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const { cities, selectedCityId } = useCityFilter();
   const { user } = useAuth();
   const { canOrgDo } = useOrgRolePerms();
@@ -231,6 +236,38 @@ export default function VehiclesPage() {
   const getLifecycle = (vehicle: Vehicle): Vehicle['lifecycleStatus'] => vehicle.lifecycleStatus === 'active' && vehicle.expiresAt && Date.parse(vehicle.expiresAt) <= Date.now() ? 'expired' : vehicle.lifecycleStatus;
   const countLifecycle = (key: Vehicle['lifecycleStatus'] | 'all') => key === 'all' ? vehicles.length : vehicles.filter(vehicle => getLifecycle(vehicle) === key).length;
 
+  const downloadSampleCSV = () => {
+    const csv = `License Plate,Make,Model,Year\nABC-123,Toyota,Corolla,2022\nXYZ-456,Honda,Civic,2021\n`;
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: 'vehicles-sample.csv' });
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  const handleImport = async () => {
+    if (!importText.trim()) { toast('Paste CSV content first', 'error'); return; }
+    setImporting(true); setImportResult(null);
+    try {
+      const lines = importText.trim().split('\n').map(l => l.trim()).filter(Boolean);
+      const isHeader = lines[0]?.toLowerCase().includes('plate') || lines[0]?.toLowerCase().includes('license');
+      const dataLines = isHeader ? lines.slice(1) : lines;
+      const items = dataLines.map(line => {
+        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        return { licensePlate: cols[0] ?? '', make: cols[1] ?? '', model: cols[2] ?? '', year: cols[3] ?? '' };
+      }).filter(item => item.licensePlate);
+      if (!items.length) { toast('No valid rows found', 'error'); return; }
+      const res = await api.post<{ imported: number; skipped: string[] }>('/vehicles/bulk-import', { items });
+      setImportResult(res.data);
+      if (res.data.imported > 0) { load(); toast(`${res.data.imported} vehicle(s) imported`); }
+    } catch (err: any) { toast(err?.response?.data?.message ?? 'Import failed', 'error'); } finally { setImporting(false); }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setImportText((ev.target?.result as string) ?? '');
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const exportCSV = () => {
     const headers = ['ID', 'License Plate', 'Make', 'Model', 'Year', 'Client', 'Lifecycle', 'Added Date', 'Expiry Date'];
     const csvRows = filtered.map(v => [v.displayId, v.licensePlate ?? '', v.make ?? '', v.model ?? '', v.year ?? '', orgs.find(o => o.id === v.organizationId)?.name ?? '', getLifecycle(v), fmtDate(v.createdAt), v.expiresAt ? fmtDate(v.expiresAt) : '']);
@@ -246,6 +283,9 @@ export default function VehiclesPage() {
           <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid #dc2626', borderRadius: 8, background: 'transparent', color: '#dc2626', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
             <IconDownload size={13} /> Export
           </button>
+          {canAdd && <button onClick={() => { setImportModal(true); setImportText(''); setImportResult(null); }} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', border: '1px solid #2563eb', borderRadius: 8, background: 'transparent', color: '#2563eb', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            <IconFileImport size={13} /> Bulk Import
+          </button>}
           {canAdd && <button onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
             <IconPlus size={13} /> Add Vehicle
           </button>}
@@ -447,6 +487,36 @@ export default function VehiclesPage() {
       <ConfirmDialog open={!!deleting} title="Delete Vehicle"
         message={`Remove vehicle "${deleting?.licensePlate ?? deleting?.id}"? Vehicles with history are archived so reports and tracking records remain available.`}
         onConfirm={handleDelete} onClose={() => setDeleting(null)} loading={deletingId} />
+
+      <Modal open={importModal} title="Bulk Import Vehicles" onClose={() => setImportModal(false)} width="min(600px, 96vw)">
+        <div style={{ marginBottom: 12, padding: '10px 14px', background: 'var(--bg2)', borderLeft: '3px solid #2563eb', fontSize: 12, color: 'var(--text2)' }}>
+          <strong>CSV format:</strong> License Plate, Make, Model, Year<br />
+          Header row is optional. First column (License Plate) is required.
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <button onClick={downloadSampleCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 11px', border: '1px solid #2563eb', borderRadius: 6, background: 'transparent', color: '#2563eb', fontSize: 12, cursor: 'pointer' }}>
+            <IconDownload size={13} /> Download Sample
+          </button>
+          <button onClick={() => importFileRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 11px', border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: 'var(--text2)', fontSize: 12, cursor: 'pointer' }}>
+            <IconUpload size={13} /> Upload CSV File
+          </button>
+          <input ref={importFileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={handleFileSelect} />
+        </div>
+        <textarea value={importText} onChange={e => setImportText(e.target.value)} placeholder={"ABC-123,Toyota,Corolla,2022\nXYZ-456,Honda,Civic,2021"} rows={8}
+          style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: '1px solid var(--input-border)', borderRadius: 6, fontSize: 12, fontFamily: 'monospace', background: 'var(--input-bg)', color: 'var(--input-color)', resize: 'vertical', outline: 'none' }} />
+        {importResult && (
+          <div style={{ margin: '10px 0', padding: '10px 14px', background: importResult.imported > 0 ? 'rgba(22,163,74,.08)' : 'rgba(220,38,38,.06)', borderLeft: `3px solid ${importResult.imported > 0 ? '#16a34a' : '#dc2626'}`, fontSize: 12 }}>
+            <strong>{importResult.imported} vehicle(s) imported.</strong>
+            {importResult.skipped.length > 0 && <div style={{ marginTop: 6, color: 'var(--muted)' }}>Skipped ({importResult.skipped.length}): {importResult.skipped.slice(0, 5).join(', ')}{importResult.skipped.length > 5 ? ` and ${importResult.skipped.length - 5} more` : ''}</div>}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+          <button onClick={() => setImportModal(false)} style={{ height: 34, padding: '0 16px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, cursor: 'pointer', borderRadius: 6 }}>Close</button>
+          <button onClick={() => void handleImport()} disabled={importing || !importText.trim()} style={{ height: 34, padding: '0 16px', border: 0, background: '#2563eb', color: '#fff', fontSize: 12, cursor: 'pointer', borderRadius: 6, opacity: importing || !importText.trim() ? .5 : 1 }}>
+            {importing ? 'Importing…' : 'Import'}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

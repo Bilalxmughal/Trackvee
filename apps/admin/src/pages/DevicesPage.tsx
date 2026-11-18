@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, FormEvent } from 'react';
-import { IconPlus, IconSearch, IconEdit, IconTrash, IconDownload, IconUpload, IconFileImport, IconArrowsExchange } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconEdit, IconTrash, IconDownload, IconUpload, IconFileImport, IconArrowsExchange, IconMessage, IconCopy, IconCheck, IconX as IconXMark } from '@tabler/icons-react';
 import CustomSelect from '../components/CustomSelect';
 import type { DateRange } from '../components/DateRangePicker';
 import { format } from 'date-fns';
@@ -55,6 +55,102 @@ function lastSeenLabel(ts: string | null) {
   return hrs < 24 ? `${hrs}h ago` : `${Math.floor(hrs / 24)}d ago`;
 }
 
+const SMS_PRESETS = [
+  { label: 'Connect Server',  cmd: 'Server,1,2.31.172.140,5023,0#', color: '#0891b2' },
+  { label: 'Cut Engine',      cmd: 'DYD#',                          color: '#dc2626' },
+  { label: 'Restore Engine',  cmd: 'HFYD#',                         color: '#16a34a' },
+  { label: 'Check Status',    cmd: 'STATUS#',                       color: '#2563eb' },
+  { label: 'Reset Device',    cmd: 'RESET#',                        color: '#f59e0b' },
+  { label: 'View Settings',   cmd: 'PARAM#',                        color: '#7c3aed' },
+  { label: 'Custom',          cmd: '',                              color: '#6b7280' },
+] as const;
+
+function SmsCommandModal({ device, onClose }: { device: Device; onClose: () => void }) {
+  const [selected, setSelected] = useState(0);
+  const [custom, setCustom]     = useState('');
+  const [password, setPassword] = useState('');
+  const [copiedSms, setCopiedSms]   = useState(false);
+  const [copiedSim, setCopiedSim]   = useState(false);
+
+  const isCustom = selected === SMS_PRESETS.length - 1;
+  const rawCmd   = isCustom ? custom.trim() : SMS_PRESETS[selected]!.cmd;
+  const smsText  = password.trim() ? `${password.trim()} ${rawCmd}` : rawCmd;
+
+  const copy = (text: string, which: 'sms' | 'sim') => {
+    void navigator.clipboard.writeText(text).catch(() => {});
+    if (which === 'sms') { setCopiedSms(true); setTimeout(() => setCopiedSms(false), 1800); }
+    else                 { setCopiedSim(true); setTimeout(() => setCopiedSim(false), 1800); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        {/* header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>SMS Command</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1, fontFamily: 'monospace' }}>{device.imei}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2 }}><IconXMark size={16} /></button>
+        </div>
+
+        {/* preset buttons */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 14 }}>
+          {SMS_PRESETS.map((p, i) => (
+            <button key={i} onClick={() => setSelected(i)}
+              style={{ padding: '7px 4px', borderRadius: 7, border: `1.5px solid ${selected === i ? p.color : 'var(--border)'}`, background: selected === i ? `${p.color}14` : 'var(--bg2)', color: selected === i ? p.color : 'var(--muted)', fontSize: 11, fontWeight: selected === i ? 700 : 500, cursor: 'pointer', textAlign: 'center' }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* custom input */}
+        {isCustom && (
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Command</label>
+            <input value={custom} onChange={e => setCustom(e.target.value)} placeholder="e.g. INTERVAL,0,60,0#"
+              style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, fontFamily: 'monospace', background: 'var(--bg2)', color: 'var(--text)', boxSizing: 'border-box', outline: 'none' }} />
+          </div>
+        )}
+
+        {/* optional password */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Password (optional)</label>
+          <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave blank if not required"
+            style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, background: 'var(--bg2)', color: 'var(--text)', boxSizing: 'border-box', outline: 'none' }} />
+        </div>
+
+        {/* SMS text to send */}
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Send this SMS:</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 7 }}>
+            <code style={{ flex: 1, fontSize: 13, fontFamily: 'monospace', color: 'var(--text)', wordBreak: 'break-all' }}>{smsText || '—'}</code>
+            <button onClick={() => smsText && copy(smsText, 'sms')} disabled={!smsText}
+              style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 8px', border: '1px solid var(--border)', borderRadius: 5, background: 'transparent', color: copiedSms ? '#16a34a' : 'var(--muted)', fontSize: 11, cursor: smsText ? 'pointer' : 'default', flexShrink: 0 }}>
+              {copiedSms ? <IconCheck size={11} /> : <IconCopy size={11} />}
+              {copiedSms ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
+
+        {/* SIM number */}
+        <div>
+          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Send to (SIM Number):</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 7 }}>
+            <span style={{ flex: 1, fontSize: 13, color: 'var(--text)' }}>{device.simNumber}</span>
+            <button onClick={() => copy(device.simNumber!, 'sim')}
+              style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 8px', border: '1px solid var(--border)', borderRadius: 5, background: 'transparent', color: copiedSim ? '#16a34a' : 'var(--muted)', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>
+              {copiedSim ? <IconCheck size={11} /> : <IconCopy size={11} />}
+              {copiedSim ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DevicesPage() {
   const { toast } = useToast();
   const [devices, setDevices] = useState<Device[]>([]);
@@ -76,6 +172,7 @@ export default function DevicesPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [smsDevice, setSmsDevice]   = useState<Device | null>(null);
   const [swapDevice, setSwapDevice] = useState<Device | null>(null);
   const [swapTarget, setSwapTarget] = useState('');
   const [swapVehicles, setSwapVehicles] = useState<SwapVehicle[]>([]);
@@ -164,6 +261,12 @@ export default function DevicesPage() {
   // permissions. Filtering here by vehicle creator would hide valid results.
   const filtered = devices;
   const pagination = useTablePagination(filtered, JSON.stringify([q, statusFilter, organizationFilter, dateRange?.from?.getTime(), dateRange?.to?.getTime(), selectedCityId]));
+
+  const downloadSampleCSV = () => {
+    const csv = `IMEI,Name,SIM Number\n863719060123456,Tracker-01,03001234567\n863719060654321,Tracker-02,\n`;
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: 'devices-sample.csv' });
+    a.click(); URL.revokeObjectURL(a.href);
+  };
 
   const handleImport = async () => {
     if (!importText.trim()) { toast('Paste CSV content first', 'error'); return; }
@@ -279,6 +382,8 @@ export default function DevicesPage() {
                         onMouseEnter={e => (e.currentTarget.style.color = '#555')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconEdit size={14} /></button>
                       {d.inventoryStatus === 'assigned' && <button onClick={() => { void openSwap(d); }} title="Swap device to another vehicle" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                         onMouseEnter={e => (e.currentTarget.style.color = '#2563eb')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconArrowsExchange size={14} /></button>}
+                      {d.simNumber && <button onClick={() => setSmsDevice(d)} title="Send SMS command" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#7c3aed')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconMessage size={14} /></button>}
                       <button onClick={() => setDeleting(d)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#bbb', padding: 4, borderRadius: 3 }}
                         onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}><IconTrash size={14} /></button>
                     </div>
@@ -324,6 +429,8 @@ export default function DevicesPage() {
           <FormActions onClose={closeModal} loading={saving} submitLabel={editing ? 'Update' : 'Register Device'} />
         </form>
       </Modal>
+
+      {smsDevice && <SmsCommandModal device={smsDevice} onClose={() => setSmsDevice(null)} />}
 
       <ConfirmDialog open={!!deleting} title="Delete Device"
         message={`Delete device "${deleting?.imei}"? Devices with telemetry or assignment history are retained and must be marked Retired.`}
@@ -372,8 +479,11 @@ export default function DevicesPage() {
           <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
             Paste CSV data (columns: <b>IMEI, Name, SIM Number</b>) or upload a .csv file. First row may be a header. Max 500 devices.
           </p>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
             <input type="file" accept=".csv,.txt" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
+            <button onClick={downloadSampleCSV} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid #2563eb', borderRadius: 6, background: 'transparent', color: '#2563eb', fontSize: 12, cursor: 'pointer' }}>
+              <IconDownload size={12}/> Download Sample
+            </button>
             <button onClick={() => fileInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg2)', color: 'var(--text)', fontSize: 12, cursor: 'pointer' }}>
               <IconUpload size={12}/> Upload CSV
             </button>
