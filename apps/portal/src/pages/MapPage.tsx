@@ -498,7 +498,7 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
       }
       if (dur < 120) return;
       const estimatedStop = estimatedStops.get(sp.timestamp);
-      // Trace forward through gap→parked chains to get true end time and total duration
+      // Trace forward through gap→parked/driving chains to get true end time and total duration
       let totalDurSec = dur;
       let totalEndTs = ep.timestamp;
       {
@@ -507,13 +507,19 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
         while (ns < segments.length) {
           const nSeg = segments[ns]!;
           if (!isHistoryDataGap(points[lastEnd]!, points[nSeg.start]!)) break;
-          if (nSeg.type !== 'parked' && nSeg.type !== 'idle') break;
           const gapSec = Math.round((new Date(points[nSeg.start]!.timestamp).getTime() - new Date(points[lastEnd]!.timestamp).getTime()) / 1000);
-          const nDur = Math.round((new Date(points[nSeg.end]!.timestamp).getTime() - new Date(points[nSeg.start]!.timestamp).getTime()) / 1000);
-          totalDurSec += gapSec + nDur;
-          totalEndTs = points[nSeg.end]!.timestamp;
-          lastEnd = nSeg.end;
-          ns++;
+          if (nSeg.type === 'parked' || nSeg.type === 'idle') {
+            const nDur = Math.round((new Date(points[nSeg.end]!.timestamp).getTime() - new Date(points[nSeg.start]!.timestamp).getTime()) / 1000);
+            totalDurSec += gapSec + nDur;
+            totalEndTs = points[nSeg.end]!.timestamp;
+            lastEnd = nSeg.end;
+            ns++;
+          } else {
+            // Gap → driving: include gap, use first driving GPS point as stop end
+            totalDurSec += gapSec;
+            totalEndTs = points[nSeg.start]!.timestamp;
+            break;
+          }
         }
       }
       const totalFromTs = sp.timestamp;
