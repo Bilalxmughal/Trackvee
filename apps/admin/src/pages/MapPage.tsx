@@ -1177,8 +1177,8 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
       const sp = points[stop.si];
       const isIdle = stop.type === 'idle';
       const color = isIdle ? '#f59e0b' : '#111827';
-      const label = isIdle ? 'S' : 'P';
-      const title = isIdle ? 'Stop (Engine On)' : 'Parked';
+      const label = isIdle ? 'I' : 'P';
+      const title = isIdle ? 'Idle (Engine On)' : 'Parked';
       const addrId = `paddr-${idx}-${Date.now()}`;
       const html = `<div style="width:26px;height:26px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transform:translate(-50%,-50%)">${label}</div>`;
       const popup = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:190px;line-height:1.5">
@@ -1387,7 +1387,7 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
                 onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1a1a1a' : '#f9fafb'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
                 <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'gap' ? '#111827' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
-                  {ev.type === 'gap' ? 'P' : ev.type === 'parked' ? 'P' : ev.type === 'idle' ? 'S' : 'D'}
+                  {ev.type === 'gap' ? 'P' : ev.type === 'parked' ? 'P' : ev.type === 'idle' ? 'I' : 'D'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: dark ? '#ccc' : '#333' }}>{ev.type === 'gap' ? 'Parked (GPS Off)' : formatTsFull(ev.startTime)}</div>
