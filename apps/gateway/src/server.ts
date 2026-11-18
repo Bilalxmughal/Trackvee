@@ -132,10 +132,10 @@ async function handleBuffer(socket: Socket, remote: string, buf: Buffer, imeiRef
       const imei = imeiRef.value ?? 'unknown';
       if (imeiRef.value) connectionManager.heartbeat(imeiRef.value);
       logger.info(`[${imei}] GPS | valid:${packet.gpsValid} | ${packet.latitude.toFixed(6)},${packet.longitude.toFixed(6)} | ${packet.speedKmh}km/h | hdg:${packet.heading}° | sats:${packet.satellites}`);
-      if (imeiRef.value && packet.gpsValid) {
+      if (imeiRef.value && (packet.gpsValid || (packet.satellites >= 4 && packet.latitude !== 0 && packet.longitude !== 0))) {
         try {
           await saveTelemetry(imeiRef.value, packet);
-          logger.info(`[${imeiRef.value}] GPS persisted | ${packet.timestamp?.toISOString() ?? 'timestamp unavailable'}`);
+          logger.info(`[${imeiRef.value}] GPS persisted | valid:${packet.gpsValid} sats:${packet.satellites} | ${packet.timestamp?.toISOString() ?? 'timestamp unavailable'}`);
         } catch (err) {
           logger.error(`[${imeiRef.value}] GPS persistence failed; closing without ACK so the tracker can reconnect: ${err}`);
           throw err;
