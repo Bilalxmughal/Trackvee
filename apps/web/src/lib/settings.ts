@@ -72,12 +72,12 @@ export interface SiteSettings {
   contact: ContactSettings;
 }
 
-const API = process.env.API_URL ?? 'https://admin.trackvee.com/api/v1';
+const API = process.env.API_URL ?? 'http://localhost:3000/api/v1';
 
 export async function fetchSiteSettings(): Promise<Partial<SiteSettings>> {
   try {
     const res = await fetch(`${API}/site-settings`, {
-      next: { revalidate: 60 },
+      next: { revalidate: 30 },
     });
     if (!res.ok) return {};
     return res.json() as Promise<Partial<SiteSettings>>;
