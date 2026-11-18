@@ -364,11 +364,9 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
     if (!selectedSegment) return;
 
     if (selectedSegment.type === 'gap') {
-      const endLat = selectedSegment.endLat ?? selectedSegment.lat, endLng = selectedSegment.endLng ?? selectedSegment.lng;
-      const coords: [number, number][] = [[selectedSegment.lat, selectedSegment.lng], [endLat, endLng]];
-      highlightRef.current = L.polyline(coords, { color: '#6b7280', weight: 5, opacity: 0.9, dashArray: '6 7' }).addTo(map);
-      map.fitBounds(L.latLngBounds(coords), { padding: [60, 60], animate: true });
-      dPopupRef.current = L.popup({ maxWidth: 260 }).setLatLng([(selectedSegment.lat + endLat) / 2, (selectedSegment.lng + endLng) / 2]).setContent(`<div style="font:12px system-ui;line-height:1.6"><b style="color:#6b7280">GPS data gap</b><br>From ${formatTsFull(selectedSegment.startTime)}<br>To ${formatTsFull(selectedSegment.endTime)}<br>No GPS updates for ${formatDuration(selectedSegment.durationSec)}<br><small>${selectedSegment.stopEstimateIncluded ? 'This interval is included as an estimated stop duration.' : 'Stop duration during this gap is unconfirmed.'}</small></div>`).addTo(map);
+      map.flyTo([selectedSegment.lat, selectedSegment.lng], 16, { animate: true, duration: 0.7 });
+      const m = pMarkersRef.current.get(selectedSegment.startTime);
+      if (m) setTimeout(() => m.openPopup(), 800);
     } else if (selectedSegment.type === 'parked' || selectedSegment.type === 'idle') {
       map.flyTo([selectedSegment.lat, selectedSegment.lng], 18, { animate: true, duration: 0.7 });
       const m = pMarkersRef.current.get(selectedSegment.startTime);
@@ -424,6 +422,23 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
       const part = points.slice(routeStart, i).map(p => [p.latitude, p.longitude] as [number, number]);
       if (part.length > 1) L.polyline(part, { color: '#dc2626', weight: 3.5, opacity: 0.85 }).addTo(layer);
       L.polyline([[points[i - 1]!.latitude, points[i - 1]!.longitude], [points[i]!.latitude, points[i]!.longitude]], { color: '#6b7280', weight: 3, opacity: 0.85, dashArray: '5 7' }).addTo(layer);
+      const gapSec = Math.round((new Date(points[i]!.timestamp).getTime() - new Date(points[i-1]!.timestamp).getTime()) / 1000);
+      const gapAddrId = `gaddr-${i}-${Date.now()}`;
+      const gapHtml = `<div style="width:26px;height:26px;border-radius:50%;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transform:translate(-50%,-50%)">P</div>`;
+      const gapPopup = `<div style="font-family:system-ui,sans-serif;font-size:12px;min-width:200px;line-height:1.5">
+        <div style="font-weight:700;margin-bottom:5px;color:#111827;font-size:13px">Parked (GPS Off)</div>
+        <div id="${gapAddrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
+        <div style="color:#9ca3af;font-size:10px;margin-bottom:6px">${points[i-1]!.latitude.toFixed(5)}, ${points[i-1]!.longitude.toFixed(5)}</div>
+        <div style="display:flex;gap:14px;font-size:11px">
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div><div style="font-weight:600">${formatTsFull(points[i-1]!.timestamp)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div><div style="font-weight:600">${formatTsFull(points[i]!.timestamp)}</div></div>
+        </div>
+        <div style="margin-top:5px;color:#6b7280;font-size:10.5px">Duration: ${formatDuration(gapSec)}</div>
+      </div>`;
+      const gm = L.marker([points[i-1]!.latitude, points[i-1]!.longitude], { icon: L.divIcon({ html: gapHtml, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 100 });
+      gm.bindPopup(gapPopup, { maxWidth: 280 }).addTo(layer);
+      gm.on('popupopen', async () => { const addr = await reverseGeocode(points[i-1]!.latitude, points[i-1]!.longitude); const el = document.getElementById(gapAddrId); if (el) el.textContent = addr; });
+      pMarkersRef.current.set(points[i-1]!.timestamp, gm);
       routeStart = i;
     }
     const finalPart = points.slice(routeStart).map(p => [p.latitude, p.longitude] as [number, number]);
@@ -1044,12 +1059,12 @@ function HistoryPanel({ mode, points, loading, onLoad, onClear, allVehicles, onV
               <div key={i} onClick={() => onSegmentClick(ev)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'gap' ? '#6b7280' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
-                  {ev.type === 'gap' ? '!' : ev.type === 'parked' ? 'P' : ev.type === 'idle' ? 'I' : 'D'}
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.type === 'gap' ? '#111827' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>
+                  {ev.type === 'gap' ? 'P' : ev.type === 'parked' ? 'P' : ev.type === 'idle' ? 'I' : 'D'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, color: '#333' }}>{ev.type === 'gap' ? `GPS data gap · ${formatTsFull(ev.startTime)} – ${formatTsFull(ev.endTime)}` : formatTsFull(ev.startTime)}</div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'gap' ? '#6b7280' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{ev.type === 'gap' ? `No GPS updates · ${formatDuration(ev.durationSec)} · ${ev.stopEstimateIncluded ? 'included in estimated stop' : 'stop unconfirmed'}` : `${ev.estimatedGapSec ? '~' : ''}${formatDuration(ev.durationSec)}${ev.estimatedGapSec ? ` · includes ${formatDuration(ev.estimatedGapSec)} GPS gap` : ''}`}</div>
+                  <div style={{ fontSize: 11, color: '#333' }}>{ev.type === 'gap' ? 'Parked (GPS Off)' : formatTsFull(ev.startTime)}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'gap' ? '#111827' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{ev.type === 'gap' ? formatDuration(ev.durationSec) : `${ev.estimatedGapSec ? '~' : ''}${formatDuration(ev.durationSec)}${ev.estimatedGapSec ? ` · includes ${formatDuration(ev.estimatedGapSec)} GPS gap` : ''}`}</div>
                 </div>
                 {ev.type === 'driving' && ev.avgSpeed !== undefined && (
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#16a34a' }}>{ev.avgSpeed} km/h</div>
