@@ -54,7 +54,7 @@ interface TripPoint {
   ignition?: boolean | null;
 }
 interface HistoryMode { imei: string; plate: string; from: string; to: string; }
-interface TimelineEvent { type: 'parked' | 'idle' | 'driving' | 'gap'; startTime: string; endTime: string; durationSec: number; lat: number; lng: number; endLat?: number; endLng?: number; avgSpeed?: number; estimatedGapSec?: number; stopEstimateIncluded?: boolean; extendedDurationSec?: number; }
+interface TimelineEvent { type: 'parked' | 'idle' | 'driving' | 'gap'; startTime: string; endTime: string; durationSec: number; lat: number; lng: number; endLat?: number; endLng?: number; avgSpeed?: number; estimatedGapSec?: number; stopEstimateIncluded?: boolean; }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -184,6 +184,23 @@ function deriveTimeline(pts: TripPoint[]): TimelineEvent[] {
     }
   }
   return merged;
+}
+function buildStops(pts: TripPoint[]): Array<{ si: number; endTs: string; type: 'parked'|'idle'; durSec: number }> {
+  const stops: Array<{ si: number; endTs: string; type: 'parked'|'idle'; durSec: number }> = [];
+  let i = 0;
+  while (i < pts.length) {
+    const t = tripSegType(pts[i]!);
+    if (t === 'driving') { i++; continue; }
+    const si = i;
+    const stopType = t as 'parked' | 'idle';
+    while (i + 1 < pts.length && tripSegType(pts[i + 1]!) !== 'driving') i++;
+    const endTs = (i + 1 < pts.length && isHistoryDataGap(pts[i]!, pts[i + 1]!) && tripSegType(pts[i + 1]!) === 'driving')
+      ? pts[i + 1]!.timestamp : pts[i]!.timestamp;
+    const durSec = Math.round((new Date(endTs).getTime() - new Date(pts[si]!.timestamp).getTime()) / 1000);
+    if (durSec >= 120) stops.push({ si, endTs, type: stopType, durSec });
+    i++;
+  }
+  return stops;
 }
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371;
@@ -1055,9 +1072,6 @@ function IconSignal({ level }: { level?: number | null }) {
 
 function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoint[]; speedLimit: number; selectedSegment: TimelineEvent | null }) {
   const map = useMap();
-  const estimatedStops = useMemo(() => new Map(deriveTimeline(points)
-    .filter(event => event.estimatedGapSec)
-    .map(event => [event.startTime, event] as const)), [points]);
   const layerRef = useRef<L.LayerGroup | null>(null);
   const pMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const highlightRef = useRef<L.Polyline | null>(null);
@@ -1158,53 +1172,10 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
       m.on('popupopen', async () => { const addr = await reverseGeocode(p.latitude, p.longitude); const el = document.getElementById(addrId); if (el) el.textContent = addr; });
     }
 
-    // Segment detection for P / I markers (3-state model)
-    const segments: Array<{ type: 'parked'|'idle'|'driving'; start: number; end: number }> = [];
-    let curSegType = tripSegType(points[0]);
-    let si = 0;
-    for (let i = 1; i < points.length; i++) {
-      const nt = tripSegType(points[i]);
-      if (isHistoryDataGap(points[i-1], points[i]) || nt !== curSegType || !canContinueHistorySegment(points[i-1], points[i], curSegType)) { segments.push({ type: curSegType, start: si, end: i-1 }); curSegType = nt; si = i; }
-    }
-    segments.push({ type: curSegType, start: si, end: points.length - 1 });
-
-    segments.forEach((seg, idx) => {
-      if (seg.type === 'driving') return;
-      const sp = points[seg.start], ep = points[seg.end];
-      const dur = Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000));
-      // Skip parked segments that follow a gap where the pre-gap segment was also parked/idle
-      if (seg.start > 0 && isHistoryDataGap(points[seg.start - 1], points[seg.start])) {
-        const preGapType = tripSegType(points[seg.start - 1]);
-        if (preGapType === 'parked' || preGapType === 'idle') return;
-      }
-      if (dur < 120) return; // skip stops shorter than 2 minutes
-      const estimatedStop = estimatedStops.get(sp.timestamp);
-      // Trace forward through gap→parked/driving chains to get true end time and total duration
-      let totalDurSec = dur;
-      let totalEndTs = ep.timestamp;
-      {
-        let ns = idx + 1;
-        let lastEnd = seg.end;
-        while (ns < segments.length) {
-          const nSeg = segments[ns]!;
-          if (!isHistoryDataGap(points[lastEnd], points[nSeg.start])) break;
-          const gapSec = Math.round((new Date(points[nSeg.start].timestamp).getTime() - new Date(points[lastEnd].timestamp).getTime()) / 1000);
-          if (nSeg.type === 'parked' || nSeg.type === 'idle') {
-            const nDur = Math.round((new Date(points[nSeg.end].timestamp).getTime() - new Date(points[nSeg.start].timestamp).getTime()) / 1000);
-            totalDurSec += gapSec + nDur;
-            totalEndTs = points[nSeg.end].timestamp;
-            lastEnd = nSeg.end;
-            ns++;
-          } else {
-            // Gap → driving: include gap, use first driving GPS point as stop end
-            totalDurSec += gapSec;
-            totalEndTs = points[nSeg.start].timestamp;
-            break;
-          }
-        }
-      }
-      const totalFromTs = sp.timestamp;
-      const isIdle = seg.type === 'idle';
+    // P / I segment markers (26px, with async address lookup)
+    buildStops(points).forEach((stop, idx) => {
+      const sp = points[stop.si];
+      const isIdle = stop.type === 'idle';
       const color = isIdle ? '#f59e0b' : '#111827';
       const label = isIdle ? 'I' : 'P';
       const title = isIdle ? 'Idle (Engine On)' : 'Parked';
@@ -1215,10 +1186,10 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
         <div id="${addrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
         <div style="color:#9ca3af;font-size:10px;margin-bottom:6px">${sp.latitude.toFixed(5)}, ${sp.longitude.toFixed(5)}</div>
         <div style="display:flex;gap:14px;font-size:11px">
-          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div><div style="font-weight:600">${formatTsFull(totalFromTs)}</div></div>
-          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div><div style="font-weight:600">${formatTsFull(totalEndTs)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div><div style="font-weight:600">${formatTsFull(sp.timestamp)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div><div style="font-weight:600">${formatTsFull(stop.endTs)}</div></div>
         </div>
-        <div style="margin-top:5px;color:#6b7280;font-size:10.5px">Duration: ${formatDuration(totalDurSec)}</div>
+        <div style="margin-top:5px;color:#6b7280;font-size:10.5px">Duration: ${formatDuration(stop.durSec)}</div>
       </div>`;
       const m = L.marker([sp.latitude, sp.longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 100 });
       m.bindPopup(popup, { maxWidth: 280 }).addTo(layer);
@@ -1275,7 +1246,7 @@ function HistoryLayer({ points, speedLimit, selectedSegment }: { points: TripPoi
       if (dPopupRef.current) { map.closePopup(dPopupRef.current); dPopupRef.current = null; }
       pMarkersRef.current.clear();
     };
-  }, [points, speedLimit, map, estimatedStops]);
+  }, [points, speedLimit, map]);
 
   return null;
 }
