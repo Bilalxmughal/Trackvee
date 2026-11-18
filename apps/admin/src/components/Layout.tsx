@@ -115,11 +115,18 @@ function NavItem({ to, icon: Icon, label, collapsed }: NavItemDef & { collapsed:
       </NavLink>
       {collapsed && hovered && (
         <div style={{
-          position: 'absolute', left: 52, top: '50%', transform: 'translateY(-50%)',
-          background: dark ? '#2a2a2a' : '#1a1a1a', color: '#fff', fontSize: 11.5, fontWeight: 500,
-          padding: '5px 10px', borderRadius: 6, whiteSpace: 'nowrap', zIndex: 500,
-          pointerEvents: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+          position: 'absolute', left: 54, top: '50%', transform: 'translateY(-50%)',
+          background: dark ? '#1f1f1f' : '#1a1a1a', color: '#fff', fontSize: 11.5, fontWeight: 500,
+          padding: '5px 11px', borderRadius: 7, whiteSpace: 'nowrap', zIndex: 1000,
+          pointerEvents: 'none', boxShadow: '0 6px 18px rgba(0,0,0,0.28)',
+          letterSpacing: 0.1,
         }}>
+          <div style={{
+            position: 'absolute', left: -5, top: '50%', transform: 'translateY(-50%)',
+            width: 0, height: 0,
+            borderTop: '5px solid transparent', borderBottom: '5px solid transparent',
+            borderRight: `5px solid ${dark ? '#1f1f1f' : '#1a1a1a'}`,
+          }} />
           {label}
         </div>
       )}
@@ -275,7 +282,7 @@ function LayoutInner() {
         }}
       >
         {/* Logo + toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: collapsed ? '14px 0' : '14px 14px 14px 18px', borderBottom: `1px solid ${dark ? '#222' : '#f5f5f5'}`, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: collapsed ? '14px 0' : '14px 14px 14px 18px', flexShrink: 0 }}>
           {!collapsed && (
             isPortalHost
               ? <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
