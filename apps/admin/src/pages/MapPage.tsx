@@ -158,15 +158,32 @@ function deriveTimeline(pts: TripPoint[]): TimelineEvent[] {
     if (next !== type || !canContinueHistorySegment(pts[i - 1], pts[i], type)) { events.push(makeEvent(type, si, i - 1)); type = next; si = i; }
   }
   events.push(makeEvent(type, si, pts.length - 1));
-  for (let i = 1; i < events.length; i++) {
-    const ev = events[i]!, prev = events[i - 1]!;
-    if ((ev.type !== 'parked' && ev.type !== 'idle') || prev.type !== 'gap') continue;
-    let extra = prev.durationSec;
-    const pp = events[i - 2];
-    if (pp && (pp.type === 'parked' || pp.type === 'idle')) extra += pp.durationSec;
-    ev.extendedDurationSec = ev.durationSec + extra;
+  // Merge parked/idle → gap → (parked/idle → gap)* chains into one P entry with total duration
+  const merged: TimelineEvent[] = [];
+  let i = 0;
+  while (i < events.length) {
+    const ev = events[i]!;
+    if ((ev.type === 'parked' || ev.type === 'idle') && events[i + 1]?.type === 'gap') {
+      let totalDurSec = ev.durationSec;
+      let endTime = ev.endTime;
+      let j = i + 1;
+      while (j < events.length && events[j]!.type === 'gap') {
+        totalDurSec += events[j]!.durationSec;
+        j++;
+        if (j < events.length && (events[j]!.type === 'parked' || events[j]!.type === 'idle')) {
+          totalDurSec += events[j]!.durationSec;
+          endTime = events[j]!.endTime;
+          j++;
+        }
+      }
+      merged.push({ ...ev, endTime, durationSec: totalDurSec });
+      i = j;
+    } else {
+      merged.push(ev);
+      i++;
+    }
   }
-  return events;
+  return merged;
 }
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371;
@@ -1401,7 +1418,7 @@ function HistoryPanel({ mode, points, loading, dark, onLoad, onClear, allVehicle
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: dark ? '#ccc' : '#333' }}>{ev.type === 'gap' ? 'Parked (GPS Off)' : formatTsFull(ev.startTime)}</div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'gap' ? '#111827' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{ev.type === 'gap' ? formatDuration(ev.durationSec) : `${ev.estimatedGapSec ? '~' : ''}${formatDuration(ev.extendedDurationSec ?? ev.durationSec)}${ev.estimatedGapSec ? ` · includes ${formatDuration(ev.estimatedGapSec)} GPS gap` : ''}`}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'gap' ? '#111827' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{ev.type === 'gap' ? formatDuration(ev.durationSec) : formatDuration(ev.durationSec)}</div>
                 </div>
                 {ev.type === 'driving' && ev.avgSpeed !== undefined && (
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#16a34a' }}>{ev.avgSpeed} km/h</div>
