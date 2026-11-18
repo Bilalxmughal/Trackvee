@@ -53,6 +53,7 @@ interface TimelineEvent {
   startTime: string; endTime: string; durationSec: number;
   lat: number; lng: number; endLat?: number; endLng?: number; avgSpeed?: number;
   estimatedGapSec?: number; stopEstimateIncluded?: boolean;
+  extendedDurationSec?: number;
 }
 
 // ── Constants / Utilities ─────────────────────────────────────────────────────
@@ -181,6 +182,15 @@ function deriveTimeline(pts: TripPoint[]): TimelineEvent[] {
     if (next !== type || !canContinueHistorySegment(pts[i - 1]!, pts[i]!, type)) { events.push(makeEvent(type, si, i - 1)); type = next; si = i; }
   }
   events.push(makeEvent(type, si, pts.length - 1));
+  // Extend parked/idle events that follow a GPS gap to show total stop duration
+  for (let i = 1; i < events.length; i++) {
+    const ev = events[i]!, prev = events[i - 1]!;
+    if ((ev.type !== 'parked' && ev.type !== 'idle') || prev.type !== 'gap') continue;
+    let extra = prev.durationSec;
+    const pp = events[i - 2];
+    if (pp && (pp.type === 'parked' || pp.type === 'idle')) extra += pp.durationSec;
+    ev.extendedDurationSec = ev.durationSec + extra;
+  }
   return events;
 }
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -483,6 +493,17 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
       const dur = Math.max(0, Math.round((new Date(ep.timestamp).getTime() - new Date(sp.timestamp).getTime()) / 1000));
       if (dur < 120) return;
       const estimatedStop = estimatedStops.get(sp.timestamp);
+      // Extend duration if this segment follows a GPS gap (vehicle was stopped before gap too)
+      let totalFromTs = sp.timestamp;
+      let totalDurSec = estimatedStop?.durationSec ?? dur;
+      if (seg.start > 0 && isHistoryDataGap(points[seg.start - 1]!, points[seg.start]!)) {
+        let j = seg.start - 1;
+        while (j > 0 && !isHistoryDataGap(points[j - 1]!, points[j]!) && (tripSegType(points[j - 1]!) === 'parked' || tripSegType(points[j - 1]!) === 'idle')) j--;
+        if (tripSegType(points[j]!) === 'parked' || tripSegType(points[j]!) === 'idle') {
+          totalFromTs = points[j]!.timestamp;
+          totalDurSec = Math.round((new Date(ep.timestamp).getTime() - new Date(totalFromTs).getTime()) / 1000);
+        }
+      }
       const isIdle = seg.type === 'idle';
       const color = isIdle ? '#f59e0b' : '#111827';
       const lbl = isIdle ? 'I' : 'P';
@@ -494,10 +515,10 @@ function HistoryLayer({ points, selectedSegment }: { points: TripPoint[]; select
         <div id="${addrId}" style="color:#555;margin-bottom:3px;font-size:11px">Loading address…</div>
         <div style="color:#9ca3af;font-size:10px;margin-bottom:6px">${sp.latitude.toFixed(5)}, ${sp.longitude.toFixed(5)}</div>
         <div style="display:flex;gap:14px;font-size:11px">
-          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div><div style="font-weight:600">${formatTsFull(sp.timestamp)}</div></div>
+          <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">From</div><div style="font-weight:600">${formatTsFull(totalFromTs)}</div></div>
           <div><div style="color:#9ca3af;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px">To</div><div style="font-weight:600">${formatTsFull(ep.timestamp)}</div></div>
         </div>
-        <div style="margin-top:5px;color:#6b7280;font-size:10.5px">Duration: ${estimatedStop ? '~' : ''}${formatDuration(estimatedStop?.durationSec ?? dur)}${estimatedStop ? `<br><small>Includes an estimated ${formatDuration(estimatedStop.estimatedGapSec!)} GPS gap.</small>` : ''}</div>
+        <div style="margin-top:5px;color:#6b7280;font-size:10.5px">Duration: ${formatDuration(totalDurSec)}</div>
       </div>`;
       const m = L.marker([sp.latitude, sp.longitude], { icon: L.divIcon({ html, className: 'leaflet-interactive', iconSize: [0,0], iconAnchor: [0,0] }), zIndexOffset: 100 });
       m.bindPopup(popupContent, { maxWidth: 280 }).addTo(layer);
@@ -1064,7 +1085,7 @@ function HistoryPanel({ mode, points, loading, onLoad, onClear, allVehicles, onV
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: '#333' }}>{ev.type === 'gap' ? 'Parked (GPS Off)' : formatTsFull(ev.startTime)}</div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'gap' ? '#111827' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{ev.type === 'gap' ? formatDuration(ev.durationSec) : `${ev.estimatedGapSec ? '~' : ''}${formatDuration(ev.durationSec)}${ev.estimatedGapSec ? ` · includes ${formatDuration(ev.estimatedGapSec)} GPS gap` : ''}`}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: ev.type === 'gap' ? '#111827' : ev.type === 'parked' ? '#111827' : ev.type === 'idle' ? '#f59e0b' : '#16a34a' }}>{ev.type === 'gap' ? formatDuration(ev.durationSec) : `${ev.estimatedGapSec ? '~' : ''}${formatDuration(ev.extendedDurationSec ?? ev.durationSec)}${ev.estimatedGapSec ? ` · includes ${formatDuration(ev.estimatedGapSec)} GPS gap` : ''}`}</div>
                 </div>
                 {ev.type === 'driving' && ev.avgSpeed !== undefined && (
                   <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#16a34a' }}>{ev.avgSpeed} km/h</div>
