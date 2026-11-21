@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://portal.trackvee.com/api/v1';
+export const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://api.trackvee.com/api/v1';
 const api = axios.create({ baseURL: API_BASE, timeout: 20000 });
 
 type RefreshResult = { status: 'ok'; token: string } | { status: 'expired' } | { status: 'unavailable' };

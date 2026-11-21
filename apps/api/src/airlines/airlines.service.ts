@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -6,9 +7,23 @@ import * as bcrypt from 'bcrypt';
 import { Airline } from './entities/airline.entity.js';
 import { AirlineCrew } from './entities/airline-crew.entity.js';
 import { AirlineVehicle } from './entities/airline-vehicle.entity.js';
-import { CrewTrip } from './entities/crew-trip.entity.js';
+import { CrewTrip, type ScanLocationSource } from './entities/crew-trip.entity.js';
 import { AirlineAirport } from './entities/airline-airport.entity.js';
 import { User } from '../users/entities/user.entity.js';
+
+export interface ScannerLocation {
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  timestamp: number;
+}
+
+export interface AirlineVehicleSession {
+  _isVehicle: true;
+  sessionId: string;
+  vehicleId: string;
+  airlineId: string;
+}
 
 const INTERNAL_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
@@ -19,10 +34,24 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function routeDistance(points: { latitude: number; longitude: number; timestamp: Date }[]) {
+  let distance = 0;
+  let measuredSegments = 0;
+  for (let index = 1; index < points.length; index++) {
+    const previous = points[index - 1];
+    const current = points[index];
+    if (new Date(current.timestamp).getTime() - new Date(previous.timestamp).getTime() <= 600_000) {
+      distance += haversineKm(previous.latitude, previous.longitude, current.latitude, current.longitude);
+      measuredSegments++;
+    }
+  }
+  return measuredSegments ? Math.round(distance * 100) / 100 : null;
+}
+
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'Trackvee/1.0' } });
+    const res = await fetch(url, { headers: { 'User-Agent': 'Trackvee/1.0' }, signal: AbortSignal.timeout(3000) });
     if (!res.ok) return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     const data = await res.json() as any;
     const a = data.address || {};
@@ -58,6 +87,20 @@ export class AirlinesService {
     return INTERNAL_ROLES.includes(user.role);
   }
 
+  private assertVehicleSession(session: AirlineVehicleSession, vehicleId = session?.vehicleId): void {
+    if (session?._isVehicle !== true || !session.airlineId || !session.vehicleId || !session.sessionId || vehicleId !== session.vehicleId) {
+      throw new ForbiddenException('Vehicle session required for this vehicle');
+    }
+  }
+
+  private findCrewForSession(session: AirlineVehicleSession, nfcUid: string) {
+    this.assertVehicleSession(session);
+    if (typeof nfcUid !== 'string' || !nfcUid.trim()) {
+      throw new BadRequestException('NFC card identifier is required');
+    }
+    return this.crewRepo.findOne({ where: { airlineId: session.airlineId, nfcCardUid: nfcUid } });
+  }
+
   // ─── Airlines CRUD ───────────────────────────────────────────────────────────
 
   async listAirlines(user: User, organizationId?: string, cityId?: string) {
@@ -83,7 +126,7 @@ export class AirlinesService {
   async getAirline(user: User, id: string) {
     const a = await this.airlineRepo.findOne({ where: { id } });
     if (!a) throw new NotFoundException('Airline not found');
-    if (!this.isInternal(user) && a.organizationId !== user.organizationId) throw new NotFoundException();
+    if (!this.isInternal(user) && (!user.organizationId || a.organizationId !== user.organizationId)) throw new NotFoundException();
     return a;
   }
 
@@ -162,7 +205,7 @@ export class AirlinesService {
     const vehicles = await this.dataSource.query(
       `SELECT v.id, v.display_id, v.name, v.license_plate, v.make, v.model, v.type, v.lifecycle_status, v.city_id,
               (av.pin_hash IS NOT NULL) AS has_pin,
-              av.last_login_at, av.session_revoked_at
+              av.last_login_at, av.session_revoked_at, (av.active_session_id IS NOT NULL) AS has_active_session
        FROM airline_vehicles av
        JOIN vehicles v ON v.id = av.vehicle_id
        WHERE av.airline_id = $1`,
@@ -174,67 +217,102 @@ export class AirlinesService {
   async setVehiclePin(user: User, airlineId: string, vehicleId: string, pin: string) {
     if (!/^\d{4}$/.test(pin)) throw new BadRequestException('PIN must be exactly 4 digits');
     await this.getAirline(user, airlineId);
-    const av = await this.avRepo.findOne({ where: { airlineId, vehicleId } });
-    if (!av) throw new NotFoundException('Vehicle not assigned to this airline');
-    av.pinHash = await bcrypt.hash(pin, 10);
-    await this.avRepo.save(av);
+    const updated = await this.avRepo.update(
+      { airlineId, vehicleId },
+      { pinHash: await bcrypt.hash(pin, 10), activeSessionId: null, sessionRevokedAt: new Date() },
+    );
+    if (!updated.affected) throw new NotFoundException('Vehicle not assigned to this airline');
     return { success: true };
   }
 
   async forceLogoutVehicle(user: User, airlineId: string, vehicleId: string) {
     await this.getAirline(user, airlineId);
-    const av = await this.avRepo.findOne({ where: { airlineId, vehicleId } });
-    if (!av) throw new NotFoundException('Vehicle not assigned to this airline');
-    av.sessionRevokedAt = new Date();
-    await this.avRepo.save(av);
+    const revoked = await this.avRepo.update(
+      { airlineId, vehicleId },
+      { activeSessionId: null, sessionRevokedAt: new Date() },
+    );
+    if (!revoked.affected) throw new NotFoundException('Vehicle not assigned to this airline');
     return { success: true };
   }
 
+  private vehicleSessionData(row: {
+    vehicle_id: string; vehicle_name: string; license_plate: string | null; display_id: number;
+    airline_id: string; airline_name: string; iata_code: string | null; logo_data: string | null;
+  }) {
+    return {
+      vehicleId: row.vehicle_id, vehicleName: row.vehicle_name, licensePlate: row.license_plate, displayId: row.display_id,
+      airlineId: row.airline_id, airlineName: row.airline_name, iataCode: row.iata_code, logoData: row.logo_data ?? null,
+    };
+  }
+
   async vehicleLogin(plateNumber: string, pin: string) {
+    if (typeof plateNumber !== 'string' || typeof pin !== 'string' || !/^\d{4}$/.test(pin)) {
+      throw new UnauthorizedException('Invalid plate number or PIN');
+    }
+    const plate = plateNumber.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!plate || plate.length > 32) throw new UnauthorizedException('Invalid plate number or PIN');
     const rows = await this.dataSource.query(
-      `SELECT av.pin_hash, v.id AS vehicle_id, v.name AS vehicle_name, v.license_plate, v.display_id,
+      `SELECT av.id, av.pin_hash, v.id AS vehicle_id, v.name AS vehicle_name, v.license_plate, v.display_id,
               a.id AS airline_id, a.name AS airline_name, a.iata_code, a.logo_data
        FROM airline_vehicles av
        JOIN vehicles v ON v.id = av.vehicle_id
        JOIN airlines a ON a.id = av.airline_id
-       WHERE UPPER(REPLACE(v.license_plate, ' ', '')) = UPPER(REPLACE($1, ' ', ''))`,
-      [plateNumber.trim()],
+       WHERE REGEXP_REPLACE(UPPER(v.license_plate), '[^A-Z0-9]', '', 'g') = $1
+         AND av.pin_hash IS NOT NULL`,
+      [plate],
     );
-    if (!rows.length) throw new UnauthorizedException('Vehicle not found');
-    const row = rows[0];
-    if (!row.pin_hash) throw new UnauthorizedException('PIN not configured for this vehicle');
-    const valid = await bcrypt.compare(pin, row.pin_hash);
-    if (!valid) throw new UnauthorizedException('Invalid PIN');
-
-    await this.dataSource.query(
-      `UPDATE airline_vehicles SET last_login_at = NOW(), session_revoked_at = NULL WHERE vehicle_id = $1`,
-      [row.vehicle_id],
+    const matches = [];
+    for (const row of rows) {
+      if (await bcrypt.compare(pin, row.pin_hash)) matches.push(row);
+    }
+    if (matches.length !== 1) throw new UnauthorizedException('Invalid plate number or PIN');
+    const row = matches[0];
+    const sessionId = randomUUID();
+    const updated = await this.avRepo.update(
+      { id: row.id, pinHash: row.pin_hash },
+      { activeSessionId: sessionId, lastLoginAt: new Date(), sessionRevokedAt: null },
     );
-
-    const payload = { sub: `vehicle:${row.vehicle_id}`, vehicleId: row.vehicle_id, airlineId: row.airline_id, type: 'vehicle', iat: Math.floor(Date.now() / 1000) };
-    const token = this.jwtService.sign(payload, { expiresIn: '30d' });
-
-    return {
-      token,
-      vehicleId: row.vehicle_id,
-      vehicleName: row.vehicle_name,
-      licensePlate: row.license_plate,
-      displayId: row.display_id,
-      airlineId: row.airline_id,
-      airlineName: row.airline_name,
-      iataCode: row.iata_code,
-      logoData: row.logo_data ?? null,
-    };
+    if (!updated.affected) throw new UnauthorizedException('Vehicle assignment changed. Sign in again.');
+    const token = this.jwtService.sign({
+      sub: `vehicle:${row.vehicle_id}`, vehicleId: row.vehicle_id,
+      airlineId: row.airline_id, type: 'vehicle', sessionId,
+    }, { expiresIn: '30d' });
+    return { token, ...this.vehicleSessionData(row) };
   }
 
-  async lookupCrewByPartialUid(digits: string): Promise<{ nfcUid: string }> {
-    if (!digits || !/^\w{1,8}$/.test(digits)) throw new BadRequestException('Enter 1–8 alphanumeric characters');
+  async getVehicleSession(session: AirlineVehicleSession) {
+    this.assertVehicleSession(session);
+    const [row] = await this.dataSource.query(
+      `SELECT v.id AS vehicle_id, v.name AS vehicle_name, v.license_plate, v.display_id,
+              a.id AS airline_id, a.name AS airline_name, a.iata_code, a.logo_data
+       FROM airline_vehicles av
+       JOIN vehicles v ON v.id = av.vehicle_id
+       JOIN airlines a ON a.id = av.airline_id
+       WHERE av.vehicle_id = $1 AND av.airline_id = $2 AND av.active_session_id = $3`,
+      [session.vehicleId, session.airlineId, session.sessionId],
+    );
+    if (!row) throw new UnauthorizedException('Vehicle session ended');
+    return this.vehicleSessionData(row);
+  }
+
+  async endVehicleSession(session: AirlineVehicleSession) {
+    this.assertVehicleSession(session);
+    await this.avRepo.update(
+      { airlineId: session.airlineId, vehicleId: session.vehicleId, activeSessionId: session.sessionId },
+      { activeSessionId: null, sessionRevokedAt: new Date() },
+    );
+    return { success: true };
+  }
+
+  async lookupCrewByPartialUid(session: AirlineVehicleSession, digits: string): Promise<{ nfcUid: string }> {
+    this.assertVehicleSession(session);
+    if (!digits || !/^[a-z0-9]{1,8}$/i.test(digits)) throw new BadRequestException('Enter 1–8 alphanumeric characters');
     try {
       const result = await this.dataSource.query(
         `SELECT nfc_card_uid FROM airline_crews
-         WHERE nfc_card_uid IS NOT NULL
+         WHERE airline_id = $2 AND nfc_card_uid IS NOT NULL
            AND REPLACE(REPLACE(nfc_card_uid, ':', ''), '-', '') ILIKE $1`,
-        [`%${digits}`],
+        [`%${digits}`, session.airlineId],
       );
       if (result.length === 0) throw new NotFoundException('No crew card found with those digits');
       if (result.length > 1) throw new BadRequestException('Multiple cards match — enter more digits');
@@ -259,17 +337,87 @@ export class AirlinesService {
     return { success: true };
   }
 
-  async getAirlineByVehicle(vehicleId: string) {
+  async getAirlineByVehicle(user: User, vehicleId: string) {
+    if (!this.isInternal(user)) throw new ForbiddenException();
     const row = await this.avRepo.findOne({ where: { vehicleId } });
     if (!row) return null;
     const airline = await this.airlineRepo.findOne({ where: { id: row.airlineId } });
     return airline ? { id: airline.id, name: airline.name, iataCode: airline.iataCode } : null;
   }
 
+  private async tripRoute(vehicleId: string, from: Date, to: Date, latestOnly = false) {
+    const points: { latitude: number; longitude: number; speed: number; heading: number; ignition: boolean | null; timestamp: Date }[] = [];
+    const pageSize = latestOnly ? 1 : 2000;
+    const direction = latestOnly ? 'DESC' : 'ASC';
+    for (let offset = 0;; offset += pageSize) {
+      const page = await this.dataSource.query(
+        `SELECT t.latitude, t.longitude, t.speed_kmh AS speed, t.heading, t.ignition, t.timestamp
+         FROM telemetry t
+         WHERE t.timestamp BETWEEN $2 AND $3 AND t.gps_valid = true
+           AND t.latitude BETWEEN -90 AND 90 AND t.longitude BETWEEN -180 AND 180
+           AND (t.latitude <> 0 OR t.longitude <> 0)
+           AND EXISTS (
+             SELECT 1 FROM device_assignments a JOIN devices d ON d.id = a.device_id
+             WHERE a.vehicle_id = $1 AND d.imei = t.imei AND a.assigned_at <= t.timestamp
+               AND (a.unassigned_at IS NULL OR a.unassigned_at > t.timestamp)
+           )
+         ORDER BY t.timestamp ${direction}, t.id ${direction}
+         LIMIT $4 OFFSET $5`,
+        [vehicleId, from, to, pageSize, offset],
+      );
+      points.push(...page);
+      if (latestOnly || page.length < pageSize) return points;
+    }
+  }
+
+  private async scanLocation(vehicleId: string, scannedAt: Date, scanner?: ScannerLocation) {
+    const age = scanner ? scannedAt.getTime() - scanner.timestamp : Infinity;
+    const validScanner = scanner && Number.isFinite(scanner.timestamp) && age >= -5_000 && age <= 30_000
+      && Number.isFinite(scanner.latitude) && Math.abs(scanner.latitude) <= 90
+      && Number.isFinite(scanner.longitude) && Math.abs(scanner.longitude) <= 180
+      && (scanner.latitude !== 0 || scanner.longitude !== 0)
+      && typeof scanner.accuracy === 'number' && scanner.accuracy > 0 && scanner.accuracy <= 100;
+    const [point] = validScanner
+      ? [scanner]
+      : await this.tripRoute(vehicleId, new Date(scannedAt.getTime() - 2 * 60_000), scannedAt, true);
+    const source: ScanLocationSource = validScanner ? 'scanner_gps' : point ? 'vehicle_tracker' : 'unavailable';
+    return {
+      latitude: point?.latitude ?? null,
+      longitude: point?.longitude ?? null,
+      stop: point ? await reverseGeocode(point.latitude, point.longitude) : null,
+      source,
+    };
+  }
+
+  private async estimateArrival(vehicleId: string, latitude: number | null, longitude: number | null) {
+    const origin = process.env.AIRLINE_ROUTING_BASE_URL?.trim();
+    if (!origin || latitude == null || longitude == null) return null;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)
+      || Math.abs(latitude) > 90 || Math.abs(longitude) > 180 || (latitude === 0 && longitude === 0)) return null;
+    const estimatedAt = new Date();
+    const [fix] = await this.tripRoute(vehicleId, new Date(estimatedAt.getTime() - 120_000), estimatedAt, true);
+    if (!fix) return null;
+    try {
+      const url = new URL(`${origin.replace(/\/$/, '')}/route/v1/driving/${fix.longitude},${fix.latitude};${longitude},${latitude}`);
+      url.searchParams.set('overview', 'false');
+      const response = await fetch(url, { signal: AbortSignal.timeout(2500) });
+      if (!response.ok) return null;
+      const data = await response.json() as { code?: string; routes?: { duration: number; distance: number }[] };
+      const route = data.routes?.[0];
+      if (data.code !== 'Ok' || !route || !Number.isFinite(route.duration) || route.duration < 0
+        || !Number.isFinite(route.distance) || route.distance < 0) return null;
+      return { arrivalAt: new Date(estimatedAt.getTime() + route.duration * 1000), estimatedAt, remainingKm: route.distance / 1000 };
+    } catch {
+      return null;
+    }
+  }
+
   // ─── Trips: Check-in / Check-out ─────────────────────────────────────────────
 
-  async checkin(body: { nfcUid: string; vehicleId: string; flightNumber?: string; flightDate?: string; passengerCount?: number; notes?: string; lat: number; lng: number }) {
-    const crew = await this.crewRepo.findOne({ where: { nfcCardUid: body.nfcUid } });
+  async checkin(session: AirlineVehicleSession, body: { nfcUid: string; vehicleId: string; flightNumber?: string; flightDate?: string; passengerCount?: number; notes?: string; location?: ScannerLocation }) {
+    this.assertVehicleSession(session, body.vehicleId);
+    if (!body.vehicleId) throw new BadRequestException('Vehicle identifier is required');
+    const crew = await this.findCrewForSession(session, body.nfcUid);
     if (!crew) throw new NotFoundException('NFC card not registered');
     if (crew.status === 'inactive') throw new BadRequestException(`${crew.name} is inactive and cannot check in`);
 
@@ -277,7 +425,11 @@ export class AirlinesService {
     if (open) throw new BadRequestException(`${crew.name} already checked in (trip ${open.id})`);
 
     const airline = await this.airlineRepo.findOne({ where: { id: crew.airlineId } });
-    const stopName = await reverseGeocode(body.lat, body.lng);
+    const scannedAt = new Date();
+    const [location, initialEta] = await Promise.all([
+      this.scanLocation(session.vehicleId, scannedAt, body.location),
+      this.estimateArrival(session.vehicleId, crew.stopLat, crew.stopLng).catch(() => null),
+    ]);
 
     // Get vehicle odometer from vehicles table
     const [veh] = await this.dataSource.query(
@@ -293,11 +445,16 @@ export class AirlinesService {
       passengerCount: body.passengerCount ?? null,
       notes: body.notes ?? null,
       status: 'in_progress',
-      checkinAt: new Date(),
-      checkinLat: body.lat,
-      checkinLng: body.lng,
-      checkinStop: stopName,
+      checkinAt: scannedAt,
+      checkinLat: location.latitude,
+      checkinLng: location.longitude,
+      checkinStop: location.stop,
+      checkinLocationSource: location.source,
       checkinOdometerKm: veh?.odometer_km ?? null,
+      plannedStop: crew.stopName,
+      plannedLat: crew.stopLat,
+      plannedLng: crew.stopLng,
+      initialEtaAt: initialEta?.arrivalAt ?? null,
     });
     const saved = await this.tripRepo.save(trip);
 
@@ -306,18 +463,20 @@ export class AirlinesService {
       crew: { id: crew.id, displayId: crew.displayId, name: crew.name, designation: crew.designation },
       airline: airline ? { id: airline.id, name: airline.name } : null,
       checkinAt: saved.checkinAt,
-      checkinStop: stopName,
+      checkinStop: location.stop,
+      checkinLocationSource: location.source,
     };
   }
 
-  async checkout(body: { nfcUid: string; lat: number; lng: number }) {
-    const crew = await this.crewRepo.findOne({ where: { nfcCardUid: body.nfcUid } });
+  async checkout(session: AirlineVehicleSession, body: { nfcUid: string; location?: ScannerLocation }) {
+    const crew = await this.findCrewForSession(session, body.nfcUid);
     if (!crew) throw new NotFoundException('NFC card not registered');
 
-    const trip = await this.tripRepo.findOne({ where: { crewId: crew.id, status: 'in_progress' } });
+    const trip = await this.tripRepo.findOne({ where: { crewId: crew.id, airlineId: session.airlineId, vehicleId: session.vehicleId, status: 'in_progress' } });
     if (!trip) throw new BadRequestException(`${crew.name} is not checked in`);
 
-    const stopName = await reverseGeocode(body.lat, body.lng);
+    const scannedAt = new Date();
+    const location = await this.scanLocation(session.vehicleId, scannedAt, body.location);
 
     // Get vehicle current odometer
     const [veh] = await this.dataSource.query(
@@ -328,36 +487,19 @@ export class AirlinesService {
     // Calculate KM from telemetry GPS path between checkin and now
     let kmTravelled: number | null = null;
     try {
-      const [device] = await this.dataSource.query(
-        `SELECT d.imei FROM devices d WHERE d.vehicle_id = $1 AND d.status != 'unassigned' LIMIT 1`,
-        [trip.vehicleId],
-      );
-      if (device && trip.checkinAt) {
-        const points = await this.dataSource.query(
-          `SELECT latitude, longitude FROM telemetry
-           WHERE imei = $1 AND timestamp BETWEEN $2 AND NOW()
-           AND gps_valid = true
-           ORDER BY timestamp ASC`,
-          [device.imei, trip.checkinAt],
-        );
-        if (points.length >= 2) {
-          let km = 0;
-          for (let i = 1; i < points.length; i++) {
-            km += haversineKm(points[i-1].latitude, points[i-1].longitude, points[i].latitude, points[i].longitude);
-          }
-          kmTravelled = Math.round(km * 100) / 100;
-        } else if (trip.checkinLat && trip.checkinLng) {
-          kmTravelled = Math.round(haversineKm(trip.checkinLat, trip.checkinLng, body.lat, body.lng) * 100) / 100;
-        }
+      if (trip.checkinAt) {
+        const points = await this.tripRoute(trip.vehicleId, trip.checkinAt, scannedAt);
+        kmTravelled = routeDistance(points);
       }
     } catch {
       // KM calculation failed — leave as null
     }
 
-    trip.checkoutAt = new Date();
-    trip.checkoutLat = body.lat;
-    trip.checkoutLng = body.lng;
-    trip.checkoutStop = stopName;
+    trip.checkoutAt = scannedAt;
+    trip.checkoutLat = location.latitude;
+    trip.checkoutLng = location.longitude;
+    trip.checkoutStop = location.stop;
+    trip.checkoutLocationSource = location.source;
     trip.checkoutOdometerKm = checkoutOdometer;
     trip.kmTravelled = kmTravelled !== null ? String(kmTravelled) : null;
     trip.status = 'completed';
@@ -367,7 +509,8 @@ export class AirlinesService {
       tripId: saved.id,
       crew: { id: crew.id, displayId: crew.displayId, name: crew.name },
       checkoutAt: saved.checkoutAt,
-      checkoutStop: stopName,
+      checkoutStop: location.stop,
+      checkoutLocationSource: location.source,
       kmTravelled,
     };
   }
@@ -392,8 +535,8 @@ export class AirlinesService {
     const qb = this.dataSource.createQueryBuilder()
       .select([
         't.id', 't.flight_number', 't.status',
-        't.checkin_at', 't.checkin_stop', 't.checkin_lat', 't.checkin_lng',
-        't.checkout_at', 't.checkout_stop', 't.checkout_lat', 't.checkout_lng',
+        't.checkin_at', 't.checkin_stop', 't.checkin_lat', 't.checkin_lng', 't.checkin_location_source',
+        't.checkout_at', 't.checkout_stop', 't.checkout_lat', 't.checkout_lng', 't.checkout_location_source',
         't.km_travelled', 't.created_at',
         'c.id AS crew_id', 'c.display_id AS crew_display_id', 'c.name AS crew_name', 'c.designation AS crew_designation',
         'v.id AS vehicle_id', 'v.name AS vehicle_name', 'v.license_plate',
@@ -421,22 +564,23 @@ export class AirlinesService {
     return { total, page, limit, rows };
   }
 
-  async getActiveTripByNfc(nfcUid: string) {
-    const crew = await this.crewRepo.findOne({ where: { nfcCardUid: nfcUid } });
+  async getActiveTripByNfc(session: AirlineVehicleSession, nfcUid: string) {
+    const crew = await this.findCrewForSession(session, nfcUid);
     if (!crew) return null;
-    const trip = await this.tripRepo.findOne({ where: { crewId: crew.id, status: 'in_progress' } });
+    const trip = await this.tripRepo.findOne({ where: { crewId: crew.id, airlineId: session.airlineId, vehicleId: session.vehicleId, status: 'in_progress' } });
     // Always return crew info so app can show name on checkin flow too
     return { trip: trip ?? null, crew };
   }
 
-  async getActiveTripsForVehicle(vehicleId: string) {
+  async getActiveTripsForVehicle(session: AirlineVehicleSession, vehicleId: string) {
+    this.assertVehicleSession(session, vehicleId);
     const rows = await this.dataSource.query(
       `SELECT t.id AS trip_id, t.checkin_at, c.name AS crew_name, c.designation
        FROM crew_trips t
        JOIN airline_crews c ON c.id = t.crew_id
-       WHERE t.vehicle_id = $1 AND t.status = 'in_progress'
+       WHERE t.vehicle_id = $1 AND t.airline_id = $2 AND t.status = 'in_progress'
        ORDER BY t.checkin_at ASC`,
-      [vehicleId],
+      [session.vehicleId, session.airlineId],
     );
     return rows.map((r: any) => ({
       tripId: r.trip_id,
@@ -475,7 +619,6 @@ export class AirlinesService {
     const groupBy = `
       t.vehicle_id, v.name, v.license_plate, v.make, v.model, v.display_id,
       t.flight_number, t.airline_id, a.name,
-      t.checkin_stop, t.checkin_lat, t.checkin_lng,
       (FLOOR(EXTRACT(EPOCH FROM t.checkin_at) / 300))::bigint
     `;
 
@@ -498,7 +641,7 @@ export class AirlinesService {
 
     const rows = await this.dataSource.query(`
       SELECT
-        (ARRAY_AGG(t.id ORDER BY t.checkin_at))[1]                  AS group_id,
+        (ARRAY_AGG(t.id ORDER BY t.checkin_at, t.id))[1]                  AS group_id,
         MIN(t.display_id)                                            AS display_id,
         COUNT(t.id)::int                                             AS crew_count,
         t.vehicle_id,
@@ -510,15 +653,15 @@ export class AirlinesService {
         t.flight_number,
         t.airline_id,
         a.name                                                       AS airline_name,
-        t.checkin_stop                                               AS origin,
-        t.checkin_lat                                                AS origin_lat,
-        t.checkin_lng                                                AS origin_lng,
+        (ARRAY_AGG(t.checkin_stop ORDER BY t.checkin_at, t.id))[1] AS origin,
+        (ARRAY_AGG(t.checkin_lat ORDER BY t.checkin_at, t.id))[1] AS origin_lat,
+        (ARRAY_AGG(t.checkin_lng ORDER BY t.checkin_at, t.id))[1] AS origin_lng,
         MIN(t.checkin_at)                                            AS checkin_at,
         MAX(t.checkout_at)                                           AS checkout_at,
-        MAX(CASE WHEN t.km_travelled IS NOT NULL THEN CAST(t.km_travelled AS FLOAT) ELSE 0 END) AS km_travelled,
+        MAX(CAST(t.km_travelled AS FLOAT)) AS km_travelled,
         CASE WHEN bool_or(t.status = 'in_progress') THEN 'in_progress' ELSE 'completed' END AS status,
         STRING_AGG(DISTINCT c.name, ', ' ORDER BY c.name)           AS crew_names,
-        ARRAY_AGG(t.id ORDER BY t.checkin_at)                       AS trip_ids
+        ARRAY_AGG(t.id ORDER BY t.checkin_at, t.id)                       AS trip_ids
       ${innerSql}
       ORDER BY MIN(t.checkin_at) DESC
       LIMIT $${limitIdx} OFFSET $${offsetIdx}
@@ -527,51 +670,69 @@ export class AirlinesService {
     return { total: parseInt(countResult?.count ?? '0'), page, limit, rows };
   }
 
-  async getGroupedTripDetail(user: User, groupId: string) {
+  async getGroupedTripDetail(user: User, groupId: string, crewTripId?: string) {
     const [ref] = await this.dataSource.query(
-      `SELECT t.*, v.name AS vehicle_name, v.license_plate, v.display_id AS vehicle_display_id
+      `SELECT t.*, v.name AS vehicle_name, v.license_plate, v.display_id AS vehicle_display_id,
+              v.make, v.model, v.year, v.type
        FROM crew_trips t LEFT JOIN vehicles v ON v.id = t.vehicle_id WHERE t.id = $1`, [groupId],
     );
     if (!ref) throw new NotFoundException('Trip not found');
+    await this.getAirline(user, ref.airline_id);
 
     const trips = await this.dataSource.query(`
-      SELECT t.id, t.status, t.checkin_at, t.checkin_stop, t.checkin_lat, t.checkin_lng,
-             t.checkout_at, t.checkout_stop, t.checkout_lat, t.checkout_lng, t.km_travelled, t.flight_number,
+      SELECT t.id, t.status, t.checkin_at, t.checkin_stop, t.checkin_lat, t.checkin_lng, t.checkin_location_source,
+             t.checkout_at, t.checkout_stop, t.checkout_lat, t.checkout_lng, t.checkout_location_source, t.km_travelled, t.flight_number,
+             t.planned_stop, t.planned_lat, t.planned_lng, t.initial_eta_at,
              c.name AS crew_name, c.display_id AS crew_display_id, c.designation AS crew_designation, c.phone AS crew_phone
       FROM crew_trips t
       LEFT JOIN airline_crews c ON c.id = t.crew_id
       WHERE t.vehicle_id = $1
-        AND t.checkin_stop IS NOT DISTINCT FROM $2
-        AND ABS(EXTRACT(EPOCH FROM t.checkin_at) - EXTRACT(EPOCH FROM $3::timestamptz)) < 300
-      ORDER BY t.checkin_at ASC
-    `, [ref.vehicle_id, ref.checkin_stop, ref.checkin_at]);
+        AND t.airline_id = $4
+        AND t.flight_number IS NOT DISTINCT FROM $2
+        AND FLOOR(EXTRACT(EPOCH FROM t.checkin_at) / 300) = FLOOR(EXTRACT(EPOCH FROM $3::timestamptz) / 300)
+      ORDER BY t.checkin_at ASC, t.id ASC
+    `, [ref.vehicle_id, ref.flight_number, ref.checkin_at, ref.airline_id]);
 
-    const [device] = await this.dataSource.query(
-      `SELECT imei FROM devices WHERE vehicle_id = $1 AND status != 'unassigned' LIMIT 1`, [ref.vehicle_id],
-    );
+    const selected = trips.find((trip: { id: string }) => trip.id === (crewTripId ?? groupId));
+    if (!selected) throw new NotFoundException('Crew trip not found in this group');
+    const windowEnd = selected.checkout_at ?? new Date();
+    const [route, eta] = await Promise.all([
+      selected.checkin_at ? this.tripRoute(ref.vehicle_id, selected.checkin_at, windowEnd) : [],
+      selected.status === 'in_progress'
+        ? this.estimateArrival(ref.vehicle_id, selected.planned_lat, selected.planned_lng).catch(() => null)
+        : null,
+    ]);
 
-    let route: any[] = [];
-    if (device && ref.checkin_at) {
-      const endTime = ref.checkout_at ?? new Date().toISOString();
-      route = await this.dataSource.query(`
-        SELECT latitude, longitude, speed, heading, timestamp
-        FROM telemetry
-        WHERE imei = $1 AND timestamp BETWEEN $2 AND $3 AND gps_valid = true
-        ORDER BY timestamp ASC
-        LIMIT 2000
-      `, [device.imei, ref.checkin_at, endTime]);
-    }
+    const checkinAt = new Date(selected.checkin_at).getTime();
+    const endAt = new Date(windowEnd).getTime();
+    const incompleteCoverage = route.length < 2
+      || new Date(route[0].timestamp).getTime() - checkinAt > 120_000
+      || endAt - new Date(route[route.length - 1].timestamp).getTime() > 120_000
+      || route.some((point, index) => index > 0 && new Date(point.timestamp).getTime() - new Date(route[index - 1].timestamp).getTime() > 600_000);
 
     return {
       groupId,
-      vehicle: { id: ref.vehicle_id, name: ref.vehicle_name, licensePlate: ref.license_plate, displayId: ref.vehicle_display_id },
+      distanceKm: routeDistance(route),
+      incompleteCoverage,
+      selectedTripId: selected.id,
+      vehicle: {
+        id: ref.vehicle_id, name: ref.vehicle_name, licensePlate: ref.license_plate, displayId: ref.vehicle_display_id,
+        make: ref.make, model: ref.model, year: ref.year, type: ref.type,
+      },
       trips,
       route,
-      checkin_at: ref.checkin_at,
-      checkout_at: ref.checkout_at,
-      checkin_stop: ref.checkin_stop,
-      flight_number: ref.flight_number,
+      eta,
     };
+  }
+
+  async getCrewTripEta(user: User, tripId: string) {
+    const trip = await this.tripRepo.findOne({ where: { id: tripId } });
+    if (!trip) throw new NotFoundException('Crew trip not found');
+    await this.getAirline(user, trip.airlineId);
+    const eta = trip.status === 'in_progress'
+      ? await this.estimateArrival(trip.vehicleId, trip.plannedLat, trip.plannedLng).catch(() => null)
+      : null;
+    return { eta, status: trip.status };
   }
 
   async deleteCrewTrips(user: User, tripIds: string[]) {

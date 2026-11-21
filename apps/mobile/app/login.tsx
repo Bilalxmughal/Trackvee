@@ -31,8 +31,12 @@ export default function LoginScreen() {
         setError('Unable to connect. Check your internet connection and try again.');
       } else if (isAxiosError(cause) && (cause.response?.status ?? 0) >= 500) {
         setError('Trackvee is temporarily unavailable. Please try again shortly.');
-      } else {
+      } else if (isAxiosError(cause) && cause.response?.status === 401) {
         setError('Invalid email or password');
+      } else if (!isAxiosError(cause) && cause instanceof Error && cause.message === 'Use a Trackvee client account to sign in to the mobile app.') {
+        setError(cause.message);
+      } else {
+        setError('Unable to sign in. Please try again.');
       }
     } finally {
       setBusy(false);

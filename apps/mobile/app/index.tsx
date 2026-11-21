@@ -63,9 +63,6 @@ export default function GetStartedScreen() {
           <Pressable accessibilityRole="button" onPress={() => router.push('/login')} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
             <Text style={styles.primaryText}>Get Started</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/login')} style={styles.secondaryButton}>
-            <Text style={styles.secondaryText}>Already have an account? <Text style={styles.link}>Sign in</Text></Text>
-          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -85,7 +82,4 @@ function createStyles(t: AppTheme) { return StyleSheet.create({
   primaryButton: { height: 54, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: t.red },
   pressed: { opacity: 0.82 },
   primaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  secondaryButton: { height: 54, alignItems: 'center', justifyContent: 'center' },
-  secondaryText: { color: t.secondary, fontSize: 14 },
-  link: { color: t.red, fontWeight: '600' },
 }); }

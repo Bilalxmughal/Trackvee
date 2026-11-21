@@ -205,7 +205,7 @@ export class VehiclesService {
   }
 
   async bulkImport(user: User, items: { licensePlate: string; make?: string; model?: string; year?: string | number }[]): Promise<{ imported: number; skipped: string[] }> {
-    const existing = new Set((await this.repo.find({ select: ['licensePlate'] })).map(v => v.licensePlate?.toLowerCase()));
+    const existing = new Set((await this.repo.find({ select: { licensePlate: true } })).map(v => v.licensePlate?.toLowerCase()));
     let imported = 0;
     const skipped: string[] = [];
     for (const item of items) {

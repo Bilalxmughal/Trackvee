@@ -1,11 +1,11 @@
 import {
-  Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards,
+  Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { AllowVehicleSession, JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { User } from '../users/entities/user.entity.js';
-import { AirlinesService } from './airlines.service.js';
+import { AirlinesService, type AirlineVehicleSession, type ScannerLocation } from './airlines.service.js';
 
 @ApiTags('airlines')
 @ApiBearerAuth()
@@ -70,8 +70,8 @@ export class AirlinesController {
   // ─── Vehicle Assignment ──────────────────────────────────────────────────────
 
   @Get('by-vehicle/:vehicleId')
-  getAirlineByVehicle(@Param('vehicleId') vehicleId: string) {
-    return this.svc.getAirlineByVehicle(vehicleId);
+  getAirlineByVehicle(@CurrentUser() user: User, @Param('vehicleId') vehicleId: string) {
+    return this.svc.getAirlineByVehicle(user, vehicleId);
   }
 
   @Get(':airlineId/vehicles')
@@ -118,19 +118,34 @@ export class AirlinesController {
 
   // ─── Vehicle session ping (used by app to detect admin force-logout) ────────
 
+  @AllowVehicleSession(true)
   @Get('vehicles/ping')
   vehiclePing() { return { ok: true }; }
 
-  // ─── Trips ──────────────────────────────────────────────────────────────────
-
-  @Post('trips/checkin')
-  checkin(@Body() body: { nfcUid: string; vehicleId: string; flightNumber?: string; flightDate?: string; passengerCount?: number; notes?: string; lat: number; lng: number }) {
-    return this.svc.checkin(body);
+  @AllowVehicleSession(true)
+  @Get('vehicles/session')
+  getVehicleSession(@CurrentUser() session: AirlineVehicleSession) {
+    return this.svc.getVehicleSession(session);
   }
 
+  @AllowVehicleSession(true)
+  @Delete('vehicles/session')
+  endVehicleSession(@CurrentUser() session: AirlineVehicleSession) {
+    return this.svc.endVehicleSession(session);
+  }
+
+  // ─── Trips ──────────────────────────────────────────────────────────────────
+
+  @AllowVehicleSession(true)
+  @Post('trips/checkin')
+  checkin(@CurrentUser() session: AirlineVehicleSession, @Body() body: { nfcUid: string; vehicleId: string; flightNumber?: string; flightDate?: string; passengerCount?: number; notes?: string; location?: ScannerLocation }) {
+    return this.svc.checkin(session, body);
+  }
+
+  @AllowVehicleSession(true)
   @Post('trips/checkout')
-  checkout(@Body() body: { nfcUid: string; lat: number; lng: number }) {
-    return this.svc.checkout(body);
+  checkout(@CurrentUser() session: AirlineVehicleSession, @Body() body: { nfcUid: string; location?: ScannerLocation }) {
+    return this.svc.checkout(session, body);
   }
 
   @Get('trips/grouped')
@@ -154,8 +169,13 @@ export class AirlinesController {
   }
 
   @Get('trips/grouped/:groupId/detail')
-  getGroupedTripDetail(@CurrentUser() user: User, @Param('groupId') groupId: string) {
-    return this.svc.getGroupedTripDetail(user, groupId);
+  getGroupedTripDetail(@CurrentUser() user: User, @Param('groupId') groupId: string, @Query('crewTripId') crewTripId?: string) {
+    return this.svc.getGroupedTripDetail(user, groupId, crewTripId);
+  }
+
+  @Get('trips/:tripId/eta')
+  getCrewTripEta(@CurrentUser() user: User, @Param('tripId', new ParseUUIDPipe()) tripId: string) {
+    return this.svc.getCrewTripEta(user, tripId);
   }
 
   @Delete('trips/bulk')
@@ -183,14 +203,22 @@ export class AirlinesController {
     });
   }
 
-  @Get('trips/scan-status')
-  scanStatus(@Query('nfcUid') nfcUid: string) {
-    return this.svc.getActiveTripByNfc(nfcUid);
+  @AllowVehicleSession(true)
+  @Get('crews/lookup-uid')
+  lookupCrewByPartialUid(@CurrentUser() session: AirlineVehicleSession, @Query('digits') digits: string) {
+    return this.svc.lookupCrewByPartialUid(session, digits);
   }
 
+  @AllowVehicleSession(true)
+  @Get('trips/scan-status')
+  scanStatus(@CurrentUser() session: AirlineVehicleSession, @Query('nfcUid') nfcUid: string) {
+    return this.svc.getActiveTripByNfc(session, nfcUid);
+  }
+
+  @AllowVehicleSession(true)
   @Get('trips/active-trips')
-  activeTripsForVehicle(@Query('vehicleId') vehicleId: string) {
-    return this.svc.getActiveTripsForVehicle(vehicleId);
+  activeTripsForVehicle(@CurrentUser() session: AirlineVehicleSession, @Query('vehicleId') vehicleId: string) {
+    return this.svc.getActiveTripsForVehicle(session, vehicleId);
   }
 
   // ─── Airport Settings ────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ interface JwtPayload {
   type?: string;
   vehicleId?: string;
   airlineId?: string;
-  iat?: number;
+  sessionId?: string;
 }
 
 @Injectable()
@@ -33,17 +33,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload) {
     // Vehicle token — skip user lookup, check session revocation instead
     if (payload.type === 'vehicle') {
-      if (payload.vehicleId && payload.iat) {
-        const rows = await this.dataSource.query(
-          `SELECT session_revoked_at FROM airline_vehicles WHERE vehicle_id = $1 AND airline_id = $2`,
-          [payload.vehicleId, payload.airlineId],
-        );
-        if (rows[0]?.session_revoked_at) {
-          const revokedTs = Math.floor(new Date(rows[0].session_revoked_at).getTime() / 1000);
-          if (revokedTs > payload.iat) throw new UnauthorizedException('Session revoked by admin');
-        }
-      }
-      return { vehicleId: payload.vehicleId, airlineId: payload.airlineId, _isVehicle: true };
+      if (!payload.vehicleId || !payload.airlineId || !payload.sessionId) throw new UnauthorizedException();
+      const rows = await this.dataSource.query(
+        `SELECT 1 FROM airline_vehicles WHERE vehicle_id = $1 AND airline_id = $2 AND active_session_id = $3`,
+        [payload.vehicleId, payload.airlineId, payload.sessionId],
+      );
+      if (!rows.length) throw new UnauthorizedException('Vehicle session ended');
+      return { vehicleId: payload.vehicleId, airlineId: payload.airlineId, sessionId: payload.sessionId, _isVehicle: true };
     }
     const user = await this.usersService.findById(payload.sub);
     if (!user || !user.isActive) throw new UnauthorizedException();

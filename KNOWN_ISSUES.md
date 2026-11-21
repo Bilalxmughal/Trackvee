@@ -423,3 +423,19 @@ For SDK 57, offline tile-cache calls using cacheDirectory and legacy filesystem 
 **Problem:** Alert forms persist `webPush` and `webSound`, but the API currently sends mobile push only; web subscriptions, service-worker delivery, and browser sound are not implemented. A saved toggle therefore does not notify the web client.
 
 **Rule:** Keep web delivery explicitly marked as unavailable until subscription registration, tenant-scoped delivery, service-worker handling, and permission-aware browser sound are implemented and verified. Do not treat mobile Expo push credentials as web-push configuration.
+
+## KI-034 — Airline scanner sessions must stay scoped
+
+Vehicle JWTs are accepted only on explicitly marked scanner endpoints and require a current airline–vehicle assignment. Card lookups must use the session airline, and trip reads and writes must use both the session airline and vehicle. Manual card lookup requires the same authenticated vehicle session as NFC scanning.
+
+## KI-035 — Airline stops must use fresh locations
+
+Prefer a fresh scanner GPS fix, fall back to a valid tracker fix from the past two minutes, and save an unavailable source when neither exists. Replay must use telemetry during the trip and the historical tracker assignment at each point. Exclude invalid GPS fixes and show gaps over 10 minutes.
+
+## KI-036 — Airline trip review must follow the selected crew record
+
+Keep group membership aligned between the Trips list and Detail. Use the selected crew trip for scan pins, the vehicle GPS window, distance, and ETA. Preserve distinct planned and actual stop coordinates. A missing destination, fresh fix, routing configuration, or route response makes ETA unavailable.
+
+## KI-037 — Mobile login and driver sessions must use the current API
+
+Both mobile login flows default to the canonical HTTPS API origin. Restore driver details only after validating the vehicle token with the API. Bind each assigned vehicle to one active session ID. A new login, PIN change, driver sign-out, or admin force sign-out invalidates the previous session.

@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://2.31.172.140/api/:path*',
+        destination: 'https://api.trackvee.com/api/:path*',
       },
     ];
   },

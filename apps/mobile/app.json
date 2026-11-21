@@ -78,7 +78,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Trackvee to resolve the address of a selected vehicle history point."
+          "locationWhenInUsePermission": "Allow Trackvee to capture crew check-in and checkout locations and resolve vehicle history addresses."
         }
       ],
       "expo-sharing",

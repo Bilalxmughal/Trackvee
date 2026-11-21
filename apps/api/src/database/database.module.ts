@@ -10,7 +10,7 @@ import { Client } from 'pg';
       useFactory: async (config: ConfigService) => {
         const dbUrl = config.get<string>('DATABASE_URL')!;
 
-        // Ensure global_display_id_seq exists before TypeORM synchronize runs
+        // Ensure global_display_id_seq exists before opening the TypeORM connection
         const client = new Client({ connectionString: dbUrl });
         await client.connect();
         await client.query(
@@ -32,7 +32,7 @@ import { Client } from 'pg';
           type: 'postgres',
           url: dbUrl,
           autoLoadEntities: true,
-          synchronize: config.get('NODE_ENV') !== 'production',
+          synchronize: false,
           logging: false,
         };
       },

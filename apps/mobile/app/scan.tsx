@@ -6,36 +6,68 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
 import axios from 'axios';
+import { API_BASE } from '../src/lib/api';
 import * as SecureStore from 'expo-secure-store';
 import { TablerIcon } from '../src/components/TablerIcon';
 import { useTheme } from '../src/hooks/useTheme';
 import type { AppTheme } from '../src/theme';
 import logo from '../assets/trackvee-logo.png';
 
+async function getScannerLocation() {
+  const Location = await import('expo-location');
+  const permission = await Location.getForegroundPermissionsAsync();
+  const access = !permission.granted && permission.canAskAgain
+    ? await Location.requestForegroundPermissionsAsync()
+    : permission;
+  if (!access.granted) return undefined;
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const fix = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+      new Promise<undefined>(resolve => { timeout = setTimeout(resolve, 5_000); }),
+    ]);
+    if (!fix) return undefined;
+    const { latitude, longitude, accuracy } = fix.coords;
+    return { latitude, longitude, accuracy, timestamp: fix.timestamp };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // Separate axios instance for vehicle API calls — reads yt_vehicle_token, NOT yt_token
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://portal.trackvee.com/api/v1';
 const vehicleApi = axios.create({ baseURL: API_BASE, timeout: 20000 });
 vehicleApi.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync('yt_vehicle_token');
+  const token = config.url === '/airlines/vehicles/login' ? null : await SecureStore.getItemAsync('yt_vehicle_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Called by admin force-logout: clears session and triggers React state update
+// Clear only the vehicle session that received the authorization failure.
 let _onVehicleSessionExpired: (() => void) | null = null;
 function setVehicleSessionExpiredHandler(cb: (() => void) | null) { _onVehicleSessionExpired = cb; }
 
 vehicleApi.interceptors.response.use(
   (res) => res,
   async (err) => {
-    if (err?.response?.status === 401) {
-      await SecureStore.deleteItemAsync('yt_vehicle_token').catch(() => {});
-      await SecureStore.deleteItemAsync('yt_vehicle_data').catch(() => {});
-      _onVehicleSessionExpired?.();
+    const rejected = err?.config?.headers?.get('Authorization');
+    if (err?.response?.status === 401 && rejected) {
+      const current = await SecureStore.getItemAsync('yt_vehicle_token').catch(() => null);
+      if (current && rejected === `Bearer ${current}`) {
+        await clearSavedVehicleSession();
+        _onVehicleSessionExpired?.();
+      }
     }
     return Promise.reject(err);
   },
 );
+
+async function clearSavedVehicleSession() {
+  await Promise.all([
+    SecureStore.deleteItemAsync('yt_vehicle_token').catch(() => {}),
+    SecureStore.deleteItemAsync('yt_vehicle_data').catch(() => {}),
+  ]);
+}
 
 // NFC — optional import (only available in custom builds)
 let NfcManager: any = null;
@@ -66,7 +98,7 @@ interface ScanResult {
   crew: { id: string; displayId: number; name: string; designation: string | null };
   tripId?: string;
   checkinAt?: string; checkoutAt?: string;
-  checkinStop?: string; checkoutStop?: string;
+  checkinStop?: string | null; checkoutStop?: string | null;
   kmTravelled?: number | null;
 }
 
@@ -208,6 +240,7 @@ export default function ScanScreen() {
   const [plateInput, setPlateInput]   = useState('');
   const [pinInput, setPinInput]       = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [loginError, setLoginError]   = useState('');
 
   const [scanState, setScanState]     = useState<ScanState>('idle');
@@ -225,36 +258,63 @@ export default function ScanScreen() {
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState('');
 
-  // ── Restore vehicle session on mount + wire admin-force-logout handler ───
-  useEffect(() => {
-    setVehicleSessionExpiredHandler(() => setSessionVehicle(null));
-    (async () => {
-      try {
-        const dataStr = await SecureStore.getItemAsync('yt_vehicle_data');
-        if (dataStr) {
-          const data = JSON.parse(dataStr) as SessionVehicle;
-          setSessionVehicle(data);
-        }
-      } catch {}
-      finally { setRestoring(false); }
-    })();
-    return () => setVehicleSessionExpiredHandler(null);
+  const resetVehicleSession = useCallback(() => {
+    setSessionVehicle(null);
+    setActiveCheckins([]);
+    setScanState('idle');
+    setScanResult(null);
+    setPendingNfc('');
+    setScanError('');
+    setShowManual(false);
+    setManualDigits('');
+    setManualError('');
   }, []);
 
-  // ── Load active crew + poll session every 30s for admin force-logout ────────
   useEffect(() => {
-    if (!sessionVehicle) return;
-    // Load active crew list
-    vehicleApi.get<ActiveCheckin[]>(`/airlines/trips/active-trips?vehicleId=${sessionVehicle.vehicleId}`)
-      .then(r => setActiveCheckins(r.data))
-      .catch(() => {});
-    // Poll for revocation
-    const id = setInterval(() => {
-      vehicleApi.get('/airlines/vehicles/ping').catch(() => {});
-    }, 30_000);
-    return () => clearInterval(id);
-  }, [sessionVehicle]);
+    const request = new AbortController();
+    setVehicleSessionExpiredHandler(() => {
+      resetVehicleSession();
+      setLoginError('Vehicle session ended. Sign in again.');
+    });
+    void (async () => {
+      try {
+        if (!await SecureStore.getItemAsync('yt_vehicle_token')) return;
+        const { data } = await vehicleApi.get<SessionVehicle>('/airlines/vehicles/session', { signal: request.signal });
+        if (!request.signal.aborted) setSessionVehicle(data);
+      } catch (error) {
+        if (!request.signal.aborted && (!axios.isAxiosError(error) || error.response?.status !== 401)) {
+          setLoginError('Unable to verify the saved vehicle session. Try signing in again.');
+        }
+      } finally {
+        if (!request.signal.aborted) setRestoring(false);
+      }
+    })();
+    return () => { request.abort(); setVehicleSessionExpiredHandler(null); };
+  }, [resetVehicleSession]);
 
+  const sessionVehicleId = sessionVehicle?.vehicleId;
+  useEffect(() => {
+    if (!sessionVehicleId) return;
+    const request = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    void vehicleApi.get<ActiveCheckin[]>('/airlines/trips/active-trips', {
+      params: { vehicleId: sessionVehicleId }, signal: request.signal,
+    }).then(({ data }) => {
+      if (!request.signal.aborted) setActiveCheckins(data);
+    }).catch(() => {});
+
+    const refresh = async () => {
+      try {
+        const { data } = await vehicleApi.get<SessionVehicle>('/airlines/vehicles/session', { signal: request.signal });
+        if (!request.signal.aborted) setSessionVehicle(data);
+      } catch {
+        // Authorization failures are handled by the interceptor.
+      }
+      if (!request.signal.aborted) timer = setTimeout(refresh, 30_000);
+    };
+    timer = setTimeout(refresh, 30_000);
+    return () => { request.abort(); clearTimeout(timer); };
+  }, [sessionVehicleId]);
 
   // Disable Android hardware back button after vehicle login
   useEffect(() => {
@@ -265,17 +325,16 @@ export default function ScanScreen() {
 
   // ── Vehicle login ──────────────────────────────────────────────────────────
   const vehicleLogin = async () => {
-    if (!plateInput.trim() || pinInput.length !== 4) return;
+    if (loginLoading || !plateInput.trim() || !/^\d{4}$/.test(pinInput)) return;
     setLoginLoading(true);
     setLoginError('');
     try {
       const res = await vehicleApi.post<{ token: string } & SessionVehicle>('/airlines/vehicles/login', {
         plateNumber: plateInput.trim(), pin: pinInput,
       });
-      const { token, vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode, logoData } = res.data;
-      const vehicleData: SessionVehicle = { vehicleId, airlineId, vehicleName, licensePlate, airlineName, iataCode, logoData: logoData ?? null };
+      const { token, ...vehicleData } = res.data;
       await SecureStore.setItemAsync('yt_vehicle_token', token);
-      await SecureStore.setItemAsync('yt_vehicle_data', JSON.stringify(vehicleData));
+      resetVehicleSession();
       setSessionVehicle(vehicleData);
       setPlateInput('');
       setPinInput('');
@@ -287,14 +346,20 @@ export default function ScanScreen() {
   };
 
   const logout = async () => {
-    await SecureStore.deleteItemAsync('yt_vehicle_token');
-    await SecureStore.deleteItemAsync('yt_vehicle_data');
-    setSessionVehicle(null);
-    setScanState('idle');
-    setScanResult(null);
-    setPendingNfc('');
-    setScanError('');
-    router.replace('/login');
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await vehicleApi.delete('/airlines/vehicles/session');
+      await clearSavedVehicleSession();
+      resetVehicleSession();
+      setLoginError('');
+    } catch (error) {
+      if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+        Alert.alert('Unable to sign out', 'Check your connection and try again.');
+      }
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   // ── NFC availability check ─────────────────────────────────────────────────
@@ -356,10 +421,10 @@ export default function ScanScreen() {
     if (!scanResult || !sessionVehicle) return;
     setScanState('confirming');
     try {
+      const location = await getScannerLocation().catch(() => undefined);
       if (scanResult.action === 'checkin') {
         const res = await vehicleApi.post('/airlines/trips/checkin', {
-          nfcUid: pendingNfc, vehicleId: sessionVehicle.vehicleId,
-          lat: 0, lng: 0,
+          nfcUid: pendingNfc, vehicleId: sessionVehicle.vehicleId, location,
         });
         setScanResult(prev => prev ? { ...prev, checkinAt: res.data.checkinAt, checkinStop: res.data.checkinStop } : prev);
         setActiveCheckins(prev => [...prev, {
@@ -369,8 +434,8 @@ export default function ScanScreen() {
           checkinAt: res.data.checkinAt,
         }]);
       } else {
-        const res = await vehicleApi.post('/airlines/trips/checkout', { nfcUid: pendingNfc, lat: 0, lng: 0 });
-        setScanResult(prev => prev ? { ...prev, checkoutAt: res.data.checkoutAt, kmTravelled: res.data.kmTravelled } : prev);
+        const res = await vehicleApi.post('/airlines/trips/checkout', { nfcUid: pendingNfc, location });
+        setScanResult(prev => prev ? { ...prev, checkoutAt: res.data.checkoutAt, checkoutStop: res.data.checkoutStop, kmTravelled: res.data.kmTravelled } : prev);
         setActiveCheckins(prev => prev.filter(c => c.tripId !== scanResult.tripId));
       }
       setScanState('success');
@@ -467,8 +532,16 @@ export default function ScanScreen() {
     <SafeAreaView style={s.container}>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false, fullScreenGestureEnabled: false }} />
 
-      {/* Top bar: empty spacer to keep safe-area padding */}
-      <View style={s.topBar} />
+      <View style={s.topBar}>
+        <Pressable accessibilityRole="button" disabled={signingOut || scanState === 'confirming'} style={s.signOut}
+          onPress={() => Alert.alert('Sign out of this vehicle?', 'You can sign in again with the vehicle plate and PIN.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign out', style: 'destructive', onPress: () => void logout() },
+          ])}>
+          <TablerIcon name="logout" size={16} color={t.ink} />
+          <Text style={s.signOutText}>{signingOut ? 'Signing out…' : 'Sign out'}</Text>
+        </Pressable>
+      </View>
 
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
@@ -587,6 +660,9 @@ export default function ScanScreen() {
             </View>
             <Text style={s.successTitle}>{scanResult.action === 'checkin' ? 'Checked In!' : 'Checked Out!'}</Text>
             <Text style={s.crewName}>{scanResult.crew.name}</Text>
+            <Text style={s.scanSubtitle}>
+              {(scanResult.action === 'checkin' ? scanResult.checkinStop : scanResult.checkoutStop) ?? 'Location unavailable'}
+            </Text>
             {scanResult.action === 'checkout' && scanResult.kmTravelled != null && (
               <Text style={s.kmText}>{Number(scanResult.kmTravelled).toFixed(1)} km travelled</Text>
             )}
@@ -648,7 +724,9 @@ function makeStyles(t: AppTheme) {
 
     // ── Scan screen ──
     container:      { flex: 1, backgroundColor: t.bg },
-    topBar:         { height: 8 },
+    topBar:         { paddingHorizontal: 20, alignItems: 'flex-end' },
+    signOut:        { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 8 },
+    signOutText:    { color: t.ink, fontSize: 13, fontWeight: '600' },
 
     airlineLogo:    { width: 120, height: 56, alignSelf: 'center', marginBottom: 6 },
     headerAirline:  { fontSize: 18, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 2 },

@@ -16,6 +16,7 @@ Last verified: 2026-09-30 (API typecheck passes. Admin/portal checks report the 
 | Driver behavior | Complete | Complete | Complete | `driver-behavior` | Mobile trend, leaderboard, detail/events/chart and role-gated settings; API enforces tenant and vehicle scope |
 | Reports | Complete | Complete | Complete | `reports` | 13 types, grouped vehicles, filters, exports and saved reports |
 | Users/custom access | Complete | Complete | Complete | `users` | Per-user permissions cover 10 portal areas with supported CRUD; Admin shows a permission action and granted-page count. B2C role defaults have a separate configurable profile; every new client-facing feature must be wired for B2B and B2C. Migration 033 adds Dashboard/Map overrides. |
+| Airline crew trips | Scanner and trip APIs | Per-crew details, History replay and ETA | — | Admin `airlines`; scanner uses a vehicle session. Active ETA requires a configured routing endpoint and a destination saved at check-in. |
 | Audit logs | Complete | Complete | Not exposed | `audit-logs` | Internal operational feature |
 | Tracking expiry | Complete | Complete | Map badge | organization access | Migration 021 |
 | Maintenance | Complete | Complete | Complete | `maintenance` | Grouped vehicle selection, standard/custom service types, PKT DD-MM-YYYY dates, due-date/estimated-distance reminders, and service-type alert rules. Alerts evaluate on the vehicle's next valid telemetry packet; apply migration 029 before API deployment. |

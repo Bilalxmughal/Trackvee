@@ -151,3 +151,11 @@ sudo systemctl reload nginx
 ## Verification
 
 After backend deploy, verify `pm2 list` shows `yotrack-api` and `yotrack-gateway` online. A successful frontend build verifies compilation but does not prove Vercel promoted that commit to production.
+
+### Airline crew trip details
+
+Apply `052_crew_trip_location_source.sql` and `053_crew_trip_destination_eta.sql` in order before restarting the API with these changes. Set `AIRLINE_ROUTING_BASE_URL` in the API environment to an approved OSRM-compatible base URL with driving coverage for the fleet. The API sends the recent vehicle tracker coordinates and the trip's saved destination coordinates to that endpoint. Reload the PM2 environment when adding or changing this setting. ETA is unavailable where the routing service or required trip data is unavailable. Deploy the updated Admin app and distribute the updated scanner app for capture of device GPS at check-in and checkout.
+
+### Mobile login and driver sessions
+
+Apply `054_airline_vehicle_active_session.sql` before starting the updated API. Existing vehicle tokens require a new driver login after rollout. Deploy the Admin build for accurate vehicle session status and distribute the new mobile build for direct API login and driver sign-out. The mobile default is `https://api.trackvee.com/api/v1`. If the build environment defines `EXPO_PUBLIC_API_URL`, verify that it points to the intended API before building.

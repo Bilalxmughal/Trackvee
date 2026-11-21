@@ -79,7 +79,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
   const login = useCallback(async (email: string, password: string) => {
     const response = await api.post<{ accessToken: string; refreshToken: string; user: MobileUser }>('/auth/login', { email, password });
-    if (!CLIENT_ROLES.has(response.data.user.role)) throw new Error('Invalid email or password');
+    if (!CLIENT_ROLES.has(response.data.user.role)) throw new Error('Use a Trackvee client account to sign in to the mobile app.');
     await SecureStore.setItemAsync('yt_token', response.data.accessToken);
     if (response.data.refreshToken) await SecureStore.setItemAsync('yt_refresh', response.data.refreshToken);
     await SecureStore.setItemAsync('yt_user', JSON.stringify(response.data.user));

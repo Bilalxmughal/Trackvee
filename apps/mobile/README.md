@@ -10,7 +10,7 @@ From the repository root:
 pnpm --filter @yotrack/mobile start
 ```
 
-Install the matching Expo Go release on the phone and scan the development QR code. Keep the phone and development computer on the same network. The default API base uses the HTTPS client portal route; set `EXPO_PUBLIC_API_URL` only when testing another API environment.
+Install the matching Expo Go release on the phone and scan the development QR code. Keep the phone and development computer on the same network. The default API base uses the HTTPS Trackvee API origin; set `EXPO_PUBLIC_API_URL` only when testing another API environment.
 
 ## Checks
 

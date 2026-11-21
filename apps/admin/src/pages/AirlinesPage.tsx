@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   IconArrowLeft, IconPlus, IconPencil, IconTrash, IconPlane,
   IconUsers, IconCar, IconMapPin, IconNfc, IconRefresh,
   IconLayoutDashboard, IconDownload, IconUpload, IconCopy,
   IconEye, IconHistory, IconSearch, IconBan, IconCircleCheck,
-  IconSettings, IconKey, IconLock, IconLogout,
+  IconSettings, IconKey, IconLock, IconLogout, IconPlayerPlay, IconPlayerPause, IconRotateClockwise,
 } from '@tabler/icons-react';
-import { MapContainer, TileLayer, Marker, Polyline, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../api/client';
@@ -52,7 +52,7 @@ interface VehicleRow {
   license_plate: string | null; make: string | null; model: string | null;
   type: string; lifecycle_status: string; city_id: string | null;
   airlineId?: string; airlineName?: string; has_pin?: boolean;
-  last_login_at?: string | null; session_revoked_at?: string | null;
+  last_login_at?: string | null; has_active_session?: boolean;
 }
 interface Trip {
   t_id: string; t_flight_number: string | null; t_status: string;
@@ -83,18 +83,73 @@ interface GroupedTrip {
   checkin_at: string; checkout_at: string | null;
   km_travelled: number; status: string; crew_names: string; trip_ids: string[];
 }
+const scanLocationLabel: Record<string, string> = {
+  scanner_gps: 'Scanner GPS',
+  vehicle_tracker: 'Vehicle tracker',
+};
+
+interface CrewTripDetail {
+  id: string;
+  status: string;
+  checkin_at: string;
+  checkin_stop: string | null;
+  checkin_lat: number | null;
+  checkin_lng: number | null;
+  checkin_location_source: string | null;
+  checkout_at: string | null;
+  checkout_stop: string | null;
+  checkout_lat: number | null;
+  checkout_lng: number | null;
+  checkout_location_source: string | null;
+  planned_stop: string | null;
+  planned_lat: number | null;
+  planned_lng: number | null;
+  initial_eta_at: string | null;
+  km_travelled: string | null;
+  flight_number: string | null;
+  crew_name: string;
+  crew_display_id: number;
+  crew_designation: string | null;
+  crew_phone: string | null;
+}
+
+interface TripRoutePoint {
+  latitude: number;
+  longitude: number;
+  speed: number;
+  heading: number;
+  ignition: boolean | null;
+  timestamp: string;
+}
+
 interface TripDetailData {
   groupId: string;
-  vehicle: { id: string; name: string; licensePlate: string | null; displayId: number };
-  trips: Array<{
-    id: string; status: string;
-    checkin_at: string; checkin_stop: string | null; checkin_lat: number | null; checkin_lng: number | null;
-    checkout_at: string | null; checkout_stop: string | null; checkout_lat: number | null; checkout_lng: number | null;
-    km_travelled: string | null; flight_number: string | null;
-    crew_name: string; crew_display_id: number; crew_designation: string | null; crew_phone: string | null;
-  }>;
-  route: Array<{ latitude: number; longitude: number; speed: number; heading: number; timestamp: string }>;
-  checkin_at: string; checkout_at: string | null; checkin_stop: string | null; flight_number: string | null;
+  selectedTripId: string;
+  distanceKm: number | null;
+  incompleteCoverage: boolean;
+  vehicle: {
+    id: string; name: string; licensePlate: string | null; displayId: number;
+    make: string | null; model: string | null; year: number | null; type: string | null;
+  };
+  trips: CrewTripDetail[];
+  route: TripRoutePoint[];
+  eta: { arrivalAt: string; estimatedAt: string; remainingKm: number } | null;
+}
+
+const tripTime = new Intl.DateTimeFormat('en-GB', {
+  dateStyle: 'medium', timeStyle: 'medium', timeZone: 'Asia/Karachi',
+});
+const tripClock = new Intl.DateTimeFormat('en-GB', { timeStyle: 'medium', timeZone: 'Asia/Karachi' });
+
+function tripDuration(milliseconds: number) {
+  const minutes = Math.floor(Math.max(0, milliseconds) / 60_000);
+  return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+}
+
+function scanPoint(latitude: number | null, longitude: number | null): [number, number] | null {
+  if (latitude == null || longitude == null || !Number.isFinite(latitude) || !Number.isFinite(longitude)
+    || Math.abs(latitude) > 90 || Math.abs(longitude) > 180 || (latitude === 0 && longitude === 0)) return null;
+  return [latitude, longitude];
 }
 
 const blankAirline = (): AirlineForm => ({ name: '', iataCode: '', contactPerson: '', contactPhone: '', cityId: '', logoData: '' });
@@ -206,80 +261,144 @@ function MapFlyTo({ lat, lng }: { lat: number; lng: number }) {
   return null;
 }
 
-function TripReplayMap({ route, dark }: {
-  route: Array<{ latitude: number; longitude: number; speed: number; heading: number; timestamp: string }>;
-  dark: boolean;
-}) {
+function FitTripMap({ points }: { points: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length) map.fitBounds(L.latLngBounds(points), { padding: [24, 24], maxZoom: 16 });
+  }, [map, points]);
+  return null;
+}
+
+function TripReplayMap({ route, trip }: { route: TripRoutePoint[]; trip: CrewTripDetail }) {
   const [playing, setPlaying] = useState(false);
   const [idx, setIdx] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pickup = useMemo(() => scanPoint(trip.checkin_lat, trip.checkin_lng), [trip.checkin_lat, trip.checkin_lng]);
+  const dropoff = useMemo(() => scanPoint(trip.checkout_lat, trip.checkout_lng), [trip.checkout_lat, trip.checkout_lng]);
+  const { bounds, segments, gaps, stops, arrows } = useMemo(() => {
+    const points = route.map(({ latitude, longitude }): [number, number] => [latitude, longitude]);
+    const segments: [number, number][][] = [];
+    const gaps: { index: number; duration: number }[] = [];
+    const stops: { index: number; duration: number; label: string }[] = [];
+    const arrows: number[] = [];
+    let segmentStart = 0;
+    let stopStart: number | null = null;
+    const arrowStep = Math.max(1, Math.ceil(route.length / 200));
+    for (let index = 0; index < route.length; index++) {
+      const current = route[index];
+      const gap = index > 0 && Date.parse(current.timestamp) - Date.parse(route[index - 1].timestamp) > 600_000;
+      if (gap) {
+        segments.push(points.slice(segmentStart, index));
+        gaps.push({ index, duration: Date.parse(current.timestamp) - Date.parse(route[index - 1].timestamp) });
+        segmentStart = index;
+      }
+      const stationary = current.speed <= 2;
+      const moved = stopStart !== null && L.latLng(points[stopStart]).distanceTo(points[index]) > 100;
+      if (stopStart !== null && (gap || !stationary || moved)) {
+        const duration = Date.parse(route[index - 1].timestamp) - Date.parse(route[stopStart].timestamp);
+        if (duration >= 120_000) stops.push({ index: stopStart, duration, label: route[stopStart].ignition ? 'Idle' : route[stopStart].ignition === false ? 'Parked' : 'Stopped' });
+        stopStart = null;
+      }
+      if (stationary && stopStart === null) stopStart = index;
+      if (!gap && current.speed >= 5 && index % arrowStep === 0) arrows.push(index);
+    }
+    if (stopStart !== null) {
+      const duration = Date.parse(route[route.length - 1].timestamp) - Date.parse(route[stopStart].timestamp);
+      if (duration >= 120_000) stops.push({ index: stopStart, duration, label: route[stopStart].ignition ? 'Idle' : route[stopStart].ignition === false ? 'Parked' : 'Stopped' });
+    }
+    segments.push(points.slice(segmentStart));
+    return { bounds: [...points, ...(pickup ? [pickup] : []), ...(dropoff ? [dropoff] : [])], segments, gaps, stops, arrows };
+  }, [route, pickup, dropoff]);
 
   useEffect(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (!playing || route.length === 0) return;
-    intervalRef.current = setInterval(() => {
-      setIdx(prev => {
-        if (prev >= route.length - 1) { setPlaying(false); return prev; }
-        return prev + 1;
-      });
-    }, 80);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [playing, route.length]);
+    if (!playing || idx >= route.length - 1) return;
+    const timer = setTimeout(() => setIdx(idx + 1), 80);
+    return () => clearTimeout(timer);
+  }, [playing, idx, route.length]);
 
-  const routePoints: [number, number][] = route.map(p => [p.latitude, p.longitude]);
-  const center: [number, number] = routePoints[0] ?? [30.3753, 69.3451];
   const current = route[idx];
+  const finalPoint = idx >= route.length - 1;
+  const timeline = [...stops, ...gaps.map(gap => ({ ...gap, label: 'GPS data gap' }))].sort((a, b) => a.index - b.index);
+
+  function seek(index: number) {
+    setPlaying(false);
+    setIdx(index);
+  }
 
   return (
     <div>
-      <div style={{ height: 360, borderRadius: 10, overflow: 'hidden', border: `1px solid ${dark ? '#222' : '#e0e0e0'}` }}>
-        {route.length === 0 ? (
-          <div style={{ height: '100%', display: 'grid', placeItems: 'center', background: dark ? '#161616' : '#f5f5f5', color: 'var(--muted)', fontSize: 13 }}>
-            No GPS data available for this trip
-          </div>
-        ) : (
-          <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }}>
+      <div style={{ height: 360, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
+        {bounds.length ? (
+          <MapContainer center={bounds[0]} zoom={13} style={{ height: '100%', width: '100%' }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            {routePoints.length > 1 && <Polyline positions={routePoints} color="#dc2626" weight={3} opacity={0.7} />}
-            {routePoints[0] && <Marker position={routePoints[0]} icon={L.divIcon({ className: '', html: '<div style="background:#059669;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>', iconSize: [12, 12], iconAnchor: [6, 6] })} />}
-            {routePoints[routePoints.length - 1] && <Marker position={routePoints[routePoints.length - 1]} icon={L.divIcon({ className: '', html: '<div style="background:#7c3aed;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>', iconSize: [12, 12], iconAnchor: [6, 6] })} />}
-            {current && (
-              <>
-                <Marker position={[current.latitude, current.longitude]} icon={L.divIcon({ className: 'leaflet-interactive', html: '<div style="background:#1d4ed8;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,0.5)"></div>', iconSize: [14, 14], iconAnchor: [7, 7] })} />
-                <MapFlyTo lat={current.latitude} lng={current.longitude} />
-              </>
-            )}
+            <FitTripMap points={bounds} />
+            {segments.map((segment, index) => segment.length > 1 && (
+              <Polyline key={index} positions={segment} color="#dc2626" weight={3.5} opacity={0.85} />
+            ))}
+            {gaps.map(({ index }) => (
+              <Polyline key={index} positions={[[route[index - 1].latitude, route[index - 1].longitude], [route[index].latitude, route[index].longitude]]} color="#6b7280" weight={3} dashArray="6 8">
+                <Tooltip>GPS data gap</Tooltip>
+              </Polyline>
+            ))}
+            {arrows.map(index => {
+              const point = route[index];
+              const heading = Number.isFinite(point.heading) ? point.heading : 0;
+              return <Marker key={index} position={[point.latitude, point.longitude]} interactive={false}
+                icon={L.divIcon({ className: '', iconSize: [14, 14], iconAnchor: [7, 7], html: `<svg viewBox="0 0 14 14" width="14" height="14" style="transform:rotate(${heading}deg)"><path fill="#2563eb" stroke="white" d="M7 1 L13 13 L7 10 L1 13 Z"/></svg>` })} />;
+            })}
+            {pickup && <Marker position={pickup} zIndexOffset={1000} icon={tripPinIcon('S', '#059669')}>
+              <Tooltip>{trip.checkin_location_source === 'vehicle_tracker' ? 'Check-in · Vehicle tracker' : 'Check-in location'}</Tooltip>
+            </Marker>}
+            {dropoff && <Marker position={dropoff} zIndexOffset={1000} icon={tripPinIcon('E', '#dc2626')}>
+              <Tooltip>{trip.checkout_location_source === 'vehicle_tracker' ? 'Checkout · Vehicle tracker' : 'Checkout location'}</Tooltip>
+            </Marker>}
+            {stops.map(({ index, duration, label }) => (
+              <Marker key={index} position={[route[index].latitude, route[index].longitude]} icon={tripPinIcon(label === 'Idle' ? 'I' : 'P', label === 'Idle' ? '#b45309' : '#111827')}>
+                <Tooltip>{label} · {tripDuration(duration)}</Tooltip>
+              </Marker>
+            ))}
+            {current && <>
+              <Marker position={[current.latitude, current.longitude]} icon={tripPinIcon('', '#2563eb')} />
+              {idx > 0 && <MapFlyTo lat={current.latitude} lng={current.longitude} />}
+            </>}
           </MapContainer>
+        ) : (
+          <div style={{ height: '100%', display: 'grid', placeItems: 'center', color: 'var(--muted)', fontSize: 13 }}>No recorded GPS locations</div>
         )}
       </div>
-      {route.length > 0 && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-            <button onClick={() => setPlaying(p => !p)} style={{ padding: '6px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              {playing ? '⏸ Pause' : '▶ Play'}
-            </button>
-            <button onClick={() => { setPlaying(false); setIdx(0); }} style={{ padding: '6px 12px', border: `1px solid ${dark ? '#333' : '#e0e0e0'}`, borderRadius: 8, background: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer' }}>
-              ↺ Reset
-            </button>
-            <input type="range" min={0} max={route.length - 1} value={idx}
-              onChange={e => { setPlaying(false); setIdx(Number(e.target.value)); }}
-              style={{ flex: 1 }} />
-            <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{idx + 1}/{route.length}</span>
-          </div>
-          {current && (
-            <div style={{ display: 'flex', gap: 16, marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
-              <span>{new Date(current.timestamp).toLocaleTimeString()}</span>
-              <span>{Number(current.speed ?? 0).toFixed(1)} km/h</span>
-              <span style={{ fontFamily: 'monospace' }}>{Number(current.latitude).toFixed(5)}, {Number(current.longitude).toFixed(5)}</span>
-            </div>
-          )}
-        </>
-      )}
+      {!route.length && bounds.length > 0 && <p style={{ fontSize: 12, color: 'var(--muted)' }}>No vehicle route was recorded.</p>}
+      {route.length > 0 && <>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+          <button type="button" disabled={route.length < 2} onClick={() => {
+            if (playing && !finalPoint) { setPlaying(false); return; }
+            if (finalPoint) setIdx(0);
+            setPlaying(true);
+          }} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: '#dc2626', color: '#fff', border: 0, borderRadius: 8 }}>
+            {playing && !finalPoint ? <><IconPlayerPause size={14} /> Pause</> : <><IconPlayerPlay size={14} /> Play</>}
+          </button>
+          <button type="button" onClick={() => seek(0)} aria-label="Reset replay"><IconRotateClockwise size={16} /></button>
+          <input type="range" aria-label="Replay position" min={0} max={route.length - 1} value={idx} onChange={e => seek(Number(e.target.value))} style={{ flex: 1 }} />
+        </div>
+        {current && <p style={{ fontSize: 12, color: 'var(--muted)' }}>{tripClock.format(new Date(current.timestamp))} PKT · {current.speed.toFixed(1)} km/h</p>}
+      </>}
+      {timeline.length > 0 && <div style={{ display: 'grid', gap: 6 }}>
+        {timeline.map(({ index, label, duration }) => (
+          <button key={`${index}-${label}`} type="button" onClick={() => seek(index)}
+            style={{ textAlign: 'left', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: 'inherit' }}>
+            {tripClock.format(new Date(route[index].timestamp))} · {label} · {tripDuration(duration)}
+          </button>
+        ))}
+      </div>}
     </div>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+function tripPinIcon(text: string, color: string) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="display:grid;place-items:center;background:${color};width:22px;height:22px;color:white;font-weight:700;border:2px solid white;border-radius:50%">${text}</div>`,
+    iconSize: [22, 22], iconAnchor: [11, 11],
+  });
+}
 
 export default function AirlinesPage() {
   const { toast } = useToast();
@@ -373,6 +492,7 @@ export default function AirlinesPage() {
   const [tripDateRange, setTripDateRange] = useState<DateRange | undefined>(undefined);
   const [tripDetail, setTripDetail] = useState<TripDetailData | null>(null);
   const [tripDetailLoading, setTripDetailLoading] = useState(false);
+  const tripDetailRequest = useRef<AbortController | null>(null);
 
   // Airports (settings)
   const [airports, setAirports] = useState<AirlineAirport[]>([]);
@@ -549,14 +669,54 @@ export default function AirlinesPage() {
     void loadGroupedTrips();
   }, [tripStatus, tripDateRange]);
 
-  const openTripDetail = async (groupId: string) => {
-    setTripDetail(null); setTripDetailLoading(true);
+  const openTripDetail = useCallback(async (groupId: string, crewTripId?: string) => {
+    tripDetailRequest.current?.abort();
+    const request = new AbortController();
+    tripDetailRequest.current = request;
+    setTripDetailLoading(true);
     try {
-      const r = await api.get<TripDetailData>(`/airlines/trips/grouped/${groupId}/detail`);
-      setTripDetail(r.data);
-    } catch { toast('Could not load trip detail', 'error'); }
-    finally { setTripDetailLoading(false); }
+      const r = await api.get<TripDetailData>(`/airlines/trips/grouped/${groupId}/detail`, {
+        params: { crewTripId }, signal: request.signal,
+      });
+      if (!request.signal.aborted) setTripDetail(r.data);
+    } catch {
+      if (!request.signal.aborted) toast('Could not load trip detail', 'error');
+    } finally {
+      if (!request.signal.aborted) setTripDetailLoading(false);
+    }
+  }, [toast]);
+
+  const closeTripDetail = () => {
+    tripDetailRequest.current?.abort();
+    setTripDetailLoading(false);
+    setTripDetail(null);
   };
+
+  const selectedCrewTrip = tripDetail?.trips.find(trip => trip.id === tripDetail.selectedTripId);
+  const activeCrewTripId = selectedCrewTrip?.status === 'in_progress' ? selectedCrewTrip.id : undefined;
+  const activeTripGroupId = activeCrewTripId ? tripDetail?.groupId : undefined;
+  useEffect(() => {
+    if (!activeCrewTripId || !activeTripGroupId || tripDetailLoading) return;
+    const request = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const refreshEta = async () => {
+      try {
+        const { data } = await api.get<{ eta: TripDetailData['eta']; status: string }>(`/airlines/trips/${activeCrewTripId}/eta`, { signal: request.signal });
+        if (request.signal.aborted) return;
+        if (data.status !== 'in_progress') {
+          void openTripDetail(activeTripGroupId, activeCrewTripId);
+          return;
+        }
+        setTripDetail(current => current?.selectedTripId === activeCrewTripId ? { ...current, eta: data.eta } : current);
+      } catch {
+        if (request.signal.aborted) return;
+        setTripDetail(current => current?.selectedTripId === activeCrewTripId ? { ...current, eta: null } : current);
+      }
+      timer = setTimeout(refreshEta, 30_000);
+    };
+    timer = setTimeout(refreshEta, 30_000);
+    return () => { request.abort(); clearTimeout(timer); };
+  }, [activeCrewTripId, activeTripGroupId, openTripDetail, tripDetailLoading]);
 
   const deleteTrip = async (tripIds: string[]) => {
     if (!window.confirm(`Delete this trip (${tripIds.length} crew record${tripIds.length > 1 ? 's' : ''})?`)) return;
@@ -1320,8 +1480,7 @@ export default function AirlinesPage() {
                         <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th><th style={th}>Tablet PIN</th><th style={th}>Login Status</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
                         <tbody>
                           {assignedVehicles.map(v => {
-                            const isRevoked = v.session_revoked_at && v.last_login_at && new Date(v.session_revoked_at) > new Date(v.last_login_at);
-                            const isLoggedIn = v.last_login_at && !isRevoked;
+                            const isLoggedIn = v.has_active_session === true;
                             return (
                             <tr key={v.id}>
                               <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{v.display_id}</span></td>
@@ -1756,8 +1915,7 @@ export default function AirlinesPage() {
                     <thead><tr><th style={th}>ID</th><th style={th}>Vehicle</th><th style={th}>Make / Model</th><th style={th}>Airline</th><th style={th}>City</th><th style={th}>Type</th><th style={th}>Status</th><th style={th}>Tablet PIN</th><th style={th}>Login Status</th><th style={{ ...th, textAlign: 'right' }}>Actions</th></tr></thead>
                     <tbody>
                       {filteredVehicles.map(v => {
-                        const isRevoked = v.session_revoked_at && v.last_login_at && new Date(v.session_revoked_at) > new Date(v.last_login_at);
-                        const isLoggedIn = v.last_login_at && !isRevoked;
+                        const isLoggedIn = v.has_active_session === true;
                         return (
                         <tr key={`${v.id}-${v.airlineName}`}>
                           <td style={td}><span style={{ color: 'var(--muted)', fontSize: 12 }}>{v.display_id}</span></td>
@@ -1847,59 +2005,66 @@ export default function AirlinesPage() {
         </div>
       </Modal>
 
-      {/* Trip Detail Modal */}
-      <Modal open={!!tripDetail || tripDetailLoading} title="Trip Detail" onClose={() => setTripDetail(null)} width={960}>
-        {tripDetailLoading ? <Spinner style={{ height: 300 }} /> : tripDetail && (
-          <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, maxHeight: '75vh', overflow: 'hidden' }}>
-            {/* Left panel */}
-            <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Vehicle */}
-              <div style={{ background: dark ? '#161616' : '#fafafa', borderRadius: 10, padding: 14, border: `1px solid ${dark ? '#222' : '#eee'}` }}>
-                <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Vehicle</div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{tripDetail.vehicle.licensePlate || `#${tripDetail.vehicle.displayId}`}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{tripDetail.vehicle.name}</div>
+      <Modal open={!!tripDetail || tripDetailLoading} title="Trip Detail" onClose={closeTripDetail} width={1100}>
+        {!tripDetail || !selectedCrewTrip ? <Spinner style={{ height: 300 }} /> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 20, maxHeight: '75vh', overflow: 'auto' }}>
+            <div style={{ display: 'grid', alignContent: 'start', gap: 12 }}>
+              <label style={{ display: 'grid', gap: 5 }}>
+                Crew member
+                <select value={selectedCrewTrip.id} disabled={tripDetailLoading}
+                  onChange={event => void openTripDetail(tripDetail.groupId, event.target.value)}>
+                  {tripDetail.trips.map(trip => <option key={trip.id} value={trip.id}>{trip.crew_name} · #{trip.crew_display_id}</option>)}
+                </select>
+              </label>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                {[selectedCrewTrip.crew_designation, selectedCrewTrip.crew_phone, selectedCrewTrip.flight_number && `Flight ${selectedCrewTrip.flight_number}`].filter(Boolean).join(' · ')}
               </div>
-              {/* Trip info */}
-              <div style={{ background: dark ? '#161616' : '#fafafa', borderRadius: 10, padding: 14, border: `1px solid ${dark ? '#222' : '#eee'}` }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Origin</div><div style={{ fontSize: 13, fontWeight: 500 }}>{tripDetail.checkin_stop || '—'}</div></div>
-                  <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Block Type</div><div style={{ fontSize: 13 }}>Drop Off</div></div>
-                  <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Check-in</div><div style={{ fontSize: 12 }}>{fmtDt(tripDetail.checkin_at)}</div></div>
-                  <div><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Check-out</div><div style={{ fontSize: 12 }}>{fmtDt(tripDetail.checkout_at)}</div></div>
-                  {tripDetail.flight_number && <div style={{ gridColumn: '1/-1' }}><div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Flight</div><div style={{ fontSize: 13 }}>{tripDetail.flight_number}</div></div>}
+              <div style={{ border: '1px solid var(--border)', padding: 12, borderRadius: 8 }}>
+                <strong>{tripDetail.vehicle.licensePlate || 'Vehicle plate unavailable'}</strong>
+                <div>{[tripDetail.vehicle.make, tripDetail.vehicle.model, tripDetail.vehicle.year].filter(Boolean).join(' ') || tripDetail.vehicle.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Fleet ID #{tripDetail.vehicle.displayId}{tripDetail.vehicle.type && ` · ${tripDetail.vehicle.type.replaceAll('_', ' ')}`}</div>
+              </div>
+              {[
+                { label: 'Check-in', time: selectedCrewTrip.checkin_at, stop: selectedCrewTrip.checkin_stop, source: selectedCrewTrip.checkin_location_source },
+                { label: 'Checkout', time: selectedCrewTrip.checkout_at, stop: selectedCrewTrip.checkout_stop, source: selectedCrewTrip.checkout_location_source },
+              ].map(({ label, time, stop, source }) => (
+                <div key={label}>
+                  <strong>{label}</strong>
+                  <div>{time ? `${tripTime.format(new Date(time))} PKT` : 'Awaiting checkout'}</div>
+                  {time && <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    {scanPoint(label === 'Check-in' ? selectedCrewTrip.checkin_lat : selectedCrewTrip.checkout_lat, label === 'Check-in' ? selectedCrewTrip.checkin_lng : selectedCrewTrip.checkout_lng) ? stop || 'GPS coordinates recorded' : 'Location unavailable'}
+                    {source && scanLocationLabel[source] && ` · ${scanLocationLabel[source]}`}
+                  </div>}
                 </div>
-              </div>
-              {/* Crew members */}
+              ))}
+              <div><strong>Onboard duration</strong><div>{tripDuration((selectedCrewTrip.checkout_at ? Date.parse(selectedCrewTrip.checkout_at) : Date.now()) - Date.parse(selectedCrewTrip.checkin_at))}{!selectedCrewTrip.checkout_at && ' elapsed'}</div></div>
               <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Crew Members ({tripDetail.trips.length})</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {tripDetail.trips.map(t => (
-                    <div key={t.id} style={{ background: dark ? '#161616' : '#fafafa', borderRadius: 8, padding: 12, border: `1px solid ${dark ? '#222' : '#eee'}` }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <div style={{ fontWeight: 500, fontSize: 13 }}>{t.crew_name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.crew_designation || ''}{t.crew_designation ? ' · ' : ''}{t.crew_display_id}</div>
-                          {t.crew_phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{t.crew_phone}</div>}
-                        </div>
-                        <span style={{ fontSize: 11, fontWeight: 500, color: t.status === 'in_progress' ? '#f59e0b' : '#059669' }}>{t.status === 'in_progress' ? 'Active' : 'Done'}</span>
-                      </div>
-                      {t.checkout_stop && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>
-                          <IconMapPin size={11} color="#dc2626" /> {t.checkout_stop}
-                        </div>
-                      )}
-                      {t.km_travelled && <div style={{ fontSize: 11, color: '#059669', marginTop: 3, fontWeight: 500 }}>{Number(t.km_travelled).toFixed(1)} km</div>}
-                    </div>
-                  ))}
-                </div>
+                <strong>GPS distance</strong>
+                <div>{tripDetail.distanceKm != null ? `${tripDetail.distanceKm.toFixed(1)} km` : 'Unavailable'}</div>
+                {tripDetail.incompleteCoverage ? <div style={{ fontSize: 12, color: 'var(--muted)' }}>Incomplete GPS coverage</div> : null}
               </div>
+              <div>
+                <strong>Planned drop-off</strong>
+                <div>{selectedCrewTrip.planned_stop || (scanPoint(selectedCrewTrip.planned_lat, selectedCrewTrip.planned_lng) ? 'Saved drop-off coordinates' : 'Destination unavailable')}</div>
+              </div>
+              {selectedCrewTrip.status === 'in_progress' ? <div>
+                <strong>Estimated arrival</strong>
+                <div>{tripDetail.eta ? `${tripTime.format(new Date(tripDetail.eta.arrivalAt))} PKT · ${tripDetail.eta.remainingKm.toFixed(1)} km remaining` : 'ETA unavailable'}</div>
+                {tripDetail.eta && <div style={{ fontSize: 12, color: 'var(--muted)' }}>Updated {tripClock.format(new Date(tripDetail.eta.estimatedAt))} PKT</div>}
+                <button type="button" disabled={tripDetailLoading} onClick={() => void openTripDetail(tripDetail.groupId, selectedCrewTrip.id)}>Refresh trip</button>
+              </div> : selectedCrewTrip.initial_eta_at && selectedCrewTrip.checkout_at ? <div>
+                <strong>ETA at check-in</strong>
+                <div>{tripTime.format(new Date(selectedCrewTrip.initial_eta_at))} PKT</div>
+                <div>{(() => {
+                  const difference = Date.parse(selectedCrewTrip.checkout_at) - Date.parse(selectedCrewTrip.initial_eta_at);
+                  if (Math.abs(difference) < 60_000) return 'Arrived within 1 min of estimate';
+                  return `${tripDuration(Math.abs(difference))} ${difference > 0 ? 'later' : 'earlier'} than estimated`;
+                })()}</div>
+              </div> : null}
             </div>
-            {/* Right panel: map + replay */}
-            <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
-                Route Replay — {tripDetail.route.length} GPS Points
-              </div>
-              <TripReplayMap route={tripDetail.route} dark={dark} />
+            <div aria-busy={tripDetailLoading}>
+              <h3 style={{ marginTop: 0 }}>Route replay</h3>
+              <TripReplayMap key={selectedCrewTrip.id} route={tripDetail.route} trip={selectedCrewTrip} />
             </div>
           </div>
         )}
