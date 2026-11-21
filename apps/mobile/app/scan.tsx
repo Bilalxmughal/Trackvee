@@ -240,7 +240,6 @@ export default function ScanScreen() {
   const [plateInput, setPlateInput]   = useState('');
   const [pinInput, setPinInput]       = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
   const [loginError, setLoginError]   = useState('');
 
   const [scanState, setScanState]     = useState<ScanState>('idle');
@@ -342,23 +341,6 @@ export default function ScanScreen() {
       setLoginError(err?.response?.data?.message ?? 'Login failed. Check plate number and PIN.');
     } finally {
       setLoginLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    try {
-      await vehicleApi.delete('/airlines/vehicles/session');
-      await clearSavedVehicleSession();
-      resetVehicleSession();
-      setLoginError('');
-    } catch (error) {
-      if (!axios.isAxiosError(error) || error.response?.status !== 401) {
-        Alert.alert('Unable to sign out', 'Check your connection and try again.');
-      }
-    } finally {
-      setSigningOut(false);
     }
   };
 
@@ -532,16 +514,7 @@ export default function ScanScreen() {
     <SafeAreaView style={s.container}>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false, fullScreenGestureEnabled: false }} />
 
-      <View style={s.topBar}>
-        <Pressable accessibilityRole="button" disabled={signingOut || scanState === 'confirming'} style={s.signOut}
-          onPress={() => Alert.alert('Sign out of this vehicle?', 'You can sign in again with the vehicle plate and PIN.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Sign out', style: 'destructive', onPress: () => void logout() },
-          ])}>
-          <TablerIcon name="logout" size={16} color={t.ink} />
-          <Text style={s.signOutText}>{signingOut ? 'Signing out…' : 'Sign out'}</Text>
-        </Pressable>
-      </View>
+      <View style={s.topBar} />
 
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
@@ -724,9 +697,7 @@ function makeStyles(t: AppTheme) {
 
     // ── Scan screen ──
     container:      { flex: 1, backgroundColor: t.bg },
-    topBar:         { paddingHorizontal: 20, alignItems: 'flex-end' },
-    signOut:        { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 8 },
-    signOutText:    { color: t.ink, fontSize: 13, fontWeight: '600' },
+    topBar:         { height: 8 },
 
     airlineLogo:    { width: 120, height: 56, alignSelf: 'center', marginBottom: 6 },
     headerAirline:  { fontSize: 18, fontWeight: '700' as const, color: t.ink, textAlign: 'center', marginBottom: 2 },

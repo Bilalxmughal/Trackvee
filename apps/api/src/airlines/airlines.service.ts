@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull, LessThanOrEqual } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { Airline } from './entities/airline.entity.js';
@@ -24,6 +24,9 @@ export interface AirlineVehicleSession {
   vehicleId: string;
   airlineId: string;
 }
+
+const VEHICLE_SESSION_SECONDS = 30 * 24 * 60 * 60;
+const VEHICLE_LOGOUT_ROLES = new Set(['super_admin', 'admin', 'ops']);
 
 const INTERNAL_ROLES = ['super_admin', 'admin', 'ops', 'live_ops', 'agent', 'chat_support', 'viewer'];
 
@@ -205,11 +208,11 @@ export class AirlinesService {
     const vehicles = await this.dataSource.query(
       `SELECT v.id, v.display_id, v.name, v.license_plate, v.make, v.model, v.type, v.lifecycle_status, v.city_id,
               (av.pin_hash IS NOT NULL) AS has_pin,
-              av.last_login_at, av.session_revoked_at, (av.active_session_id IS NOT NULL) AS has_active_session
+              av.last_login_at, av.session_revoked_at, COALESCE(av.active_session_id IS NOT NULL AND av.last_login_at > $2, false) AS has_active_session
        FROM airline_vehicles av
        JOIN vehicles v ON v.id = av.vehicle_id
        WHERE av.airline_id = $1`,
-      [airlineId],
+      [airlineId, new Date(Date.now() - VEHICLE_SESSION_SECONDS * 1000)],
     );
     return vehicles;
   }
@@ -226,6 +229,7 @@ export class AirlinesService {
   }
 
   async forceLogoutVehicle(user: User, airlineId: string, vehicleId: string) {
+    if (!VEHICLE_LOGOUT_ROLES.has(user.role)) throw new ForbiddenException('You cannot force logout this vehicle');
     await this.getAirline(user, airlineId);
     const revoked = await this.avRepo.update(
       { airlineId, vehicleId },
@@ -268,15 +272,23 @@ export class AirlinesService {
     if (matches.length !== 1) throw new UnauthorizedException('Invalid plate number or PIN');
     const row = matches[0];
     const sessionId = randomUUID();
+    const now = new Date(Math.floor(Date.now() / 1000) * 1000);
+    const expiredBefore = new Date(now.getTime() - VEHICLE_SESSION_SECONDS * 1000);
+    const assignment = { id: row.id, pinHash: row.pin_hash };
     const updated = await this.avRepo.update(
-      { id: row.id, pinHash: row.pin_hash },
-      { activeSessionId: sessionId, lastLoginAt: new Date(), sessionRevokedAt: null },
+      [
+        { ...assignment, activeSessionId: IsNull() },
+        { ...assignment, lastLoginAt: LessThanOrEqual(expiredBefore) },
+      ],
+      { activeSessionId: sessionId, lastLoginAt: now, sessionRevokedAt: null },
     );
-    if (!updated.affected) throw new UnauthorizedException('Vehicle assignment changed. Sign in again.');
+    if (!updated.affected) {
+      throw new ConflictException('This vehicle already has an active session. Ask an administrator to force logout.');
+    }
     const token = this.jwtService.sign({
       sub: `vehicle:${row.vehicle_id}`, vehicleId: row.vehicle_id,
-      airlineId: row.airline_id, type: 'vehicle', sessionId,
-    }, { expiresIn: '30d' });
+      airlineId: row.airline_id, type: 'vehicle', sessionId, iat: now.getTime() / 1000,
+    }, { expiresIn: VEHICLE_SESSION_SECONDS });
     return { token, ...this.vehicleSessionData(row) };
   }
 
@@ -293,15 +305,6 @@ export class AirlinesService {
     );
     if (!row) throw new UnauthorizedException('Vehicle session ended');
     return this.vehicleSessionData(row);
-  }
-
-  async endVehicleSession(session: AirlineVehicleSession) {
-    this.assertVehicleSession(session);
-    await this.avRepo.update(
-      { airlineId: session.airlineId, vehicleId: session.vehicleId, activeSessionId: session.sessionId },
-      { activeSessionId: null, sessionRevokedAt: new Date() },
-    );
-    return { success: true };
   }
 
   async lookupCrewByPartialUid(session: AirlineVehicleSession, digits: string): Promise<{ nfcUid: string }> {

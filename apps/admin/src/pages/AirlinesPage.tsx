@@ -898,14 +898,14 @@ export default function AirlinesPage() {
   };
 
   const forceLogoutVehicle = async (airlineId: string, vehicleId: string, label: string) => {
-    if (!confirm(`Force logout "${label}" from tablet?`)) return;
+    if (!confirm(`Force logout the driver signed in to "${label}"?`)) return;
     try {
       await api.post(`/airlines/${airlineId}/vehicles/${vehicleId}/logout`);
-      toast('Vehicle logged out');
+      toast('Driver session ended');
       void loadVehicles(airlineId);
       void loadAllVehicles();
     } catch (e: any) {
-      toast(e?.response?.data?.message ?? 'Could not logout vehicle', 'error');
+      toast(e?.response?.data?.message ?? 'Could not end driver session', 'error');
     }
   };
 
@@ -1501,7 +1501,7 @@ export default function AirlinesPage() {
                               </td>
                               <td style={{ ...td, textAlign: 'right' }}>
                                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                                  {can('edit') && isLoggedIn && <button onClick={() => forceLogoutVehicle(selected!.id, v.id, v.license_plate || v.name)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Force Logout"><IconLogout size={14} color="#dc2626" /></button>}
+                                  {can('edit') && isLoggedIn && <button onClick={() => forceLogoutVehicle(selected!.id, v.id, v.license_plate || v.name)} style={{ minHeight: 30, padding: '0 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: '#dc2626', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}><IconLogout size={14} /> Force Logout</button>}
                                   {can('edit') && <button onClick={() => { setPinModal({ vehicleId: v.id, airlineId: selected!.id, label: v.license_plate || v.name }); setPinValue(''); setPinError(''); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Set PIN"><IconKey size={14} color="var(--muted)" /></button>}
                                   {can('delete') && <button onClick={() => unassignVehicle(v.id)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Unassign"><IconTrash size={14} color="#dc2626" /></button>}
                                 </div>
@@ -1937,7 +1937,7 @@ export default function AirlinesPage() {
                           </td>
                           <td style={{ ...td, textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                              {can('edit') && v.airlineId && isLoggedIn && <button onClick={() => forceLogoutVehicle(v.airlineId!, v.id, v.license_plate || v.name)} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Force Logout"><IconLogout size={14} color="#dc2626" /></button>}
+                              {can('edit') && v.airlineId && isLoggedIn && <button onClick={() => forceLogoutVehicle(v.airlineId!, v.id, v.license_plate || v.name)} style={{ minHeight: 30, padding: '0 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: '#dc2626', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}><IconLogout size={14} /> Force Logout</button>}
                               {can('edit') && v.airlineId && <button onClick={() => { setPinModal({ vehicleId: v.id, airlineId: v.airlineId!, label: v.license_plate || v.name }); setPinValue(''); setPinError(''); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }} title="Set PIN"><IconKey size={14} color="var(--muted)" /></button>}
                               {can('delete') && <button onClick={() => { const a = airlines.find(al => al.name === v.airlineName); if (a) unassignVehicle(v.id, a.id); }} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#333' : '#e8e8e8'}`, background: dark ? '#1e1e1e' : '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconTrash size={14} color="#dc2626" /></button>}
                             </div>

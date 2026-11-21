@@ -438,4 +438,4 @@ Keep group membership aligned between the Trips list and Detail. Use the selecte
 
 ## KI-037 — Mobile login and driver sessions must use the current API
 
-Both mobile login flows default to the canonical HTTPS API origin. Restore driver details only after validating the vehicle token with the API. Bind each assigned vehicle to one active session ID. A new login, PIN change, driver sign-out, or admin force sign-out invalidates the previous session.
+Both mobile login flows default to the canonical HTTPS API origin. Restore driver details only after validating the vehicle token with the API. Bind each assigned vehicle to one active session ID. Driver sessions restore on the same device and cannot be ended or replaced by another driver login before expiry. Authorized Admin staff can revoke the session from the vehicle table or by changing its PIN.

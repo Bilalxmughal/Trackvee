@@ -158,4 +158,4 @@ Apply `052_crew_trip_location_source.sql` and `053_crew_trip_destination_eta.sql
 
 ### Mobile login and driver sessions
 
-Apply `054_airline_vehicle_active_session.sql` before starting the updated API. Existing vehicle tokens require a new driver login after rollout. Deploy the Admin build for accurate vehicle session status and distribute the new mobile build for direct API login and driver sign-out. The mobile default is `https://api.trackvee.com/api/v1`. If the build environment defines `EXPO_PUBLIC_API_URL`, verify that it points to the intended API before building.
+Apply `054_airline_vehicle_active_session.sql` before starting the updated API. Existing vehicle tokens require a new driver login after rollout. Deploy the Admin build for accurate vehicle session status and distribute the new mobile build for direct API login and admin-only driver logout. The mobile default is `https://api.trackvee.com/api/v1`. If the build environment defines `EXPO_PUBLIC_API_URL`, verify that it points to the intended API before building.

@@ -10,7 +10,7 @@
 - [Admin/API] Per-crew trip review includes scan pins, route playback and stops, PKT timestamps, onboard duration, GPS distance coverage, vehicle details, and an optional routing-backed ETA.
 
 ### Fixed
-- [Mobile/API/Admin] Use the direct HTTPS API for mobile sign-in, validate driver sessions against the server, and support driver sign-out and admin revocation.
+- [Mobile/API/Admin] Use the direct HTTPS API for mobile sign-in, validate driver sessions against the server, and restrict manual driver session revocation to authorized Admin staff.
 - [Mobile] Keep only Get Started on the onboarding screen.
 - [Mobile/API/Admin] Capture crew stop locations from fresh scanner GPS with a recent tracker fallback, and show the source in trip details.
 - [API] Bound airline scanner access to authenticated vehicle sessions, current assignments, and airline and vehicle scope.

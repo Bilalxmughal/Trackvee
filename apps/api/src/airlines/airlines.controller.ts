@@ -128,12 +128,6 @@ export class AirlinesController {
     return this.svc.getVehicleSession(session);
   }
 
-  @AllowVehicleSession(true)
-  @Delete('vehicles/session')
-  endVehicleSession(@CurrentUser() session: AirlineVehicleSession) {
-    return this.svc.endVehicleSession(session);
-  }
-
   // ─── Trips ──────────────────────────────────────────────────────────────────
 
   @AllowVehicleSession(true)
